@@ -26,3 +26,4 @@ input.magic_mouse=true
 win32.start_not_captured=true
 input.tablet=mousehack
 input.mouse_untrap=magic_mouse
+warp=true

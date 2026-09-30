@@ -1,0 +1,107 @@
+[
+ {
+  "rom": "006_MutantsfromtheDeep.rom",
+  "title": "Mutants from the Deep",
+  "size": 65536
+ },
+ {
+  "rom": "007_UridiumMSXdev14.rom",
+  "title": "Uridium (MSXdev'14)",
+  "size": 49152
+ },
+ {
+  "rom": "010_WestenHouse.rom",
+  "title": "Westen House",
+  "size": 49152
+ },
+ {
+  "rom": "011_TheCure.rom",
+  "title": "The Cure",
+  "size": 49152
+ },
+ {
+  "rom": "015_UniverseUnknown.rom",
+  "title": "Universe Unknown",
+  "size": 49152
+ },
+ {
+  "rom": "016_BitLogic.rom",
+  "title": "BitLogic",
+  "size": 49152
+ },
+ {
+  "rom": "017_TheFallofPrometheus.rom",
+  "title": "The Fall of Prometheus",
+  "size": 49152
+ },
+ {
+  "rom": "029_RelevosSnowboarding.rom",
+  "title": "Relevo's Snowboarding",
+  "size": 49152
+ },
+ {
+  "rom": "031_KnightLoreRemake.rom",
+  "title": "Knight Lore Remake",
+  "size": 49152
+ },
+ {
+  "rom": "033_XRacing.rom",
+  "title": "XRacing",
+  "size": 49152
+ },
+ {
+  "rom": "034_GodzillaBalls.rom",
+  "title": "Godzilla Balls",
+  "size": 65536
+ },
+ {
+  "rom": "041_SnakeandRhinointheSket.rom",
+  "title": "Snake and Rhino in the Sketchbook",
+  "size": 49152
+ },
+ {
+  "rom": "042_ZombieIncident.rom",
+  "title": "Zombie Incident",
+  "size": 49152
+ },
+ {
+  "rom": "045_MySacredPlace.rom",
+  "title": "My Sacred Place",
+  "size": 49152
+ },
+ {
+  "rom": "046_TinasAdventureIsland.rom",
+  "title": "Tina's Adventure Island",
+  "size": 65536
+ },
+ {
+  "rom": "047_Stevedore.rom",
+  "title": "Stevedore",
+  "size": 49152
+ },
+ {
+  "rom": "072_Zorrico.rom",
+  "title": "Zorrico",
+  "size": 49152
+ },
+ {
+  "rom": "079_CadarisFairGame.rom",
+  "title": "Cadaris Fair Game",
+  "size": 49152
+ },
+ {
+  "rom": "085_ShoulderBladeOVERDRIVE.rom",
+  "title": "Shoulder Blade OVERDRIVE",
+  "size": 49152
+ },
+ {
+  "rom": "091_SacredValley.rom",
+  "title": "Sacred Valley",
+  "size": 65536
+ },
+ {
+  "rom": "100_ChikubiNinja.rom",
+  "title": "Chikubi Ninja",
+  "size": 65536
+ }
+]

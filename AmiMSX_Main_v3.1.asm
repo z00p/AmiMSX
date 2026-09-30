@@ -43,6 +43,19 @@ MiraLin:	MACRO
 \@F:	TST.L	\3
 	ENDM
 
+; Bank number written by the Z80, as openMSX RomBlocks::setRom does: used as
+; is below the number of banks, else wrapped with the mask. The mask alone
+; broke ROMs whose size is not a power of two (1088Kb Barbarian: 68 banks).
+; \1 = MaskROMx (A3 offset), \2 = NumROMx (bank count).  Out: D1.W
+BankNum:	MACRO
+	MOVEQ	#0,D1
+	MOVE.B	(A4),D1
+	CMP.W	\2,D1
+	BCS.S	\@B
+	AND.W	\1(A3),D1
+\@B:
+	ENDM
+
 ; --------------------------------
 	SECTION	MSX2,CODE
 ; --------------------------------
@@ -1008,6 +1021,10 @@ DatosRAM:	DC.L	"128K","256K","512K","1.0M","2.0M","4.0M",0
 
 ; ---------------------------------------=>
 KeyBase:	DC.L	0
+NumROM:		DC.W	0		; Banks in the Slot 1 cartridge: 8Kb,
+NumROM2:	DC.W	0		; 16Kb,
+NumROM3:	DC.W	0		; and Slot 2: 8Kb,
+NumROM4:	DC.W	0		; 16Kb.
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Retorna Amiga Hardware para Amiga.
@@ -1793,11 +1810,19 @@ NoStdMappS1:
 	JSR	(A1)				; Salto a Key
 	ELSEIF
 
+	MOVE.W	D0,NumROM2		; 16Kb banks (see BankNum)
+	MOVE.W	D0,D1
+	ADD.W	D1,D1
+	MOVE.W	D1,NumROM		; 8Kb banks
 	MOVE.W	D0,D1
 	SUBQ.W	#$1,D1
 	MOVE.W	D1,MaskROM2(A3)
 	LSL.W	#1,D0
 	SUBQ.W	#$1,D0
+	CMP.W	#$FF,D0			; 8Kb banks reach 2Mb at most, and the
+	BLS.S	MaskOkS1			; bank byte is read with MOVE.B.
+	MOVE.W	#$FF,D0
+MaskOkS1:
 	MOVE.W	D0,MaskROM(A3)
 
 
@@ -1837,11 +1862,19 @@ NoStdMappS2:
 	JSR	(A1)				; Salto a Key
 	ELSEIF
 
+	MOVE.W	D0,NumROM4		; 16Kb banks (see BankNum)
+	MOVE.W	D0,D1
+	ADD.W	D1,D1
+	MOVE.W	D1,NumROM3		; 8Kb banks
 	MOVE.W	D0,D1
 	SUBQ.W	#$1,D1
 	MOVE.W	D1,MaskROM4(A3)
 	LSL.W	#1,D0
 	SUBQ.W	#$1,D0
+	CMP.W	#$FF,D0			; 8Kb banks reach 2Mb at most, and the
+	BLS.S	MaskOkS2			; bank byte is read with MOVE.B.
+	MOVE.W	#$FF,D0
+MaskOkS2:
 	MOVE.W	D0,MaskROM3(A3)
 
 
@@ -7094,12 +7127,11 @@ Asc26:
 	SUB.L	PagWrite+12(A3),D1
 
 	AND.W	#$1000,D1		; ¿Página 0 o 1?
-	BNE.S	KON18
+	BNE	KON18
 
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM2(A3),D1
+	BankNum	MaskROM2,NumROM2
 
 	MULU	#$4100,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -7137,8 +7169,7 @@ Asc26:
 KON18:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM2(A3),D1
+	BankNum	MaskROM2,NumROM2
 
 	MULU	#$4100,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -7198,8 +7229,7 @@ SCC14:
 Pag0S1:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM(A3),D1
+	BankNum	MaskROM,NumROM
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -7242,8 +7272,7 @@ SCC16:
 Pag1S1:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM(A3),D1
+	BankNum	MaskROM,NumROM
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -7286,8 +7315,7 @@ SCC18:
 Pag2S1:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM(A3),D1
+	BankNum	MaskROM,NumROM
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -7330,8 +7358,7 @@ SCC1A:
 Pag3S1:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM(A3),D1
+	BankNum	MaskROM,NumROM
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -7453,12 +7480,11 @@ Asc26b:
 	SUB.L	PagWrite+12(A3),D1
 
 	AND.W	#$1000,D1		; ¿Página 0 o 1?
-	BNE.S	KON18b
+	BNE	KON18b
 
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM4(A3),D1
+	BankNum	MaskROM4,NumROM4
 
 	MULU	#$4100,D1
 	ADD.L	MapROMBase2(A3),D1
@@ -7496,8 +7522,7 @@ Asc26b:
 KON18b:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM4(A3),D1
+	BankNum	MaskROM4,NumROM4
 
 	MULU	#$4100,D1
 	ADD.L	MapROMBase2(A3),D1
@@ -7558,8 +7583,7 @@ SCC14b:
 Pag0S1b:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM3(A3),D1
+	BankNum	MaskROM3,NumROM3
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase2(A3),D1
@@ -7602,8 +7626,7 @@ SCC16b:
 Pag1S1b:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM3(A3),D1
+	BankNum	MaskROM3,NumROM3
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase2(A3),D1
@@ -7646,8 +7669,7 @@ SCC18b:
 Pag2S1b:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM3(A3),D1
+	BankNum	MaskROM3,NumROM3
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase2(A3),D1
@@ -7690,8 +7712,7 @@ SCC1Ab:
 Pag3S1b:
 	SUB.W	(A7),A5
 
-	MOVE.B	(A4),D1
-	AND.W	MaskROM3(A3),D1
+	BankNum	MaskROM3,NumROM3
 
 	MULU	#$2080,D1
 	ADD.L	MapROMBase2(A3),D1

@@ -2940,7 +2940,7 @@ MiraMSXCartSize:
 
 	LSR.L	#8,D0
 	LSR.L	#6,D0
-	CMP.L	#$80,D0			; mira máximo 2Mb
+	CMP.L	#$100,D0			; mira máximo 4Mb (ASCII16: 256 x 16Kb)
 	BGT.S	NoMSXCartCon
 	MOVEQ	#-1,D1
 	RTS
@@ -3006,6 +3006,12 @@ MiConMapper0:
 	MOVE.L	DirCart(PC),A0		; Linear 48/64Kb cart: Standard.
 	MiraLin	A0,BucCart,D0
 	BNE.S	MiStdMapper
+	BSR.S	MiConMapper		; Mapper saved for this cartridge?
+	TST.B	SiNewMapp(PC)
+	BEQ.S	MiConMapFin
+	BSR	GuessMapper		; No: guess it like openMSX does.
+MiConMapFin:
+	RTS
 
 MiConMapper:
 ;;	LEA	MegaROMsId,A0
@@ -3045,6 +3051,111 @@ MiChCaCon0:
 	LSR.B	#5,D0			; Mapper Guardado.
 
 	SF	SiNewMapp
+	RTS
+
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+; Guess the MegaROM mapper like openMSX (RomFactory.cc guessRomType): count
+; the LD (nn),A writes to each mapper's bank registers; ties go to the later
+; type in openMSX's order ASCII8, ASCII16, Konami, Konami SCC.
+; Out: D0 = saved-mapper code (1 Konami 2, 2 ASCII 1 = ASCII8,
+; 3 ASCII 2 = ASCII16, 4 SCC 1 = Konami SCC, also used when nothing matches).
+	CNOP	0,4
+GuessMapper:
+	MOVEM.L	D1-D6/A0-A1,-(SP)
+	MOVE.L	DirCart(PC),A0
+	MOVE.L	A0,A1
+	ADD.L	BucCart(PC),A1
+	SUBQ.L	#2,A1
+	LEA	$80(A0),A0
+	MOVEQ	#0,D3			; Konami SCC
+	MOVEQ	#0,D4			; Konami
+	MOVEQ	#0,D5			; ASCII8
+	MOVEQ	#0,D6			; ASCII16
+GuMaBuc:
+	CMP.L	A1,A0
+	BCC.S	GuMaFin
+	CMP.B	#$32,(A0)+		; LD (nn),A
+	BNE.S	GuMaBuc
+	MOVE.B	1(A0),D1
+	LSL.W	#8,D1
+	MOVE.B	(A0),D1
+	CMP.W	#$5000,D1
+	BEQ.S	GuMaSCC
+	CMP.W	#$9000,D1
+	BEQ.S	GuMaSCC
+	CMP.W	#$B000,D1
+	BEQ.S	GuMaSCC
+	CMP.W	#$4000,D1
+	BEQ.S	GuMaKon
+	CMP.W	#$8000,D1
+	BEQ.S	GuMaKon
+	CMP.W	#$A000,D1
+	BEQ.S	GuMaKon
+	CMP.W	#$6800,D1
+	BEQ.S	GuMaAs8
+	CMP.W	#$7800,D1
+	BEQ.S	GuMaAs8
+	CMP.W	#$77FF,D1
+	BEQ.S	GuMaAs16
+	CMP.W	#$6000,D1
+	BNE.S	GuMa7000
+	ADDQ.L	#1,D4
+	ADDQ.L	#1,D5
+	ADDQ.L	#1,D6
+	BRA.S	GuMaBuc
+GuMa7000:
+	CMP.W	#$7000,D1
+	BNE.S	GuMaBuc
+	ADDQ.L	#1,D3
+	ADDQ.L	#1,D5
+	ADDQ.L	#1,D6
+	BRA.S	GuMaBuc
+GuMaSCC:
+	ADDQ.L	#1,D3
+	BRA.S	GuMaBuc
+GuMaKon:
+	ADDQ.L	#1,D4
+	BRA.S	GuMaBuc
+GuMaAs8:
+	ADDQ.L	#1,D5
+	BRA.S	GuMaBuc
+GuMaAs16:
+	ADDQ.L	#1,D6
+	BRA.S	GuMaBuc
+
+GuMaFin:
+	TST.L	D5			; openMSX: ASCII8 count - 1.
+	BEQ.S	GuMaEle
+	SUBQ.L	#1,D5
+GuMaEle:
+	MOVEQ	#4,D0			; Nothing found: SCC 1, as v3.1 did.
+	MOVEQ	#0,D2			; Best count so far.
+	TST.L	D5
+	BEQ.S	GuMaEle1
+	MOVE.L	D5,D2
+	MOVEQ	#2,D0			; ASCII 1 (ASCII8)
+GuMaEle1:
+	TST.L	D6
+	BEQ.S	GuMaEle2
+	CMP.L	D2,D6
+	BCS.S	GuMaEle2
+	MOVE.L	D6,D2
+	MOVEQ	#3,D0			; ASCII 2 (ASCII16)
+GuMaEle2:
+	TST.L	D4
+	BEQ.S	GuMaEle3
+	CMP.L	D2,D4
+	BCS.S	GuMaEle3
+	MOVE.L	D4,D2
+	MOVEQ	#1,D0			; Konami 2
+GuMaEle3:
+	TST.L	D3
+	BEQ.S	GuMaEle4
+	CMP.L	D2,D3
+	BCS.S	GuMaEle4
+	MOVEQ	#4,D0			; SCC 1 (Konami SCC)
+GuMaEle4:
+	MOVEM.L	(SP)+,D1-D6/A0-A1
 	RTS
 
 ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
