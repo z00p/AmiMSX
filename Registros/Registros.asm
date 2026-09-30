@@ -21,9 +21,9 @@ InfoIText6:    DC.B    "(Emulation can't be started)",0
 
 ;       <=---------------------------------------------------------=>
 
-[...]
+;[...]
 
-Cut, Cut, Cut...   CONFIDENTIAL
+;Cut, Cut, Cut...   CONFIDENTIAL
 
-[...]
+;[...]
 

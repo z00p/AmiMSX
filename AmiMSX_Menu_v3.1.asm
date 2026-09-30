@@ -878,7 +878,7 @@ ShowRegisterOut:
 	JSR	CLOSEOutTimeWINDOW
 	BSR	EnaMouse
 	ADD.W	#16+4,SP
-	BRA.S	ShowRegister
+	NOP			; was: BRA.S	ShowRegister (zero-length short branch)
 ; -----------------------------------
 ShowRegister:
 	BSR	DisMouse
@@ -2377,7 +2377,7 @@ Sl2MapRut:
 	MOVEQ	#3,D1			; Nº menu.
 	MOVEQ	#7-1,D4
 
-	BRA.S	PoneOptMenus
+	NOP			; was: BRA.S	PoneOptMenus (zero-length short branch)
 
 ; -----------------------------------
 
@@ -2823,7 +2823,7 @@ DesImpBuc:
 	DBF	D0,DesImpBuc
 	MOVE.L	CabFileBuf+$04,BucFileCart
 
-	BRA.S	NoCompri0
+	NOP			; was: BRA.S	NoCompri0 (zero-length short branch)
 ; -=-=-
 NoCompri0:
 ; -=-=-
