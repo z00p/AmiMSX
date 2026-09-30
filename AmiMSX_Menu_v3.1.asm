@@ -2832,6 +2832,13 @@ NoCompri0:
 	MOVE.L	DirCart,A0		;;	Mirar ID
 	CMP.W	#"AB",$80(A0)
 	BEQ.S	IDCorrecta
+	MOVE.W	PagCart,D0		; Linear 48/64Kb cart: "AB" at &H4000.
+	SUBQ.W	#3,D0			; (8Kb pages not spaced out yet)
+	CMP.W	#1,D0
+	BHI.S	NoIDLineal
+	CMP.W	#"AB",$80+$4000(A0)
+	BEQ.S	IDCorrecta
+NoIDLineal:
 	BSR	NoCartrID
 	BNE.S	IDCorrecta
 
@@ -2973,10 +2980,15 @@ CaChCaBuc:
 MiraCheckCart:
 
 	CMP.L	#($2080*5),BucCart	; ¿Es mayor de 40Kb?
-	BCC.S	MiConMapper
-
+	BCC.S	MiConMapper0
+MiStdMapper:
 	MOVE.W	#-1,D0			; Mapper Standard.
 	RTS
+
+MiConMapper0:
+	MOVE.L	DirCart(PC),A0		; Linear 48/64Kb cart: Standard.
+	MiraLin	A0,BucCart,D0
+	BNE.S	MiStdMapper
 
 MiConMapper:
 ;;	LEA	MegaROMsId,A0

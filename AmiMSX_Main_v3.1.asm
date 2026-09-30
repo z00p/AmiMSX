@@ -23,6 +23,26 @@ VPeriodNTSC=262
 
 ColorDebug=1
 
+; Linear 48/64Kb cartridges (common in modern homebrew): no mapper, the ROM
+; maps straight from &H0000, so the "AB" header is at file offset &H4000.
+; \1 = DirCart (An, 8Kb pages already spaced at $2080), \2 = BucCart (ea),
+; \3 = Dn out: 16Kb pages to map (3 or 4), or 0 with Z set if not linear.
+; Inline on purpose: A7 is not a stack while the Z80 core is set up.
+MiraLin:	MACRO
+	MOVEQ	#3,\3
+	CMP.L	#(6*$2080)+$80,\2	; 48Kb?
+	BEQ.S	\@T
+	MOVEQ	#4,\3
+	CMP.L	#(8*$2080)+$80,\2	; 64Kb?
+	BNE.S	\@N
+\@T:	CMP.W	#"AB",$80(\1)		; "AB" at &H0000: normal ROM.
+	BEQ.S	\@N
+	CMP.W	#"AB",$80+(2*$2080)(\1)	; "AB" at &H4000: linear ROM.
+	BEQ.S	\@F
+\@N:	MOVEQ	#0,\3
+\@F:	TST.L	\3
+	ENDM
+
 ; --------------------------------
 	SECTION	MSX2,CODE
 ; --------------------------------
@@ -690,19 +710,27 @@ VD9CON1B:
 
 ; ------------------------------------=> Pone modo de Paginación.
 
-	LEA	MapMapp(PC),A0
-	LEA	MapNorm(PC),A1
+	MOVE.L	DirCartS1,A0		; Linear 48/64Kb carts: no mapper.
+	MiraLin	A0,BucCartS1,D0
+	BNE.S	MiraMapperS2
 
 	CMP.L	#($2080*5),BucCartS1	; ¿Es mayor de 40Kb?
-	BCC.S	ConMapper
+	BCC.S	ConMapperS
+MiraMapperS2:
+	MOVE.L	DirCartS2,A0
+	MiraLin	A0,BucCartS2,D0
+	BNE.S	SinMapper
 
 	CMP.L	#($2080*5),BucCartS2	; ¿Es menor de 40Kb?
 	BCS.S	SinMapper
 
 	CMP.B	#2,DIRPREFS+$65		; ¿Disk ROM = None?
-	BEQ.S	ConMapper
+	BEQ.S	ConMapperS
 SinMapper:
-	EXG.L	A0,A1
+	LEA	MapNorm(PC),A0
+	BRA.S	ConMapper
+ConMapperS:
+	LEA	MapMapp(PC),A0
 ConMapper:
 	LEA	Instr+4,A1
 
@@ -1537,9 +1565,38 @@ Slt1EsPowerOn:
 	MOVE.L	#NOMEM-$8000,SLOT1+16
 	MOVE.L	#NOMEM-$4000,SubSLOT1+8
 	MOVE.L	#NOMEM-$8000,SubSLOT1+16
+	MOVE.L	#NOMEM-$0000,SLOT1+0		; Pages 0 and 3: linear carts.
+	MOVE.L	#NOMEM-$C000,SLOT1+24
+	MOVE.L	#NOMEM-$0000,SubSLOT1+0
+	MOVE.L	#NOMEM-$C000,SubSLOT1+24
 
 	TST.L	BucCartS1			; ¿Hay cartucho en Slot 1?
 	BEQ	NoSlot1Cart
+
+	MOVE.L	DirCartS1,A0			; Linear 48/64Kb cart from &H0000:
+	MiraLin	A0,BucCartS1,D0		; 8Kb page k is at base+k*$2080,
+	BEQ.S	NoLinealS1			; so page p (16Kb) is base+p*$100.
+	ADD.W	#$0080,A0
+	MOVE.L	A0,MapROMBase1(A3)
+	MOVE.L	A0,SLOT1+0
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT1+0
+	ADD.W	#$80,A0
+	MOVE.L	A0,SLOT1+8
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT1+8
+	ADD.W	#$80,A0
+	MOVE.L	A0,SLOT1+16
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT1+16
+	CMP.W	#4,D0				; 64Kb: page 3 too.
+	BNE	NoSlot1Cart
+	ADD.W	#$80,A0
+	MOVE.L	A0,SLOT1+24
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT1+24
+	BRA	NoSlot1Cart
+NoLinealS1:
 
 	CMP.L	#($2080*3+$80),BucCartS1	; ¿Es de 16Kb? (menor de 24Kb)
 	BCC	EsMegaROMS1
@@ -1606,9 +1663,33 @@ Slt2EsPowerOn:
 	MOVE.L	#NOMEM-$8000,SLOT2+16
 	MOVE.L	#NOMEM-$4000,SubSLOT2+8
 	MOVE.L	#NOMEM-$8000,SubSLOT2+16
+	MOVE.L	#NOMEM-$C000,SLOT2+24		; Page 3: linear carts.
+	MOVE.L	#NOMEM-$C000,SubSLOT2+24
 
 	TST.L	BucCartS2			; ¿Hay Cartucho en Slot 2?
 	BEQ	NoSlot2Cart
+
+	MOVE.L	DirCartS2,A0			; Linear 48/64Kb cart from &H0000,
+	MiraLin	A0,BucCartS2,D0		; pages 1-3 only: page 0 of Slot 2
+	BEQ.S	NoLinealS2			; is the MSX2 SUB-ROM. (See Slot 1)
+	ADD.W	#$0080,A0
+	MOVE.L	A0,MapROMBase2(A3)
+	ADD.W	#$100,A0
+	MOVE.L	A0,SLOT2+8
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT2+8
+	ADD.W	#$80,A0
+	MOVE.L	A0,SLOT2+16
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT2+16
+	CMP.W	#4,D0				; 64Kb: page 3 too.
+	BNE	NoSlot2Cart
+	ADD.W	#$80,A0
+	MOVE.L	A0,SLOT2+24
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT2+24
+	BRA	NoSlot2Cart
+NoLinealS2:
 
 	CMP.L	#($2080*3+$80),BucCartS2	; ¿Es de 16Kb? (menor de 24Kb)
 	BCC	EsMegaROMS2
@@ -1657,7 +1738,13 @@ NoSlot2Cart:
 	LEA	(Mapper0,D0.W),A0
 
 	CMP.L	#($2080*5),BucCartS1	; ¿Es mayor de 40Kb?
-	BCC.S	NoStdMappS1
+	BCS.S	StdMappS1
+	MOVE.L	A0,A1
+	MOVE.L	DirCartS1,A0
+	MiraLin	A0,BucCartS1,D0
+	MOVE.L	A1,A0
+	BEQ.S	NoStdMappS1
+StdMappS1:
 	LEA	Mapper0,A0
 NoStdMappS1:
 
@@ -1695,7 +1782,13 @@ NoStdMappS1:
 	LEA	Mapper0b,A0
 PonMapper:
 	CMP.L	#($2080*5),BucCartS2	; ¿Es mayor de 40Kb?
-	BCC.S	NoStdMappS2
+	BCS.S	StdMappS2
+	MOVE.L	A0,A1
+	MOVE.L	DirCartS2,A0
+	MiraLin	A0,BucCartS2,D0
+	MOVE.L	A1,A0
+	BEQ.S	NoStdMappS2
+StdMappS2:
 	LEA	Mapper0b,A0
 NoStdMappS2:
 
