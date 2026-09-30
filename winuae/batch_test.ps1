@@ -1,6 +1,6 @@
 ﻿# Boot each ROM in WinUAE via the AmiMSX CLI hook and capture the window.
 # Usage: powershell -File winuae\batch_test.ps1 [-Roms a.rom,b.rom] [-Shots 35,60]
-param([string[]]$Roms, [string[]]$Shots = @("12", "25"))
+param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX")
 $ErrorActionPreference = "Stop"
 $base = Split-Path -Parent $PSScriptRoot
 # -File passes "a,b" as ONE string ("20,40,60" would even parse as the int 204060)
@@ -8,7 +8,7 @@ $Shots = @($Shots | ForEach-Object { $_ -split "," } | Where-Object { $_ } | For
 $Roms = @($Roms | ForEach-Object { $_ -split "," } | Where-Object { $_ })   # -File passes "a,b" as one string
 if (-not $Roms) { $Roms = (Get-Content "$PSScriptRoot\linear_todo.json" | ConvertFrom-Json).rom }
 $out = Join-Path $base "build\shots"; New-Item -ItemType Directory -Force $out | Out-Null
-Copy-Item "$base\build\AmiMSX" "$base\run\AmiMSX" -Force
+Copy-Item "$base\build\$Exe" "$base\run\AmiMSX" -Force   # e.g. -Exe AmiMSX_trace
 Add-Type -AssemblyName System.Drawing
 Add-Type @"
 using System; using System.Runtime.InteropServices;
@@ -53,6 +53,7 @@ foreach ($rom in $Roms) {
 }
 Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force
 "ALL DONE"
+
 
 
 

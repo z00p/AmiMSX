@@ -799,6 +799,9 @@ ConMapper:
 
 ; ------------------------------------<=
 
+	IFD	TRACE
+	BSR	TraceInstala		; Debug trap: after the mapper patches.
+	ENDC
 
 ; ---------------------------------------=> Actualiza Relentizador.
 	LEA	REGS,A3
@@ -1025,6 +1028,87 @@ NumROM:		DC.W	0		; Banks in the Slot 1 cartridge: 8Kb,
 NumROM2:	DC.W	0		; 16Kb,
 NumROM3:	DC.W	0		; and Slot 2: 8Kb,
 NumROM4:	DC.W	0		; 16Kb.
+
+; ---------------------------------------=> Debug trap (vasm -DTRACE=1).
+; Every INSTR entry points at a stub that logs the Z80 PC, opcode and port
+; A8 into a ring buffer, then jumps to the saved real handler. A reset (an
+; opcode at &H0000 from the BIOS slot) after boot freezes the log, exits,
+; which writes AmiMSX:trace.bin (see TraceDump in the menu).
+; Uses only D1/A4 (scratch at every handler entry) and no stack: A7 points
+; at the Restas table while the Z80 core runs.
+	IFD	TRACE
+TraceStub:	MACRO
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1			; Z80 address after the opcode byte.
+	MOVE.L	TracePtr,A4
+	MOVE.W	D1,(A4)+
+	MOVE.B	D2,(A4)+
+	MOVE.B	DA8(A3),(A4)+
+	CMP.L	#TraceBufEnd,A4
+	BCS.S	\@W
+	LEA	TraceBuf,A4
+\@W:	MOVE.L	A4,TracePtr
+	ADDQ.L	#1,TraceCount
+	CMP.W	#1,D1			; Opcode at &H0000...
+	BNE.S	\@J
+	MOVE.B	DA8(A3),D1		; ...with page 0 on the BIOS slot (games
+	AND.B	#3,D1			; may CALSLT their own page 0 there)...
+	BNE.S	\@J
+	CMP.L	#200000,TraceCount	; ...and not the power-on one.
+	BCC	TraceFreeze
+\@J:	JMP	([TraceTab-$800+\1,D2.W*8])
+	ENDM
+
+	CNOP	0,4
+TraceStubA:
+	TraceStub	0
+	CNOP	0,4
+TraceStubB:
+	TraceStub	4
+
+	CNOP	0,4
+TraceFreeze:
+	LEA	TraceHdr+16,A4
+	MOVEQ	#16-1,D1
+TrFrzBuc:
+	MOVE.L	PagRead(A3,D1.W*4),(A4,D1.W*4)	; PagRead and PagWrite.
+	DBF	D1,TrFrzBuc
+	MOVE.B	DA8(A3),TraceHdr+15
+	ST	TraceFrozen
+	JMP	ZALI			; Back to the menu, no Continue.
+
+TraceInstala:
+	TST.B	TraceOn
+	BNE.S	TrInsFin
+	ST	TraceOn
+	LEA	INSTR,A0
+	LEA	TraceTab,A1
+	MOVE.W	#(256*2)-1,D0
+TrInsCop:
+	MOVE.L	(A0)+,(A1)+
+	DBF	D0,TrInsCop
+	LEA	INSTR,A0
+	MOVE.W	#256-1,D0
+TrInsBuc:
+	MOVE.L	#TraceStubA,(A0)+
+	MOVE.L	#TraceStubB,(A0)+
+	DBF	D0,TrInsBuc
+	MOVE.L	#TraceBuf,TracePtr
+TrInsFin:
+	RTS
+
+TraceOn:	DC.B	0
+TraceFrozen:	DC.B	0
+		CNOP	0,4
+TracePtr:	DC.L	0
+TraceCount:	DC.L	0
+TraceTab:	DS.L	256*2
+TraceHdr:	DC.L	"ATRC",0,0,0		; +4 ring offset, +8 count, +15 A8
+		DS.L	16			; +16 PagRead[8], +48 PagWrite[8]
+TraceBuf:	DS.L	4096			; PC.w, opcode.b, A8.b
+TraceBufEnd:
+	ENDC
+; ---------------------------------------<=
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Retorna Amiga Hardware para Amiga.
@@ -2173,6 +2257,38 @@ CogePagE:MACRO
 	ADD.L	PagWrite(A3,D1.W*4),\2
 	ENDM
 
+; Stack pointer (A6) for Z80 address \1 (like CogePagE): the page's write
+; pointer, except for ROM, where it is the read pointer so POP/RET can read
+; tables in ROM ("LD SP,table / RET" dispatch: Godzilla Balls reset there, as
+; the write side of ROM is the NORAM dummy). Unmapped pages keep the write
+; pointer so a push can never corrupt NOMEM. Trashes D1/A4, no stack.
+CogePagS:	MACRO
+	MOVE.L	\1,\2
+	IFC	"D1","\1"
+	LSR.W	#8,D1
+	LSR.B	#5,D1
+	ELSEIF
+	BFEXTU	\1{16:3},D1
+	ENDC
+	MOVE.L	PagRead(A3,D1.W*4),A4
+	CMP.L	PagWrite(A3,D1.W*4),A4
+	BEQ.S	\@W			; RAM: read = write.
+	AND.L	#6,D1
+	LSL.L	#8,D1
+	LSL.L	#5,D1			; Base of the 16Kb page.
+	ADD.L	D1,A4
+	CMP.L	#NOMEM,A4
+	BEQ.S	\@U			; Unmapped.
+	SUB.L	D1,A4
+	ADD.L	A4,\2			; ROM: read pointer.
+	BRA.S	\@F
+\@U:	MOVE.W	\2,D1
+	LSR.W	#8,D1
+	LSR.B	#5,D1
+\@W:	ADD.L	PagWrite(A3,D1.W*4),\2
+\@F:
+	ENDM
+
 CogePagE2:MACRO
 	IFC	"D1","\1"
 	LSR.W	#8,D1
@@ -2808,7 +2924,7 @@ MLDRR:	MACRO
 	IFC	"8S","\3"	; Mover de (NN) a registro SP.
 	MOVE.W	(A5)+,D1
 	TST.B	D1
-	BEQ.S	\@M
+	BEQ	\@M
 	ROR.W	#8,D1
 	MOVE.L	D1,A4
 	ADDQ.B	#1,D1
@@ -2817,7 +2933,7 @@ MLDRR:	MACRO
 	MOVE.W	(A4),D0
 	ROR.W	#8,D0
 	MOVE.W	D0,D1
-	CogePagE D1,\1
+	CogePagS D1,\1
 	Otra	\4
 \@D:
 	MOVE.W	A4,D0
@@ -2829,19 +2945,19 @@ MLDRR:	MACRO
 	CogePag	D1,A4
 	MOVE.B	(A4),D0
 	MOVE.W	D0,D1
-	CogePagE D1,\1
+	CogePagS D1,\1
 	Otra	\4
 \@M:
 	CheckW	D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A4
 	ADDQ.B	#1,D1
-	BEQ.S	\@D
+	BEQ	\@D
 	CogePag2 D1,A4
 	MOVE.W	(A4),D0
 	ROR.W	#8,D0
 	MOVE.W	D0,D1
-	CogePagE D1,\1
+	CogePagS D1,\1
 	Otra	\4
 	ENDC
 
@@ -3054,7 +3170,7 @@ MLDRR:	MACRO
 	BEQ.S	\@M
 	ROR.W	#8,D0
 	MOVE.W	D0,D1
-	CogePagE D1,\1
+	CogePagS D1,\1
 	Otra	\4
 \@M:	CheckW	D0
 	ROR.W	#8,D0
@@ -3849,17 +3965,17 @@ LDIYA:	MLDRR	A1,D7,12,19
 LDIYMN:	MLDRR	A1,MN,12N,19
 ; ---------------------	; $78 ; ---------------- ;
 LDSPHL:	MOVE.L	D4,D0
-	CogePagE D0,A6
+	CogePagS D0,A6
 	Otra	6
 LDSPIX:
 	MOVE.W	A0,D0
 	MOVE.W	D0,D1
-	CogePagE D1,A6
+	CogePagS D1,A6
 	Otra	10
 LDSPIY:
 	MOVE.W	A1,D0
 	MOVE.W	D0,D1
-	CogePagE D1,A6
+	CogePagS D1,A6
 	Otra	10
 ; ---------------------	; $78 ; ---------------- ;
 LDAB:	MLDRR	D7,D5,7,4

@@ -446,6 +446,39 @@ IMPFILE:	DC.L	0
 SpeedTest:	DC.L	0
 		DC.L	0
 FILENOM:	DS.B	$208
+	IFD	TRACE
+; Debug trap dump: header (TraceHdr), ring buffer, then the Z80's &HC000-&HFFFF
+; as seen when it froze (page 3: RAM with RDPRIM/CLPRIM at &HF380).
+TraceDump:
+	MOVE.L	TracePtr,D0
+	SUB.L	#TraceBuf,D0
+	MOVE.L	D0,TraceHdr+4
+	MOVE.L	TraceCount,TraceHdr+8
+	MOVE.L	#TraceName,D1
+	MOVE.L	#$3EE,D2
+	BSR	OPENFILE
+	TST.L	D0
+	BEQ.S	TrDumpFin
+	MOVE.L	#TraceHdr,D2
+	MOVE.L	#TraceBuf-TraceHdr,D3
+	BSR	WRITEFILE
+	MOVE.L	#TraceBuf,D2
+	MOVE.L	#TraceBufEnd-TraceBuf,D3
+	BSR	WRITEFILE
+	MOVE.L	TraceHdr+16+(6*4),D2	; PagRead[6] + &HC000
+	ADD.L	#$C000,D2
+	MOVE.L	#$2000,D3
+	BSR	WRITEFILE
+	MOVE.L	TraceHdr+16+(7*4),D2	; PagRead[7] + &HE000
+	ADD.L	#$E000,D2
+	MOVE.L	#$2000,D3
+	BSR	WRITEFILE
+	BSR	CLOSEFILE
+TrDumpFin:
+	RTS
+TraceName:	DC.B	"AmiMSX:trace.bin",0
+	EVEN
+	ENDC
 AutoCart:	DC.B	0		; Test hook flags (see ANEM).
 AutoGo:		DC.B	0
 		CNOP	0,4
@@ -6759,6 +6792,11 @@ CONTROL:
 	BNE.S	BUCONTROL
 	SF	AutoGo
 	JSR	MSX_GO
+	IFD	TRACE
+	TST.B	TraceFrozen
+	BEQ.S	BUCONTROL
+	BSR	TraceDump
+	ENDC
 BUCONTROL:
 	MOVE.L	(SP),A0
 	MOVE.L	$56(A0),A0
