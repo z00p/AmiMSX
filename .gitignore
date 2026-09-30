@@ -1,3 +1,5 @@
 build/
 tools/vasm.zip
 testroms/
+run/
+winuae/wb/

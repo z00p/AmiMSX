@@ -292,6 +292,44 @@ CALLCC:	MACRO
 
 	CNOP	0,8
 ANEM:
+; ------------------------------------> Test hook: "AmiMSX <cartridge>" from
+;	the CLI inserts it in Slot 1 and powers on (no splash, no requester).
+	MOVEM.L	D0/A0,-(SP)
+	SUB.L	A1,A1
+	MOVE.L	4.W,A6
+	JSR	-294(A6)		; FindTask(0)
+	MOVE.L	D0,A1
+	MOVEM.L	(SP)+,D0/A0
+	TST.L	$AC(A1)			; pr_CLI = 0: started from Workbench.
+	BEQ.S	NoAutoCart
+	LEA	FILENOM,A1
+AutoCartSp:
+	SUBQ.L	#1,D0
+	BMI.S	AutoCartFin
+	MOVE.B	(A0)+,D1
+	CMP.B	#' ',D1
+	BEQ.S	AutoCartSp
+	MOVEQ	#' ',D2			; Name ends at a space...
+	CMP.B	#'"',D1
+	BNE.S	AutoCartCon
+	MOVEQ	#'"',D2			; ...or at the closing quote.
+AutoCartBuc:
+	SUBQ.L	#1,D0
+	BMI.S	AutoCartFin
+	MOVE.B	(A0)+,D1
+AutoCartCon:
+	CMP.B	D2,D1
+	BEQ.S	AutoCartFin
+	CMP.B	#' ',D1			; Newline or control char.
+	BCS.S	AutoCartFin
+	MOVE.B	D1,(A1)+
+	BRA.S	AutoCartBuc
+AutoCartFin:
+	CLR.B	(A1)
+	TST.B	FILENOM
+	SNE	AutoCart
+NoAutoCart:
+; ------------------------------------<
 
 ; ------------------------------------> Arregla Tabla de Instrucciones Z-80A.
 	LEA	INSTR,A0

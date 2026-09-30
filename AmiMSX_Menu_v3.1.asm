@@ -446,6 +446,8 @@ IMPFILE:	DC.L	0
 SpeedTest:	DC.L	0
 		DC.L	0
 FILENOM:	DS.B	$208
+AutoCart:	DC.B	0		; Test hook flags (see ANEM).
+AutoGo:		DC.B	0
 		CNOP	0,4
 BUFERDSK:	DS.L	8
 		CNOP	0,4
@@ -515,7 +517,10 @@ SiEstaData2:
 
 ; ------------------------------------------
 
+	TST.B	AutoCart		; Test hook: no splash.
+	BNE.S	NoShowMatra
 	BSR	ShowMatra
+NoShowMatra:
 
 ; ------------------------------------------
 
@@ -591,6 +596,11 @@ SiEstaData2:
 	MOVE.L	D0,ReqBaseSlot
 NOHAYASL2:
 
+	TST.B	AutoCart		; Test hook: Slot 1 cartridge, then GO.
+	BEQ.S	NoAutoCart2
+	BSR	InsertSl1
+	ST	AutoGo
+NoAutoCart2:
 
 BUCLEMENU:
 
@@ -2634,6 +2644,12 @@ InsertSl2:
 
 	CNOP	0,8
 Insert:
+	TST.B	AutoCart		; Test hook: FILENOM set from the CLI.
+	BEQ.S	InsertReq
+	SF	AutoCart
+	BSR	DisMouse
+	BRA.S	InsertAuto
+InsertReq:
 	TST.L	_ASLBase(PC)
 	BEQ	NeedASL
 
@@ -2650,6 +2666,7 @@ Insert:
 
 	MOVE.L	ReqBaseSlot,A2
 	BSR	ArreglaNom
+InsertAuto:
 
 ;	--------------------
 	TST.L	_xpkBase(PC)		; Mira si es un xpk.
@@ -6625,6 +6642,12 @@ CONTROL:
 	MOVE.L	A1,-(SP)
 	MOVE.L	-12(A1),A0
 	MOVE.L	(A0),-(SP)
+	TST.B	AutoGo			; Test hook: press GO once.
+	BEQ.S	BUCONTROL
+	CMP.L	#MSX2PUNTS,4(SP)
+	BNE.S	BUCONTROL
+	SF	AutoGo
+	JSR	MSX_GO
 BUCONTROL:
 	MOVE.L	(SP),A0
 	MOVE.L	$56(A0),A0
@@ -6655,7 +6678,7 @@ BUCONTROL:
 	BEQ	ESMENU
 
 	CMP.W	#$010,D0	; ¿Es Slider?
-	BEQ.S	ESGADGET
+	BEQ	ESGADGET
 
 	CMP.W	#$040,D0	; ¿Es Gadget?
 	BEQ.S	ESGADGET
