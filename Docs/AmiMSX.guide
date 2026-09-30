@@ -1,0 +1,1001 @@
+@database AmiMSX Emulator.
+@version $VER: AmiMSX.guide 3.1 (25.9.00)
+@font topaz.font 8
+
+@node MAIN "AmiMSX Emulator."
+                        <=------------------------=>
+                            AmiMSX Emulator v3.1
+                           ( 25.9.00 - Freeware )
+                        <=------------------------=>
+                            for AMIGA computers.
+
+                  1994/2000 By: Juan Antonio Gómez Gálvez
+
+                             @{"Note from author" link Autor}
+
+                             @{"Introduction    " link Introduccio}
+                             @{"Requirements    " link Requeriments}
+                             @{"Instructions    " link Instruccions}
+
+                             @{"MSX  Emulation  " link Emulacio}
+                             @{"Technical data  " link Tecnics}
+                             @{"Future versions " link Futur}
+
+                             @{"Copyrights      " link Copyrights}
+                             @{"Author          " link Autors}
+                             @{"Greetings       " link Agraiments}
+
+
+                        e-mail:  joanant@arrakis.es
+
+                       Web:  www.arrakis.es/~joanant
+
+@endnode
+
+
+@node Autor "AmiMSX Emulator."
+
+@{fg highlight}    Note from author:
+@{fg text}    -----------------
+
+    Hola Amigos!!!!
+
+    A new update of AmiMSX, new features:
+
+    - MSX2 Overscan support. (256x224 pixels)  (Sex Bomb Bunny)
+    - Screen 2 and 4 ONE tile bank support.  (Ark-A-Noah)
+    - Screen 8 Sprites are now emulated with your real colours.
+    - Syncronized CPU emulation. (Real / Fast / Turbo modes)
+    - 100% Compatible with all Motorola Procesors. (020/030/040/060)
+    - Full support of Line Interrupts.
+
+
+    There are two games included with AmiMSX to test these two features:
+
+    Sex Bomb Bunny:  A sexy game in Screen 8 with overscan support.
+
+    Ark-A-Noah:  A game in Screen 4 with overscan support and uses
+ONE bank tiles instead of 4.
+
+    These two games ONLY works 100% with AmiMSX, I not found any other
+MSX emulator capable of emulate them correctly!!!
+
+    These games are © Matra Corporation 'www.matranet.net' A new group
+making great games for MSX.  Take a look to your web!!!!
+
+    Greetings!
+
+    Juan
+
+@endnode
+
+
+@node Introduccio "AmiMSX Emulator."
+
+@{fg highlight}    Introduction:
+@{fg text}    -------------
+
+    This program emulates a 8-bit MSX2 computer.
+
+    Quality of emulation depends on the Amiga system that is used.
+
+    This program does not multitask and freezes the Operating System to
+obtain a good quality emulation, programming directly the Amiga's custom
+chips.
+
+
+@{fg highlight}    DISCLAIMER:
+@{fg text}    -----------
+    THE AUTHOR DOESN'T GUARANTEE THAT THIS PROGRAM EMULATES A FULL MSX2,
+AND ACCEPTS NO RESPONSIBILITY FOR LOSS OF DATA DERIVED FROM THE USE OF
+THIS SOFTWARE...
+
+@endnode
+
+
+@node Requeriments "AmiMSX Emulator."
+
+@{fg highlight}    <*>  Minimal Requirements:
+@{fg text}    --------------------------
+
+    - AMIGA computer with AGA chipset
+    - MC68020+
+    - DEVS:mfm.device           (For DiskDrives emulation)
+    - DEVS:statram.device       (For RAMSX: drive emulation)
+    - LIBS:stc020.library v3.0+
+    - LIBS:asl.library
+    - 3MB of memory (1Mb Chip)
+    - PAL, NTSC or compatible monitor.
+
+@{fg highlight}    <*>  Extra requirements for real MSX2 emulation:
+@{fg text}    ------------------------------------------------
+
+    - MC68020 at 28Mz or faster Processor
+    - 2Mb of 32-bit Fast memory
+
+@endnode
+
+
+@node Instruccions "AmiMSX Emulator."
+
+                         <=-------------------=>
+                             AmiMSX Emulator
+                         <=-------------------=>
+
+
+@{fg highlight}                               Instructions
+@{fg text}                           <=-----------------=>
+
+                          @{"Project Menu          " link MenuPro}
+                          @{"Options Menu          " link MenuOpt}
+                          @{"MSX Virtual Drive Menu" link MenuMVD}
+                          @{"Cartridges Menu       " link MenuCar}
+                          @{"Main Window           " link FinestraPrin}
+                          @{"Imploder Window       " link FinestraImp}
+                          @{"Cheat Window          " link FinestraPoke}
+                          @{"RAMSX: Drive          " link RAMSX}
+@endnode
+
+
+@node MenuPro "AmiMSX Emulator."
+
+@{fg highlight}    Project Menu:
+@{fg text}    -------------
+
+@{fg highlight}    <*> About:
+@{fg text}    ----------
+
+    Information about the author and addresses.
+
+@{fg highlight}    <*> Menu Screen:
+@{fg text}    ----------------
+
+    Set menu screen in PAL or NTSC.
+
+@{fg highlight}    <*> Save Screen:
+@{fg text}    ----------------
+
+    Save the emulated screen like a IFF-ILBM file.
+
+@{fg highlight}    <*> Cheat mode:
+@{fg text}    ---------------
+
+    For finding/setting cheat pokes in the MSX2 emulation.
+
+@{fg highlight}    <*> Save Prefs:
+@{fg text}    ---------------
+
+    Save preferences and MSX2 clock battery in S:MSX2emulator.prefs
+
+@{fg highlight}    <*> Quit:
+@{fg text}    ---------
+
+    To quit the emulator.
+
+@endnode
+
+@node MenuOpt "AmiMSX Emulator."
+
+@{fg highlight}    Options menu:
+@{fg text}    -------------
+
+@{fg highlight}    <*> Joystick 2 ON:
+@{fg text}    ------------------
+
+    To activate emulation of the second MSX Joystick.  (It must be
+connected in the Amiga's mouse connector.)
+
+    Note:  This menu needs to be disabled for MSX mouse emulation.
+
+    Caution:  If this menu is activated and your Amiga mouse is connected
+some games will not work well.
+
+
+@{fg highlight}    <*> Swap JoyPorts:
+@{fg text}    ------------------
+
+    Change JoyPorts A and B of MSX.
+
+
+@{fg highlight}    <*> Multi-key ON:
+@{fg text}    -----------------
+
+    There is a bug in the Amiga 1200 keyboard, and some keys can't be
+pressed together.  To solve this, you can activate this menu and then
+press all keys you want separately.  MSX rom will think that you are
+pressing all keys at the same time until you disable this menu.
+
+
+@{fg highlight}    <*> Left and Right Shift as Space:
+@{fg text}    ----------------------------------
+
+    Will emulate Left or Right Shift keys as Space.  (To solve the A1200
+Space and Down key bug.)
+
+
+@{fg highlight}    <*> DEL for Pause:
+@{fg text}    ------------------
+
+    Amiga's DEL key will pause the emulation if this menu is enabled.
+    To exit pause press DEL key again.
+
+
+@{fg highlight}    <*> Ask for Power ON:
+@{fg text}    ---------------------
+
+    If this menu is enabled the emulation will ask for a confirmation
+when you click on Power ON.
+
+
+@{fg highlight}    <*> Japanese ID:
+@{fg text}    ----------------
+
+    Emulates a MSX ROM bios Japanese.
+
+
+@{fg highlight}    <*> Kanji ROM:
+@{fg text}    --------------
+
+    Emulates MSX Kanji ROM.
+
+
+@{fg highlight}    <*> MSX Virtual Disk:
+@{fg text}    ---------------------
+
+    - MVD: Write Protected:  Disk in MVD:  will be write-protected.
+
+    - Warn on save to protected MVD:  Emulation is stopped when you atten
+to save in a Write-Pretected MVD.
+
+    - Warn when MVD:  buffer is changed:  AmiMSX warn if MVD has been
+changed when you press HELP key.  This is to remenber save MVD in your
+harddisk.
+
+
+@{fg highlight}    <*> Screen Mode on Exit:
+@{fg text}    ------------------------
+
+    Force to set screen mode to PAL, NTSC, or no change.
+
+@endnode
+
+@node MenuMVD "AmiMSX Emulator."
+
+@{fg highlight}    MSX Virtual Drive menu:
+@{fg text}    -----------------------
+
+    AmiMSX Emulator supports a MSX Virtual Drive in Amiga's RAM.
+
+    You can have MSX disks of 360Kb (1DD) or 720Kb (2DD) crunched as
+Amiga files on your hard Disk, CD-ROM, etc...
+
+    MVD files can be crunched with Stone Cracker or File Imploder
+(supported in emulator).
+
+    Note:  MVD files are MSX Disk Images.  (#?.dsk)
+
+@{fg highlight}    <*> Load/Save Disk File:
+@{fg text}    ------------------------
+
+    To Load/Save MVD files.
+
+@{fg highlight}    <*> Load/Save MSX Disk:
+@{fg text}    -----------------------
+
+    To Load/Save from/to MSX Disk.
+
+@{fg highlight}    <*> Install MSX Boot:
+@{fg text}    ---------------------
+
+    To install MSX boot on MSX Disks.
+
+@{fg highlight}    <*> Implode MVD:
+@{fg text}    ----------------
+
+    Will crunch the resident MVD with File Imploder.
+
+@{fg highlight}    <*> Format MVD as 2DD or 1DD:
+@{fg text}    -----------------------------
+
+    Create a buffer (MVD:) of a 1DD/2DD MSX disk.
+
+@{fg highlight}    <*> Clear Buffer:
+@{fg text}    -----------------
+
+    Clear MVD: buffer  (as an Eject disk of MVD: drive)
+
+@endnode
+
+@node MenuCar "AmiMSX Emulator."
+
+@{fg highlight}    Cartridges:
+@{fg text}    -----------
+
+    This is for emulate MSX Cartridges of ANY size.
+
+    Slot 3 is for obtaining cartridge files but it is a bit complicated
+to explain!!!
+
+@{fg highlight}    Slot 1 & 2:
+@{fg text}    -----------
+
+    - Insert Cartridge: For reading a cartridge file.
+
+    - Eject Cartridge:  For ejecting the cartridge file that is resident.
+
+    - Save Mapper ID:  Saves Mapper type for current Cartridge.  When you
+insert this cartridge again, your mapper will be set correctly.
+
+
+@{fg highlight}    Mapper:
+@{fg text}    -------
+
+    MSX cartridges bigger than 32Kb uses a custom mapper to work.
+
+    There are six types of mappers emulated in AmiMSX.  You need find the
+correct mapper for a Cartridge testing every one.
+
+
+@{fg highlight}    Slot 3:
+@{fg text}    -------
+
+    This option is for 'programers'
+
+@{fg highlight}    <*> Save Pages:
+@{fg text}    ---------------
+
+    - Page 1:  Save Page 1 of Slot 3 (&H4000-&H7FFF)
+
+    - Page 2:  Save Page 2 of Slot 3 (&H8000-&HBFFF)
+
+    - Page 1 & 2:  Save Pages 1 and 2 of Slot 3 (&H4000-&HBFFF)
+
+@endnode
+
+@node FinestraPrin "AmiMSX Emulator."
+
+@{fg highlight}    Disk Drives:
+@{fg text}    ------------
+
+    With these gadgets you select which Amiga-diskdrives will be used to
+emulate MSX drives A:  and B: . If both A:  and B:  drives are OFF, MSX
+Disk Basic ROM will not be emulated.
+
+@{fg highlight}    <*>  MSX Drive A & B:
+@{fg text}    ---------------------
+
+    - DFx:   Emulation of MSX drives via  Amiga drives.
+
+    - MVD:   Emulation of @{"MSX Virtual Drive" link MenuMVD} (MVD:)
+
+    - RAMSX: Emulation of Amigas's RAD: as a MSX disk. (Look at @{"RAMSX:" link RAMSX})
+
+    - OFF:   Emulation of NO drive connected.
+
+@{fg highlight}    <*>  MSX Disk ROM:
+@{fg text}    ------------------
+
+    - DOS:   Emulation of Disk ROM v1.0  (Recommended for Games)
+
+    - DOS2:  Emulation of Disk ROM v2.0  (Recommended for Tools)
+
+    - None:  Emulation of NO Disk ROM.
+
+@{fg highlight}    Slots Options:
+@{fg text}    --------------
+
+@{fg highlight}    <*>  ROM:
+@{fg text}    ---------
+
+    - MSX:  Emulation of MSX ROM.
+
+    - MSX2: Emulation of MSX2 ROM.
+
+@{fg highlight}    <*>  RAM:
+@{fg text}    ---------
+
+    - Emulation of 128 to 4096Kb RAM.
+
+@{fg highlight}    <*>  Sound:
+@{fg text}    -----------
+
+    - PSG:  Emulation of PSG.
+
+    - SCC:  Emulation of Konami's SCC.
+
+    - SCC+: Emulation of Konami's SCC+.
+
+
+@{fg highlight}    Video Options:
+@{fg text}    --------------
+
+@{fg highlight}    <*> Frequence:
+@{fg text}    --------------
+
+    -  Selects display mode:
+
+         * [From VDP] MSX will select NTSC or PAL when required.
+         * [No Change] MSX won't be able to change display mode.
+         * [PAL] (50 Hz) The emulator will always run in PAL mode.
+         * [NTSC] (60 Hz) The emulator will always run in NTSC mode.
+
+
+@{fg highlight}    <*> Refresh:
+@{fg text}    ------------
+
+    MSX screen is updated every 'refresh' frames.
+
+@{fg highlight}    <*> Sprites:
+@{fg text}    -----------------
+
+    MSX2 Sprites refresh:
+
+    - OFF: No sprite emulation.
+
+    - 1fr: Refresh at 1 frame. (100%)
+
+    - 2fr: Refresh at 2 frames.  (50%)
+
+    - 3fr: Refresh at 3 frames.  (36%)
+
+
+@{fg highlight}    Rest of the Gadgets:
+@{fg text}    ----------------
+
+@{fg highlight}    <*> MVD:
+@{fg text}    --------
+
+    For reading a MSX Virtual Disk in MVD:
+
+@{fg highlight}    <*> Emulation Speed:
+@{fg text}    --------------------
+
+ - [Real MSX]  MSX runs always at 3.5Mhz
+
+ - [Fast CPU]  MSX CPU run as fast possible.
+
+ - [Turbo Mode] MSX run at 3.5Mhz but without wait to 'Amiga Real Frame'
+
+
+@{fg highlight}    <*> Slot 1 and 2:
+@{fg text}    -----------------
+
+    For reading a cartridge file in any Slot.
+
+@{fg highlight}    Reset:
+@{fg text}    ------
+
+    Makes a MSX reset. (Like key RESET of a MSX keyboard)
+
+@{fg highlight}    <*> Power ON:
+@{fg text}    -------------
+
+    For starting MSX2 emulation.
+
+@{fg highlight}    <*> Continue:
+@{fg text}    -------------
+
+    To continue the emulation after you have pressed the HELP key.
+
+@{fg highlight}    <*> Exit:
+@{fg text}    ---------
+
+    To quit the emulator.
+
+@endnode
+
+@node FinestraIMP "AmiMSX Emulator."
+
+@{fg highlight}    Imploder window:
+@{fg text}    ----------------
+
+@{fg highlight}    <*> Implode:
+@{fg text}    ------------
+
+    To crunch a resident MSX Virtual Disk in MVD:
+
+@{fg highlight}    <*> Efficiency:
+@{fg text}    ---------------
+
+    Compression efficiency.
+
+@{fg highlight}    <*> Abort:
+@{fg text}    ----------
+
+    Not implemented!
+
+@{fg highlight}    <*> Save:
+@{fg text}    ---------
+
+    To save crunched MVD.
+
+@{fg highlight}    <*> Cancel:
+@{fg text}    -----------
+
+    To exit to main menu.
+
+@endnode
+
+@node FinestraPoke "AmiMSX Emulator."
+
+@{fg highlight}    Cheat window:
+@{fg text}    -------------
+
+@{fg highlight}    <*> Find Poke:
+@{fg text}    --------------
+
+    This is for finding a cheat address.
+
+    First set the actual nr. of lives for which to Search.
+    Go back to the emulation and loose one life.
+    Go to this window and set the actual nr. of lives in Compare With.
+    Now, in Address Found, you can find a possible cheat address!
+
+@{fg highlight}    <*> Poke:
+@{fg text}    ---------
+
+    When you click Do poke, a poke is done in MSX memory.
+
+                           ( Poke Address,Value )
+
+    Some cheat poke Addresses:
+    --------------------------
+GORBY'S PIPELINE:       LEVEL=$C80C (INS 1-8) : PIPES=$C80D (DEL ONCE)
+NYANACLE:               LIVES=$D215  TIME=$D214
+PUYO PUYO:              BLOCKS=$C976  SCORE=$C978
+DRAGONSLAYER 6:         HP PLAYER 1,2,4=$2344,$2804,$2384,$23C4
+BREAKER:                BALLS=$953D
+PEACH UP (WIP WAP):     LIVES=$D28C
+PEACH UP (HAMMERTJE)    $CE03,$CE02
+PEACH UP (PEACH SLOT):  GOLD=$6070
+PEACH UP (HYPERBLOCK):  BALLS=$5D16
+PEACH UP (SHOOTER):     BOMBS&LIVES=$D209,$D208
+HYDEFOS:                ENERGIE&LIVES&SCORE=$C11C,$D404,$D406
+NINJA DEXTER:           MAGIC=$D46F
+PACMANIA:               LIVES=$D033
+YS 1:                   GOLD&EXP&HP=$CFC7,$CFC9,$CFC3
+YS 2:                   GOLD&EXP&MP=$0196,$0102,$0104
+YS 3:                   HP&EXP&RING=$7FA7,$7FA0,$7EA0
+PRINCESS:               LIVES=$CE06
+FAMICLE PARODIC:        LIVES=$E003
+FAMICLE PARODIC II:     LIVES=$C008
+LAST TESTAMENT:         GRENADES=$59DE
+USAS:                   COINS=$C259
+MARAYA:                 GOLD&FIRE,LIVES,LIFE,KEYS,BOMBS=$CCD4,$CD74,$CCBC,$CCD3,$CD75,$CD76
+TWINKLE STAR GAMES:     LIVES=$4052
+NO FUSS:                LIVES=$7FFE
+GREATEST DRIVER:        QUALIFY LAPS (P1)=$A256
+GREATEST DRIVER:        QUALIFY LAPS (P2)=$A28B
+ALESTE SPECIAL:         LIVES=$D080  LEVEL=$D00B
+QUINPL:                 LIVES=$BC11
+CHUCKA TAISEN:          LIVES=$A685
+ARTIC EXCITMENT:        LIVES=$FB35
+PLAYBALL 3:             SCORE,TEGENSTANDER=$D480,$D47F
+SUPER COOKS:            LIVES=$CB39
+
+@endnode
+
+@node RAMSX "AmiMSX Emulator."
+
+@{fg highlight}    RAMSX: drive
+@{fg text}    ------------
+
+    RAMSX:  is a drive for emulating a MSX disk using Amiga's RAD:.
+
+    Before using, you need to mount it.  (Like PCx:)
+
+    Now you can save files from WorkBench to RAMSX:  and read these files in
+the emulator.
+
+    Note:  If you save files from the emulator, you need to do:
+
+    DiskChange RAMSX:
+
+    Now Amiga can read RAMSX:  as well.
+
+    Note:  RAMSX:  uses StaticRAM.devive and not ramdrive!!!
+
+@endnode
+
+
+@node Emulacio "AmiMSX Emulator."
+
+                         <=----------------------=>
+                             AmiMSX Emulator
+                         <=----------------------=>
+
+
+@{fg highlight}                               MSX2 Emulation
+@{fg text}                          <=--------------------=>
+                         @{"MSX2 Processor Emulation" link Z80A}
+                         @{"MSX2 Display Emulation  " link Dibuixos}
+                         @{"MSX2 Sound Emulation    " link Soroll}
+                         @{"MSX2 JoyStick Emulation " link Jocs}
+                         @{"MSX2 Keyboard Emulation " link Teclat}
+                         @{"MSX2 Disk Emulation     " link Disc}
+                         @{"MSX2 Other emulations   " link Altres}
+ 
+                         @{"Bugs and incompatibility" link incompatibilitat}
+@endnode
+
+@node Z80A "AmiMSX Emulator."
+
+@{fg highlight}    <*>  Z-80A  (Processor):   Emulated at 98%.
+@{fg text}    ------------------------
+
+    All works correctly except this:
+
+    - Flags N and H are not emulated
+    - Flag P is only emulated at instructions OR, AND, XOR
+    - R register not emulated well
+
+@endnode
+
+
+@node Dibuixos "AmiMSX Emulator."
+
+@{fg highlight}    VDP  (Graphics chip):   Emulated at 85%.
+@{fg text}    ---------------------
+
+    All works correctly except this:
+
+    * Sprites:
+        - Expanded Sprites
+        - Sprites Collisions
+
+    * MSX-Video:
+        - XOR mode emulated as NOT
+        - Line logical operators
+        - Color search
+
+@endnode
+
+@node Soroll "AmiMSX Emulator."
+
+@{fg highlight}    <*>  PSG  (Sound Chip):   Emulated at 99%.   
+@{fg text}    -----------------------
+
+    It works correctly.
+
+
+@{fg highlight}    <*>  SCC  (Sound Custom Chip):   Emulated at 98%.   
+@{fg text}    ------------------------------
+
+    Amiga cannot emulate it correctly:
+
+    - The SCC chip has 5 channels and Amiga only 4, when it uses 5
+channels, channel 5 will not be emulated.
+
+@{fg highlight}    <*>  SCC+  (Sound Custom Chip+):   Emulated at 98%.
+@{fg text}    --------------------------------
+
+    Emulation is equal to SCC.
+
+@endnode
+
+@node Jocs "AmiMSX Emulator."
+
+@{fg highlight}    <*>  Joystick ports:
+@{fg text}    --------------------
+
+    Two firebuttons in MSX are supported.  Left and Right Amiga keys work
+like joystick second firebutton.
+
+    A Joypad can be used.
+
+    Amiga firebutton 1 = MSX firebutton 1
+    Amiga firebutton 2 & 3 = MSX firebutton 2    
+
+    Amiga A port = MSX B port
+    Amiga B port = MSX A port
+
+
+@{fg highlight}    <*> Mouse:
+@{fg text}    ----------
+
+    MSX mouse is emulated in port A of MSX when Joystick 2 menu is
+disabled.
+
+    Amiga mouse needs to be connected in port A of Amiga.
+
+@endnode
+
+@node Teclat "AmiMSX Emulator."
+
+@{fg highlight}    <*>  Keyboard:   Emulated at 99%. 
+@{fg text}    --------------
+
+    MSX keyboard is the same as Amiga's except for the following keys:
+    (English keymap only)
+
+                          AMIGA       MSX
+                         -------     -----
+                            F6       SELECT
+                            F7       STOP
+                            F8       HOME/CLS
+                            F9       INS
+                           F10       DEL
+                      Left ALT       GRAPH
+                     Right ALT       CODE
+
+                            ` ~      ñ Ñ  (In MSX2 ROM only)
+                            DEL      MSX DEL or MSX Pause (optional)
+                            [ {      Caps Lock.
+                            < >      Caps Lock.
+                            ç Ç      Dead key. (accents)
+                            ] }      Dead key. (accents)
+
+                     Left Amiga      JoyStick 1 - 2nd firebutton
+                    Right Amiga      JoyStick 2 - 2nd firebutton
+
+             CTRL+Left ALT+DEL       MSX Reset
+             CTRL+Left ALT+HELP      MSX Hard Reset
+
+                           HELP      Go to Workbench's menu. (Exit)
+
+
+    Note:  Ñ or ñ is a Spanish letter.
+
+@endnode
+
+@node Disc "AmiMSX Emulator."
+
+@{fg highlight}    <*>  Disk drive:   Emulated at 99%.
+@{fg text}    ----------------
+
+    For a good emulation of MSX drives you need to mount PCx:  of the
+drive that you are using.
+
+    Note:  If PCx:  is not mounted 1DD MSX disks will fail!
+
+    Make sure your disks have got a MSX boot to avoid a hang up when the
+MSX is booting from a disk drive.  You can install it, using "MSX Boot"
+gadget.
+    DO NOT INSTALL ALL DISKS you get, because some MSX disks had their
+own boot to run the game.  Install only disks that you've formatted in a
+PC or using PCx:  drives.
+
+    To emulate MSX disk drives I have had to "kill" the interrupt that
+warns the Amiga that a disk has been changed, so when you exit the
+emulator the diskdrive will not recognise Amiga disks.  I am sorry.
+
+    But you can do this to recover Amiga drives:
+
+    ASSIGN DFx:  dismount
+    MOUNT DFx:
+
+    You need to do a mount-list with DFx:  datas.
+
+@endnode
+
+@node Altres "AmiMSX Emulator."
+
+@{fg highlight}    <*>  Memory:
+@{fg text}    ------------
+    You can emulate from 128 to 4096Kb RAM amd 128Kb VRAM.
+
+    Sub-Slots (&HFFFF) are not supported, so there are NO COMPATIBILITY
+PROBLEMS with Sony or Philips memory models!
+
+    If you get an "out of memory" error, try to disable drive B:
+emulation.
+
+@{fg highlight}    <*>  Clock Battery:
+@{fg text}    -------------------
+    
+    Correctly emulated except the time!
+
+
+@{fg highlight}    <*>  Printer port:
+@{fg text}    ------------------
+
+    Emulation by Sergi Martinez.
+
+    It work 100%
+
+@endnode
+
+
+@node incompatibilitat "AmiMSX Emulator."
+
+@{fg highlight}    Errors and incompatibility:
+@{fg text}    ---------------------------
+
+    This version is very reliable, if a game does not work it can be a
+general MSX incompatibility problem.  (Not all MSX games worked on all
+MSX configurations.  Like with some Amiga software today.  (Ed.))
+
+    If you run into an incompatibility problem try to do the following:
+
+    - Set Disk-Drive B: to OFF.
+    - Set RAM: to 256Kb.
+    - Set DOS instead DOS2.
+
+@endnode
+
+
+@node Tecnics "AmiMSX Emulator."
+
+@{fg highlight}    Technical data:
+@{fg text}    ---------------
+
+    This program was developed 100% in assembly language on an AMIGA
+1200+Blizzard 1220 (MC68020 at 28Mz and 4Mb of 32-bit Fast RAM).
+
+    I have currently a Blizzard 1260!!!!  (Thanks Latok/Balance)
+
+    To get the highest possible emulation speed this program disables
+multitasking and programs the Amiga's custom chips directly.
+
+    The MSX2 used for checking is a Philips NMS-8280 MSX2 computer.
+
+    All sources of this emulator are designed and programmed by the me.
+
+
+@{fg highlight}    <*> Slots Configuration:
+@{fg text}    ------------------------
+
+                       Slot 0  Slot 1  Slot 2  Slot 3
+                      |-------|-------|-------|-------|
+               Page 0 | Bios  |       | Sub   |  RAM  |
+                      |-------|-------|-------|-------|
+               Page 1 | Basic |       | Disk  |  RAM  |
+                      |-------|-------|-------|-------|
+               Page 2 |       |       |       |  RAM  |
+                      |-------|-------|-------|-------|
+               Page 3 |       |       |       |  RAM  |
+                      |-------|-------|-------|-------|
+
+
+@{fg highlight}    <*> Emulation speed:  (±5%)
+@{fg text}    ---------------------------
+
+           Setup             Time     Z-80A       %      Accelerator
+   ----------------------   ------   -------   ------   -------------
+   MSX2  Philips NMS-8280     864     3.5Mz     100%
+   ----------------------   ------   -------   ------   -------------
+   Amiga 1200/20  28Mz.       600     5.0Mz     144%    Blizzard 1220
+   Amiga 1200/30  50Mz.       183     8.3Mz     236%    Blizzard 1230-IV
+   Amiga 1200/60  50Mz.       136    22.2Mz     635%    Blizzard 1260
+   ----------------------   ------   -------   ------   -------------
+
+Note: Test included in 'MVD files/Speed Test.MVD'
+
+@endnode
+
+
+@node Futur "AmiMSX Emulator."
+
+@{fg highlight}    Future versions:
+@{fg text}    ----------------
+
+    No new version will be released.
+
+    This is my LAST release of AmiMSX.
+
+    But...  who knows...
+
+@endnode
+
+
+@node Copyrights "AmiMSX Emulator."
+
+@{fg highlight}    Copyrights:
+@{fg text}    -----------
+
+ DEVPAC III              © HiSoft.                      (By Keith Wilson)
+
+ GadToolsBox             © Jaba Development.       (By Jan van den Baard)
+
+ mfm.device              © Commodore-Amiga inc.
+
+ statram.device          © Nicola Salmoria
+
+ MSX ROMs                © MicroSoft.              (By ASCII Corporation)
+
+ Stc020.library          © StoneWare SoftWorks.       (By Jouni Korhonen)
+
+ Imploder routines.      © Discovery Software.         (By Peter Struijk)
+
+ AmiMSX Emulator         © RED Soft           (By Juan Antº Gómez Gálvez)
+
+ fMSX Amiga Emulator     © Hans Guijt.
+
+ Sex Bomb Bunny          © Matra Corporation
+
+ Ark-A-Noah              © Matra Corporation
+
+@endnode
+
+
+@node Autors "AmiMSX Emulator."
+
+@{fg highlight}    Author:
+@{fg text}    -------
+
+    * AmiMSX Emulator is totally designed and programmed by:
+
+                         Juan Antonio Gómez Gálvez
+
+
+    But...
+    It was impossible without help and information from these people:
+
+
+    * PSG, mouse and printer emulation:
+
+                         Sergi Martínez Colldeforn
+
+
+    * MSX2 Technical information:
+
+                           Manuel Hiniesta García
+
+
+    * MSX2 Additional information:
+
+                    DiskDrives:     Albert Siersema and Ronal Gorter
+                    Z-80A:          Antonio J. Pomar Rosselló
+                    R-800:          Hans Guijt
+                    VDP:            Nestor Soriano  aka  Konamiman
+                    VDP:            Roderick Mouthaan
+                    SCC and SCC+:   Alberto Orante
+                    DOS2:           Maarten Loor
+
+
+    * Guide translations:
+
+                             Roderick Mouthaan
+
+
+                      <=----------------------------=>
+
+    * To contact the author write to:
+
+                Juan Antonio Gómez  <joanant@arrakis.es>
+
+                          www.arrakis.es/~joanant
+
+@endnode
+
+
+@node Agraiments "AmiMSX Emulator."
+
+@{fg highlight}    Greetings:
+@{fg text}    ----------
+
+    I wish to greet all the following people for their help in the
+developement of the MSX2 emulator:
+
+ - Manuel Hiniesta for explaining me all MSX2 hardware.
+
+ - MATRA Corporation for tech extra support. (MkII, S.T.A.R. and Ms Z-0)
+
+ - Sergi Martínez for your PSG, mouse and printer emulations.
+
+ - Albert Siersema and Ronald Gorter (programmers of the MSX2 emulator
+   for PC) for sending me information about disk-drives emulation.
+
+ - Jordi Tirado for your Z-80A book.
+
+ - Alberto Orante for MSX icons for Workbench SCC, information and
+   AmiEmulators WEB code and design.
+
+ - Toni Pomar for sending me information of some Z-80A instructions.
+
+ - Hans Guijt (fMSX Amiga programmer) for the R-800 instructions.
+
+ - Roderick Mouthaan for sending me information about the VDP of MSX2
+   and for translations of guides to Dutch and correct English.
+
+ - Maarten Loor for sending me information of DOS2.
+
+
+                 <=--------------------------------------=>
+
+
+  Program dedicated to my friend Laly-chan who I losed some time ago.
+
+
+
+@endnode
