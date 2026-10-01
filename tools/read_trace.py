@@ -6,7 +6,7 @@ n_last = int(sys.argv[2]) if len(sys.argv) > 2 else 120
 assert d[:4] == b"ATRC"
 ring_off, count = struct.unpack(">II", d[4:12])
 a8 = d[15]
-pagread = struct.unpack(">8I", d[16:48]); pagwrite = struct.unpack(">8I", d[48:80])
+pagread = struct.unpack(">8I", d[16:48]); n_print2, n_full2 = struct.unpack(">II", d[48:56])
 ring = d[80:80 + 16384]; page3 = d[80 + 16384:]
 ents = [ring[i:i + 4] for i in range(0, len(ring), 4)]
 k = ring_off // 4
@@ -14,7 +14,7 @@ order = ents[k:] + ents[:k]
 print(f"instructions traced: {count}, port A8 at freeze: {a8:02X} "
       f"(pages 0..3 -> slots {a8 & 3},{a8 >> 2 & 3},{a8 >> 4 & 3},{a8 >> 6 & 3})")
 print("PagRead :", " ".join(f"{p:08X}" for p in pagread))
-print("PagWrite:", " ".join(f"{p:08X}" for p in pagwrite))
+print(f"SCREEN 2 redraws (PRINT2): {n_print2}, of which full (ACTUTODO2): {n_full2}")
 print(f"--- last {n_last} instructions (PC, opcode, A8) ---")
 prev = None
 for e in order[-n_last:]:

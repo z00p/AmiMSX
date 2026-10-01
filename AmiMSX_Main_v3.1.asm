@@ -1028,6 +1028,13 @@ NumROM:		DC.W	0		; Banks in the Slot 1 cartridge: 8Kb,
 NumROM2:	DC.W	0		; 16Kb,
 NumROM3:	DC.W	0		; and Slot 2: 8Kb,
 NumROM4:	DC.W	0		; 16Kb.
+S5Valid:	DC.B	0		; 5th sprite flag (see IVDP0).
+		EVEN
+S5Next:		DC.W	0
+S5D2:		DC.L	0
+S5Save:		DS.L	9
+S5Cnt:		DS.B	256
+S5Tab:		DS.B	192
 
 ; ---------------------------------------=> Debug trap (vasm -DTRACE=1).
 ; Every INSTR entry points at a stub that logs the Z80 PC, opcode and port
@@ -1049,6 +1056,10 @@ TraceStub:	MACRO
 	LEA	TraceBuf,A4
 \@W:	MOVE.L	A4,TracePtr
 	ADDQ.L	#1,TraceCount
+	IFD	TRACEAT
+	CMP.L	#TRACEAT,TraceCount	; Optional trigger: N instructions.
+	BEQ	TraceFreeze
+	ENDC
 	IFD	TRACEPC
 	CMP.W	#TRACEPC,D1		; Optional trigger: this PC (+1).
 	BEQ	TraceFreeze
@@ -1073,9 +1084,9 @@ TraceStubB:
 	CNOP	0,4
 TraceFreeze:
 	LEA	TraceHdr+16,A4
-	MOVEQ	#16-1,D1
+	MOVEQ	#8-1,D1
 TrFrzBuc:
-	MOVE.L	PagRead(A3,D1.W*4),(A4,D1.W*4)	; PagRead and PagWrite.
+	MOVE.L	PagRead(A3,D1.W*4),(A4,D1.W*4)	; PagRead (+16).
 	DBF	D1,TrFrzBuc
 	MOVE.B	DA8(A3),TraceHdr+15
 	ST	TraceFrozen
@@ -1108,7 +1119,7 @@ TracePtr:	DC.L	0
 TraceCount:	DC.L	0
 TraceTab:	DS.L	256*2
 TraceHdr:	DC.L	"ATRC",0,0,0		; +4 ring offset, +8 count, +15 A8
-		DS.L	16			; +16 PagRead[8], +48 PagWrite[8]
+		DS.L	16			; +16 PagRead[8], +48 PRINT2 count, +52 ACTUTODO2
 TraceBuf:	DS.L	4096			; PC.w, opcode.b, A8.b
 TraceBufEnd:
 	ENDC
@@ -8618,6 +8629,7 @@ SiCamScr0:
 NoCamScr:RTS
 ; <=---------------------------------------------------------=>
 VDP1:
+	SF	S5Valid			; 5th sprite flag: recompute.
 	MOVE.W	#$0100,D1
 	BTST	#6,D2
 	BEQ.S	VDP1C0
@@ -8895,9 +8907,11 @@ NOCAM4B:MOVEQ	#0,D1
 	RTS
 ; <=---------------------------------------------------------=>
 VDPB:
+	SF	S5Valid			; 5th sprite flag: recompute.
 	MOVE.B	D2,DVDP5(A3)
 	MOVE.B	DVDP5+1(A3),D2
 VDP5:
+	SF	S5Valid			; 5th sprite flag: recompute.
 	MOVE.B	D2,DVDP5+1(A3)
 	MOVE.W	DVDP5(A3),D1
 	AND.W	#$03FF,D1
@@ -10739,7 +10753,94 @@ IVDP0:
 	SF	Estado(A3)
 ;;	BFTST	$DFF00E{1:6}		; Colisión de sprites?
 ;;	BNE.S	SiDetecSpr
+
+; 5th sprite flag (TMS9918 / V9938 sprite mode 1, as openMSX SpriteChecker):
+; S#0 reads 5S (bit 6) and the 5th sprite's number (bits 4-0) once the beam
+; has passed a line with more than 4 sprites. Reading clears it and the next
+; such line sets it again, with its own 5th sprite. MSX1 games use this as a
+; raster split (Uridium polls S#0 for $5C: 5S + sprite #28).
+; D2 is saved: its byte 1 and high word belong to the Z80 core.
+	MOVE.L	D2,S5D2
+	TST.B	S5Valid
+	BNE.S	S0Have
+	BRA	S5Calcula		; No BSR: A7 is not a stack here.
+S0Have:
+	MOVE.W	S5Next,D2		; Next line not reported yet.
+S0Buc:	CMP.W	CurLine(A3),D2
+	BGT.S	S0Nada			; Beam not there yet.
+	CMP.W	#192,D2
+	BCC.S	S0Nada
+	CMP.B	#$FF,(S5Tab.L,D2.W)
+	BNE.S	S0Si
+	ADDQ.W	#1,D2
+	BRA.S	S0Buc
+S0Si:	AND.B	#$A0,D1
+	OR.B	#$40,D1
+	OR.B	(S5Tab.L,D2.W),D1
+	ADDQ.W	#1,D2
+S0Nada:	MOVE.W	D2,S5Next
+	MOVE.L	S5D2,D2
 	RTS
+
+; S5Tab[line] = number of the 5th sprite on that display line, or $FF.
+S5Calcula:
+	ST	S5Valid
+	MOVEM.L	D0-D1/D3-D7/A0-A1,S5Save
+	LEA	S5Tab,A1		; No 5th sprite on any line yet.
+	MOVEQ	#(192/4)-1,D0
+	MOVEQ	#-1,D1
+S5TabClr:
+	MOVE.L	D1,(A1)+
+	DBF	D0,S5TabClr
+	MOVE.B	DVDP0(A3),D2		; Mode 1 sprites: G1, G2, MC only
+	AND.B	#$0C,D2			; (M4, M5 clear) and not text (M1).
+	BNE	S5Fin
+	BTST	#4,DVDP1(A3)
+	BNE	S5Fin
+	BTST	#1,DVDP8(A3)		; SPD: sprites disabled.
+	BNE	S5Fin
+	LEA	S5Cnt,A1		; Per-line counters.
+	MOVEQ	#(256/4)-1,D0
+S5Clr:	CLR.L	(A1)+
+	DBF	D0,S5Clr
+	LEA	S5Cnt,A1
+	MOVE.L	PVDP5(A3),A0		; Sprite attribute table.
+	ADD.L	#DIRVRAM,A0
+	MOVEQ	#8,D5			; Height: 8, 16 (SI), x2 (MAG).
+	BTST	#1,DVDP1(A3)
+	BEQ.S	S5NoSI
+	MOVEQ	#16,D5
+S5NoSI:	BTST	#0,DVDP1(A3)
+	BEQ.S	S5NoMag
+	ADD.W	D5,D5
+S5NoMag:
+	MOVEQ	#0,D7			; Sprite number.
+S5Spr:	MOVEQ	#0,D3
+	MOVE.B	(A0),D3			; Y
+	CMP.B	#208,D3			; End of the list.
+	BEQ.S	S5Fin
+	ADDQ.W	#1,D3			; Shown from line Y+1...
+	CMP.W	#$E1,D3			; ...Y >= $E0 starts above line 0.
+	BCS.S	S5Pos
+	SUB.W	#256,D3
+S5Pos:	MOVE.W	D5,D4
+	SUBQ.W	#1,D4
+S5Lin:	TST.W	D3
+	BMI.S	S5Sig
+	CMP.W	#192,D3
+	BCC.S	S5Sig
+	ADDQ.B	#1,(A1,D3.W)
+	CMP.B	#5,(A1,D3.W)
+	BNE.S	S5Sig
+	MOVE.B	D7,(S5Tab.L,D3.W)	; This sprite is the line's 5th.
+S5Sig:	ADDQ.W	#1,D3
+	DBF	D4,S5Lin
+	ADDQ.W	#4,A0
+	ADDQ.W	#1,D7
+	CMP.W	#32,D7
+	BCS.S	S5Spr
+S5Fin:	MOVEM.L	S5Save,D0-D1/D3-D7/A0-A1
+	BRA	S0Have
 SiDetecSpr:
 	OR.B	#$20,D1
 	RTS
@@ -11043,6 +11144,9 @@ ACTUTODO1:
 
 	CNOP	0,8
 PRINT2:
+	IFD	TRACE
+	ADDQ.L	#1,TraceHdr+48		; Debug: SCREEN 2 redraws.
+	ENDC
 	MOVEQ	#0,D1
 	MOVE.B	MCAGA+10,D1
 	LSL.W	#1,D1
@@ -11075,6 +11179,9 @@ NoEsTruco:
 
 	CNOP	0,8
 ACTUTODO2:
+	IFD	TRACE
+	ADDQ.L	#1,TraceHdr+52		; Debug: full SCREEN 2 redraws.
+	ENDC
 	BSR	TRANSBLT	; Actualiza Gfx y colores de Caracteres.
 	BSR	ACTUALIZA	; Actualiza pantalla al 100%
 	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
@@ -13980,6 +14087,8 @@ MiraInter:
 	JMP	([JumpCurLine.W,PC,D1.W*4])
 
 MiraInter0:
+	SF	S5Valid			; 5th sprite flag: new frame.
+	CLR.W	S5Next
 
 ;;	SF	PetInt38+1(A3)
 ;;	BCLR	#7,Estado(A3)		; Petición de Interrupción Vertical.

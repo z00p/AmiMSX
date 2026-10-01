@@ -6796,10 +6796,8 @@ CONTROL:
 	SF	AutoGo
 	JSR	MSX_GO
 	IFD	TRACE
-	TST.B	TraceFrozen
-	BEQ.S	BUCONTROL
-	BSR	TraceDump
-	ENDC
+	BSR	TraceDump		; Trap fired, or Ctrl+Alt: last 4096
+	ENDC				; instructions before leaving.
 BUCONTROL:
 	MOVE.L	(SP),A0
 	MOVE.L	$56(A0),A0

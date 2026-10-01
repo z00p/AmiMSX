@@ -1,7 +1,8 @@
 ﻿# Boot each ROM in WinUAE via the AmiMSX CLI hook and capture the window.
 # Usage: powershell -File winuae\batch_test.ps1 [-Roms a.rom,b.rom] [-Shots 35,60]
 param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
-      [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2)
+      [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0)
+# -ExitAt: press Ctrl+Alt (AmiMSX: back to the menu; the trace build then dumps)
 # -SpaceFrom/-SpaceTo/-SpaceEvery: press Space on that schedule (seconds after launch)
 # to get past title screens; only sent while WinUAE is the foreground window.
 $ErrorActionPreference = "Stop"
@@ -52,6 +53,7 @@ foreach ($rom in $Roms) {
   $name = [IO.Path]::GetFileNameWithoutExtension($rom)
   [void][WU]::SetForegroundWindow($hwnd)
   $events = @($Shots | ForEach-Object { [pscustomobject]@{ t = $_; kind = "shot" } })
+  if ($ExitAt -gt 0) { $events += [pscustomobject]@{ t = $ExitAt; kind = "exit" } }
   if ($SpaceTo -gt $SpaceFrom) {
     for ($k = $SpaceFrom; $k -le $SpaceTo; $k += $SpaceEvery) { $events += [pscustomobject]@{ t = $k; kind = "space" } }
   }
@@ -59,6 +61,14 @@ foreach ($rom in $Roms) {
     $wait = $e.t - ((Get-Date) - $t0).TotalSeconds
     if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
     if ($e.kind -eq "shot") { Capture $hwnd (Join-Path $out "${name}_$($e.t)s.png") }
+    elseif ($e.kind -eq "exit") {
+      if ([WU]::GetForegroundWindow() -eq $hwnd) {
+        [WU]::keybd_event(0x11, 0x1D, 0x8, [UIntPtr]::Zero); [WU]::keybd_event(0x12, 0x38, 0x8, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 400
+        [WU]::keybd_event(0x12, 0x38, 0xA, [UIntPtr]::Zero); [WU]::keybd_event(0x11, 0x1D, 0xA, [UIntPtr]::Zero)
+        Start-Sleep -Seconds 4                                                              # let the dump finish
+      }
+    }
     elseif ([WU]::GetForegroundWindow() -eq $hwnd) {
       [WU]::keybd_event(0x20, 0x39, 0x8, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120   # Space down (scancode)
       [WU]::keybd_event(0x20, 0x39, 0xA, [UIntPtr]::Zero)                                  # Space up
