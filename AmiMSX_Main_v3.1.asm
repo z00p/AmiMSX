@@ -140,19 +140,20 @@ MIDSAMPLE:	MACRO
 BANDSHOT:	MACRO
 	TST.B	BandOn
 	BEQ.S	\@x
-	MOVE.W	BandN,D1
-	CMP.W	#BANDMAX,D1
+	CMP.W	#BANDMAX,BandN
 	BCC.S	\@x
 	MOVEM.L	D0/A0-A1,SnapSave
-	MULU	#640,D1
+	MOVEQ	#0,D0
+	MOVE.W	BandN,D0
+	MULU	#640,D0
 	LEA	BandBuf,A1
-	ADD.L	D1,A1
-	MOVEQ	#0,D1
-	MOVE.W	DVDP5(A3),D1
-	AND.W	#$03FC,D1
-	LSL.L	#7,D1
+	ADD.L	D0,A1
+	MOVEQ	#0,D0
+	MOVE.W	DVDP5(A3),D0
+	AND.W	#$03FC,D0
+	LSL.L	#7,D0
 	LEA	DIRVRAM-512,A0
-	ADD.L	D1,A0
+	ADD.L	D0,A0
 	MOVE.W	#(640/4)-1,D0
 \@c:	MOVE.L	(A0)+,(A1)+
 	DBF	D0,\@c
@@ -161,16 +162,17 @@ BANDSHOT:	MACRO
 \@x:
 	ENDM
 
+; Scanline handlers: D1's high word must stay as the core left it (zero):
+; it indexes with D1.L. Long arithmetic here goes in the saved D0 (a
+; SCREEN 5 table above 64 KB in D1 sent Barbarian's Z80 into a NOP sled).
+; The snapshot is sprite mode 1 only: IMPSPR2 doesn't read it.
 SNAPSPR:	MACRO
 	MOVE.B	DVDP0(A3),D1
-	AND.B	#$0C,D1			; M4/M5: sprite mode 2 (SCREEN 4+)?
-	BNE.S	\@Fin			; Mode 1 only: in mode 2 Barbarian (SCREEN 5)
-					; hung in DI+HALT after its title with the
-					; snapshot taken (cause not found, 1 Oct 2026).
+	AND.B	#$0C,D1
+	BNE.S	\@Fin
 	MOVEM.L	D0/A0-A1,SnapSave
-	MOVE.L	PVDP5(A3),D1		; Mode 1.
 	LEA	DIRVRAM-512,A0
-	ADD.L	D1,A0
+	ADD.L	PVDP5(A3),A0
 	LEA	\1,A1
 	MOVE.W	#((512+128)/4)-1,D0
 \@Buc:	MOVE.L	(A0)+,(A1)+
@@ -1161,7 +1163,7 @@ ESPERA:
 	MOVE.L	#Inter,$6C(A0)
 	MOVE.W	#$86E0,$096(A6)		; BPL Off
 ;;;	MOVE.W	#$C028,$09A(A6)
-	BRA	MSX
+	JMP	MSX			; (BRA: out of range with TRACE code.)
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Punteros para Paginación.
@@ -1248,6 +1250,16 @@ TraceStub:	MACRO
 	CMP.W	#TRACEPC,D1		; Optional trigger: this PC (+1).
 	BEQ	TraceFreeze
 	ENDC
+	IFD	TRACENOPS
+	TST.B	D2			; Optional trigger: TRACENOPS NOPs in a
+	BNE.S	\@N0			; row (the Z80 running through empty
+	ADDQ.W	#1,TraceNopN		; memory).
+	CMP.W	#TRACENOPS,TraceNopN
+	BEQ	TraceFreeze
+	BRA.S	\@N1
+\@N0:	CLR.W	TraceNopN
+\@N1:
+	ENDC
 	CMP.W	#1,D1			; Opcode at &H0000...
 	BNE.S	\@J
 	MOVE.B	DA8(A3),D1		; ...with page 0 on the BIOS slot (games
@@ -1304,6 +1316,7 @@ TrInsBuc:
 TrInsFin:
 	RTS
 
+TraceNopN:	DC.W	0
 TraceOn:	DC.B	0
 TraceFrozen:	DC.B	0
 		CNOP	0,4
@@ -16049,6 +16062,12 @@ PerfIntNoMax:
 PerfPCv:	MOVE.L	A0,PerfPCPtr
 	ADDQ.L	#1,PerfPCCnt
 	MOVE.L	(SP)+,A0
+	ENDC
+	IFD	PERFTICKS
+	CMP.L	#PERFTICKS,PerfTick	; Optional escape after n VBlanks, even if
+	BNE.S	PerfNoEsc		; the emulation hangs: RTE into SALIR (back
+	MOVE.L	#SALIR,2(SP)		; to the menu, which writes perf.bin).
+PerfNoEsc:
 	ENDC
 	NOP
 	RTE
