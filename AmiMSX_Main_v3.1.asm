@@ -1049,6 +1049,10 @@ TraceStub:	MACRO
 	LEA	TraceBuf,A4
 \@W:	MOVE.L	A4,TracePtr
 	ADDQ.L	#1,TraceCount
+	IFD	TRACEPC
+	CMP.W	#TRACEPC,D1		; Optional trigger: this PC (+1).
+	BEQ	TraceFreeze
+	ENDC
 	CMP.W	#1,D1			; Opcode at &H0000...
 	BNE.S	\@J
 	MOVE.B	DA8(A3),D1		; ...with page 0 on the BIOS slot (games
@@ -15110,33 +15114,58 @@ TIMPES:
 
 	MOVE.W	D3,$64-2(A2)	; A	Mascara.
 	MOVE.W	D3,$66-2(A2)	; D	Destino!
-	MOVE.L	A0,A5
+	MOVE.W	D3,$60-2(A2)	; C	(mask OR passes)
 
 	MOVE.B	DVDPCL(A3),D6
 	AND.B	$22(A4),D6
 	SNE	D6
 	EXT.W	D6
 
-	BTST	#1,D1
-	BNE	COPIA
-
-	MOVE.L	#-1,$44-2(A2)	; A (Mascara)
-
-	MOVE.W	D1,$42-2(A2)
+; Transparent logical ops (TIMP, TAND...): the destination pixel is kept
+; where the SOURCE pixel is colour 0, as on the V9938 and in openMSX. The
+; mask M is the OR of the source's mask plane and all its colour planes
+; (A0 points at the mask plane, planes follow), pre-shifted to the
+; destination when COPIA does not shift its A channel (ascending), into
+; TMASK (A0 - plane size); COPIA then blits (M&B)|(!M&C) per plane.
+; v3.1 used source plane 0 alone as M (unshifted copies or descending:
+; plane 0 itself), so even colours were transparent: Lilly's Saga text.
+	MOVE.L	#-1,$44-2(A2)	; No first/last word masks here.
 	MOVE.W	D1,D7
-	AND.W	#$F000,D7
-	BEQ	COPIA		; Optimización
-	OR.W	#$09F0,D7
+	AND.W	#$0002,D7		; BLTCON1: only DESC.
+	MOVE.W	D7,$42-2(A2)
+	MOVE.W	D1,D7
+	AND.W	#$F000,D7		; ASH = BSH, unless COPIA shifts
+	MOVE.W	D0,D2			; A itself (descending copies:
+	AND.W	#$F000,D2		; MODODES sets D0 = BSH).
+	BEQ.S	TIMPSH
+	MOVEQ	#0,D7
+TIMPSH:
+	MOVE.W	D7,D2
+	OR.W	#$09F0,D7		; A,D:   D = A
+	OR.W	#$0BFA,D2		; A,C,D: D = A | C
+	MOVE.L	A0,A6
+	MOVE.L	A0,A5
+	SUB.L	$16(A4),A5		; M: same offset in the mask plane.
 	MOVE.W	D7,$40-2(A2)
-
-	SUB.L	$16(A4),A5
-
-	MOVE.L	A0,$50-2(A2)	; A
-	MOVE.L	A5,$54-2(A2)	; D
+	MOVE.L	A6,$50-2(A2)	; A = source plane 0
+	MOVE.L	A5,$54-2(A2)	; D = M
 	MOVE.W	D4,$58-2(A2)	; Size
+	MOVE.W	$10(A4),D7
+	SUBQ.W	#1,D7			; Then OR in every colour plane.
+TIMPOR:
+	ADD.L	$16(A4),A6
 TIMPB:
 	BTST	#$E,(A2)
 	BNE.S	TIMPB
+	MOVE.W	D2,$40-2(A2)
+	MOVE.L	A6,$50-2(A2)	; A = next source plane
+	MOVE.L	A5,$48-2(A2)	; C = M
+	MOVE.L	A5,$54-2(A2)	; D = M
+	MOVE.W	D4,$58-2(A2)	; Size
+	DBF	D7,TIMPOR
+TIMPB2:
+	BTST	#$E,(A2)
+	BNE.S	TIMPB2
 
 	BRA	COPIA
 

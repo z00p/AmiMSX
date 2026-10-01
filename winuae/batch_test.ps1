@@ -1,6 +1,9 @@
 ﻿# Boot each ROM in WinUAE via the AmiMSX CLI hook and capture the window.
 # Usage: powershell -File winuae\batch_test.ps1 [-Roms a.rom,b.rom] [-Shots 35,60]
-param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX")
+param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
+      [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2)
+# -SpaceFrom/-SpaceTo/-SpaceEvery: press Space on that schedule (seconds after launch)
+# to get past title screens; only sent while WinUAE is the foreground window.
 $ErrorActionPreference = "Stop"
 $base = Split-Path -Parent $PSScriptRoot
 # -File passes "a,b" as ONE string ("20,40,60" would even parse as the int 204060)
@@ -16,6 +19,9 @@ public class WU {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int cx, int cy, uint f);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   public struct RECT { public int L, T, R, B; }
 }
 "@
@@ -44,10 +50,19 @@ foreach ($rom in $Roms) {
   }
   [void][WU]::SetWindowPos($hwnd, [IntPtr]::Zero, 300, 40, 0, 0, 5)
   $name = [IO.Path]::GetFileNameWithoutExtension($rom)
-  foreach ($t in $Shots) {
-    $wait = $t - ((Get-Date) - $t0).TotalSeconds
-    if ($wait -gt 0) { Start-Sleep -Seconds $wait }
-    Capture $hwnd (Join-Path $out "${name}_${t}s.png")
+  [void][WU]::SetForegroundWindow($hwnd)
+  $events = @($Shots | ForEach-Object { [pscustomobject]@{ t = $_; kind = "shot" } })
+  if ($SpaceTo -gt $SpaceFrom) {
+    for ($k = $SpaceFrom; $k -le $SpaceTo; $k += $SpaceEvery) { $events += [pscustomobject]@{ t = $k; kind = "space" } }
+  }
+  foreach ($e in ($events | Sort-Object t)) {
+    $wait = $e.t - ((Get-Date) - $t0).TotalSeconds
+    if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
+    if ($e.kind -eq "shot") { Capture $hwnd (Join-Path $out "${name}_$($e.t)s.png") }
+    elseif ([WU]::GetForegroundWindow() -eq $hwnd) {
+      [WU]::keybd_event(0x20, 0x39, 0x8, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120   # Space down (scancode)
+      [WU]::keybd_event(0x20, 0x39, 0xA, [UIntPtr]::Zero)                                  # Space up
+    }
   }
   "$(Get-Date -Format HH:mm:ss) $rom done"
 }
