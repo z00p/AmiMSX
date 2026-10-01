@@ -11159,11 +11159,7 @@ PRINT2:
 
 	MOVE.W	#($800*4*2),SumaBpl	; Truco de UN SOLO Banco
 	MOVE.W	#($100),SumaVRAM
-	MOVE.W	DVDP4+Regs(PC),D1
-	AND.W	#$0003,D1
-	BNE.S	NoEsTruco
-	CLR.W	SumaBpl
-	CLR.W	SumaVRAM
+; (Shared pattern/colour blocks: see TBloque.)
 NoEsTruco:
 
 
@@ -11272,11 +11268,7 @@ NoDesbPla4:
 
 	MOVE.W	#($800*4*2),SumaBpl	; Truco de UN SOLO Banco
 	MOVE.W	#($100),SumaVRAM
-	MOVE.W	DVDP4+Regs(PC),D1
-	AND.W	#$0003,D1
-	BNE.S	NoEsTruco2
-	CLR.W	SumaBpl
-	CLR.W	SumaVRAM
+; (Shared pattern/colour blocks: see TBloque.)
 NoEsTruco2:
 
 	LEA	REGS(PC),A3
@@ -12561,39 +12553,33 @@ Copia3Con:
 	CNOP	0,8
 ; ----------------------------->  Actualiza Gfx de caracteres en pantalla.
 PREPARATXT:
-	MOVE.W	#((32*8*3)/4)-1,D0
 	MOVE.W	#(3)-1,D3
-PREPARATXT4:
+PREPARATXT4:			; D3 = screen blocks - 1 (3 or 4 blocks of 8 rows)
 	LEA	REGS(PC),A3
-	LEA	TAB98(PC),A4
-	MOVE.L	A4,A5
-	MOVE.L	PVDP3B(A3),D7		; Tabla Colores Caracteres VRAM
-	LSR.L	#3,D7
-	ADD.W	D7,A4
-	MOVE.L	PVDP4B(A3),D7		; Tabla Gfx Caracteres VRAM
-	LSR.L	#3,D7
-	ADD.W	D7,A5
-
-	MOVE.L	A4,A0
-	MOVE.L	A5,A1
-	ADD.W	#(32*8*3),A1
-;;;	MOVE.W	#((32*8*3)/4)-1,D0	; Está mas arriba
-PREBUC0:
-	TST.L	(A0)+
+	LEA	TXT2(PC),A1
+	MOVEQ	#0,D1
+	MOVEQ	#0,D7			; Block.
+PREPBLQ:
+	BSR	TBloque			; A4/A5: this block's dirty flags.
+	MOVE.L	A4,A0			; Anything changed in its tables?
+	MOVEQ	#(256/4)-1,D0
+PRECHK0:TST.L	(A0)+
 	BNE.S	PREPRUT
-	TST.L	-(A1)
-	DBNE	D0,PREBUC0
-	TST.W	D0
-	BPL.S	PREPRUT
-	RTS
+	DBF	D0,PRECHK0
+	MOVE.L	A5,A0
+	MOVEQ	#(256/4)-1,D0
+PRECHK1:TST.L	(A0)+
+	BNE.S	PREPRUT
+	DBF	D0,PRECHK1
+	ADD.W	#256,A1			; No: skip its 256 names.
+	BRA	PREPSIG
 	CNOP	0,8
 PREPRUT:
 	LEA	DIRVRAM,A0
 	ADD.L	PVDP2(A3),A0		; Tabla de texto.
-	LEA	TXT2(PC),A1
-	MOVEQ	#0,D1
-;;;	MOVE.W	#(3)-1,D3		; Está mas arriba
-PREPBUC2:
+	MOVE.W	D7,D0
+	LSL.W	#8,D0
+	ADD.W	D0,A0			; This block's names.
 	MOVE.W	#((32*8)/4)-1,D0
 PREPBUC:
 	MOVE.L	(A0)+,D2
@@ -12629,58 +12615,86 @@ PONULO3B:NOT.B	D2
 	MOVE.B	D2,(A1)
 PONULO3:ADDQ.W	#4,A1
 	DBF	D0,PREPBUC
-	ADD.W	SumaVRAM(PC),A4
-	ADD.W	SumaVRAM(PC),A5
-	DBF	D3,PREPBUC2
+PREPSIG:
+	ADDQ.W	#1,D7
+	CMP.W	D3,D7
+	BLS	PREPBLQ
 	RTS
 
 	CNOP	0,4
-SumaVRAM:DC.W	$100
+SumaVRAM:DC.W	$100			; (No longer used: see TBloque.)
+TBlqUlt:DC.W	0			; Last screen block (TRANSBLT).
+
+; Tables of SCREEN 2/4 screen block t (D7.W) with the TMS9918/V9938 masks:
+; colour  = PVDP3B + ((t & (R#3>>5)) << 11), only R#3 bits 5-6 masking the
+;           block (bits 0-4 masking characters is not supported);
+; pattern = PVDP4B + ((t & R#4) << 11), R#4 bits 0-1.
+; Standard values (R#3=$FF, R#4=3) give the usual contiguous 2Kb blocks;
+; Uridium uses R#3=$1F/$9F, one colour table for all blocks. v3.1 assumed
+; pattern = colour +/- $2000 and contiguous blocks.
+; Out: A0 = colour table in DIRVRAM, D4.L = pattern - colour,
+; A4/A5 = TAB98 dirty flags of the colour/pattern table. Uses D5/D6.
+TBloque:
+	MOVEQ	#0,D6
+	MOVE.B	DVDP3+1(A3),D6		; R#3
+	LSR.B	#5,D6
+	AND.W	D7,D6
+	AND.W	#3,D6
+	LSL.L	#8,D6
+	LSL.L	#3,D6
+	ADD.L	PVDP3B(A3),D6		; Colour table of the block.
+	MOVEQ	#0,D5
+	MOVE.W	DVDP4(A3),D5		; R#4
+	AND.W	D7,D5
+	AND.W	#3,D5
+	LSL.L	#8,D5
+	LSL.L	#3,D5
+	ADD.L	PVDP4B(A3),D5		; Pattern table of the block.
+	LEA	DIRVRAM,A0
+	ADD.L	D6,A0
+	MOVE.L	D5,D4
+	SUB.L	D6,D4
+	LSR.L	#3,D6
+	LSR.L	#3,D5
+	LEA	TAB98(PC),A4
+	ADD.L	D6,A4
+	LEA	TAB98(PC),A5
+	ADD.L	D5,A5
+	RTS
 ; -----------------------------<
 
 	CNOP	0,8
 ; ----------------------------->  Transforma Vram MSX a GfxBlt Amiga.
 TRASF:	MACRO
-	MOVE.W	(A0,D4.W),D1
+	MOVE.W	(A0,D4.L),D1
 	MOVE.B	(A0)+,D1
 	MOVE.L	(A1,D1.L*4),D2
 	MOVEP.L	D2,\1(A2)
 	ENDM
 TRANSBLT:
 	MOVE.W	#((32*8*3)/4)-1,D0
-TRANSBLT4:
+TRANSBLT4:			; D0 = characters/4 - 1: 3 or 4 blocks of 256.
 	LEA	REGS(PC),A3
-	LEA	DIRVRAM,A0
-	MOVE.L	A0,A2
-	ADD.L	PVDP3B(A3),A0		; Tabla Colores Caracteres VRAM
-	ADD.L	PVDP4B(A3),A2
-	MOVE.W	#-$2000,D4
-	CMP.L	A0,A2
-	BLT.S	TRASNOR
-	NEG.W	D4
-TRASNOR:
+	ADDQ.W	#1,D0
+	LSR.W	#6,D0
+	SUBQ.W	#1,D0
+	MOVE.W	D0,TBlqUlt
 	LEA	TABLA7E,A1
 	LEA	GFXCA,A2
 	MOVE.W	#$40,D3
 	MOVEQ	#0,D1
+	MOVEQ	#0,D7			; Block.
 
 	TST.B	Modo060(A3)		; Mira si es un 060.
 	BNE	TRANSBLT46
 
 	TST.B	ACTODOB(A3)
 	BNE	TRANSCHEC
-
-	LEA	TAB98(PC),A4
-	MOVE.L	A4,A5
-	MOVE.L	PVDP3B(A3),D7		; Tabla Colores Caracteres VRAM
-	LSR.L	#3,D7
-	ADD.W	D7,A4
-	MOVE.L	PVDP4B(A3),D7		; Tabla Gfx Caracteres VRAM
-	LSR.L	#3,D7
-	ADD.W	D7,A5
+TRBLQ:
+	BSR	TBloque
 	MOVE.W	#($40*4),D5
 	MOVE.W	#(4*8),D6
-;;;	MOVE.W	#((32*8*3)/4)-1,D0	; Está mas arriba
+	MOVE.W	#(256/4)-1,D0
 TRASFBUC2:
 	TST.L	(A4)+
 	BNE.S	TRANSCheckB
@@ -12689,7 +12703,7 @@ TRASFBUC2:
 	ADD.W	D6,A0
 	ADD.W	D5,A2
 	DBF	D0,TRASFBUC2
-	RTS
+	BRA	TRSIG
 	CNOP	0,8
 TRANSCheckB:
 	ADDQ.W	#4,A5
@@ -12722,9 +12736,26 @@ NOCOP2B:ADD.W	D3,A2
 NOCOP3:	BSR.S	TRANSCOPY
 NOCOP3B:ADD.W	D3,A2
 	ADDQ.W	#8,A0
-	CLR.L	-4(A4)
-	CLR.L	-4(A5)
 	DBF	D0,TRASFBUC2
+TRSIG:
+	ADDQ.W	#1,D7
+	CMP.W	TBlqUlt(PC),D7
+	BLS	TRBLQ
+	BRA	TRCLRTODO
+
+; Clear the dirty flags only after every block is done: blocks can share
+; their tables (R#3/R#4 masks), so clearing while rendering block 0 hid the
+; changes from blocks 1-3 (Chikubi Ninja, SCREEN 4 with R#3=$9F R#4=0).
+TRCLRTODO:
+	MOVEQ	#0,D7
+TRCLRB:	BSR	TBloque
+	MOVEQ	#(256/4)-1,D0
+TRCLRL:	CLR.L	(A4)+
+	CLR.L	(A5)+
+	DBF	D0,TRCLRL
+	ADDQ.W	#1,D7
+	CMP.W	TBlqUlt(PC),D7
+	BLS	TRCLRB
 	RTS
 	CNOP	0,8
 TRANSCOPY:
@@ -12741,10 +12772,9 @@ TRANSCOPY:
 	CNOP	0,8
 TRANSCHEC:
 	SF	ACTODOB(A3)
-;;;	MOVE.W	# (32*8*3)-1,D0		; Dado mas arriba (pero D0/4)
-	ADDQ.W	#1,D0
-	LSL.W	#2,D0
-	SUBQ.W	#1,D0
+TRCBLQ:
+	BSR	TBloque
+	MOVE.W	#256-1,D0
 TRASFBUC:
 	TRASF	$00
 	TRASF	$08
@@ -12756,45 +12786,16 @@ TRASFBUC:
 	TRASF	$38
 	ADD.W	D3,A2
 	DBF	D0,TRASFBUC
-
-	LEA	TAB98(PC),A6
-	MOVE.L	PVDP4B(A3),D0		; Tabla Gfx Caracteres VRAM
-	LSR.L	#3,D0
-	ADD.W	#256*3,D0
-	ADD.W	D0,A6
-
-	MOVEM.L	CEROSR2(PC),D0-D7/A0-A5
-	REPT	3
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7,-(A6)
-	ENDR
-
-	LEA	TAB98(PC),A6
-	LEA	REGS(PC),A3
-	MOVE.L	PVDP3B(A3),D0		; Tabla Colores Caracteres VRAM
-	LSR.L	#3,D0
-	ADD.W	#256*3,D0
-	ADD.W	D0,A6
-
-	MOVEQ	#0,D0
-	MOVE.L	D0,A3
-	REPT	3
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7,-(A6)
-	ENDR
-	RTS
+	ADDQ.W	#1,D7
+	CMP.W	TBlqUlt(PC),D7
+	BLS	TRCBLQ
+	BRA	TRCLRTODO
 
 	CNOP	0,8
 CEROSR2:DS.L	20
 
 TRASF6:	MACRO
-	MOVE.W	(A0,D4.W),D1
+	MOVE.W	(A0,D4.L),D1
 	MOVE.B	(A0)+,D1
 	MOVE.L	(A1,D1.L*4),D2
 	MOVE.B	D2,\1+6(A2)
@@ -12811,18 +12812,11 @@ TRANSBLT46:
 
 	TST.B	ACTODOB(A3)
 	BNE	TRANSCHEC6
-
-	LEA	TAB98(PC),A4
-	MOVE.L	A4,A5
-	MOVE.L	PVDP3B(A3),D7		; Tabla Colores Caracteres VRAM
-	LSR.L	#3,D7
-	ADD.W	D7,A4
-	MOVE.L	PVDP4B(A3),D7		; Tabla Gfx Caracteres VRAM
-	LSR.L	#3,D7
-	ADD.W	D7,A5
+TRBLQ6:
+	BSR	TBloque
 	MOVE.W	#($40*4),D5
 	MOVE.W	#(4*8),D6
-;;;	MOVE.W	#((32*8*3)/4)-1,D0	; Está mas arriba
+	MOVE.W	#(256/4)-1,D0
 TRASFBUC26:
 	TST.L	(A4)+
 	BNE.S	TRANSCheckB6
@@ -12831,7 +12825,7 @@ TRASFBUC26:
 	ADD.W	D6,A0
 	ADD.W	D5,A2
 	DBF	D0,TRASFBUC26
-	RTS
+	BRA	TRSIG6
 	CNOP	0,8
 TRANSCheckB6:
 	ADDQ.W	#4,A5
@@ -12864,10 +12858,12 @@ NOCOP2B6:ADD.W	D3,A2
 NOCOP36:BSR.S	TRANSCOPY6
 NOCOP3B6:ADD.W	D3,A2
 	ADDQ.W	#8,A0
-	CLR.L	-4(A4)
-	CLR.L	-4(A5)
 	DBF	D0,TRASFBUC26
-	RTS
+TRSIG6:
+	ADDQ.W	#1,D7
+	CMP.W	TBlqUlt(PC),D7
+	BLS	TRBLQ6
+	BRA	TRCLRTODO
 	CNOP	0,8
 TRANSCOPY6:
 	TRASF6	$00
@@ -12883,10 +12879,9 @@ TRANSCOPY6:
 	CNOP	0,8
 TRANSCHEC6:
 	SF	ACTODOB(A3)
-;;;	MOVE.W	# (32*8*3)-1,D0		; Dado mas arriba (pero D0/4)
-	ADDQ.W	#1,D0
-	LSL.W	#2,D0
-	SUBQ.W	#1,D0
+TRCBLQ6:
+	BSR	TBloque
+	MOVE.W	#256-1,D0
 TRASFBUC6:
 	TRASF6	$00
 	TRASF6	$08
@@ -12898,39 +12893,10 @@ TRASFBUC6:
 	TRASF6	$38
 	ADD.W	D3,A2
 	DBF	D0,TRASFBUC6
-
-	LEA	TAB98(PC),A6
-	MOVE.L	PVDP4B(A3),D0		; Tabla Gfx Caracteres VRAM
-	LSR.L	#3,D0
-	ADD.W	#256*3,D0
-	ADD.W	D0,A6
-
-	MOVEM.L	CEROSR2(PC),D0-D7/A0-A5
-	REPT	3
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7,-(A6)
-	ENDR
-
-	LEA	TAB98(PC),A6
-	LEA	REGS(PC),A3
-	MOVE.L	PVDP3B(A3),D0		; Tabla Colores Caracteres VRAM
-	LSR.L	#3,D0
-	ADD.W	#256*3,D0
-	ADD.W	D0,A6
-
-	MOVEQ	#0,D0
-	MOVE.L	D0,A3
-	REPT	3
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7/A0-A5,-(A6)
-	MOVEM.L	D0-D7,-(A6)
-	ENDR
-	RTS
+	ADDQ.W	#1,D7
+	CMP.W	TBlqUlt(PC),D7
+	BLS	TRCBLQ6
+	BRA	TRCLRTODO
 
 ; -----------------------------<
 
