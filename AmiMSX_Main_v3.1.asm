@@ -77,13 +77,13 @@ TRVLOG:	MACRO
 ; time since the last mark to sub-timer n (0-7) and marks again.
 PERFMARK:	MACRO
 	IFD	PERF
-	BSR	PerfStamp
+	JSR	PerfStamp
 	MOVE.L	PerfNow,PerfSubT
 	ENDC
 	ENDM
 PERFSUB:	MACRO
 	IFD	PERF
-	BSR	PerfStamp
+	JSR	PerfStamp
 	MOVE.L	D0,-(SP)
 	MOVE.L	PerfNow,D0
 	SUB.L	PerfSubT,D0
@@ -440,7 +440,8 @@ CALLCC:	MACRO
 	CNOP	0,8
 ANEM:
 ; ------------------------------------> Test hook: "AmiMSX <cartridge>" from
-;	the CLI inserts it in Slot 1 and powers on (no splash, no requester).
+;	the CLI inserts it in Slot 1 and powers on (no splash, no requester);
+;	"AmiMSX <image>.dsk" loads it into drive A instead.
 	MOVEM.L	D0/A0,-(SP)
 	SUB.L	A1,A1
 	MOVE.L	4.W,A6
@@ -448,7 +449,7 @@ ANEM:
 	MOVE.L	D0,A1
 	MOVEM.L	(SP)+,D0/A0
 	TST.L	$AC(A1)			; pr_CLI = 0: started from Workbench.
-	BEQ.S	NoAutoCart
+	BEQ	NoAutoCart
 	LEA	FILENOM,A1
 AutoCartSp:
 	SUBQ.L	#1,D0
@@ -475,6 +476,27 @@ AutoCartFin:
 	CLR.B	(A1)
 	TST.B	FILENOM
 	SNE	AutoCart
+	BEQ.S	NoAutoCart
+	MOVE.L	A1,D1			; "*.dsk": a disk image for drive A.
+	SUB.L	#FILENOM,D1
+	CMP.W	#5,D1
+	BCS.S	NoAutoCart
+	CMP.B	#'.',-4(A1)
+	BNE.S	NoAutoCart
+	MOVE.B	-3(A1),D1
+	OR.B	#$20,D1
+	CMP.B	#'d',D1
+	BNE.S	NoAutoCart
+	MOVE.B	-2(A1),D1
+	OR.B	#$20,D1
+	CMP.B	#'s',D1
+	BNE.S	NoAutoCart
+	MOVE.B	-1(A1),D1
+	OR.B	#$20,D1
+	CMP.B	#'k',D1
+	BNE.S	NoAutoCart
+	SF	AutoCart
+	ST	AutoDisk
 NoAutoCart:
 ; ------------------------------------<
 
@@ -1178,9 +1200,19 @@ SprWinLo:	DC.W	0
 SprWinHi:	DC.W	0
 SlotMark:	DS.B	64
 SlotFromT:	DS.B	64
+SlotRemap:	DS.B	64		; Top slot -> remapped slot + 1 (SprSlotsT).
+SlotSrc:	DS.B	64		; Remapped slot -> top slot.
+SlotTDone:	DS.B	64		; Slots converted into GFXSPRT this frame.
+SprTInit:	DC.B	0		; GFXSPRT checked.
+		EVEN
+GFXSPRT:	DC.L	0		; Top table's pattern slots, 0: none (remap).
 SprSnap:	DS.B	512+128		; 512 bytes before the table, then the table.
 SprSnapT:	DS.B	512+128
 S5Valid:	DC.B	0		; 5th sprite flag (see IVDP0).
+S0LastV:	DC.B	0		; Idle poll (S0Nada): last S#0 value,
+S0IdleN:	DC.B	0		; repeats,
+		EVEN
+S0LastA5:	DC.L	0		; and where it was read.
 		EVEN
 S5Next:		DC.W	0
 S5D2:		DC.L	0
@@ -6539,6 +6571,7 @@ OUT98:
 	MOVE.B	D2,(A2)+
 	LSR.L	#3,D1
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	RTS
 VRAM98:
 	AND.W	#$3FFF,D1
@@ -6548,6 +6581,7 @@ VRAM98:
 	MOVE.B	D2,(A2)+
 	LSR.L	#3,D1
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	RTS
 
 ;	-----------
@@ -6576,6 +6610,7 @@ OUT98X:
 	MOVE.B	D2,(A2)+
 	LSR.L	#3,D1
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	RTS
 VRAM98X:
 	AND.L	#$1FFFF,D1
@@ -6585,6 +6620,7 @@ VRAM98X:
 	MOVE.B	D2,(A2)+
 	LSR.L	#3,D1
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	RTS
 
 ;	-----------
@@ -6738,12 +6774,14 @@ CRAM98C:MOVE.B	D2,(A2)+
 	LEA	(SCR0+(64*1024*1),D1.L),A4
 	LSR.W	#2,D1
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	PONBITC	0
 	RTS
 OUT98C2:
 	LEA	(SCR0+(64*1024*1),D1.L),A4
 	LSR.W	#2,D1
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	PONBITC	4
 	RTS
 
@@ -6846,6 +6884,7 @@ CRAM98B:MOVE.B	D2,(A2)+
 	ROR.L	#3,D1
 	LEA	(SCR0+(32*512*7),D1.W),A4
 	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 
 
 	MOVEQ	#0,D1		; * NEW *
@@ -9122,8 +9161,7 @@ VDP6:
 	MULU	#$800,D1
 	CMP.L	PVDP6(A3),D1
 	BEQ.S	NOCAM6
-	ST	ACTSPR(A3)
-	MOVE.L	D1,PVDP6(A3)
+	MOVE.L	D1,PVDP6(A3)		; (Full conversion: TRANSSPR decides.)
 	MOVE.W	CurLine(A3),D1		; Sprite tables changed mid-frame
 	CMP.W	#SNAPTOP,D1		; between the two snapshots: split
 	BLE.S	NoSplit6			; there (IMPSPR draws two passes).
@@ -11005,6 +11043,23 @@ S0Si:	AND.B	#$A0,D1
 	OR.B	(S5Tab.L,D2.W),D1
 	ADDQ.W	#1,D2
 S0Nada:	MOVE.W	D2,S5Next
+; Idle poll: the same IN instruction (A5) reading the same S#0 again. The
+; answer can only change at a line boundary (5S, VBlank, line interrupt),
+; so end the line now instead of emulating the rest of the busy loop
+; (Uridium waits ~60 lines a frame for its 5S split this way).
+	CMP.L	S0LastA5,A5
+	BNE.S	S0Idle0
+	CMP.B	S0LastV,D1
+	BNE.S	S0Idle1
+	ADDQ.B	#1,S0IdleN
+	CMP.B	#2,S0IdleN
+	BCS.S	S0IdleX
+	CLR.W	(A3)			; Cycles left in this line: none.
+	BRA.S	S0IdleX
+S0Idle0:MOVE.L	A5,S0LastA5
+S0Idle1:MOVE.B	D1,S0LastV
+	SF	S0IdleN
+S0IdleX:
 	MOVE.L	S5D2,D2
 	RTS
 
@@ -11393,12 +11448,12 @@ NoEsTruco:
 	BSR	IMPSPR		; Actualiza Coor. Sprites
 	JSR	RendTabCheck
 	TST.B	ACTODOB(A3)
-	BNE.S	ACTUTODO2
+	BNE	ACTUTODO2
 	BSR	COPIATXT	; Actualiza Pantalla.
 	BSR	PREPARATXT	; Actualiza Gfx De caracteres ya impresos.
 	BSR	TRANSBLT	; Actualiza Gfx y colores de Caracteres.
 	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
-	RTS	
+	JMP	Planos2			; (The bank's screen: SCREEN 2 only.)
 
 	CNOP	0,8
 ACTUTODO2:
@@ -11408,7 +11463,7 @@ ACTUTODO2:
 	BSR	TRANSBLT	; Actualiza Gfx y colores de Caracteres.
 	BSR	ACTUALIZA	; Actualiza pantalla al 100%
 	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
-	RTS
+	JMP	Planos2
 
 ************************************************************
 
@@ -11502,7 +11557,9 @@ NoEsTruco2:
 	LEA	REGS(PC),A3
 	JSR	RendTabCheck
 	TST.B	ACTODOB(A3)
-	BNE.S	ACTUTODO4
+	BNE	ACTUTODO4
+	TST.B	BankSw			; Other cache bank: copy the screen.
+	BNE	ACTUTODO4
 
 
 	LEA	DIRVRAM,A0
@@ -11558,6 +11615,12 @@ TRANSSPR:
 	BEQ.S	NOCAMS
 	ST	ACTSPR(A3)
 NOCAMS:	MOVE.B	D1,DATOSPR
+	MOVE.L	PVDP6(A3),D0		; Pattern table not the one converted
+	CMP.L	SprLastP6,D0		; last: full conversion. Decided here,
+	BEQ.S	SprP6Same		; not on each R#6 write: Uridium switches
+	MOVE.L	D0,SprLastP6		; R#6 for its HUD and back every frame.
+	ST	ACTSPR(A3)
+SprP6Same:
 	TST.B	D1		; Mira si es imprimir spr de 8*8 o 16*16
 	BEQ	TRANSSPR8
 	JMP	TRANSSPR16S		; (+ split slots, at the end)
@@ -12799,7 +12862,7 @@ PREPARATXT:
 	MOVE.W	#(3)-1,D3
 PREPARATXT4:			; D3 = screen blocks - 1 (3 or 4 blocks of 8 rows)
 	LEA	REGS(PC),A3
-	LEA	TXT2(PC),A1
+	MOVE.L	Txt2Ptr,A1		; Name shadow of the bank (RendTabCheck).
 	MOVEQ	#0,D1
 	MOVEQ	#0,D7			; Block.
 PREPBLQ:
@@ -12899,9 +12962,9 @@ TBloque:
 	SUB.L	D6,D4
 	LSR.L	#3,D6
 	LSR.L	#3,D5
-	LEA	TAB98(PC),A4
+	MOVE.L	TabFlagPtr,A4		; Flags of the cache bank in use.
 	ADD.L	D6,A4
-	LEA	TAB98(PC),A5
+	MOVE.L	TabFlagPtr,A5
 	ADD.L	D5,A5
 	RTS
 ; -----------------------------<
@@ -12923,7 +12986,7 @@ TRANSBLT4:			; D0 = characters/4 - 1: 3 or 4 blocks of 256.
 	SUBQ.W	#1,D0
 	MOVE.W	D0,TBlqUlt
 	LEA	TABLA7E,A1
-	LEA	GFXCA,A2
+	MOVE.L	GfxCaPtr,A2		; Cache bank in use (RendTabCheck).
 	MOVE.W	#$40,D3
 	MOVEQ	#0,D1
 	MOVEQ	#0,D7			; Block.
@@ -13169,13 +13232,17 @@ COPYBUF:
 	MOVE.L	(A2),A0
 	MOVE.L	4(A2),(A2)
 	MOVE.L	A0,4(A2)
+	MOVE.L	(A2),A0			; This frame's names, not last frame's:
+					; with a screen per cache bank (Uridium's
+					; two table sets) last frame's names belong
+					; to the other set. (As SCREEN 4.)
 
 	MOVEQ	#(3)-1,D7
 COPIATXT4:
 
-	LEA	TXT2(PC),A1
-	LEA	SCREEN,A4			; Pantalla Destino Amiga.
-	LEA	GFXCA,A5
+	MOVE.L	Txt2Ptr,A1		; Name shadow of the bank (RendTabCheck).
+	MOVE.L	ScreenPtr,A4		; Screen of the bank (RendTabCheck).
+	MOVE.L	GfxCaPtr,A5		; Cache bank in use (RendTabCheck).
 
 	LEA	$DFF002,A6
 ESPBLTT2:BTST	#$E,(A6)
@@ -13278,9 +13345,9 @@ COPYBUF2:
 
 	MOVEQ	#(3)-1,D6
 ACTUALIZA4:
-	LEA	TXT2(PC),A1
-	LEA	SCREEN,A4			; Pantalla Destino Amiga.
-	LEA	GFXCA,A5
+	MOVE.L	Txt2Ptr,A1		; Name shadow of the bank (RendTabCheck).
+	MOVE.L	ScreenPtr,A4		; Screen of the bank (RendTabCheck).
+	MOVE.L	GfxCaPtr,A5		; Cache bank in use (RendTabCheck).
 
 	LEA	$DFF002,A6
 ESPBLTA2:BTST	#$E,(A6)
@@ -13405,6 +13472,9 @@ ImpSprNoSnap:
 	MOVE.W	SprSplit,SprWinHi	; below it.
 	ADD.W	#14,SprWinHi
 	ST	SprPass2
+	TST.L	GFXSPRT			; Top table's own pattern slots.
+	BEQ.S	SPR16BUC
+	MOVE.L	GFXSPRT,A1
 SPR16BUC:
 	MOVEM.L	SPRDATS(PC),D0-D3
 
@@ -14620,14 +14690,14 @@ BufBasura:	DS.L	20
 	CNOP	0,4
 Emula1Frame:
 	IFD	PERF
-	BSR	PerfStamp		; A: Z80 frame done.
+	JSR	PerfStamp		; A: Z80 frame done.
 	MOVE.L	PerfNow,PerfA
 	ENDC
 
 	BSR	Wait60fps
 
 	IFD	PERF
-	BSR	PerfStamp		; B: waited for the Amiga frame.
+	JSR	PerfStamp		; B: waited for the Amiga frame.
 	MOVE.L	PerfNow,PerfB
 	ENDC
 
@@ -14656,7 +14726,7 @@ PerfSpFin:
 	ENDC
 
 	IFD	PERF
-	BSR	PerfStamp		; C: copper + hardware updates.
+	JSR	PerfStamp		; C: copper + hardware updates.
 	MOVE.L	PerfNow,PerfC
 	ENDC
 
@@ -14670,125 +14740,20 @@ PerfSpFin:
 	ENDC
 	JSR	([RVDP.W,A3])		; Emulación del VDP.
 	IFD	PERF
-	BSR	PerfStamp		; D: VDP render done.
+	JSR	PerfStamp		; D: VDP render done.
 	MOVE.L	PerfNow,PerfD
 	ADDQ.L	#1,PerfRec+24
-	BSR	PerfFrame
+	JSR	PerfFrame
 	ENDC
 	RTS
 RefrCon:
 	SUBQ.W	#1,Refresh
 	IFD	PERF
 	MOVE.L	PerfC,PerfD		; Frame skipped: no render.
-	BSR	PerfFrame
+	JSR	PerfFrame
 	ENDC
 	RTS
 
-	IFD	PERF
-; Time stamp in PAL colour clocks: (VBlank interrupts (PerfTick) * 313 +
-; VPOSR line) * 227 + horizontal position. Keeps every register.
-PerfStamp:
-	MOVEM.L	D0-D1,-(SP)
-PerfStBuc:
-	MOVE.L	PerfTick,D1
-	MOVE.L	$DFF004,D0		; V8 (bit 16), V7-V0 (bits 15-8).
-	CMP.L	PerfTick,D1
-	BNE.S	PerfStBuc
-	MOVE.L	D0,-(SP)
-	LSR.L	#8,D0
-	AND.L	#$1FF,D0
-	CMP.W	PerfVMax,D0
-	BLS.S	PerfStPos
-	MOVE.W	D0,PerfVMax		; Longest frame seen.
-PerfStPos:
-	MULU.L	#313,D1
-	ADD.L	D1,D0
-	MULU.L	#227,D0			; Colour clocks per line.
-	MOVE.L	(SP)+,D1
-	AND.L	#$FF,D1
-	ADD.L	D1,D0
-	MOVE.L	D0,PerfNow
-	MOVEM.L	(SP)+,D0-D1
-	RTS
-
-; Accumulate one frame: core = A - last D, wait = B - A, other = C - B,
-; render = D - C. Every PERFWIN frames a record goes to PerfRing.
-PERFWIN=250
-PerfFrame:
-	MOVEM.L	D0-D1/A0-A1,-(SP)
-	LEA	PerfRec,A0
-	TST.L	PerfLast
-	BEQ.S	PerfFrNoCore		; First frame: no core time yet.
-	MOVE.L	PerfA,D0
-	SUB.L	PerfLast,D0
-	ADD.L	D0,8(A0)		; core
-	TST.L	4(A0)
-	BNE.S	PerfFrNoCore
-	MOVE.L	PerfLast,PerfWin0	; Window starts at the last D.
-	MOVE.L	PerfTick,PerfTick0
-PerfFrNoCore:
-	MOVE.L	PerfB,D0
-	SUB.L	PerfA,D0
-	ADD.L	D0,12(A0)		; wait
-	MOVE.L	PerfC,D0
-	SUB.L	PerfB,D0
-	ADD.L	D0,16(A0)		; other
-	MOVE.L	PerfD,D0
-	SUB.L	PerfC,D0
-	ADD.L	D0,20(A0)		; render
-	MOVE.L	PerfD,PerfLast
-	TST.L	PerfWin0
-	BEQ.S	PerfFrFin
-	ADDQ.L	#1,4(A0)		; frames
-	CMP.L	#PERFWIN,4(A0)
-	BCS.S	PerfFrFin
-	MOVE.L	PerfD,D0		; Window done: elapsed, ticks.
-	SUB.L	PerfWin0,D0
-	MOVE.L	D0,(A0)
-	MOVE.L	PerfTick,D0
-	SUB.L	PerfTick0,D0
-	MOVE.L	D0,28(A0)
-	MOVE.L	PerfPtr,A1
-	MOVEQ	#16-1,D0
-PerfFrCop:
-	MOVE.L	(A0),(A1)+
-	CLR.L	(A0)+
-	DBF	D0,PerfFrCop
-	CMP.L	#PerfRingEnd,A1
-	BCS.S	PerfFrRing
-	LEA	PerfRing,A1
-PerfFrRing:
-	MOVE.L	A1,PerfPtr
-	ADDQ.L	#1,PerfCount
-	CLR.L	PerfWin0
-PerfFrFin:
-	MOVEM.L	(SP)+,D0-D1/A0-A1
-	RTS
-
-		CNOP	0,4
-PerfNow:	DC.L	0
-PerfA:		DC.L	0
-PerfB:		DC.L	0
-PerfC:		DC.L	0
-PerfD:		DC.L	0
-PerfLast:	DC.L	0
-PerfWin0:	DC.L	0
-PerfTick0:	DC.L	0
-PerfRec:	DS.L	16			; elapsed, frames, core, wait, other,
-						; render, renders, VBlank ints,
-						; PERFSUB 0-7 (colour clocks)
-PerfSubT:	DC.L	0
-PerfHdr:	DC.L	"APRF"
-PerfCount:	DC.L	0			; Records written.
-PerfPtr:	DC.L	PerfRing
-PerfTick:	DC.L	0			; VBlank interrupts (Inter).
-PerfVMax:	DC.W	0			; Highest VPOSR line seen.
-PerfIntMin:	DC.W	0			; ScrModo, R#0 of the last render.
-PerfIntMax:	DC.W	0			; Latest VBlank int line.
-PerfCPU:	DC.W	0			; AttnFlags, Modo060.
-PerfRing:	DS.L	16*128
-PerfRingEnd:
-	ENDC
 
 Refresh:DC.W	0
 
@@ -14840,6 +14805,12 @@ TABSPR:	DS.B	512	; VRAM de 128Kb !!!
 
 	IFNE	(TAB98-REGS)>$7FFE
 	FAIL	"(TAB98-REGS) > 32Kb"
+	ENDC
+	CNOP	0,8
+TAB98B:	DS.B	$800*8	; Dirty flags of cache bank 2 (GFXCA2).
+	DC.L	0
+	IFNE	(TAB98B-REGS)>$7FFE
+	FAIL	"(TAB98B-REGS) > 32Kb"
 	ENDC
 ; ***********************************************************
 
@@ -16068,6 +16039,17 @@ Inter:
 PerfIntNoMax:
 	MOVE.L	(SP)+,D0
 	ENDC
+	IFD	PERF
+	MOVE.L	A0,-(SP)		; PC sample (profile): the interrupted
+	MOVE.L	PerfPCPtr,A0		; PC, 2 bytes into the exception frame.
+	MOVE.L	4+2(SP),(A0)+
+	CMP.L	#PerfPCEnd,A0
+	BCS.S	PerfPCv
+	LEA	PerfPCBuf,A0
+PerfPCv:	MOVE.L	A0,PerfPCPtr
+	ADDQ.L	#1,PerfPCCnt
+	MOVE.L	(SP)+,A0
+	ENDC
 	NOP
 	RTE
 
@@ -16075,6 +16057,17 @@ PerfIntNoMax:
 	CNOP	0,8
 VDP_Emul:
 	MOVE.L	A3,-(SP)
+	IFD	PERF
+	MOVE.L	A0,-(SP)		; PC sample (profile): the interrupted
+	MOVE.L	PerfPCPtr,A0		; PC, 2 bytes into the exception frame.
+	MOVE.L	8+2(SP),(A0)+
+	CMP.L	#PerfPCEnd,A0
+	BCS.S	PerfPCc
+	LEA	PerfPCBuf,A0
+PerfPCc:	MOVE.L	A0,PerfPCPtr
+	ADDQ.L	#1,PerfPCCnt
+	MOVE.L	(SP)+,A0
+	ENDC
 
 
 	MOVE.L	NextCopp,$dff084
@@ -16752,6 +16745,8 @@ SprECskip:
 	MOVE.L	SPR2_Pila(PC),SP
 	RTS
 SprECOff:	DC.W	0
+		CNOP	0,4
+SprLastP6:	DC.L	-1		; R#6 table last converted (TRANSSPR).
 ; ---
 	CNOP	0,8
 SPR2PBUC0:
@@ -20394,29 +20389,101 @@ TrvGo:
 	CLR.W	SprSplit
 	JMP	MiraInter0
 
-; SCREEN 2/4: full re-conversion (ACTODOB) when the pattern or colour table
-; base differs from the one last drawn, decided here at render time and not
-; on each R#3/R#4/R#10 write. Lilly's Saga switches tables for its HUD at
-; line ~172 and back in VBlank every frame: two writes per frame made a full
-; SCREEN 4 redraw every frame (660 of 680 render lines on a 68030/50).
-; Sets A3 = REGS (as its callers expect). Uses D1.
+; SCREEN 2/4 character cache: two banks (GFXCA/TAB98, GFXCA2/TAB98B), each
+; for one table set (colour base, pattern base, R#3, R#4), decided here at
+; render time. The set last drawn: nothing to do. The other bank's set: use
+; that bank, no conversion; SCREEN 2 has a screen per bank and only copies
+; changed names, SCREEN 4 copies the whole screen (BankSw). A new set: it
+; takes the other bank, full conversion (ACTODOB). A full redraw asked for
+; elsewhere (screen mode change) keeps the bank and forgets the other one.
+; Uridium flips two fixed sets every frame; Lilly's Saga switches tables for
+; its HUD (PRINT4S draws the playfield's). Sets A3 = REGS. Uses D0/D1/A0.
 	CNOP	0,4
 RendTabCheck:
 	LEA	REGS,A3
+	SF	BankSw
+	MOVE.W	BankAct(PC),D0		; D0 = bank in use * 12.
+	LEA	BankKeys(PC),A0
+	TST.B	ACTODOB(A3)
+	BEQ	RTCChk
+	MOVEQ	#12,D1			; Full redraw anyway: the other bank
+	SUB.W	D0,D1			; is forgotten, this one gets the set.
+	MOVE.L	#-1,(A0,D1.W)
+	BRA	RTCSet
+RTCChk:	BSR	RTCSame
+	BEQ	RTCFin			; Same set as last drawn.
+	MOVEQ	#12,D0
+	SUB.W	BankAct(PC),D0		; The other bank...
+	BSR	RTCSame
+	BEQ	RTCOther
+	ST	ACTODOB(A3)		; ...gets the new set: full conversion.
+	BRA	RTCSet
+RTCOther:
+	ST	BankSw			; ...has it: copy the screen.
+RTCSet:	MOVE.L	PVDP3B(A3),(A0,D0.W)
+	MOVE.L	PVDP4B(A3),4(A0,D0.W)
+	MOVE.B	DVDP3+1(A3),8(A0,D0.W)
+	MOVE.B	DVDP4+1(A3),9(A0,D0.W)
+	MOVE.W	D0,BankAct
+	MOVE.L	#GFXCA,GfxCaPtr
+	MOVE.L	#TAB98,TabFlagPtr
+	MOVE.L	#SCREEN,ScreenPtr
+	MOVE.L	#TXT2,Txt2Ptr
+	TST.W	D0
+	BEQ	RTCFin
+	MOVE.L	#GFXCA2,GfxCaPtr
+	MOVE.L	#TAB98B,TabFlagPtr
+	CMP.B	#1,ScrModo(A3)		; SCREEN 2: the bank has its own screen
+	BNE	RTCFin			; and name shadow (Planos2).
+	MOVE.L	#SCREEN2B,ScreenPtr
+	MOVE.L	#TXT2B,Txt2Ptr
+RTCFin:	RTS
+RTCSame:				; Z: bank D0 holds the current set.
 	MOVE.L	PVDP3B(A3),D1
-	CMP.L	RendP3B,D1
-	BNE.S	RendTabNew
+	CMP.L	(A0,D0.W),D1
+	BNE.S	RTCSNo
 	MOVE.L	PVDP4B(A3),D1
-	CMP.L	RendP4B,D1
-	BNE.S	RendTabNew
+	CMP.L	4(A0,D0.W),D1
+	BNE.S	RTCSNo
+	MOVE.B	DVDP3+1(A3),D1
+	CMP.B	8(A0,D0.W),D1
+	BNE.S	RTCSNo
+	MOVE.B	DVDP4+1(A3),D1
+	CMP.B	9(A0,D0.W),D1
+RTCSNo:	RTS
+		CNOP	0,4
+BankKeys:	DC.L	-1,-1,0		; Per bank: colour, pattern base, R#3/R#4.
+		DC.L	-1,-1,0
+BankAct:	DC.W	0		; Bank in use * 12.
+TXT2B:		DS.B	80*30		; Name shadow of bank 2 (SCREEN 2).
+		EVEN
+BankSw:		DC.B	0		; Switched to the other bank this frame.
+		EVEN
+GfxCaPtr:	DC.L	GFXCA		; Cache bank in use,
+TabFlagPtr:	DC.L	TAB98		; its dirty flags,
+ScreenPtr:	DC.L	SCREEN		; screen
+Txt2Ptr:	DC.L	TXT2		; and name shadow (SCREEN 2 only).
+
+; SCREEN 2: bitplanes of both copper lists on the bank's screen.
+	CNOP	0,4
+Planos2:
+	MOVE.L	ScreenPtr,D0
+	LEA	PLANO2+2,A0
+	BSR.S	Planos2Set
+	LEA	PLANO2B+2,A0
+Planos2Set:
+	MOVEQ	#4-1,D1
+	MOVE.L	D0,-(SP)
+Planos2Buc:
+	MOVE.W	D0,4(A0)
+	SWAP	D0
+	MOVE.W	D0,(A0)
+	SWAP	D0
+	ADD.L	#32,D0
+	ADDQ.W	#8,A0
+	DBF	D1,Planos2Buc
+	MOVE.L	(SP)+,D0
 	RTS
-RendTabNew:
-	ST	ACTODOB(A3)
-	MOVE.L	PVDP3B(A3),RendP3B
-	MOVE.L	PVDP4B(A3),RendP4B
-	RTS
-RendP3B:	DC.L	-1
-RendP4B:	DC.L	-1
 
 ; SCREEN 4 with a table split (TSplit, see TSPLITCHK). Lilly's Saga: at line
 ; ~174 its HUD switches to R#2=$26, R#4=$13, R#10=$02 and R#23=$4F, and back
@@ -20620,6 +20687,116 @@ BandCnt:	DC.W	0
 BandTotal:	DC.W	0
 BandReal:	DC.L	0
 
+	IFD	PERF
+; Time stamp in PAL colour clocks: (VBlank interrupts (PerfTick) * 313 +
+; VPOSR line) * 227 + horizontal position. Keeps every register.
+PerfStamp:
+	MOVEM.L	D0-D1,-(SP)
+PerfStBuc:
+	MOVE.L	PerfTick,D1
+	MOVE.L	$DFF004,D0		; V8 (bit 16), V7-V0 (bits 15-8).
+	CMP.L	PerfTick,D1
+	BNE.S	PerfStBuc
+	MOVE.L	D0,-(SP)
+	LSR.L	#8,D0
+	AND.L	#$1FF,D0
+	CMP.W	PerfVMax,D0
+	BLS.S	PerfStPos
+	MOVE.W	D0,PerfVMax		; Longest frame seen.
+PerfStPos:
+	MULU.L	#313,D1
+	ADD.L	D1,D0
+	MULU.L	#227,D0			; Colour clocks per line.
+	MOVE.L	(SP)+,D1
+	AND.L	#$FF,D1
+	ADD.L	D1,D0
+	MOVE.L	D0,PerfNow
+	MOVEM.L	(SP)+,D0-D1
+	RTS
+
+; Accumulate one frame: core = A - last D, wait = B - A, other = C - B,
+; render = D - C. Every PERFWIN frames a record goes to PerfRing.
+PERFWIN=250
+PerfFrame:
+	MOVEM.L	D0-D1/A0-A1,-(SP)
+	LEA	PerfRec,A0
+	TST.L	PerfLast
+	BEQ.S	PerfFrNoCore		; First frame: no core time yet.
+	MOVE.L	PerfA,D0
+	SUB.L	PerfLast,D0
+	ADD.L	D0,8(A0)		; core
+	TST.L	4(A0)
+	BNE.S	PerfFrNoCore
+	MOVE.L	PerfLast,PerfWin0	; Window starts at the last D.
+	MOVE.L	PerfTick,PerfTick0
+PerfFrNoCore:
+	MOVE.L	PerfB,D0
+	SUB.L	PerfA,D0
+	ADD.L	D0,12(A0)		; wait
+	MOVE.L	PerfC,D0
+	SUB.L	PerfB,D0
+	ADD.L	D0,16(A0)		; other
+	MOVE.L	PerfD,D0
+	SUB.L	PerfC,D0
+	ADD.L	D0,20(A0)		; render
+	MOVE.L	PerfD,PerfLast
+	TST.L	PerfWin0
+	BEQ.S	PerfFrFin
+	ADDQ.L	#1,4(A0)		; frames
+	CMP.L	#PERFWIN,4(A0)
+	BCS.S	PerfFrFin
+	MOVE.L	PerfD,D0		; Window done: elapsed, ticks.
+	SUB.L	PerfWin0,D0
+	MOVE.L	D0,(A0)
+	MOVE.L	PerfTick,D0
+	SUB.L	PerfTick0,D0
+	MOVE.L	D0,28(A0)
+	MOVE.L	PerfPtr,A1
+	MOVEQ	#16-1,D0
+PerfFrCop:
+	MOVE.L	(A0),(A1)+
+	CLR.L	(A0)+
+	DBF	D0,PerfFrCop
+	CMP.L	#PerfRingEnd,A1
+	BCS.S	PerfFrRing
+	LEA	PerfRing,A1
+PerfFrRing:
+	MOVE.L	A1,PerfPtr
+	ADDQ.L	#1,PerfCount
+	CLR.L	PerfWin0
+PerfFrFin:
+	MOVEM.L	(SP)+,D0-D1/A0-A1
+	RTS
+
+		CNOP	0,4
+PerfNow:	DC.L	0
+PerfA:		DC.L	0
+PerfB:		DC.L	0
+PerfC:		DC.L	0
+PerfD:		DC.L	0
+PerfLast:	DC.L	0
+PerfWin0:	DC.L	0
+PerfTick0:	DC.L	0
+PerfRec:	DS.L	16			; elapsed, frames, core, wait, other,
+						; render, renders, VBlank ints,
+						; PERFSUB 0-7 (colour clocks)
+PerfSubT:	DC.L	0
+PerfHdr:	DC.L	"APRF"
+PerfCount:	DC.L	0			; Records written.
+PerfPtr:	DC.L	PerfRing
+PerfTick:	DC.L	0			; VBlank interrupts (Inter).
+PerfVMax:	DC.W	0			; Highest VPOSR line seen.
+PerfIntMin:	DC.W	0			; ScrModo, R#0 of the last render.
+PerfIntMax:	DC.W	0			; Latest VBlank int line.
+PerfCPU:	DC.W	0			; AttnFlags, Modo060.
+PerfRing:	DS.L	16*128
+PerfRingEnd:
+PerfPCBase:	DC.L	Emula1Frame	; Profile: anchor for the listing,
+PerfPCCnt:	DC.L	0		; samples taken,
+PerfPCPtr:	DC.L	PerfPCBuf	; next slot,
+PerfPCEnd0:
+	ENDC
+
 	CNOP	0,4
 TRANSSPR16S:
 	JSR	TRANSSPR16
@@ -20627,7 +20804,8 @@ TRANSSPR16S:
 ; are converted from the top snapshot's pattern table into GFXSPR, and back
 ; from R#6's table once that is over. Uridium: HUD patterns 128-236 from
 ; R#6=$03 above line 63, ship and bullets from R#6=$07 below. Slots used
-; on both sides keep R#6's patterns. Also sets SplitOK for IMPSPR.
+; on both sides go to a free slot for the top sprites (remap). Also sets
+; SplitOK for IMPSPR.
 SprSlotsT:
 	LEA	REGS(PC),A3
 	SF	SplitOK
@@ -20639,12 +20817,36 @@ SprSlotsT:
 	BEQ.S	SpSlNoSplit
 	ST	SplitOK
 SpSlNoSplit:
+	TST.B	SprTInit		; GFXSPRT: 8x8 buffer + 96, if all of
+	BNE.S	SpSlTOK			; it shares GFXSPR's 64 KB bank (the
+	ST	SprTInit		; copper only sets sprite pointers' low
+	MOVE.L	GFXSPR8,D0		; words).
+	ADD.L	#24*4,D0
+	MOVE.L	D0,D1
+	SUB.L	#18*4,D1
+	MOVE.L	D0,D2
+	ADD.L	#$1200+(64*18*4),D2
+	MOVE.L	GFXSPR,D3
+	SWAP	D1
+	SWAP	D2
+	SWAP	D3
+	CMP.W	D3,D1
+	BNE.S	SpSlTOK
+	CMP.W	D3,D2
+	BNE.S	SpSlTOK
+	MOVE.L	D0,GFXSPRT
+	MOVE.L	GFXSPR8,A1		; Empty sprite before the slots (the
+	MOVEQ	#(24)-1,D1		; transparent-colour sprites use it).
+SpSlTClr:
+	CLR.L	(A1)+
+	DBF	D1,SpSlTClr
+SpSlTOK:
 	LEA	SlotMark,A0		; 0 none, 1 top only, 2 below (wins)
 	MOVEQ	#(64/4)-1,D0
 SpSlClr:CLR.L	(A0)+
 	DBF	D0,SpSlClr
 	TST.B	SplitOK
-	BEQ.S	SpSlConv
+	BEQ	SpSlConv
 	LEA	SlotMark,A0
 	MOVE.W	SprSplit,D2
 	ADD.W	#14,D2			; Top pass: Y+15 < split+14.
@@ -20673,7 +20875,7 @@ SpSlTopF:
 SpSlBot:MOVEQ	#0,D1
 	MOVE.B	(A1),D1
 	CMP.B	#208,D1
-	BEQ.S	SpSlConv
+	BEQ	SpSlBotF		; (End of the list: on to the top fix-ups.)
 	ADD.B	#15,D1
 	CMP.W	D2,D1
 	BCS.S	SpSlBotN
@@ -20684,14 +20886,75 @@ SpSlBot:MOVEQ	#0,D1
 SpSlBotN:
 	ADDQ.W	#4,A1
 	DBF	D0,SpSlBot
+SpSlBotF:
+	TST.L	GFXSPRT
+	BNE	SpSlOwn
+; Top sprites on a slot the bottom ones use (mark 2): a free slot (mark 0,
+; from 63 down) gets their pattern (mark 3, SlotSrc = their slot), and the
+; pattern number in SprSnapT is changed to it. One per conflicting slot.
+	LEA	SlotRemap,A2
+	MOVEQ	#(64/4)-1,D0
+SpSlRClr:
+	CLR.L	(A2)+
+	DBF	D0,SpSlRClr
+	LEA	SlotRemap,A2
+	MOVE.W	SprSplit,D2
+	ADD.W	#14,D2
+	LEA	SprSnapT+512,A1
+	MOVEQ	#32-1,D0
+SpSlRem:MOVEQ	#0,D1
+	MOVE.B	(A1),D1
+	CMP.B	#208,D1
+	BEQ.S	SpSlConv
+	ADD.B	#15,D1
+	CMP.W	D2,D1			; Top sprites only.
+	BCC.S	SpSlRemN
+	MOVEQ	#0,D3
+	MOVE.B	2(A1),D3
+	LSR.B	#2,D3
+	CMP.B	#2,(A0,D3.W)		; Slot taken by the bottom table?
+	BNE.S	SpSlRemN
+	MOVEQ	#0,D4
+	MOVE.B	(A2,D3.W),D4		; Already remapped this frame?
+	BNE.S	SpSlRemP
+	MOVEQ	#64-1,D4		; Free slot.
+SpSlFree:
+	TST.B	(A0,D4.W)
+	BEQ.S	SpSlGot
+	DBF	D4,SpSlFree
+	BRA.S	SpSlRemN		; None free: as before.
+SpSlGot:
+	MOVE.B	#3,(A0,D4.W)
+	MOVE.L	A0,-(SP)
+	LEA	SlotSrc,A0
+	MOVE.B	D3,(A0,D4.W)
+	MOVE.L	(SP)+,A0
+	ADDQ.W	#1,D4
+	MOVE.B	D4,(A2,D3.W)
+SpSlRemP:
+	SUBQ.W	#1,D4
+	LSL.B	#2,D4
+	AND.B	#$03,2(A1)		; New pattern number (16x16: slot * 4).
+	OR.B	D4,2(A1)
+SpSlRemN:
+	ADDQ.W	#4,A1
+	DBF	D0,SpSlRem
 SpSlConv:
 	LEA	SlotMark,A0
 	LEA	SlotFromT,A2
 	MOVE.L	GFXSPR,A1
 	MOVEQ	#0,D3			; Slot.
 SpSlBuc:
+	MOVE.W	D3,D2			; Source slot: this one...
 	CMP.B	#1,(A0,D3.W)
+	BEQ.S	SpSlTopT
+	CMP.B	#3,(A0,D3.W)
 	BNE.S	SpSlNoT
+	MOVE.L	A0,-(SP)		; ...or a remapped top pattern.
+	LEA	SlotSrc,A0
+	MOVE.B	(A0,D3.W),D2
+	MOVE.L	(SP)+,A0
+SpSlTopT:
 	MOVE.L	SnapT6,D1		; Top only: from the top table.
 	ST	(A2,D3.W)
 	BRA.S	SpSlDo
@@ -20703,7 +20966,7 @@ SpSlNoT:
 SpSlDo:	MOVEM.L	D3/A0-A2,-(SP)
 	LEA	DIRVRAM,A0
 	ADD.L	D1,A0
-	MOVE.W	D3,D1
+	MOVE.W	D2,D1
 	LSL.W	#5,D1
 	ADD.W	D1,A0			; 32 bytes per 16x16 pattern.
 	MULU	#(18*4),D3
@@ -20729,6 +20992,70 @@ SpSlSig:
 	CMP.W	#64,D3
 	BCS	SpSlBuc
 	RTS
+
+; Split with GFXSPRT: each slot a top sprite uses is converted there from the
+; top table (SnapT6), once per frame; GFXSPR keeps R#6's patterns. Then the
+; slot loop only puts back slots an earlier fallback frame borrowed.
+SpSlOwn:
+	LEA	SlotTDone,A2
+	MOVEQ	#(64/4)-1,D0
+SpSlOClr:
+	CLR.L	(A2)+
+	DBF	D0,SpSlOClr
+	LEA	SlotTDone,A2
+	MOVE.W	SprSplit,D2
+	ADD.W	#14,D2
+	LEA	SprSnapT+512,A1
+	MOVEQ	#32-1,D0
+SpSlOBuc:
+	MOVEQ	#0,D1
+	MOVE.B	(A1),D1
+	CMP.B	#208,D1
+	BEQ	SpSlOFin
+	ADD.B	#15,D1
+	CMP.W	D2,D1			; Top sprites only.
+	BCC	SpSlONxt
+	MOVEQ	#0,D3
+	MOVE.B	2(A1),D3
+	LSR.B	#2,D3
+	TST.B	(A2,D3.W)
+	BNE	SpSlONxt
+	ST	(A2,D3.W)
+	MOVEM.L	D0/D2/A1-A2,-(SP)
+	LEA	DIRVRAM,A0
+	ADD.L	SnapT6,A0
+	MOVE.W	D3,D1
+	LSL.W	#5,D1
+	ADD.W	D1,A0			; 32 bytes per 16x16 pattern.
+	MOVE.L	GFXSPRT,A1
+	MULU	#(18*4),D3
+	ADD.L	D3,A1			; 72 bytes per slot.
+	MOVE.L	A1,A4
+	NOT.B	-3(A1)
+	BEQ.S	SpSlONoS
+	ADD.W	#$1200,A4
+SpSlONoS:
+	MOVEM.L	(A0)+,D4-D7
+	PONSPR	D4,00
+	PONSPR	D5,16
+	PONSPR	D6,32
+	PONSPR	D7,48
+	MOVEM.L	(A0)+,D4-D7
+	PONSPR	D4,01
+	PONSPR	D5,17
+	PONSPR	D6,33
+	PONSPR	D7,49
+	MOVEM.L	(SP)+,D0/D2/A1-A2
+SpSlONxt:
+	ADDQ.W	#4,A1
+	DBF	D0,SpSlOBuc
+SpSlOFin:
+	LEA	SlotMark,A0		; Nothing for GFXSPR but restores.
+	MOVEQ	#(64/4)-1,D0
+SpSlOClr2:
+	CLR.L	(A0)+
+	DBF	D0,SpSlOClr2
+	BRA	SpSlConv
 ; ---------------------------------------<=
 
 
@@ -21645,3 +21972,25 @@ SCREENB:	DS.B	(212*32*4)	; Lines below a SCREEN 4 table split.
 	SECTION	BANDS,BSS
 ; --------------------------------
 BandBuf:	DS.B	640*BANDMAX	; Sprite mode 2 band snapshots.
+
+	IFD	PERF
+; --------------------------------
+	SECTION	PROFILE,BSS
+; --------------------------------
+PerfPCBuf:	DS.L	16384		; Interrupted PCs (PERF profile).
+PerfPCEnd:
+	ENDC
+
+; --------------------------------
+	SECTION	CACHE2,BSS_C
+; --------------------------------
+	CNOP	0,8
+GFXCA2:	DS.B	64*1024		; Character cache bank 2 (RendTabCheck).
+	DS.L	10
+
+; --------------------------------
+	SECTION	SCREEN2B,BSS_C
+; --------------------------------
+	CNOP	0,8
+SCREEN2B:	DS.B	(32*32*8*4)	; SCREEN 2 screen of cache bank 2.
+	DS.B	12*8

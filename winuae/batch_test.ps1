@@ -1,5 +1,6 @@
 ﻿# Boot each ROM in WinUAE via the AmiMSX CLI hook and capture the window.
-# Usage: powershell -File winuae\batch_test.ps1 [-Roms a.rom,b.rom] [-Shots 35,60]
+# Usage: powershell -File winuae\batch_test.ps1 [-Roms a.rom,b.dsk] [-Shots 35,60]
+# (.rom from run\Roms in Slot 1; .dsk from run\Disks in drive A)
 param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
       [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "")
@@ -56,7 +57,8 @@ function Capture($hwnd, $path) {   # WinUAE's window content only: never other w
 }
 foreach ($rom in $Roms) {
   $s = [IO.File]::ReadAllText($seq, $latin1)
-  $s = [regex]::Replace($s, '(?m)^Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:Roms/$rom`"")
+  $dir = if ($rom -match '\.dsk$') { "Disks" } else { "Roms" }   # disk images boot from drive A (run\Disks)
+  $s = [regex]::Replace($s, '(?m)^Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"")
   [IO.File]::WriteAllText($seq, $s, $latin1)
   Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1
   Start-Process "C:\Program Files\WinUAE\winuae64.exe" -ArgumentList "-f `"$base\winuae\$Config`"" -WorkingDirectory "C:\Program Files\WinUAE"

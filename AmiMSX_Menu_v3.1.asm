@@ -459,7 +459,23 @@ PerfDump:
 	TST.L	D0
 	BEQ.S	PerfDFin
 	MOVE.L	#PerfHdr,D2
-	MOVE.L	#PerfRingEnd-PerfHdr,D3
+	MOVE.L	#PerfPCEnd0-PerfHdr,D3	; Records and profile header...
+	BSR	WRITEFILE
+	MOVE.L	#PerfPCBuf,D2		; ...and the PC samples.
+	MOVE.L	#PerfPCEnd-PerfPCBuf,D3
+	BSR	WRITEFILE
+	MOVE.L	#GFXSPR,D2		; Debug: GFXSPR, GFXSPR8, GFXSPRT, then
+	MOVE.L	#8,D3			; both sprite pattern areas.
+	BSR	WRITEFILE
+	MOVE.L	#GFXSPRT,D2
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
+	MOVE.L	GFXSPR,D2
+	SUB.L	#96,D2
+	MOVE.L	#10240,D3
+	BSR	WRITEFILE
+	MOVE.L	GFXSPR8,D2
+	MOVE.L	#20480,D3
 	BSR	WRITEFILE
 	BSR	CLOSEFILE
 PerfDFin:
@@ -479,7 +495,7 @@ TraceDump:
 	MOVE.L	#$3EE,D2
 	BSR	OPENFILE
 	TST.L	D0
-	BEQ.S	TrDumpFin
+	BEQ	TrDumpFin
 	MOVE.L	#TraceHdr,D2
 	MOVE.L	#TraceBuf-TraceHdr,D3
 	BSR	WRITEFILE
@@ -500,6 +516,19 @@ TraceDump:
 	MOVE.L	#TrvPtr,D2		; Sprite-table event ring.
 	MOVE.L	#TrvEnd-TrvPtr,D3
 	BSR	WRITEFILE
+	MOVE.L	GFXSPR,D2		; Sprite pattern areas: main (from
+	SUB.L	#96,D2			; its header)...
+	MOVE.L	#10240,D3
+	BSR	WRITEFILE
+	MOVE.L	GFXSPR8,D2		; ...and the 8x8 one (GFXSPRT).
+	MOVE.L	#20480,D3
+	BSR	WRITEFILE
+	MOVE.L	#GFXSPR,D2		; Pointers: GFXSPR, GFXSPR8, GFXSPRT.
+	MOVE.L	#8,D3
+	BSR	WRITEFILE
+	MOVE.L	#GFXSPRT,D2
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
 	BSR	CLOSEFILE
 TrDumpFin:
 	RTS
@@ -508,6 +537,8 @@ TraceName:	DC.B	"AmiMSX:trace.bin",0
 	ENDC
 AutoCart:	DC.B	0		; Test hook flags (see ANEM).
 AutoGo:		DC.B	0
+AutoDisk:	DC.B	0		; CLI test hook: FILENOM is a disk image.
+		EVEN
 		CNOP	0,4
 BUFERDSK:	DS.L	8
 		CNOP	0,4
@@ -578,6 +609,8 @@ SiEstaData2:
 ; ------------------------------------------
 
 	TST.B	AutoCart		; Test hook: no splash.
+	BNE.S	NoShowMatra
+	TST.B	AutoDisk
 	BNE.S	NoShowMatra
 	BSR	ShowMatra
 NoShowMatra:
@@ -661,6 +694,12 @@ NOHAYASL2:
 	BSR	InsertSl1
 	ST	AutoGo
 NoAutoCart2:
+	TST.B	AutoDisk		; Test hook: disk image in drive A, then GO.
+	BEQ.S	NoAutoDisk
+	SF	AutoDisk
+	BSR	LOADVDAuto
+	ST	AutoGo
+NoAutoDisk:
 
 BUCLEMENU:
 
@@ -3322,7 +3361,7 @@ CHAPUZ0:
 	BSR	COPYNOM
 
 
-
+LOADVDAuto:				; (CLI test hook: FILENOM already set.)
 	MOVE.L	#FILENOM,D1
 	MOVE.L	#$3ED,D2
 	BSR	OPENFILE
