@@ -15,6 +15,8 @@ print(f"instructions traced: {count}, port A8 at freeze: {a8:02X} "
       f"(pages 0..3 -> slots {a8 & 3},{a8 >> 2 & 3},{a8 >> 4 & 3},{a8 >> 6 & 3})")
 print("PagRead :", " ".join(f"{p:08X}" for p in pagread))
 print(f"SCREEN 2 redraws (PRINT2): {n_print2}, of which full (ACTUTODO2): {n_full2}")
+m6, imp6, off6 = struct.unpack(">III", d[56:68]); pref16 = struct.unpack(">H", d[70:72])[0]
+print(f"SPRMODE6 calls {m6}, IMPSPR2 {imp6}, sprites-off {off6}; Sprites pref (DirPrefs+$16) {pref16}, COSPR2 {d[72]}")
 print(f"--- last {n_last} instructions (PC, opcode, A8) ---")
 prev = None
 for e in order[-n_last:]:

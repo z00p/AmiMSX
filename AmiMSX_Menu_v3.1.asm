@@ -476,6 +476,9 @@ TraceDump:
 	MOVE.L	#DIRVRAM,D2		; And the whole 128Kb of VRAM.
 	MOVE.L	#128*1024,D3
 	BSR	WRITEFILE
+	MOVE.L	#TrvPtr,D2		; Sprite-table event ring.
+	MOVE.L	#TrvEnd-TrvPtr,D3
+	BSR	WRITEFILE
 	BSR	CLOSEFILE
 TrDumpFin:
 	RTS

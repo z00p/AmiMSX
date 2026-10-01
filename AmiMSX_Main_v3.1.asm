@@ -47,6 +47,52 @@ MiraLin:	MACRO
 ; is below the number of banks, else wrapped with the mask. The mask alone
 ; broke ROMs whose size is not a power of two (1088Kb Barbarian: 68 banks).
 ; \1 = MaskROMx (A3 offset), \2 = NumROMx (bank count).  Out: D1.W
+; Sprite snapshot (MiraInterSnap/T): copy the sprite attribute table and
+; the 512 bytes before it (the mode 2 colour table) to \1 and R#6's table
+; to \3, then set \2. IMPSPR/IMPSPR2 draw from the snapshots instead of
+; VRAM at the end of the frame, so mid-frame changes show as on screen:
+; Chikubi Ninja ends its list (Y=216 in #0) under its HUD and in VBlank,
+; Uridium switches sprite tables (R#5/R#6) under its HUD at line 63.
+; Scanline handlers may only change D1: the rest is the Z80 core's.
+; TRACE builds: log a sprite-table event (8 bytes: frame.w, CurLine.w, tag.b,
+; value.b, SprSplit.w). Only uses memory: safe in I/O and line handlers.
+	IFD	TRACE
+TRVLOG:	MACRO
+	MOVE.L	A0,TrvA0
+	MOVE.L	TrvPtr,A0
+	MOVE.W	TrvFrame,(A0)+
+	MOVE.W	REGS+CurLine,(A0)+
+	MOVE.B	#\1,(A0)+
+	MOVE.B	\2,(A0)+
+	MOVE.W	SprSplit,(A0)+
+	CMP.L	#TrvEnd,A0
+	BCS.S	\@ok
+	LEA	TrvBuf,A0
+\@ok:	MOVE.L	A0,TrvPtr
+	MOVE.L	TrvA0,A0
+	ENDM
+	ENDC
+
+SNAPSPR:	MACRO
+	MOVE.B	DVDP0(A3),D1
+	AND.B	#$0C,D1			; M4/M5: sprite mode 2 (SCREEN 4+)?
+	BNE.S	\@Fin			; Mode 1 only: in mode 2 Barbarian (SCREEN 5)
+					; hung in DI+HALT after its title with the
+					; snapshot taken (cause not found, 1 Oct 2026).
+	MOVEM.L	D0/A0-A1,SnapSave
+	MOVE.L	PVDP5(A3),D1		; Mode 1.
+	LEA	DIRVRAM-512,A0
+	ADD.L	D1,A0
+	LEA	\1,A1
+	MOVE.W	#((512+128)/4)-1,D0
+\@Buc:	MOVE.L	(A0)+,(A1)+
+	DBF	D0,\@Buc
+	MOVE.L	PVDP6(A3),\3
+	ST	\2
+	MOVEM.L	SnapSave,D0/A0-A1
+\@Fin:
+	ENDM
+
 BankNum:	MACRO
 	MOVEQ	#0,D1
 	MOVE.B	(A4),D1
@@ -1028,6 +1074,24 @@ NumROM:		DC.W	0		; Banks in the Slot 1 cartridge: 8Kb,
 NumROM2:	DC.W	0		; 16Kb,
 NumROM3:	DC.W	0		; and Slot 2: 8Kb,
 NumROM4:	DC.W	0		; 16Kb.
+SNAPLIN=96				; Sprite snapshot lines (MiraInterSnap/T).
+SNAPTOP=8
+SnapOK:		DC.B	0
+SnapTOK:	DC.B	0
+SplitOK:	DC.B	0
+SprPass2:	DC.B	0
+		EVEN
+SnapSave:	DS.L	3
+SnapM6:		DC.L	0
+SnapT6:		DC.L	0
+SprSatM:	DC.L	0
+SprSplit:	DC.W	0		; Line where R#5/R#6 changed, 0: none.
+SprWinLo:	DC.W	0
+SprWinHi:	DC.W	0
+SlotMark:	DS.B	64
+SlotFromT:	DS.B	64
+SprSnap:	DS.B	512+128		; 512 bytes before the table, then the table.
+SprSnapT:	DS.B	512+128
 S5Valid:	DC.B	0		; 5th sprite flag (see IVDP0).
 		EVEN
 S5Next:		DC.W	0
@@ -1090,6 +1154,14 @@ TrFrzBuc:
 	DBF	D1,TrFrzBuc
 	MOVE.B	DA8(A3),TraceHdr+15
 	ST	TraceFrozen
+	LEA	-$400(A3),A4		; Emulator state block (REGS-$400..+$800).
+	MOVE.L	A5,TrvRegs
+	LEA	TrvRegs+4,A5
+	MOVE.W	#($C00/4)-1,D1
+TrFrzReg:
+	MOVE.L	(A4)+,(A5)+
+	DBF	D1,TrFrzReg
+	MOVE.L	TrvRegs,A5
 	JMP	ZALI			; Back to the menu, no Continue.
 
 TraceInstala:
@@ -1122,6 +1194,13 @@ TraceHdr:	DC.L	"ATRC",0,0,0		; +4 ring offset, +8 count, +15 A8
 		DS.L	16			; +16 PagRead[8], +48 PRINT2 count, +52 ACTUTODO2
 TraceBuf:	DS.L	4096			; PC.w, opcode.b, A8.b
 TraceBufEnd:
+TrvA0:		DC.L	0
+TrvPtr:		DC.L	TrvBuf
+TrvFrame:	DC.W	0
+		DC.W	0
+TrvBuf:		DS.B	8*1024
+TrvRegs:	DS.B	4+$C00		; (A5, then the state block.)
+TrvEnd:
 	ENDC
 ; ---------------------------------------<=
 ; ---------------------------------------<=
@@ -8912,11 +8991,27 @@ VDPB:
 	MOVE.B	DVDP5+1(A3),D2
 VDP5:
 	SF	S5Valid			; 5th sprite flag: recompute.
+	CMP.W	#192,CurLine(A3)	; Table moved in VBlank: no more 5S this
+	BCS.S	VDP5Disp		; frame (the beam checks no lines there).
+	MOVE.W	#192,S5Next		; Uridium resets its HUD table at VBlank
+VDP5Disp:				; and polls S#0 at once for the line 63 split.
 	MOVE.B	D2,DVDP5+1(A3)
 	MOVE.W	DVDP5(A3),D1
 	AND.W	#$03FF,D1
 	MULU	#$80,D1
 	MOVE.L	D1,PVDP5(A3)
+	MOVE.W	CurLine(A3),D1		; Sprite tables changed mid-frame
+	CMP.W	#SNAPTOP,D1		; between the two snapshots: split
+	BLE.S	NoSplit5			; there (IMPSPR draws two passes).
+	CMP.W	#SNAPLIN,D1
+	BGT.S	NoSplit5
+	TST.W	SprSplit
+	BNE.S	NoSplit5
+	MOVE.W	D1,SprSplit
+NoSplit5:
+	IFD	TRACE
+	TRVLOG	5,D2
+	ENDC
 	MOVEQ	#0,D1
 	SWAP	D2
 	RTS
@@ -8929,6 +9024,18 @@ VDP6:
 	BEQ.S	NOCAM6
 	ST	ACTSPR(A3)
 	MOVE.L	D1,PVDP6(A3)
+	MOVE.W	CurLine(A3),D1		; Sprite tables changed mid-frame
+	CMP.W	#SNAPTOP,D1		; between the two snapshots: split
+	BLE.S	NoSplit6			; there (IMPSPR draws two passes).
+	CMP.W	#SNAPLIN,D1
+	BGT.S	NoSplit6
+	TST.W	SprSplit
+	BNE.S	NoSplit6
+	MOVE.W	D1,SprSplit
+NoSplit6:
+	IFD	TRACE
+	TRVLOG	6,D2
+	ENDC
 NOCAM6:
 	MOVEQ	#0,D1
 	SWAP	D2
@@ -10270,6 +10377,11 @@ ContaSPR2:
 
 	CNOP	0,8
 SPRMODE6:
+	IFD	TRACE
+	ADDQ.L	#1,TraceHdr+56		; Debug: SPRMODE6 calls.
+	MOVE.W	DirPrefs+$16,TraceHdr+70
+	MOVE.B	REGS+COSPR2,TraceHdr+72
+	ENDC
 	CMP.W	#3,DirPrefs+$16
 	BNE.S	NoModo63fr
 	SUBQ.B	#1,Modo3fDat
@@ -10327,8 +10439,15 @@ SISPRASC6:
 	MOVE.L	A5,NUMSPR2
 	ADDQ	#2,A5
 	MOVE.L	(A4),A6
+	IFD	TRACE
+	ADDQ.L	#1,TraceHdr+60		; Debug: IMPSPR2 calls (mode 6).
+	ENDC
 	JSR	IMPSPR2
+	RTS
 SPR2OFF6:
+	IFD	TRACE
+	ADDQ.L	#1,TraceHdr+64		; Debug: sprites off.
+	ENDC
 	RTS
 
 	CNOP	0,8
@@ -11317,7 +11436,7 @@ TRANSSPR:
 NOCAMS:	MOVE.B	D1,DATOSPR
 	TST.B	D1		; Mira si es imprimir spr de 8*8 o 16*16
 	BEQ	TRANSSPR8
-	BRA	TRANSSPR16
+	JMP	TRANSSPR16S		; (+ split slots, at the end)
 
 ;  --------------------------------------------------------------------
 ; <********************************************************************>
@@ -13133,6 +13252,10 @@ FINSPRTAB3:
 	LEA	DIRVRAM,A0
 	MOVE.L	A0,A1
 	ADD.L	PVDP5(A3),A0	; Coordenadas sprites.
+	TST.B	SnapOK			; Mid-frame snapshot (MiraInterSnap).
+	BEQ.S	ImpSprNoSnap
+	LEA	SprSnap+512,A0
+ImpSprNoSnap:
 	LEA	TABLASPR(PC),A6	; Tabla de lineas usadas por sprits.
 	MOVE.L	NEXTCOL,A3
 	MOVE.L	4(A3),A2	; Inicio Copper. (Coor: -15)
@@ -13143,8 +13266,21 @@ FINSPRTAB3:
 	BTST	#1,DVDP1(A1)	; Mira si es imprimir spr de 8*8 o 16*16
 	BEQ	SPR8
 
+	IFD	TRACE
+	TRVLOG	$FE,SplitOK
+	ENDC
 	MOVE.L	GFXSPR,A1	; Sprites en formato Amiga.
 	MOVE.W	#32-1,D6
+	MOVE.W	#0,SprWinLo		; Whole screen...
+	MOVE.W	#$7FFF,SprWinHi
+	SF	SprPass2
+	TST.B	SplitOK
+	BEQ.S	SPR16BUC
+	MOVE.L	A0,SprSatM		; ...or the top snapshot above the
+	LEA	SprSnapT+512,A0		; split, then (FINSPR16) the main one
+	MOVE.W	SprSplit,SprWinHi	; below it.
+	ADD.W	#14,SprWinHi
+	ST	SprPass2
 SPR16BUC:
 	MOVEM.L	SPRDATS(PC),D0-D3
 
@@ -13155,6 +13291,10 @@ SPR16BUC:
 	ADD.B	#15,D0		; ¿Se ve en pantalla?
 	CMP.W	#(192+15),D0
 	BGE.S	OTROSPRI
+	CMP.W	SprWinLo,D0		; In this pass's part of the screen?
+	BLT	OTROSPRI
+	CMP.W	SprWinHi,D0
+	BGE	OTROSPRI
 
 	MOVE.B	D0,D5
 	ADD.B	#INIPANT-15+3,D0 ; Suma Coor Y , ¿Se ve en pantalla?
@@ -13268,6 +13408,16 @@ SPRBIEN:
 	MOVEM.L	D0-D3,(A4)
 	DBF	D6,SPR16BUC
 FINSPR16:
+	TST.B	SprPass2		; Split: now the part below it.
+	BEQ.S	FinSpr16b
+	SF	SprPass2
+	MOVE.L	SprSatM,A0
+	MOVE.W	SprSplit,SprWinLo
+	MOVE.W	#$7FFF,SprWinHi
+	MOVE.W	#32-1,D6
+	MOVE.L	GFXSPR,A1
+	BRA	SPR16BUC
+FinSpr16b:
 	CLR.L	(A5)+
 	MOVE.L	NEXTCOL,A4
 	MOVE.L	ACTUCOL,NEXTCOL
@@ -13545,6 +13695,7 @@ NOSUMAS1:
 	DBF	D0,SPRCOPBUC
 	SF	ACTSPR(A3)
 	RTS
+
 
 	CNOP	0,8
 CEROSRS:DS.L	20
@@ -14073,7 +14224,6 @@ MiraInter0:
 	MOVE.W	D1,DesLinY(A3)
 	MOVE.B	VDPLinY(A3),(TabRasDATA+4,D1.W*8) ; VDP ($17)
 	MOVE.B	DVDP2(A3),(TabRasDATA+1,D1.W*8)	; VDP (2)
-
 MiraInterBuc:
 	ADD.W	#HPeriod,(A3)		; Suma Cyclos de 1 linea.
 	BMI.S	MiraInter
@@ -14267,9 +14417,17 @@ SiModo2:
 ;	----------------
 	CNOP	0,4
 JumpCurLine:
-	DC.L	MiraInter0	; 0
-	REPT	192-1
-	DC.L	MiraInterBuc	; 1 -> 191
+	DC.L	MiraInter0S	; 0 (-> MiraInter0)
+	REPT	SNAPTOP-1
+	DC.L	MiraInterBuc	; 1 -> 7
+	ENDR
+	DC.L	MiraInterSnapT	; 8: sprite snapshot, top of the screen
+	REPT	SNAPLIN-SNAPTOP-1
+	DC.L	MiraInterBuc	; 9 -> 95
+	ENDR
+	DC.L	MiraInterSnap	; 96: sprite snapshot
+	REPT	192-SNAPLIN-1
+	DC.L	MiraInterBuc	; 97 -> 191
 	ENDR
 
 	DC.L	MiraInter192	; 192
@@ -19683,6 +19841,161 @@ PAGIND:		DC.B	0
 OverDat:	DC.B	0,0
 
 		DS.L	10	; Seguridad.
+
+; ---------------------------------------=> Sprite snapshots and split.
+; Kept after the original code so that its layout stays as it was.
+
+; Sprite snapshots at display lines SNAPTOP and SNAPLIN (JumpCurLine), in
+; sprite mode 1 only (see SNAPSPR): the attribute table as the beam saw it.
+; IMPSPR draws from SprSnap instead of VRAM at the end of the frame (Chikubi
+; Ninja ends the list with Y=216 under its HUD and in VBlank); SprSnapT is
+; the table above a mid-frame R#5/R#6 split (Uridium's HUD: SprSplit,
+; IMPSPR, SprSlotsT).
+; Scanline handlers may only change D1: the rest is the Z80 core's.
+	CNOP	0,4
+MiraInterSnapT:
+	IFD	TRACE
+	TRVLOG	$F8,DVDP5+1(A3)
+	ENDC
+	SNAPSPR	SprSnapT,SnapTOK,SnapT6
+	JMP	MiraInterBuc
+	CNOP	0,4
+MiraInterSnap:
+	IFD	TRACE
+	TRVLOG	$F9,DVDP5+1(A3)
+	ENDC
+	SNAPSPR	SprSnap,SnapOK,SnapM6
+	JMP	MiraInterBuc
+
+
+; Line 0: new frame for the sprite snapshots, then MiraInter0.
+	CNOP	0,4
+MiraInter0S:
+	IFD	TRACE
+	TRVLOG	$FF,SnapTOK
+	ADDQ.W	#1,TrvFrame
+	IFD	TRVSTOP
+	CMP.W	#TRVSTOP,TrvFrame	; Optional trigger: N frames.
+	BNE.S	TrvGo
+	JMP	TraceFreeze
+TrvGo:
+	ENDC
+	ENDC
+	SF	SnapOK			; Sprite snapshots: new frame.
+	SF	SnapTOK
+	CLR.W	SprSplit
+	JMP	MiraInter0
+
+	CNOP	0,4
+TRANSSPR16S:
+	JSR	TRANSSPR16
+; Split (see IMPSPR): pattern slots used only by sprites above the split
+; are converted from the top snapshot's pattern table into GFXSPR, and back
+; from R#6's table once that is over. Uridium: HUD patterns 128-236 from
+; R#6=$03 above line 63, ship and bullets from R#6=$07 below. Slots used
+; on both sides keep R#6's patterns. Also sets SplitOK for IMPSPR.
+SprSlotsT:
+	LEA	REGS(PC),A3
+	SF	SplitOK
+	TST.W	SprSplit
+	BEQ.S	SpSlNoSplit
+	TST.B	SnapTOK
+	BEQ.S	SpSlNoSplit
+	TST.B	SnapOK
+	BEQ.S	SpSlNoSplit
+	ST	SplitOK
+SpSlNoSplit:
+	LEA	SlotMark,A0		; 0 none, 1 top only, 2 below (wins)
+	MOVEQ	#(64/4)-1,D0
+SpSlClr:CLR.L	(A0)+
+	DBF	D0,SpSlClr
+	TST.B	SplitOK
+	BEQ.S	SpSlConv
+	LEA	SlotMark,A0
+	MOVE.W	SprSplit,D2
+	ADD.W	#14,D2			; Top pass: Y+15 < split+14.
+	LEA	SprSnapT+512,A1
+	MOVEQ	#32-1,D0
+SpSlTop:MOVEQ	#0,D1
+	MOVE.B	(A1),D1
+	CMP.B	#208,D1
+	BEQ.S	SpSlTopF
+	ADD.B	#15,D1
+	CMP.W	D2,D1
+	BCC.S	SpSlTopN
+	MOVEQ	#0,D3
+	MOVE.B	2(A1),D3
+	LSR.B	#2,D3
+	TST.B	(A0,D3.W)
+	BNE.S	SpSlTopN
+	MOVE.B	#1,(A0,D3.W)
+SpSlTopN:
+	ADDQ.W	#4,A1
+	DBF	D0,SpSlTop
+SpSlTopF:
+	MOVE.W	SprSplit,D2		; Main pass: Y+15 >= split.
+	LEA	SprSnap+512,A1
+	MOVEQ	#32-1,D0
+SpSlBot:MOVEQ	#0,D1
+	MOVE.B	(A1),D1
+	CMP.B	#208,D1
+	BEQ.S	SpSlConv
+	ADD.B	#15,D1
+	CMP.W	D2,D1
+	BCS.S	SpSlBotN
+	MOVEQ	#0,D3
+	MOVE.B	2(A1),D3
+	LSR.B	#2,D3
+	MOVE.B	#2,(A0,D3.W)
+SpSlBotN:
+	ADDQ.W	#4,A1
+	DBF	D0,SpSlBot
+SpSlConv:
+	LEA	SlotMark,A0
+	LEA	SlotFromT,A2
+	MOVE.L	GFXSPR,A1
+	MOVEQ	#0,D3			; Slot.
+SpSlBuc:
+	CMP.B	#1,(A0,D3.W)
+	BNE.S	SpSlNoT
+	MOVE.L	SnapT6,D1		; Top only: from the top table.
+	ST	(A2,D3.W)
+	BRA.S	SpSlDo
+SpSlNoT:
+	TST.B	(A2,D3.W)
+	BEQ	SpSlSig
+	SF	(A2,D3.W)		; Was from the top table: back.
+	MOVE.L	PVDP6(A3),D1
+SpSlDo:	MOVEM.L	D3/A0-A2,-(SP)
+	LEA	DIRVRAM,A0
+	ADD.L	D1,A0
+	MOVE.W	D3,D1
+	LSL.W	#5,D1
+	ADD.W	D1,A0			; 32 bytes per 16x16 pattern.
+	MULU	#(18*4),D3
+	ADD.L	D3,A1			; 72 bytes per GFXSPR slot.
+	MOVE.L	A1,A4
+	NOT.B	-3(A1)
+	BEQ.S	SpSlNoS
+	ADD.W	#$1200,A4
+SpSlNoS:
+	MOVEM.L	(A0)+,D4-D7
+	PONSPR	D4,00
+	PONSPR	D5,16
+	PONSPR	D6,32
+	PONSPR	D7,48
+	MOVEM.L	(A0)+,D4-D7
+	PONSPR	D4,01
+	PONSPR	D5,17
+	PONSPR	D6,33
+	PONSPR	D7,49
+	MOVEM.L	(SP)+,D3/A0-A2
+SpSlSig:
+	ADDQ.W	#1,D3
+	CMP.W	#64,D3
+	BCS	SpSlBuc
+	RTS
+; ---------------------------------------<=
 
 
 
