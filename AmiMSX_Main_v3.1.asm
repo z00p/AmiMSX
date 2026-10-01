@@ -73,6 +73,94 @@ TRVLOG:	MACRO
 	ENDM
 	ENDC
 
+; PERF builds: sub-timers (see PerfStamp). PERFSUB0 marks, PERFSUB n adds the
+; time since the last mark to sub-timer n (0-7) and marks again.
+PERFMARK:	MACRO
+	IFD	PERF
+	BSR	PerfStamp
+	MOVE.L	PerfNow,PerfSubT
+	ENDC
+	ENDM
+PERFSUB:	MACRO
+	IFD	PERF
+	BSR	PerfStamp
+	MOVE.L	D0,-(SP)
+	MOVE.L	PerfNow,D0
+	SUB.L	PerfSubT,D0
+	ADD.L	D0,PerfRec+32+(\1*4)
+	MOVE.L	PerfNow,PerfSubT
+	MOVE.L	(SP)+,D0
+	ENDC
+	ENDM
+
+; Table split (SCREEN 4, see PRINT4S): the first change of R#2, R#3, R#10 or
+; R#4 during the display. \1 = the register's byte in REGS, D2.B = the new
+; value. Saves the tables in use until then (the playfield) and asks the
+; copper (AcCoRutGBY4) to switch to SCREENB from the next line.
+TSPLITCHK:	MACRO
+	CMP.B	\1(A3),D2
+	BEQ	\@n
+	TST.W	TSplit
+	BNE	\@n
+	MOVE.W	CurLine(A3),D1
+	BEQ	\@n
+	CMP.W	#191,D1
+	BCC	\@n
+	ADDQ.W	#1,D1
+	MOVE.W	D1,TSplit
+	OR.B	#$01,(TabRasCMDS.L,D1.W)
+	IFD	TRACE
+	TRVLOG	$FA,D2
+	ENDC
+	MOVE.B	DVDP2(A3),TA_DVDP2
+	MOVE.B	MidLinY,TA_LinY		; R#23 before the split (MIDSAMPLE).
+	MOVE.W	DVDP3(A3),TA_DVDP3
+	MOVE.W	DVDP4(A3),TA_DVDP4
+	MOVE.L	PVDP2(A3),TA_PVDP2
+	MOVE.L	PVDP3(A3),TA_PVDP3
+	MOVE.L	PVDP3B(A3),TA_PVDP3B
+	MOVE.L	PVDP4(A3),TA_PVDP4
+	MOVE.L	PVDP4B(A3),TA_PVDP4B
+\@n:
+	ENDM
+
+; Sprite mode 2 band snapshot (see IMPSPR2B): colour table (512 bytes) and
+; attributes (128) into BandBuf[BandN], when BandOn (set per frame).
+; Playfield R#8/R#18/R#23 for the frame: sampled every 16 lines until a
+; table split (TSplit), so a split or late VBlank writes don't count.
+MIDSAMPLE:	MACRO
+	TST.W	TSplit
+	BNE.S	\@x
+	MOVE.B	DVDP8(A3),TopR8
+	MOVE.B	VDPAdjust(A3),MidAdj
+	MOVE.B	VDPLinY(A3),MidLinY
+\@x:
+	ENDM
+
+BANDSHOT:	MACRO
+	TST.B	BandOn
+	BEQ.S	\@x
+	MOVE.W	BandN,D1
+	CMP.W	#BANDMAX,D1
+	BCC.S	\@x
+	MOVEM.L	D0/A0-A1,SnapSave
+	MULU	#640,D1
+	LEA	BandBuf,A1
+	ADD.L	D1,A1
+	MOVEQ	#0,D1
+	MOVE.W	DVDP5(A3),D1
+	AND.W	#$03FC,D1
+	LSL.L	#7,D1
+	LEA	DIRVRAM-512,A0
+	ADD.L	D1,A0
+	MOVE.W	#(640/4)-1,D0
+\@c:	MOVE.L	(A0)+,(A1)+
+	DBF	D0,\@c
+	ADDQ.W	#1,BandN
+	MOVEM.L	SnapSave,D0/A0-A1
+\@x:
+	ENDM
+
 SNAPSPR:	MACRO
 	MOVE.B	DVDP0(A3),D1
 	AND.B	#$0C,D1			; M4/M5: sprite mode 2 (SCREEN 4+)?
@@ -8323,14 +8411,19 @@ OUTS:
 
 	CNOP	0,8
 Act_Adjust:
-	MOVE.B	VDPAdjust(A3),D2
-	AND.W	#$000F,D2
+	IFD	TRACE
+	TRVLOG	$FD,MidAdj
+	TRVLOG	$FC,TSplit+1
+	TRVLOG	$FB,TopR8
+	ENDC
+	MOVE.B	MidAdj,D2		; R#18 of the playfield (MIDSAMPLE: a split
+	AND.W	#$000F,D2		; may change it below: Lilly's Saga HUD).
 
 	MOVE.W	(AdjustBuf,D2.W*4),AdjustX+10
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+3
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+7
 
-	BTST	#1,DVDP8(A3)
+	BTST	#1,TopR8		; Playfield R#8 (MIDSAMPLE).
 	BNE	Act_AdjCon
 
 	MOVE.L	(AdjustSpr.w,PC,D2.W*4),D1
@@ -8660,7 +8753,7 @@ M8Chap:	MOVE.L	#VDP17,VDPPUNT+($17*4)	; *m8
 TabScr:
 	DC.L	PRINT1,ModoTxt	; 1 1G	00 000
 	DC.L	PRINT2,ModoTxt	; 2 2G	00 001
-	DC.L	PRINT4,ModoTxt4	; 4 3G	00 010
+	DC.L	PRINT4S,ModoTxt4	; 4 3G	00 010 (PRINT4S: split)
 	DC.L	PRINT5,ModoGfx5	; 5 4G	00 011
 	DC.L	PRINT6,ModoGfx6	; 6 5G	00 100
 	DC.L	PRINT7,ModoGfx7	; 7 6G	00 101
@@ -8768,6 +8861,10 @@ VDP8:
 	MOVE.B	D2,DVDP8(A3)
 	BTST	#1,D2
 	BEQ	VDP8CON
+	CMP.W	#192,CurLine(A3)	; Sprites off during the display: left to
+	BCS	VDP8CON2		; the render (Act_Adjust, MIDSAMPLE's R#8).
+					; Hiding them here hid them for the whole
+					; Amiga frame (Lilly's Saga HUD, line 173).
 
 	MOVE.W	#INISPR2*$100+$D8,D1
 	LEA	SPRIT0+1,A4
@@ -8801,7 +8898,8 @@ VDP8:
 VDP8CON:
 	MOVE.B	#$3,COSPR2(A3)
 
-	MOVE.B	VDPAdjust(A3),D2
+	MOVE.B	MidAdj,D2		; Playfield R#18 (Lilly's Saga sets R#18
+					; just after re-enabling sprites).
 	AND.W	#$000F,D2
 	MOVE.L	(AdjustSpr.w,PC,D2.W*4),D1
 SPR2On:
@@ -8929,6 +9027,7 @@ VD9CON1:
 	RTS
 ; <=---------------------------------------------------------=>
 VDP2:
+	TSPLITCHK	DVDP2
 	MOVE.B	D2,DVDP2(A3)
 	MOVE.W	D2,D1
 	AND.B	#$7F,D1
@@ -8941,9 +9040,11 @@ VDP2:
 	RTS
 ; <=---------------------------------------------------------=>
 VDPA:
+	TSPLITCHK	DVDP3
 	MOVE.B	D2,DVDP3(A3)
 	MOVE.B	DVDP3+1(A3),D2
 VDP3:
+	TSPLITCHK	DVDP3+1
 	MOVE.B	D2,DVDP3+1(A3)
 	MOVE.W	DVDP3(A3),D1
 	AND.W	#$07FF,D1
@@ -8958,13 +9059,13 @@ NOCAM3:	MOVE.L	D1,PVDP3(A3)
 	MULU	#$40,D1
 	CMP.L	PVDP3B(A3),D1
 	BEQ.S	NOCAM3B
-	ST	ACTODOB(A3)
-	MOVE.L	D1,PVDP3B(A3)
+	MOVE.L	D1,PVDP3B(A3)		; (Full redraw: RendTabCheck.)
 NOCAM3B:MOVEQ	#0,D1
 	SWAP	D2
 	RTS
 ; <=---------------------------------------------------------=>
 VDP4:
+	TSPLITCHK	DVDP4+1
 	MOVE.W	D2,DVDP4(A3)
 	MOVE.W	D2,D1
 	AND.B	#$3F,D1
@@ -8979,8 +9080,7 @@ NOCAM4:	MOVE.L	D1,PVDP4(A3)
 	MULU	#$800,D1
 	CMP.L	PVDP4B(A3),D1
 	BEQ.S	NOCAM4B
-	ST	ACTODOB(A3)
-	MOVE.L	D1,PVDP4B(A3)
+	MOVE.L	D1,PVDP4B(A3)		; (Full redraw: RendTabCheck.)
 NOCAM4B:MOVEQ	#0,D1
 	SWAP	D2
 	RTS
@@ -10298,13 +10398,15 @@ SPRMODE5con:
 
 	MOVE.L	(A4),A0
 	MOVE.L	A0,NUMSPR2
+	PERFMARK
 	JSR	CLEARSPR2
+	PERFSUB	4			; 4: CLEARSPR2
 	RTS
 
 	CNOP	0,8
 SPRMODE5b:
 	LEA	REGS(PC),A3
-	BTST	#1,DVDP8(A3)	; Mira si los Sprits estan activados.
+	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC
 
 	SUBQ.B	#1,COSPR2(A3)
@@ -10312,12 +10414,16 @@ SPRMODE5b:
 	SF	COSPR2(A3)
 SISPRASC:
 	MOVE.L	A4,-(SP)
+	PERFMARK
 	BSR	BITPLASPR
+	PERFSUB	0			; 0: BITPLASPR (patterns)
 	BSR	BITSPRCOL
+	PERFSUB	1			; 1: BITSPRCOL (colours, attributes)
 	MOVE.L	(SP)+,A4
 
 	MOVE.L	-4(A4),A0
 	JSR	CREASPRITES
+	PERFSUB	2			; 2: CREASPRITES
 
 	LEA	REGS(PC),A3
 	TST.B	COSPR2(A3)
@@ -10328,13 +10434,14 @@ SISPRASC:
 	ADDQ	#2,A5
 	MOVE.L	(A4),A6
 	JSR	IMPSPR2
+	PERFSUB	3			; 3: IMPSPR2 (draw)
 SPR2OFF:
 	RTS
 
 	CNOP	0,8
 SPRMODE51f:
 	LEA	REGS(PC),A3
-	BTST	#1,DVDP8(A3)	; Mira si los Sprits estan activados.
+	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC1f
 
 	SUBQ.B	#1,COSPR2(A3)
@@ -10416,7 +10523,7 @@ SPRMODE6con:
 	CNOP	0,8
 SPRMODE6b:
 	LEA	REGS(PC),A3
-	BTST	#1,DVDP8(A3)	; Mira si los Sprits estan activados.
+	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC6
 
 	SUBQ.B	#1,COSPR2(A3)
@@ -10453,7 +10560,7 @@ SPR2OFF6:
 	CNOP	0,8
 SPRMODE61f:
 	LEA	REGS(PC),A3
-	BTST	#1,DVDP8(A3)	; Mira si los Sprits estan activados.
+	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC1fb
 
 	SUBQ.B	#1,COSPR2(A3)
@@ -11284,6 +11391,7 @@ NoEsTruco:
 
 	BSR	TRANSSPR	; Actualiza Gfx Sprites.
 	BSR	IMPSPR		; Actualiza Coor. Sprites
+	JSR	RendTabCheck
 	TST.B	ACTODOB(A3)
 	BNE.S	ACTUTODO2
 	BSR	COPIATXT	; Actualiza Pantalla.
@@ -11389,8 +11497,10 @@ NoDesbPla4:
 	MOVE.W	#($100),SumaVRAM
 ; (Shared pattern/colour blocks: see TBloque.)
 NoEsTruco2:
+	PERFMARK
 
 	LEA	REGS(PC),A3
+	JSR	RendTabCheck
 	TST.B	ACTODOB(A3)
 	BNE.S	ACTUTODO4
 
@@ -11406,7 +11516,14 @@ NoEsTruco2:
 	MOVE.W	#((32*8*4)/4)-1,D0
 	BSR	TRANSBLT4	; Actualiza Gfx y colores de Caracteres.
 
+	IFD	PERF
+	PERFSUB	5			; 5: SCREEN 4 tiles (partial)
+	BSR	SPRMODE6
+	PERFSUB	7			; 7: SCREEN 4 sprites (SPRMODE6)
+	RTS
+	ELSE
 	BRA	SPRMODE6
+	ENDC
 ; -=-=-
 	CNOP	0,8
 ACTUTODO4:
@@ -11418,7 +11535,14 @@ ACTUTODO4:
 	MOVEQ	#(4)-1,D6
 	BSR	ACTUALIZA4	; Actualiza pantalla al 100%
 
+	IFD	PERF
+	PERFSUB	6			; 6: SCREEN 4 full redraw
+	BSR	SPRMODE6
+	PERFSUB	7			; 7: SCREEN 4 sprites (SPRMODE6)
+	RTS
+	ELSE
 	BRA	SPRMODE6
+	ENDC
 	RTS
 
 ************************************************************
@@ -14418,16 +14542,56 @@ SiModo2:
 	CNOP	0,4
 JumpCurLine:
 	DC.L	MiraInter0S	; 0 (-> MiraInter0)
-	REPT	SNAPTOP-1
+	REPT	7
 	DC.L	MiraInterBuc	; 1 -> 7
 	ENDR
 	DC.L	MiraInterSnapT	; 8: sprite snapshot, top of the screen
-	REPT	SNAPLIN-SNAPTOP-1
-	DC.L	MiraInterBuc	; 9 -> 95
+	REPT	7
+	DC.L	MiraInterBuc	; 9 -> 15
 	ENDR
-	DC.L	MiraInterSnap	; 96: sprite snapshot
-	REPT	192-SNAPLIN-1
-	DC.L	MiraInterBuc	; 97 -> 191
+	DC.L	MiraInterBand	; 16: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 17 -> 31
+	ENDR
+	DC.L	MiraInterBand	; 32: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 33 -> 47
+	ENDR
+	DC.L	MiraInterBand	; 48: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 49 -> 63
+	ENDR
+	DC.L	MiraInterBand	; 64: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 65 -> 79
+	ENDR
+	DC.L	MiraInterBand	; 80: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 81 -> 95
+	ENDR
+	DC.L	MiraInterSnap	; 96: sprite snapshot (+ band)
+	REPT	15
+	DC.L	MiraInterBuc	; 97 -> 111
+	ENDR
+	DC.L	MiraInterBand	; 112: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 113 -> 127
+	ENDR
+	DC.L	MiraInterBand	; 128: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 129 -> 143
+	ENDR
+	DC.L	MiraInterBand	; 144: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 145 -> 159
+	ENDR
+	DC.L	MiraInterBand	; 160: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 161 -> 175
+	ENDR
+	DC.L	MiraInterBand	; 176: mode 2 band snapshot
+	REPT	15
+	DC.L	MiraInterBuc	; 177 -> 191
 	ENDR
 
 	DC.L	MiraInter192	; 192
@@ -14455,24 +14619,176 @@ BufBasura:	DS.L	20
 ; ---------------------------------=> Emulación de 1 Frame.
 	CNOP	0,4
 Emula1Frame:
+	IFD	PERF
+	BSR	PerfStamp		; A: Z80 frame done.
+	MOVE.L	PerfNow,PerfA
+	ENDC
 
 	BSR	Wait60fps
+
+	IFD	PERF
+	BSR	PerfStamp		; B: waited for the Amiga frame.
+	MOVE.L	PerfNow,PerfB
+	ENDC
 
 	JSR	ActCopperLine	; *Z0*
 
 	LEA	Regs(PC),A3
 	JSR	Act_Hardware
 
+	IFD	PERFSPACE
+; Test input that doesn't depend on window focus: Space (MSX row 8 bit 0,
+; 0 = pressed) for 5 frames every 100 MSX frames from frame PERFSPACE on.
+	ADDQ.L	#1,PerfFrN
+	MOVE.L	PerfFrN,D1
+	SUB.L	#PERFSPACE,D1
+	BCS.S	PerfSpOff
+	DIVU	#100,D1
+	SWAP	D1
+	CMP.W	#5,D1
+	BCC.S	PerfSpOff
+	BCLR	#0,KEY+8(A3)
+	BRA.S	PerfSpFin
+PerfFrN:	DC.L	0
+PerfSpOff:
+	BSET	#0,KEY+8(A3)
+PerfSpFin:
+	ENDC
+
+	IFD	PERF
+	BSR	PerfStamp		; C: copper + hardware updates.
+	MOVE.L	PerfNow,PerfC
+	ENDC
 
 	TST.W	Refresh(PC)
 	BNE.S	RefrCon
 	MOVE.W	DirPrefs+$14,Refresh
 
+	IFD	PERF
+	MOVE.B	ScrModo(A3),PerfIntMin	; Screen mode of the last render,
+	MOVE.B	DVDP0(A3),PerfIntMin+1	; and R#0.
+	ENDC
 	JSR	([RVDP.W,A3])		; Emulación del VDP.
+	IFD	PERF
+	BSR	PerfStamp		; D: VDP render done.
+	MOVE.L	PerfNow,PerfD
+	ADDQ.L	#1,PerfRec+24
+	BSR	PerfFrame
+	ENDC
 	RTS
 RefrCon:
 	SUBQ.W	#1,Refresh
+	IFD	PERF
+	MOVE.L	PerfC,PerfD		; Frame skipped: no render.
+	BSR	PerfFrame
+	ENDC
 	RTS
+
+	IFD	PERF
+; Time stamp in PAL colour clocks: (VBlank interrupts (PerfTick) * 313 +
+; VPOSR line) * 227 + horizontal position. Keeps every register.
+PerfStamp:
+	MOVEM.L	D0-D1,-(SP)
+PerfStBuc:
+	MOVE.L	PerfTick,D1
+	MOVE.L	$DFF004,D0		; V8 (bit 16), V7-V0 (bits 15-8).
+	CMP.L	PerfTick,D1
+	BNE.S	PerfStBuc
+	MOVE.L	D0,-(SP)
+	LSR.L	#8,D0
+	AND.L	#$1FF,D0
+	CMP.W	PerfVMax,D0
+	BLS.S	PerfStPos
+	MOVE.W	D0,PerfVMax		; Longest frame seen.
+PerfStPos:
+	MULU.L	#313,D1
+	ADD.L	D1,D0
+	MULU.L	#227,D0			; Colour clocks per line.
+	MOVE.L	(SP)+,D1
+	AND.L	#$FF,D1
+	ADD.L	D1,D0
+	MOVE.L	D0,PerfNow
+	MOVEM.L	(SP)+,D0-D1
+	RTS
+
+; Accumulate one frame: core = A - last D, wait = B - A, other = C - B,
+; render = D - C. Every PERFWIN frames a record goes to PerfRing.
+PERFWIN=250
+PerfFrame:
+	MOVEM.L	D0-D1/A0-A1,-(SP)
+	LEA	PerfRec,A0
+	TST.L	PerfLast
+	BEQ.S	PerfFrNoCore		; First frame: no core time yet.
+	MOVE.L	PerfA,D0
+	SUB.L	PerfLast,D0
+	ADD.L	D0,8(A0)		; core
+	TST.L	4(A0)
+	BNE.S	PerfFrNoCore
+	MOVE.L	PerfLast,PerfWin0	; Window starts at the last D.
+	MOVE.L	PerfTick,PerfTick0
+PerfFrNoCore:
+	MOVE.L	PerfB,D0
+	SUB.L	PerfA,D0
+	ADD.L	D0,12(A0)		; wait
+	MOVE.L	PerfC,D0
+	SUB.L	PerfB,D0
+	ADD.L	D0,16(A0)		; other
+	MOVE.L	PerfD,D0
+	SUB.L	PerfC,D0
+	ADD.L	D0,20(A0)		; render
+	MOVE.L	PerfD,PerfLast
+	TST.L	PerfWin0
+	BEQ.S	PerfFrFin
+	ADDQ.L	#1,4(A0)		; frames
+	CMP.L	#PERFWIN,4(A0)
+	BCS.S	PerfFrFin
+	MOVE.L	PerfD,D0		; Window done: elapsed, ticks.
+	SUB.L	PerfWin0,D0
+	MOVE.L	D0,(A0)
+	MOVE.L	PerfTick,D0
+	SUB.L	PerfTick0,D0
+	MOVE.L	D0,28(A0)
+	MOVE.L	PerfPtr,A1
+	MOVEQ	#16-1,D0
+PerfFrCop:
+	MOVE.L	(A0),(A1)+
+	CLR.L	(A0)+
+	DBF	D0,PerfFrCop
+	CMP.L	#PerfRingEnd,A1
+	BCS.S	PerfFrRing
+	LEA	PerfRing,A1
+PerfFrRing:
+	MOVE.L	A1,PerfPtr
+	ADDQ.L	#1,PerfCount
+	CLR.L	PerfWin0
+PerfFrFin:
+	MOVEM.L	(SP)+,D0-D1/A0-A1
+	RTS
+
+		CNOP	0,4
+PerfNow:	DC.L	0
+PerfA:		DC.L	0
+PerfB:		DC.L	0
+PerfC:		DC.L	0
+PerfD:		DC.L	0
+PerfLast:	DC.L	0
+PerfWin0:	DC.L	0
+PerfTick0:	DC.L	0
+PerfRec:	DS.L	16			; elapsed, frames, core, wait, other,
+						; render, renders, VBlank ints,
+						; PERFSUB 0-7 (colour clocks)
+PerfSubT:	DC.L	0
+PerfHdr:	DC.L	"APRF"
+PerfCount:	DC.L	0			; Records written.
+PerfPtr:	DC.L	PerfRing
+PerfTick:	DC.L	0			; VBlank interrupts (Inter).
+PerfVMax:	DC.W	0			; Highest VPOSR line seen.
+PerfIntMin:	DC.W	0			; ScrModo, R#0 of the last render.
+PerfIntMax:	DC.W	0			; Latest VBlank int line.
+PerfCPU:	DC.W	0			; AttnFlags, Modo060.
+PerfRing:	DS.L	16*128
+PerfRingEnd:
+	ENDC
 
 Refresh:DC.W	0
 
@@ -15740,6 +16056,18 @@ Inter:
 	BTST	#5,$DFF01F
 	BEQ.S	VDP_Emul
 	MOVE.W	#$0020,$DFF09C
+	IFD	PERF
+	ADDQ.L	#1,PerfTick		; VBlank (line 0): speed counter clock.
+	MOVE.L	D0,-(SP)
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	PerfIntMax,D0		; Latency check: lines past 0.
+	BLS.S	PerfIntNoMax
+	MOVE.W	D0,PerfIntMax
+PerfIntNoMax:
+	MOVE.L	(SP)+,D0
+	ENDC
 	NOP
 	RTE
 
@@ -16251,6 +16579,13 @@ IMPSPR2:
 ;;	LEA	BUFERSPR2(PC),A5
 ;;	LEA	SPRIT0+16,A6
 
+	TST.B	BandOn			; Multiplexed sprites: by bands.
+	BEQ.S	IMPSPR2n
+	TST.W	BandN
+	BEQ.S	IMPSPR2n
+	JMP	IMPSPR2B
+IMPSPR2n:
+	SF	BandPass
 	LEA	SPR2TABLA(PC),A1
 	LEA	REGS,A3
 ; ---
@@ -16263,6 +16598,7 @@ NoBase20:
 	MULU	#$80,D1
 	LEA	(DIRVRAM.L,D1.L),A4
 	LEA	-512(A4),A0
+IMPSPR2c:				; (IMPSPR2B: A4/A0 = a band snapshot.)
 	MOVE.L	A4,A3
 ; ---
 	MOVE.B	#216,D6
@@ -16299,12 +16635,32 @@ NoBase22:
 
 ; ---------------------------------------
 	LEA	SPR2_16b(PC),SP
+	TST.B	BandPass
+	BEQ.S	SprBandN16
+	LEA	SPR2_16Xb(PC),SP	; (Bands: lines clipped to the band.)
+SprBandN16:
+	CLR.W	SprECOff		; First colour line: (A0)...
+	MOVE.W	#16,SprNL
 	BTST	#1,REGS+DVDP1		; Mira si es imprimir spr de 8*8 o 16*16
-	SEQ	-4(A5)			; Datos de bufer para 8*8 o 16*16
+	BEQ.S	SprBandSiz
+	TST.B	BandLater		; (Buffer flag: first band only.)
 	BNE.S	EsModoSPR16
+	SF	-4(A5)			; 16*16.
+	BRA.S	EsModoSPR16
+SprBandSiz:
+	TST.B	BandLater
+	BNE.S	SprBandS8
+	ST	-4(A5)			; Datos de bufer para 8*8 o 16*16
+SprBandS8:
 	LEA	SPR2_8b(PC),SP
+	TST.B	BandPass
+	BEQ.S	SprBandN8
+	LEA	SPR2_8Xb(PC),SP
+SprBandN8:
 	SUB.L	#16,D6			; Sprites en formato Amiga.
 	SUBQ.W	#8,A0
+	MOVE.W	#8,SprECOff		; ...or 8(A0) with 8*8 sprites.
+	MOVE.W	#8,SprNL
 EsModoSPR16:
 ; ---------------------------------------
 
@@ -16318,6 +16674,7 @@ SPR2PBUC:
 
 	CMP.W	#224+15,D1	; (Sin Oversan es '212+15')
 	BLT.S	SPRPCON1
+SPR2Skip:
 	ADDQ.W	#3,A4
 	ADD.W	#16,A0
 	SUBQ.W	#1,([NUMSPR2])
@@ -16327,15 +16684,37 @@ SPR2PBUC:
 
 	CNOP	0,8
 SPRPCON1:
+	TST.B	BandPass		; Band: only sprites with lines in
+	BEQ.S	SprBandOK		; [BandLo, BandHi), clipped by the
+	MOVE.W	D1,D3			; X line loops (SprD1Hi/Lo: values
+	SUB.W	#14,D3			; of the line counter D1 to draw).
+	CMP.W	BandHi(PC),D3		; First line >= the band's end.
+	BGE.S	SPR2Skip
+	ADD.W	SprNL(PC),D3
+	CMP.W	BandLo(PC),D3		; Last line < the band's start.
+	BLE.S	SPR2Skip
+	MOVE.W	D3,D2
+	SUBQ.W	#1,D2
+	SUB.W	BandLo(PC),D2
+	MOVE.W	D2,SprD1Hi
+	SUB.W	BandHi(PC),D3
+	MOVE.W	D3,SprD1Lo
+	MOVEQ	#0,D2
+SprBandOK:
 	LSL.W	#4,D1		; Coordenada Y.
 	ADD.W	D1,A3
 
 
 	MOVE.B	(A4)+,D4	; Coordenada X.
+	MOVE.W	SprECOff(PC),D1
+	BTST	#7,(A0,D1.W)		; EC: X - 32.
+	BNE.S	SprEC
+SprECx:
 	LEA	(TABCORX.W,PC,D4.W*8),A2
 	MOVE.L	(A2)+,A1
 	ADD.W	(A2)+,A3
 	MOVE.W	(A2)+,D4
+SprECd:
 	MOVE.L	A1,(A5)+	; Tabla de punteros a usar.
 	MOVE.L	A3,(A5)+	; Dir. Chip a copiar Gfx.
 
@@ -16352,6 +16731,27 @@ SPRPCON1:
 ;SPRNOSUM:
 
 	JMP	SPR2_16-SPR2_16b(A7)	; Sprits de 16*16 o 8*8.
+; ---
+SprEC:	SUB.W	#32,D4
+	BCC.S	SprECx			; X 32-255: X - 32 as usual.
+	CMP.W	#-16,D4			; Off the left edge: not drawn
+	BLE.S	SprECskip		; (Lilly's Saga's curtains).
+	LEA	TABCORX(PC),A2		; Partly: at X=0, pattern shifted
+	MOVE.L	(A2)+,A1		; left by the rest.
+	ADD.W	(A2)+,A3
+	MOVEQ	#16,D1
+	SUB.W	D4,D1
+	MOVE.W	D1,D4
+	BRA.S	SprECd
+SprECskip:
+	MOVEQ	#0,D4
+	ADDQ.W	#2,A4			; Pattern, unused byte.
+	ADD.W	#16,A0			; Its colour lines.
+	SUBQ.W	#1,([NUMSPR2])
+	DBF	D0,SPR2PBUC		; Siguiente Sprit.
+	MOVE.L	SPR2_Pila(PC),SP
+	RTS
+SprECOff:	DC.W	0
 ; ---
 	CNOP	0,8
 SPR2PBUC0:
@@ -16404,6 +16804,79 @@ SPR2_8b:
 	MOVE.B	(A0)+,D2		; Nº de color.
 	MOVE.B	D2,(A5)+
 	JMP	([A1,D2.W*4])		; Salto a impresión.
+; --------------------------------------------
+; Band copies (IMPSPR2B): lines outside the band get colour 0 (nothing drawn,
+; nothing for CLEARSPR2 to clear).
+	CNOP	0,8
+SPR2_16X:
+	MOVE.L	D6,A2
+	MOVE.B	(A4)+,D1
+	AND.W	#$00FC,D1
+	LSL.W	#3,D1
+	ADD.W	D1,A2
+
+	ADDQ	#1,A4
+
+	NOP
+
+	MOVEQ	#16-1,D1
+SPR2_16Xb:
+	MOVEQ	#0,D3
+	MOVE.W	-16(A2),D3
+	MOVE.B	(A2)+,D3
+	LSL.L	D4,D3
+	MOVE.B	(A0)+,D2
+	CMP.W	SprD1Hi(PC),D1
+	BGT.S	SPR2_16Xz
+	CMP.W	SprD1Lo(PC),D1
+	BGE.S	SPR2_16Xd
+SPR2_16Xz:
+	MOVEQ	#0,D2
+SPR2_16Xd:
+	MOVE.B	D2,(A5)+
+	JMP	([A1,D2.W*4])
+	CNOP	0,8
+SPR2_8X:
+	MOVE.L	D6,A2
+	MOVE.B	(A4)+,D1
+	AND.W	#$00FF,D1
+	LSL.W	#3,D1
+	ADD.W	D1,A2
+
+	ADDQ	#1,A4
+
+	ADDQ	#8,A0
+
+	MOVEQ	#8-1,D1
+SPR2_8Xb:
+	MOVEQ	#0,D3
+	MOVE.B	(A2)+,D3
+	LSL.W	#8,D3
+	LSL.L	D4,D3
+	MOVE.B	(A0)+,D2
+	CMP.W	SprD1Hi(PC),D1
+	BGT.S	SPR2_8Xz
+	CMP.W	SprD1Lo(PC),D1
+	BGE.S	SPR2_8Xd
+SPR2_8Xz:
+	MOVEQ	#0,D2
+SPR2_8Xd:
+	MOVE.B	D2,(A5)+
+	JMP	([A1,D2.W*4])
+	IFNE	(SPR2_16X-SPR2_16Xb)-(SPR2_16-SPR2_16b)
+	FAIL	"SPR2_16X entry"
+	ENDC
+	IFNE	(SPR2_8X-SPR2_8Xb)-(SPR2_8-SPR2_8b)
+	FAIL	"SPR2_8X entry"
+	ENDC
+	IFNE	(SPR2_8-SPR2_8b)-(SPR2_16-SPR2_16b)
+	FAIL	"SPR2_8 entry"
+	ENDC
+SprNL:		DC.W	16		; Lines of a sprite (16 or 8).
+SprD1Hi:	DC.W	0
+SprD1Lo:	DC.W	0
+BandLo:		DC.W	0		; Band being drawn (IMPSPR2B).
+BandHi:		DC.W	0
 ; --------------------------------------------
 
 ; --------------------------------------------
@@ -17263,7 +17736,7 @@ NUMSPR2:DC.L	0
 	DC.W	0
 	DC.W	-1
 BUFERSPR2:
-	REPT	34
+	REPT	100		; (34; sprite bands draw a sprite once per band.)
 	DC.L	SPC2TABLA,SPRIT0+16,0,0,0,0
 	ENDR
 
@@ -17272,7 +17745,7 @@ BUFERSPR2:
 	DC.W	0
 	DC.W	-1
 BUFERSPR2b:
-	REPT	34
+	REPT	100		; (34; sprite bands draw a sprite once per band.)
 	DC.L	SPC2TABLA,SPRIT0b+16,0,0,0,0
 	ENDR
 
@@ -19225,12 +19698,23 @@ NexBpl8=(32*512)
 
 	CNOP	0,4
 AcCoRutGBY4:
+	MOVE.W	TSplit,D1		; Below a table split: SCREENB,
+	BEQ.S	AcCoGBY4n		; drawn in display order (HUDSplit4).
+	CMP.W	D1,D7
+	BCS.S	AcCoGBY4n
+	NEG.W	D1
+	ADD.W	D7,D1
+	MULU	#(32*4),D1
+	ADD.L	#SCREENB,D1
+	BRA.S	AcCoGBY4w
+AcCoGBY4n:
 	MOVEQ	#0,D1
 	MOVE.B	4(A0),D1	; VDP ($17)
 	ADD.B	D7,D1
 
 	MULU	#(32*4),D1
 	ADD.L	#SCREEN,D1
+AcCoGBY4w:
 
 NexBpl4=(32)
 
@@ -19864,13 +20348,37 @@ MiraInterSnap:
 	IFD	TRACE
 	TRVLOG	$F9,DVDP5+1(A3)
 	ENDC
+	MIDSAMPLE
+	BANDSHOT
 	SNAPSPR	SprSnap,SnapOK,SnapM6
+	JMP	MiraInterBuc
+	CNOP	0,4
+MiraInterBand:
+	MIDSAMPLE
+	BANDSHOT
 	JMP	MiraInterBuc
 
 
 ; Line 0: new frame for the sprite snapshots, then MiraInter0.
 	CNOP	0,4
 MiraInter0S:
+	CLR.W	TSplit			; Table split: new frame.
+	MIDSAMPLE			; (Lilly's Saga: sprites off and adjust 0
+					; for its HUD at line ~173.)
+	CLR.W	BandN			; Sprite bands: on with line interrupts
+	MOVE.B	DVDP0(A3),D1		; in sprite mode 2 (SCREEN 4-8).
+	AND.B	#$1C,D1
+	CMP.B	#$10,D1
+	SHI	BandOn
+	BANDSHOT
+	IFD	PERFSTOP
+	ADDQ.L	#1,PerfStopN
+	CMP.L	#PERFSTOP,PerfStopN
+	BNE.S	PerfGo
+	JMP	ZALI
+PerfStopN:	DC.L	0
+PerfGo:
+	ENDC
 	IFD	TRACE
 	TRVLOG	$FF,SnapTOK
 	ADDQ.W	#1,TrvFrame
@@ -19885,6 +20393,232 @@ TrvGo:
 	SF	SnapTOK
 	CLR.W	SprSplit
 	JMP	MiraInter0
+
+; SCREEN 2/4: full re-conversion (ACTODOB) when the pattern or colour table
+; base differs from the one last drawn, decided here at render time and not
+; on each R#3/R#4/R#10 write. Lilly's Saga switches tables for its HUD at
+; line ~172 and back in VBlank every frame: two writes per frame made a full
+; SCREEN 4 redraw every frame (660 of 680 render lines on a 68030/50).
+; Sets A3 = REGS (as its callers expect). Uses D1.
+	CNOP	0,4
+RendTabCheck:
+	LEA	REGS,A3
+	MOVE.L	PVDP3B(A3),D1
+	CMP.L	RendP3B,D1
+	BNE.S	RendTabNew
+	MOVE.L	PVDP4B(A3),D1
+	CMP.L	RendP4B,D1
+	BNE.S	RendTabNew
+	RTS
+RendTabNew:
+	ST	ACTODOB(A3)
+	MOVE.L	PVDP3B(A3),RendP3B
+	MOVE.L	PVDP4B(A3),RendP4B
+	RTS
+RendP3B:	DC.L	-1
+RendP4B:	DC.L	-1
+
+; SCREEN 4 with a table split (TSplit, see TSPLITCHK). Lilly's Saga: at line
+; ~174 its HUD switches to R#2=$26, R#4=$13, R#10=$02 and R#23=$4F, and back
+; in VBlank. Here (line 192) the registers hold the HUD set: the playfield is
+; drawn by PRINT4 with the set saved at the split (the cache, dirty flags and
+; RendTabCheck stay on it), then HUDSplit4 draws the lines below the split.
+	CNOP	0,4
+PRINT4S:
+	TST.W	TSplit
+	BNE.S	PRINT4Sp
+	JMP	PRINT4
+PRINT4Sp:
+	LEA	REGS,A3
+	MOVE.B	DVDP2(A3),TB_DVDP2	; Keep the HUD set...
+	MOVE.B	VDPLinY(A3),TB_LinY
+	MOVE.W	DVDP3(A3),TB_DVDP3
+	MOVE.W	DVDP4(A3),TB_DVDP4
+	MOVE.L	PVDP2(A3),TB_PVDP2
+	MOVE.L	PVDP3(A3),TB_PVDP3
+	MOVE.L	PVDP3B(A3),TB_PVDP3B
+	MOVE.L	PVDP4(A3),TB_PVDP4
+	MOVE.L	PVDP4B(A3),TB_PVDP4B
+	MOVE.B	TA_DVDP2,DVDP2(A3)	; ...draw with the playfield set...
+	MOVE.B	TA_LinY,VDPLinY(A3)
+	MOVE.W	TA_DVDP3,DVDP3(A3)
+	MOVE.W	TA_DVDP4,DVDP4(A3)
+	MOVE.L	TA_PVDP2,PVDP2(A3)
+	MOVE.L	TA_PVDP3,PVDP3(A3)
+	MOVE.L	TA_PVDP3B,PVDP3B(A3)
+	MOVE.L	TA_PVDP4,PVDP4(A3)
+	MOVE.L	TA_PVDP4B,PVDP4B(A3)
+	JSR	PRINT4
+	LEA	REGS,A3
+	MOVE.B	TB_DVDP2,DVDP2(A3)	; ...and back to the HUD set.
+	MOVE.B	TB_LinY,VDPLinY(A3)
+	MOVE.W	TB_DVDP3,DVDP3(A3)
+	MOVE.W	TB_DVDP4,DVDP4(A3)
+	MOVE.L	TB_PVDP2,PVDP2(A3)
+	MOVE.L	TB_PVDP3,PVDP3(A3)
+	MOVE.L	TB_PVDP3B,PVDP3B(A3)
+	MOVE.L	TB_PVDP4,PVDP4(A3)
+	MOVE.L	TB_PVDP4B,PVDP4B(A3)
+	BSR	HUDSplit4
+	LEA	REGS,A3
+	RTS
+
+; Display lines TSplit..191 from the current tables (R#2, R#3/R#10, R#4,
+; R#23), straight from VRAM into SCREENB (128 bytes a line, 4 interleaved
+; planes of 32 bytes, as SCREEN), line TSplit first. No cache: meant for a
+; HUD of a few lines. TABLA7E gives the 4 plane bytes of a pattern/colour
+; pair, plane 0 in the high byte (as TRASF).
+	CNOP	0,4
+HUDSplit4:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	LEA	REGS,A3
+	LEA	SCREENB,A1
+	LEA	TABLA7E,A2
+	MOVE.W	TSplit,D7		; Display line.
+	MOVE.W	#192,D6
+HUDS4Lin:
+	MOVEQ	#0,D0
+	MOVE.B	VDPLinY(A3),D0		; VRAM line = display line + R#23.
+	ADD.W	D7,D0
+	AND.W	#$FF,D0
+	MOVE.W	D0,D1
+	LSR.W	#3,D1			; Name row 0-31.
+	AND.W	#7,D0			; Line in the character.
+	LEA	DIRVRAM,A4
+	ADD.L	PVDP2(A3),A4
+	MOVE.W	D1,D2
+	LSL.W	#5,D2
+	ADD.W	D2,A4			; This row's names.
+	LSR.W	#3,D1			; Block 0-3 (TBloque's masks).
+	MOVEQ	#11,D4
+	MOVEQ	#0,D3
+	MOVE.B	DVDP4+1(A3),D3		; Pattern: PVDP4B + ((t & R#4) << 11).
+	AND.W	D1,D3
+	AND.W	#3,D3
+	LSL.L	D4,D3
+	ADD.L	PVDP4B(A3),D3
+	LEA	DIRVRAM,A5
+	ADD.L	D3,A5
+	ADD.W	D0,A5
+	MOVEQ	#0,D3
+	MOVE.B	DVDP3+1(A3),D3		; Colour: PVDP3B + ((t & (R#3>>5)) << 11).
+	LSR.B	#5,D3
+	AND.W	D1,D3
+	AND.W	#3,D3
+	LSL.L	D4,D3
+	ADD.L	PVDP3B(A3),D3
+	LEA	DIRVRAM,A6
+	ADD.L	D3,A6
+	ADD.W	D0,A6
+	MOVEQ	#32-1,D5
+HUDS4Col:
+	MOVEQ	#0,D1
+	MOVE.B	(A4)+,D1
+	LSL.W	#3,D1			; Name * 8.
+	MOVEQ	#0,D2
+	MOVE.B	(A5,D1.W),D2		; Pattern byte...
+	LSL.W	#8,D2
+	MOVE.B	(A6,D1.W),D2		; ...and colour byte.
+	MOVE.L	(A2,D2.L*4),D3
+	MOVE.B	D3,96(A1)		; Plane 3.
+	LSR.L	#8,D3
+	MOVE.B	D3,64(A1)		; Plane 2.
+	LSR.L	#8,D3
+	MOVE.B	D3,32(A1)		; Plane 1.
+	LSR.W	#8,D3
+	MOVE.B	D3,(A1)+		; Plane 0.
+	DBF	D5,HUDS4Col
+	ADD.W	#(32*4)-32,A1
+	ADDQ.W	#1,D7
+	CMP.W	D6,D7
+	BCS	HUDS4Lin
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+
+		CNOP	0,4
+TSplit:		DC.W	0		; First line with the new tables, 0: none.
+TA_DVDP2:	DC.B	0		; Tables above the split (playfield)...
+TA_LinY:	DC.B	0
+TA_DVDP3:	DC.W	0
+TA_DVDP4:	DC.W	0
+TA_PVDP2:	DC.L	0
+TA_PVDP3:	DC.L	0
+TA_PVDP3B:	DC.L	0
+TA_PVDP4:	DC.L	0
+TA_PVDP4B:	DC.L	0
+TB_DVDP2:	DC.B	0		; ...and below it (PRINT4S).
+TB_LinY:	DC.B	0
+TB_DVDP3:	DC.W	0
+TB_DVDP4:	DC.W	0
+TB_PVDP2:	DC.L	0
+TB_PVDP3:	DC.L	0
+TB_PVDP3B:	DC.L	0
+TB_PVDP4:	DC.L	0
+TB_PVDP4B:	DC.L	0
+
+; Sprite mode 2 by bands: BandBuf holds the sprite tables as they were at
+; lines 0, 16, ... (BANDSHOT); each is drawn by the IMPSPR2 core for its 16
+; lines only (the last one down to the bottom). The buffer for CLEARSPR2 is
+; filled by all passes and its count is their total.
+	CNOP	0,4
+IMPSPR2B:
+	MOVE.L	NUMSPR2,BandReal	; The real count word...
+	MOVE.L	#BandCnt,NUMSPR2	; ...and one per pass.
+	CLR.W	BandTotal
+	CLR.W	BandK
+	SF	BandLater
+	ST	BandPass
+IMPS2BBuc:
+	MOVE.W	BandK,D0
+	CMP.W	BandN,D0
+	BCC.S	IMPS2BFin
+	MOVE.W	D0,D1
+	LSL.W	#4,D1
+	MOVE.W	D1,BandLo
+	ADD.W	#16,D1
+	ADDQ.W	#1,D0
+	CMP.W	BandN,D0
+	BCS.S	IMPS2BHi
+	MOVE.W	#256,D1			; Last band: to the bottom.
+IMPS2BHi:
+	MOVE.W	D1,BandHi
+	SUBQ.W	#1,D0
+	MULU	#640,D0
+	LEA	BandBuf+512,A4
+	ADD.L	D0,A4
+	LEA	-512(A4),A0
+	LEA	SPR2TABLA(PC),A1
+	JSR	IMPSPR2c		; (A5 moves on through all passes.)
+	MOVE.W	BandCnt,D0
+	ADDQ.W	#1,D0
+	ADD.W	D0,BandTotal
+	ST	BandLater
+	ADDQ.W	#1,BandK
+	BRA.S	IMPS2BBuc
+IMPS2BFin:
+	MOVE.L	BandReal,A0
+	MOVE.W	BandTotal,D0
+	SUBQ.W	#1,D0
+	MOVE.W	D0,(A0)
+	MOVE.L	A0,NUMSPR2
+	SF	BandPass
+	SF	BandLater
+	RTS
+
+BANDMAX=12
+TopR8:		DC.B	0		; Playfield R#8 (sprites on/off, SPD),
+MidAdj:		DC.B	0		; R#18,
+MidLinY:	DC.B	0		; R#23 (MIDSAMPLE).
+		EVEN
+BandOn:		DC.B	0		; Bands this frame (MiraInter0S).
+BandPass:	DC.B	0		; Drawing by bands (IMPSPR2B).
+BandLater:	DC.B	0		; Not the first band.
+		EVEN
+BandN:		DC.W	0		; Snapshots taken.
+BandK:		DC.W	0
+BandCnt:	DC.W	0
+BandTotal:	DC.W	0
+BandReal:	DC.L	0
 
 	CNOP	0,4
 TRANSSPR16S:
@@ -20900,3 +21634,14 @@ TABLA7E:	DS.B	256*1024
 
 ; ***************************************************
 
+; --------------------------------
+	SECTION	SPLIT,BSS_C
+; --------------------------------
+	CNOP	0,8
+SCREENB:	DS.B	(212*32*4)	; Lines below a SCREEN 4 table split.
+	DS.B	12*8
+
+; --------------------------------
+	SECTION	BANDS,BSS
+; --------------------------------
+BandBuf:	DS.B	640*BANDMAX	; Sprite mode 2 band snapshots.

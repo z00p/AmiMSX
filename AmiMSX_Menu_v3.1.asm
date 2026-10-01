@@ -446,6 +446,27 @@ IMPFILE:	DC.L	0
 SpeedTest:	DC.L	0
 		DC.L	0
 FILENOM:	DS.B	$208
+	IFD	PERF
+; Speed counter dump: header (APRF, records, ring pointer, copper ints, int
+; lines, CPU) then the record ring (see PerfFrame in the main source).
+PerfDump:
+	MOVE.L	$4.W,A0
+	MOVE.B	$129(A0),PerfCPU	; ExecBase AttnFlags (low byte).
+	MOVE.B	EsUn060,PerfCPU+1
+	MOVE.L	#PerfName,D1
+	MOVE.L	#$3EE,D2
+	BSR	OPENFILE
+	TST.L	D0
+	BEQ.S	PerfDFin
+	MOVE.L	#PerfHdr,D2
+	MOVE.L	#PerfRingEnd-PerfHdr,D3
+	BSR	WRITEFILE
+	BSR	CLOSEFILE
+PerfDFin:
+	RTS
+PerfName:	DC.B	"AmiMSX:perf.bin",0
+	EVEN
+	ENDC
 	IFD	TRACE
 ; Debug trap dump: header (TraceHdr), ring buffer, then the Z80's &HC000-&HFFFF
 ; as seen when it froze (page 3: RAM with RDPRIM/CLPRIM at &HF380).
@@ -6801,6 +6822,9 @@ CONTROL:
 	IFD	TRACE
 	BSR	TraceDump		; Trap fired, or Ctrl+Alt: last 4096
 	ENDC				; instructions before leaving.
+	IFD	PERF
+	BSR	PerfDump		; Frame timing windows.
+	ENDC
 BUCONTROL:
 	MOVE.L	(SP),A0
 	MOVE.L	$56(A0),A0
