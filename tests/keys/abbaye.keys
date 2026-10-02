@@ -1,0 +1,7 @@
+# L'Abbaye des Morts: ENTER starts (Space alone only toggles the info page);
+# then Space skips the story pages; then walk and jump.
+16s   RETURN 5 every 150 until 28s
+30s   SPACE  5 every 100 until 44s
+46s   RIGHT 100
+49s   LEFT  100
+52s   UP    10 every 60 until 64s

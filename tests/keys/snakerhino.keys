@@ -1,0 +1,7 @@
+# Snake and Rhino in the Sketch: Space past the title and controls page; in the
+# sketchbook the characters move with Q W E / A S D (isometric directions) and
+# Space switches between them.
+14s   SPACE 5 every 100 until 26s
+30s   D     30 every 120 until 70s
+31s   E     30 every 120 until 70s
+32s   S     30 every 120 until 70s

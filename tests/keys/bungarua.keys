@@ -1,0 +1,8 @@
+# BUN-GA-RUA: Space past the intro, then LEFT (= English) and Space on the title,
+# repeated over a window so it lands whatever the boot time. In the stage, walk
+# LEFT (the stage scrolls that way and the flame enemies come) and punch (Space).
+14s   SPACE 5 every 100 until 30s
+32s   LEFT  5 every 100 until 44s
+33s   SPACE 5 every 100 until 45s
+48s   LEFT  400
+50s   SPACE 5 every 25 until 70s

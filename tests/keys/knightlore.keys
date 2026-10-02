@@ -1,0 +1,8 @@
+# Knight Lore Remake: menu "2" = joystick/cursor keys, "0" = start game.
+14s   SPACE 5 every 100 until 26s
+28s   2     6 every 150 until 46s
+29s   0     6 every 150 until 47s
+50s   RIGHT 100
+53s   LEFT  100
+56s   UP    60
+58s   SPACE 5

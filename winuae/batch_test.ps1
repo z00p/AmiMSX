@@ -3,7 +3,10 @@
 # (.rom from run\Roms in Slot 1; .dsk from run\Disks in drive A)
 param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
-      [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "")
+      [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "",
+      [string]$Keys = "", [int]$SnapWait = 200)
+# -Keys file.keys: scripted MSX keyboard input in the emulator (tools\keyscript.py format),
+#   focus-independent; converted to run\Keys\<rom>.key and passed as AmiMSX's 2nd argument
 # -Hold key@from-to[,...]: hold a key (right, left, up, down, space) e.g. "right@40-48"
 # -ExitAt: press End = Amiga Help (AmiMSX: back to the menu; the trace build then dumps)
 # -Config: WinUAE config in winuae\ (e.g. AmiMSX-a1200.uae)
@@ -46,6 +49,31 @@ public class WU {
     small.Save(path, System.Drawing.Imaging.ImageFormat.Png); small.Dispose(); bmp.Dispose();
     return "ok";
   }
+  // Power LED lit in WinUAE's status bar (AmiMSX key-script SNAP): the "Power"
+  // text is drawn brighter (212 vs 195). Saves the frame when lit.
+  public static int GrabIfLed(IntPtr h, string path, int timeoutMs) {
+    RECT r; GetWindowRect(h, out r);
+    var bmp = new System.Drawing.Bitmap(r.R - r.L, r.B - r.T);
+    bool ok = false;
+    var t = new System.Threading.Thread(() => {
+      using (var g = System.Drawing.Graphics.FromImage(bmp)) { IntPtr dc = g.GetHdc(); ok = PrintWindow(h, dc, 2); g.ReleaseHdc(dc); } });
+    t.IsBackground = true; t.Start();
+    if (!t.Join(timeoutMs) || !ok) { bmp.Dispose(); return -1; }
+    // Measured on the half-size image (as saved): "Power" text max 212 lit, 195 dim.
+    var small = new System.Drawing.Bitmap(bmp, bmp.Width / 2, bmp.Height / 2);
+    bmp.Dispose();
+    int m = 0;
+    for (int y = small.Height - 14; y < small.Height - 3; y++)
+      for (int x = small.Width * 69 / 100; x < small.Width * 75 / 100; x++) {
+        var c = small.GetPixel(x, y);
+        int v = (c.R + c.G + c.B) / 3; if (v > m) m = v;   // brightest pixel
+      }
+    int n = (m >= 204) ? 100 : 0;
+    if (n > 20 && !string.IsNullOrEmpty(path))
+      small.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    small.Dispose();
+    return n;
+  }
 }
 "@ -ReferencedAssemblies System.Drawing
 [void][WU]::SetProcessDPIAware()   # physical pixels for both GetWindowRect and CopyFromScreen
@@ -58,7 +86,17 @@ function Capture($hwnd, $path) {   # WinUAE's window content only: never other w
 foreach ($rom in $Roms) {
   $s = [IO.File]::ReadAllText($seq, $latin1)
   $dir = if ($rom -match '\.dsk$') { "Disks" } else { "Roms" }   # disk images boot from drive A (run\Disks)
-  $s = [regex]::Replace($s, '(?m)^Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"")
+  $keyArg = ""; $snaps = @()
+  if ($Keys) {
+    $kd = Join-Path $base "run\Keys"; New-Item -ItemType Directory -Force $kd | Out-Null
+    $kn = [IO.Path]::GetFileNameWithoutExtension($rom) -replace '[\[\]]', '_'
+    $snapf = Join-Path $kd "$kn.snaps"
+    & python "$base\tools\keyscript.py" $Keys --amimsx (Join-Path $kd "$kn.key") --snaps $snapf | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "key script $Keys" }
+    $keyArg = " `"AmiMSX:Keys/$kn.key`""
+    $snaps = @(Get-Content $snapf | Where-Object { $_ })
+  }
+  $s = [regex]::Replace($s, '(?m)^Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"$keyArg")
   [IO.File]::WriteAllText($seq, $s, $latin1)
   Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1
   Start-Process "C:\Program Files\WinUAE\winuae64.exe" -ArgumentList "-f `"$base\winuae\$Config`"" -WorkingDirectory "C:\Program Files\WinUAE"
@@ -81,6 +119,27 @@ foreach ($rom in $Roms) {
   }
   if ($SpaceTo -gt $SpaceFrom) {
     for ($k = $SpaceFrom; $k -le $SpaceTo; $k += $SpaceEvery) { $events += [pscustomobject]@{ t = $k; kind = "space" } }
+  }
+  if ($snaps.Count -gt 0) {   # SNAP markers: capture each frozen frame (power LED lit)
+    $events = @($events | Where-Object { $_.kind -ne "shot" })
+    # The LED is also lit while Workbench boots: phase 0 waits for that, phase 1 for
+    # it to go dark (AmiMSX running), phase 2 captures each lit (SNAP) period. While
+    # lit every grab overwrites the capture, so the last one stands: in warp mode
+    # WinUAE shows new frames only now and then, the frozen one eventually.
+    $got = 0; $was = $false; $phase = 0
+    while ($got -lt $snaps.Count -and ((Get-Date) - $t0).TotalSeconds -lt $SnapWait) {
+      $p = if ($phase -lt 2) { $null } else { Join-Path $out "${name}_$($snaps[$got]).png" }
+      if ($env:SNAPDEBUG) { $dbg = Join-Path $base "build\snapdbg"; New-Item -ItemType Directory -Force $dbg | Out-Null
+        [void][WU]::Grab($hwnd, (Join-Path $dbg ("{0:000}.png" -f [int](((Get-Date) - $t0).TotalSeconds * 10))), 3000) }
+      $n = [WU]::GrabIfLed($hwnd, $p, 3000)
+      if ($env:SNAPDEBUG) { Add-Content (Join-Path $base "build\snapdbg.txt") ("{0:N1} {1} {2}" -f ((Get-Date) - $t0).TotalSeconds, $n, $was) }
+      if ($phase -eq 0) { if ($n -gt 20) { $phase = 1 } }
+      elseif ($phase -eq 1) { if ($n -le 20) { $phase = 2; $was = $false } }
+      elseif ($n -gt 20) { $was = $true }                 # lit: (re)captured above
+      elseif ($was) { $got++; $was = $false }             # went dark: that SNAP is done
+      Start-Sleep -Milliseconds 120
+    }
+    "$name : $got of $($snaps.Count) snaps"
   }
   foreach ($e in ($events | Sort-Object t)) {
     $wait = $e.t - ((Get-Date) - $t0).TotalSeconds

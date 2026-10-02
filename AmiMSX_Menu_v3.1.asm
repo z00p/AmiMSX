@@ -522,6 +522,9 @@ PerfDump:
 	MOVE.L	#TAB98B,D2
 	MOVE.L	#$800*8,D3
 	BSR	WRITEFILE
+	MOVE.L	#KeyFrN,D2		; Key-script frame count (last 4 bytes).
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
 	BSR	CLOSEFILE
 PerfDFin:
 	RTS
@@ -741,6 +744,32 @@ NOHAYASL2:
 	BSR	InsertSl1
 	ST	AutoGo
 NoAutoCart2:
+	TST.B	KEYNOM			; Test hook: key script from the CLI.
+	BEQ.S	NoKeyScrL
+	MOVE.L	#KEYNOM,D1
+	MOVE.L	#$3ED,D2		; MODE_OLDFILE
+	BSR	OPENFILE
+	TST.L	D0
+	BEQ.S	NoKeyScrL
+	MOVE.L	#KeyScr,D2
+	MOVE.L	#KEYSCRMAX*8,D3
+	BSR	READFILE
+	BSR	CLOSEFILE
+	CLR.L	KeyFrN
+	MOVE.L	#KeyScr,KeyScrPtr
+	LEA	KeyScr,A0		; Option records (row $FE): settings for
+KeyOptBuc:				; the test run. 1 = sprite frames
+	CMP.L	#-1,(A0)		; (DirPrefs+$16: 1 every frame, 2...).
+	BEQ.S	NoKeyScrL
+	CMP.B	#$FE,4(A0)
+	BNE.S	KeyOptNx
+	CMP.B	#1,5(A0)
+	BNE.S	KeyOptNx
+	MOVE.W	6(A0),DirPrefs+$16
+KeyOptNx:
+	ADDQ.W	#8,A0
+	BRA.S	KeyOptBuc
+NoKeyScrL:
 	TST.B	AutoDisk		; Test hook: disk image in drive A, then GO.
 	BEQ.S	NoAutoDisk
 	SF	AutoDisk
@@ -6958,6 +6987,20 @@ CONTROL:
 	CMP.L	#MSX2PUNTS,4(SP)
 	BNE.S	BUCONTROL
 	SF	AutoGo
+	TST.L	KeyScrPtr		; Scripted test run: start at the top of
+	BEQ.S	AutoGoNow		; an Amiga frame, so the run is the same
+AutoGoW1:				; every time (file loading ends at host-
+	MOVE.L	$DFF004,D0		; dependent moments).
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#20,D0
+	BCS.S	AutoGoW1
+AutoGoW2:
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	BNE.S	AutoGoW2
+AutoGoNow:
 	JSR	MSX_GO
 	IFD	TRACE
 	BSR	TraceDump		; Trap fired, or Ctrl+Alt: last 4096

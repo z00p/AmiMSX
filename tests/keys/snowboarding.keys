@@ -1,0 +1,10 @@
+# Relevo's Snowboarding: Space past the title, then on the options menu
+# DOWN x3 to "LET'S GO" and Space (user tip). Repeated over a window.
+14s   SPACE 5 every 100 until 20s
+22s   DOWN  4 every 120 until 38s
+22.8s DOWN  4 every 120 until 38s
+23.6s DOWN  4 every 120 until 38s
+24.4s SPACE 5 every 120 until 38s
+40s   LEFT  60
+42s   RIGHT 60
+44s   SPACE 5 every 50 until 56s

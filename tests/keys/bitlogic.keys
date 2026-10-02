@@ -1,0 +1,5 @@
+# Bit Logic: a long story intro advanced with Space, then play.
+14s   SPACE 5 every 100 until 70s
+72s   RIGHT 100
+75s   LEFT  100
+78s   UP    40

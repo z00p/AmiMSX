@@ -1,0 +1,68 @@
+id,file,kind,set,romtype,keys,config,shots,smoke,notes,features
+006_MutantsfromtheDeep,006_MutantsfromtheDeep.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+007_UridiumMSXdev14,007_UridiumMSXdev14.rom,rom,core,,play,030,"30,45,60",Y,,machine:MSX2 mapper:plain mode:S2 split:mode split:sprite-tables sprites:mode1
+010_WestenHouse,010_WestenHouse.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+011_TheCure,011_TheCure.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+015_UniverseUnknown,015_UniverseUnknown.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
+016_BitLogic,016_BitLogic.rom,rom,core,,bitlogic,030,"60,75,85",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+017_TheFallofPrometheus,017_TheFallofPrometheus.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+029_RelevosSnowboarding,029_RelevosSnowboarding.rom,rom,core,,snowboarding,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
+031_KnightLoreRemake,031_KnightLoreRemake.rom,rom,core,,knightlore,030,"45,55,62",,,cmd:HMMV cmd:LMMM cmd:YMMM machine:MSX2 mapper:plain mode:S5 palette:mid-frame scroll:R#23
+033_XRacing,033_XRacing.rom,rom,core,,xracing,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+034_GodzillaBalls,034_GodzillaBalls.rom,rom,core,,godzilla,030,"60,75,85",Y,,machine:MSX2 mapper:plain mode:S2 palette split:mode split:sprites-on/off sprites:mode1
+041_SnakeandRhinointheSket,041_SnakeandRhinointheSket.rom,rom,core,,snakerhino,030,"30,45,60",Y,page-turn tiles; stuck on world select (open),machine:MSX2 mapper:plain mode:S2 mode:S3 palette split:mode split:tables sprites:mode1
+042_ZombieIncident,042_ZombieIncident.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+045_MySacredPlace,045_MySacredPlace.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S0 sprites:mode1
+046_TinasAdventureIsland,046_TinasAdventureIsland.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+047_Stevedore,047_Stevedore.rom,rom,core,,play,030,"30,45,60",Y,,machine:MSX1 mapper:plain mode:S1 mode:S2 palette sprites:mode1
+072_Zorrico,072_Zorrico.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
+079_CadarisFairGame,079_CadarisFairGame.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S0 sprites:mode1
+085_ShoulderBladeOVERDRIVE,085_ShoulderBladeOVERDRIVE.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S4 palette:mid-frame split:sprite-tables split:tables sprites:mode2
+091_SacredValley,091_SacredValley.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S1 mode:S2 split:border split:mode split:sprite-tables split:tables sprites:mode1
+100_ChikubiNinja,100_ChikubiNinja.rom,rom,core,,play,030,"30,45,60",Y,,adjust:R#18 line-interrupts machine:MSX2 mapper:plain mode:S4 palette:mid-frame split:adjust split:mode sprites:mode2
+BombJack,BombJack.rom,rom,core,,play,030,"30,45,60",,,cmd:HMMM cmd:HMMV cmd:LMMM machine:MSX2 mapper:plain mode:S5 palette split:border split:mode split:sprite-tables split:sprites-on/off split:tables sprites:mode2
+M_Abbaye_A8,M_Abbaye_A8.rom,rom,core,ASCII8,abbaye,030,"40,50,62",,,machine:MSX2 mapper:ASCII8 mode:S2 split:mode sprites:mode1
+M_AlienAttack_A16,M_AlienAttack_A16.rom,rom,core,ASCII16,alienattack,030,"45,60,70",,,machine:MSX2 mapper:ASCII16 mode:S2 split:border split:mode sprites:mode1
+M_Barbarian_A16,M_Barbarian_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,sprite corruption in play (open),cmd:HMMC cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S5 palette:mid-frame split:border split:mode split:tables sprites:mode2
+M_Ianna_A16,M_Ianna_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,,cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM cmd:LMMV cmd:YMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S5 palette:mid-frame split:tables
+M_Jailbreak_Kon,M_Jailbreak_Kon.rom,rom,core,Konami,play,030,"30,45,60",Y,flashing scenery (open),cmd:HMMM cmd:HMMV cmd:LMMM machine:MSX2 mapper:Konami mode:S5 mode:S8 palette:mid-frame scroll:R#23 split:mode split:scroll split:sprites-on/off split:tables sprites:mode2
+M_Lilly_A16,M_Lilly_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,,adjust:R#18 cmd:HMMM cmd:HMMV cmd:LMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S4 mode:S5 palette:mid-frame scroll:R#23 split:adjust split:mode split:scroll split:sprites-on/off split:tables
+M_Nogalious_A8,M_Nogalious_A8.rom,rom,core,ASCII8,play,030,"30,45,60",,,machine:MSX2 mapper:ASCII8 mode:S2 split:mode sprites:mode1
+M_Uridium2_SCC,M_Uridium2_SCC.rom,rom,core,KonamiSCC,play,030,"30,45,60",,player ship drops out (open),adjust:R#18 cmd:HMMM cmd:HMMV line-interrupts machine:MSX2 mapper:KonamiSCC mode:S8 scroll:R#23 split:adjust split:mode split:scroll split:sprites-on/off split:tables
+M_Zevimodoki_A8,M_Zevimodoki_A8.rom,rom,core,ASCII8,play,030,"30,45,60",Y,,machine:MSX1 mapper:ASCII8 mode:S0 sprites:mode1
+NightKnight,NightKnight.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+R2K_Galious,R2K_Galious.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX1 mapper:guess mode:S2 split:border sprites:mode1
+R2K_GaliousEnh,R2K_GaliousEnh.rom,rom,set2,,play,030,"30,45,60",,,adjust:R#18 cmd:HMMM cmd:HMMV cmd:LINE cmd:LMMC cmd:LMMM cmd:YMMM line-interrupts machine:MSX2 mapper:guess mode:S5 palette:mid-frame split:adjust split:border split:mode split:tables sprites:mode2
+R2K_Gradius2VC,R2K_Gradius2VC.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX1 mapper:guess mode:S2 sprites:mode1
+R2K_KingsValley2,R2K_KingsValley2.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX2 mapper:guess mode:S2 split:border split:mode sprites:mode1
+R2K_MetalGear,R2K_MetalGear.rom,rom,set2,,metalgear,030,"60,85,92",,,cmd:HMMM cmd:HMMV cmd:LINE cmd:LMMM machine:MSX2 mapper:guess mode:S5 palette:mid-frame split:border split:mode split:sprites-on/off sprites:mode2
+R2K_Nemesis2,R2K_Nemesis2.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX1 mapper:guess mode:S2 sprites:mode1
+R2K_Nemesis3,R2K_Nemesis3.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX2 mapper:guess mode:S2 palette:mid-frame sprites:mode1
+R2K_Nemesis3Enh,R2K_Nemesis3Enh.rom,rom,set2,,play,030,"30,45,60",,,adjust:R#18 line-interrupts machine:MSX2 mapper:guess mode:S0w80 mode:S2 mode:S4 palette:mid-frame split:adjust split:border split:mode split:sprite-tables split:sprites-on/off split:tables sprites:mode2
+R2K_Salamander,R2K_Salamander.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX1 mapper:guess mode:S2 split:border sprites:mode1
+R2K_SalamanderEnh,R2K_SalamanderEnh.rom,rom,set2,,play,030,"30,45,60",,,adjust:R#18 line-interrupts machine:MSX2 mapper:guess mode:S2 palette:mid-frame split:adjust split:border split:sprites-on/off split:tables
+R2K_SpaceManbow,R2K_SpaceManbow.rom,rom,set2,,play,030,"30,45,60",,ground strip + enemies missing (open),adjust:R#18 cmd:HMMM cmd:HMMV cmd:LMMM line-interrupts machine:MSX2 mapper:guess mode:S4 mode:S5 palette:mid-frame scroll:R#23 split:adjust split:border split:mode split:scroll split:sprite-tables split:sprites-on/off split:tables sprites:mode2
+R2K_Usas,R2K_Usas.rom,rom,set2,,play,030,"30,45,60",,,cmd:HMMM cmd:HMMV cmd:LINE cmd:LMMM machine:MSX2 mapper:guess mode:S5 palette:mid-frame split:border split:mode split:sprites-on/off sprites:mode2
+R2K_UsasEnh,R2K_UsasEnh.rom,rom,set2,,play,030,"30,45,60",Y,,cmd:HMMM cmd:HMMV cmd:LINE cmd:LMMM machine:MSX2 mapper:guess mode:S0w80 mode:S5 palette:mid-frame split:border split:mode split:sprites-on/off sprites:mode2
+R2K_VampireKiller,R2K_VampireKiller.rom,rom,set2,,play,030,"30,45,60",,,cmd:HMMC cmd:HMMM cmd:HMMV cmd:LINE cmd:LMMM machine:MSX2 mapper:guess mode:S5 palette:mid-frame split:border split:mode split:sprites-on/off sprites:mode2
+R2K_VampireKillerSCC,R2K_VampireKillerSCC.rom,rom,set2,,play,030,"30,45,60",,,cmd:HMMC cmd:HMMM cmd:HMMV cmd:LINE cmd:LMMM machine:MSX2 mapper:guess mode:S5 palette:mid-frame split:border split:mode split:sprites-on/off sprites:mode2
+R2K_Zanac,R2K_Zanac.rom,rom,set2,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+R2K_ZanacEx,R2K_ZanacEx.rom,rom,set2,,play,030,"30,45,60",,title garbled at 18 s? (check),cmd:HMMC cmd:HMMM cmd:HMMV cmd:LMMM line-interrupts machine:MSX2 mapper:guess mode:S5 palette:mid-frame scroll:R#23 split:mode split:scroll split:sprites-on/off split:tables sprites:mode2
+R2K_ZanacExEnh,R2K_ZanacExEnh.rom,rom,set2,,play,030,"30,45,60",,,cmd:HMMC cmd:HMMM cmd:HMMV cmd:LMMM line-interrupts machine:MSX2 mapper:guess mode:S0w80 mode:S5 palette:mid-frame scroll:R#23 split:mode split:scroll split:sprite-tables split:sprites-on/off split:tables sprites:mode2
+R2_Batman,R2_Batman.rom,rom,set2,KonamiSCC,batman,030,"30,45,60",,,cmd:HMMM cmd:HMMV cmd:LMMM machine:MSX2 mapper:KonamiSCC mode:S2 mode:S5 palette:mid-frame split:mode split:sprite-tables split:tables sprites:mode2
+R2_BunGaRua,R2_BunGaRua.rom,rom,set2,KonamiSCC,bungarua,030,"30,45,60",Y,mode split + mid-frame palette; heroine sprite drops out (open),adjust:R#18 cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM cmd:YMMM line-interrupts machine:MSX2 mapper:KonamiSCC mode:S4 mode:S5 palette:mid-frame scroll:R#23 split:mode split:scroll split:sprites-on/off sprites:mode2
+R2_DEVA,R2_DEVA.rom,rom,set2,KonamiSCC,play,030,"30,45,60",,same frame 30-65 s: stall or idle? (open),machine:MSX1 mapper:KonamiSCC
+R2_Delta[ASCII16],R2_Delta[ASCII16].rom,rom,set2,ASCII16,play,030,"30,45,60",,,machine:MSX2 mapper:ASCII16 mode:S4 mode:S5 palette:mid-frame scroll:R#23 split:border split:sprite-tables split:sprites-on/off split:tables sprites:mode2
+R2_LotusF3,R2_LotusF3.rom,rom,set2,KonamiSCC,lotus,030,"30,45,60",,,machine:MSX2 mapper:KonamiSCC mode:S2 split:mode split:sprite-tables sprites:mode1
+R2_MonsterHunter[KonamiSCC],R2_MonsterHunter[KonamiSCC].rom,rom,set2,KonamiSCC,play,030,"30,45,60",Y,,machine:MSX2 mapper:KonamiSCC mode:S2 split:mode sprites:mode1
+R2_NeonHorizon,R2_NeonHorizon.rom,rom,set2,,play,030,"30,45,60",,8 MB: over the 4 MB limit (out of scope),
+R2_NeonRevMSX1[ASCII8],R2_NeonRevMSX1[ASCII8].rom,rom,set2,ASCII8,play,030,"30,45,60",,,machine:MSX1 mapper:ASCII8 mode:S2 sprites:mode1
+R2_NeonRevMSX2[ASCII8],R2_NeonRevMSX2[ASCII8].rom,rom,set2,ASCII8,play,030,"30,45,60",,,machine:MSX2 mapper:ASCII8 mode:S4 sprites:mode2
+R2_Popolon,R2_Popolon.rom,rom,set2,,play,030,"30,45,60",Y,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
+R2_Unleashed,R2_Unleashed.rom,rom,set2,,play,030,"30,45,60",,'Internal error' by 65 s (open),line-interrupts machine:MSX2 mapper:guess mode:S0 mode:S2 split:border split:mode sprites:mode1
+Triton,Triton.rom,rom,core,,triton,030,"30,45,60",,"map: RIGHT moves a planet cursor, Space circles it; launch sequence still unknown",machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+R2_akin1,R2_akin1.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
+R2_akin2,R2_akin2.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
+R2_bold,R2_bold.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
+R2_invasion,R2_invasion.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
+R2_io,R2_io.dsk,disk,set2,,autospace,030,"20,40,60",Y,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1

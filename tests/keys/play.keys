@@ -1,0 +1,10 @@
+# Generic: Space taps to get through title screens and menus, then move and fire
+# so the shots show character movement and scrolling.
+14s   SPACE 5 every 100 until 40s
+41s   RIGHT 100
+43.5s LEFT  100
+46s   UP    40
+47s   DOWN  40
+48.5s SPACE 5 every 30 until 54s
+50s   RIGHT 150
+54s   LEFT  100

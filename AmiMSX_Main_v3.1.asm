@@ -493,7 +493,8 @@ CALLCC:	MACRO
 ANEM:
 ; ------------------------------------> Test hook: "AmiMSX <cartridge>" from
 ;	the CLI inserts it in Slot 1 and powers on (no splash, no requester);
-;	"AmiMSX <image>.dsk" loads it into drive A instead.
+;	"AmiMSX <image>.dsk" loads it into drive A instead. An optional second
+;	argument names a key script (KeyScr: scripted keyboard input).
 	MOVEM.L	D0/A0,-(SP)
 	SUB.L	A1,A1
 	MOVE.L	4.W,A6
@@ -526,6 +527,32 @@ AutoCartCon:
 	BRA.S	AutoCartBuc
 AutoCartFin:
 	CLR.B	(A1)
+	MOVE.L	A1,-(SP)		; Optional second argument: a key script
+	LEA	KEYNOM,A1		; (test input, see KeyScrRun).
+AutoKeySp:
+	SUBQ.L	#1,D0
+	BMI.S	AutoKeyFin
+	MOVE.B	(A0)+,D1
+	CMP.B	#' ',D1
+	BEQ.S	AutoKeySp
+	MOVEQ	#' ',D2
+	CMP.B	#'"',D1
+	BNE.S	AutoKeyCon
+	MOVEQ	#'"',D2
+AutoKeyBuc:
+	SUBQ.L	#1,D0
+	BMI.S	AutoKeyFin
+	MOVE.B	(A0)+,D1
+AutoKeyCon:
+	CMP.B	D2,D1
+	BEQ.S	AutoKeyFin
+	CMP.B	#' ',D1
+	BCS.S	AutoKeyFin
+	MOVE.B	D1,(A1)+
+	BRA.S	AutoKeyBuc
+AutoKeyFin:
+	CLR.B	(A1)
+	MOVE.L	(SP)+,A1
 	TST.B	FILENOM
 	SNE	AutoCart
 	BEQ.S	NoAutoCart
@@ -15045,6 +15072,11 @@ Emula1Frame:
 	LEA	Regs(PC),A3
 	JSR	Act_Hardware
 
+	TST.L	KeyScrPtr		; Scripted test input (CLI key script).
+	BEQ.S	NoKeyScr
+	JSR	KeyScrRun
+NoKeyScr:
+
 	IFD	PERFSPACE
 ; Test input that doesn't depend on window focus: Space (MSX row 8 bit 0,
 ; 0 = pressed) for 5 frames every 100 MSX frames from frame PERFSPACE on.
@@ -15121,6 +15153,10 @@ PerfDnFin:
 	ST	ACTODOB(A3)
 RendSame:
 	JSR	([RVDP.W,A3])		; Emulación del VDP.
+	TST.W	SnapPend		; Key-script SNAP: hold this frame.
+	BEQ.S	NoSnapDo
+	JSR	KeySnapDo
+NoSnapDo:
 	IFD	PERF
 	JSR	PerfStamp		; D: VDP render done.
 	MOVE.L	PerfNow,PerfD
@@ -16730,20 +16766,22 @@ TRETARDOB:
 	BEQ.S	TRETARDOB
 	DBF	D2,TRETARDO
 	AND.B	#$BF,$BFEE01		; CIAA Libre
+	TST.L	KeyScrPtr		; Scripted test run: only the key script
+	BNE.S	MTESAL			; types (handshake done, matrix untouched).
 	ADDQ.W	#1,D2
 	NOT.B	D0
 	LSR.B	#$01,D0
 	BCS.S	NOTECLA
 	MOVE.B	TECLADO(PC,D0.W*2),D2
 	MOVE.B	TECLADO+1(PC,D0.W*2),D0
-	BMI.S	CapsON
+	BMI	CapsON
 	BCLR	D2,KEY(A3,D0.W)
 	RTS
 	CNOP	0,8
 NOTECLA:
 	MOVE.B	TECLADO(PC,D0.W*2),D2
 	MOVE.B	TECLADO+1(PC,D0.W*2),D0
-	BMI.S	CapsOFF
+	BMI	CapsOFF
 	TST.B	MULTEC(A3)
 	BNE.S	MTESAL
 	BSET	D2,KEY(A3,D0.W)
@@ -16801,6 +16839,12 @@ Conta2Fin:
 	CNOP	0,8
 TesteaJoyRut:
 	LEA	REGS,A3
+	TST.L	KeyScrPtr		; Scripted test run: no host joystick or
+	BEQ.S	TJoyHost		; mouse (moving the mouse over WinUAE
+	ST	DATOJOY1(A3)		; read as MSX joystick 2).
+	ST	DATOJOY2(A3)
+	RTS
+TJoyHost:
 
 	IFEQ	Key_ON
 	MOVE.L	([KeyBase],$08.w),A0
@@ -21105,6 +21149,99 @@ SCRTBLo:	DC.W	0		; and its 1 KB blocks.
 SCRTBHi:	DC.W	128
 LastRend:	DC.B	$FF		; Mode of the last render.
 M5Tracked:	DC.B	0		; This SCREEN 5 stay marks the SCREEN 4 cache.
+		EVEN
+
+; ---------------------------------------=> Key script (CLI test hook).
+; Records of 8 bytes: frame (MSX frames since power on), keyboard matrix
+; row, key mask, hold frames; frame -1 ends the list. A key is down (its
+; matrix bits 0) during [frame, frame + hold) and released once after.
+; The keys stay usable from the Amiga keyboard otherwise.
+	CNOP	0,4
+KeyScrRun:
+	MOVEM.L	D0-D3/A0-A1,-(SP)
+	ADDQ.L	#1,KeyFrN
+	MOVE.L	KeyFrN,D3
+	MOVE.L	KeyScrPtr,A0
+	LEA	KEY(A3),A1
+KeyScrBuc:
+	MOVE.L	(A0)+,D0		; Frame.
+	CMP.L	#-1,D0
+	BEQ.S	KeyScrFin
+	MOVEQ	#0,D1
+	MOVE.B	(A0)+,D1		; Row.
+	MOVE.B	(A0)+,D2		; Mask.
+	ADDQ.W	#2,A0			; (Hold: read below.)
+	CMP.B	#$FF,D1			; Row $FF: snapshot marker.
+	BEQ.S	KeyScrSnap
+	CMP.B	#$FE,D1			; Row $FE: option (applied at load).
+	BEQ.S	KeyScrNx
+	CMP.L	D0,D3			; Not yet.
+	BCS.S	KeyScrBuc
+	SUB.L	D0,D3			; Frames since the press...
+	MOVEQ	#0,D0
+	MOVE.W	-2(A0),D0
+	CMP.L	D0,D3
+	BCS.S	KeyScrDn		; ...while held,
+	BEQ.S	KeyScrUp		; released just once.
+	BRA.S	KeyScrNx
+KeyScrDn:
+	NOT.B	D2
+	AND.B	D2,(A1,D1.W)
+	BRA.S	KeyScrNx
+KeyScrUp:
+	OR.B	D2,(A1,D1.W)
+KeyScrNx:
+	MOVE.L	KeyFrN,D3
+	BRA.S	KeyScrBuc
+KeyScrFin:
+	MOVEM.L	(SP)+,D0-D3/A0-A1
+	RTS
+; SNAP: at its frame, hold the emulation for 'hold' Amiga frames with the
+; power LED on (CIA-A PRA bit 1 low), so the harness captures exactly this
+; MSX frame (it watches the LED in WinUAE's status bar).
+KeyScrSnap:
+	CMP.L	D0,D3
+	BNE.S	KeyScrNx
+	MOVE.W	-2(A0),SnapPend		; Freeze after this frame's render.
+	BRA.S	KeyScrNx
+; SNAP freeze, after the render: hold the finished frame for SnapPend Amiga
+; frames with the power LED on (CIA-A PRA bit 1 low), so the harness captures
+; exactly this MSX frame (it watches the LED in WinUAE's status bar).
+KeySnapDo:
+	MOVEM.L	D0/D2,-(SP)
+	MOVE.B	$BFE001,-(SP)
+	BSET	#1,$BFE201		; (DDRA: LED bit an output.)
+	BCLR	#1,$BFE001		; LED on.
+	MOVE.W	SnapPend,D2
+	CLR.W	SnapPend
+	SUBQ.W	#1,D2
+KeySnapF:
+	MOVE.L	$DFF004,D0		; Wait for a new Amiga frame: past line 20,
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#20,D0
+	BCS.S	KeySnapF
+KeySnapG:
+	MOVE.L	$DFF004,D0		; then back to the top.
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#20,D0
+	BCC.S	KeySnapG
+	DBF	D2,KeySnapF
+	MOVE.B	(SP)+,D0
+	AND.B	#$02,D0			; LED back as it was.
+	BCLR	#1,$BFE001
+	OR.B	D0,$BFE001
+	MOVEM.L	(SP)+,D0/D2
+	RTS
+SnapPend:	DC.W	0
+
+KeyScrPtr:	DC.L	0		; Loaded script (Menu), 0: none.
+KeyFrN:		DC.L	0		; MSX frames since power on.
+KEYSCRMAX=256
+KeyScr:		DS.B	KEYSCRMAX*8
+		DC.L	-1		; (Guard.)
+KEYNOM:		DS.B	256		; CLI key script file name.
 		EVEN
 
 ; Display lines TSplit..191 from the current tables (R#2, R#3/R#10, R#4,

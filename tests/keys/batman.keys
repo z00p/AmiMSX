@@ -1,0 +1,6 @@
+# Batman (FX): ENTER selects "PLAY THE GAME" on the menu.
+14s   SPACE  5 every 100 until 26s
+28s   RETURN 5 every 100 until 36s
+40s   RIGHT 100
+43s   LEFT  100
+46s   UP    60
