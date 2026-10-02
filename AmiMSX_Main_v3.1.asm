@@ -17,7 +17,10 @@ Key_ON=1		; 1=Off.
 FM_Pak_ROM=1
 FFFF_ON=1
 
-HPeriod=202
+HPeriod=228		; Z80 cycles per line (3.58 MHz / 15.7 kHz). The MSX adds a
+			; wait state to every M1 fetch: Otra charges T-states + 1,
+			; CB/DD/ED/FD prefixes 1 more. (Was 202 with plain T-states,
+			; ~1.13 on average: io measured 'not 50 Hz'.)
 VPeriodPAL=313
 VPeriodNTSC=262
 
@@ -2559,12 +2562,12 @@ FInsBuc:MACRO
 ;\@:
 	ENDM
 
-Otra:	MACRO
+Otra:	MACRO				; (T-states + the M1 wait, see HPeriod)
 	MOVE.B	(A5)+,D2
-	IFNE	\1>(8)
-	SUB.W	#\1,(A3)			; * Resta Cycles *
+	IFNE	(\1+1)>(8)
+	SUB.W	#(\1+1),(A3)			; * Resta Cycles *
 	ELSEIF
-	SUBQ.W	#\1,(A3)			; * Resta Cycles *
+	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles *
 	ENDC
 	BMI.S	\@Buc
 	JMP	([A3,D2.W*8])
@@ -2580,7 +2583,7 @@ Otra2:	MACRO
 
 OtraEI:	MACRO
 	MOVE.B	(A5)+,D2
-	SUBQ.W	#\1,(A3)			; * Resta Cycles *
+	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles *
 	JMP	([A3,D2.W*8])
 	CNOP	0,4
 	ENDM
@@ -5218,13 +5221,15 @@ IINFC:	MINC	D1,0,12
 ; --------------------------------------------------------------
 
 RInsCB:	MOVE.B	(A5)+,D2
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	JMP	([InsCB-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
 	CNOP	0,4
 CB00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	CB00C
 	Otra	4
-CB00C:	SUBQ.W	#1,A5
+CB00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
 	CogePag	D1,A5
@@ -5235,13 +5240,15 @@ CB00C:	SUBQ.W	#1,A5
 
 	CNOP	0,4
 RInsDD:	MOVE.B	(A5)+,D2
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	JMP	([InsDD-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
 	CNOP	0,4
 DD00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	DD00C
 	Otra	4
-DD00C:	SUBQ.W	#1,A5
+DD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
 	CogePag	D1,A5
@@ -5252,13 +5259,15 @@ DD00C:	SUBQ.W	#1,A5
 
 	CNOP	0,4
 RInsED:	MOVE.B	(A5)+,D2
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	JMP	([InsED-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
 	CNOP	0,4
 ED00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	ED00C
 	Otra	4
-ED00C:	SUBQ.W	#1,A5
+ED00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
 	CogePag	D1,A5
@@ -5269,13 +5278,15 @@ ED00C:	SUBQ.W	#1,A5
 
 	CNOP	0,4
 RInsFD:	MOVE.B	(A5)+,D2
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	JMP	([InsFD-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
 	CNOP	0,4
 FD00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	FD00C
 	Otra	4
-FD00C:	SUBQ.W	#1,A5
+FD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
 	CogePag	D1,A5
@@ -5420,7 +5431,8 @@ OUTDfZ:
 INIR:
 	MOVE.W	D5,D1
 	LSR.W	#8,D1
-	LSL.W	#4,D1
+	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
+	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.B	D5,D2
@@ -5442,7 +5454,8 @@ INIRF:	MOVE.B	D2,D5
 INDR:
 	MOVE.W	D5,D1
 	LSR.W	#8,D1
-	LSL.W	#4,D1
+	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
+	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.B	D5,D2
@@ -5465,7 +5478,8 @@ INDRF:	MOVE.B	D2,D5
 OTIR:
 	MOVE.W	D5,D1
 	LSR.W	#8,D1
-	LSL.W	#4,D1
+	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
+	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.B	D5,D2
@@ -5485,7 +5499,8 @@ OTIRCon:
 OTDR:
 	MOVE.W	D5,D1
 	LSR.W	#8,D1
-	LSL.W	#4,D1
+	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
+	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.B	D5,D2
@@ -5525,9 +5540,13 @@ LDD:
 
 
 LDIR:
+	MOVEQ	#0,D1
 	MOVE.W	D5,D1
-	LSL.W	#4,D1
-	AND.W	#$3FFF,D1
+	MULU.L	#23,D1			; BC*(21+2) - 12, + the final Otra 5,
+	SUB.L	#12,D1			; at most $7000 (~125 lines: the
+	CMP.L	#$7000,D1		; counter is a word).
+	BLS.S	*+8
+	MOVE.L	#$7000,D1
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.L	A0,-(SP)
@@ -5555,9 +5574,13 @@ LDIRD0:	ADDI.W	#$100,D4
 
 
 LDDR:
+	MOVEQ	#0,D1
 	MOVE.W	D5,D1
-	LSL.W	#4,D1
-	AND.W	#$3FFF,D1
+	MULU.L	#23,D1			; BC*(21+2) - 12, + the final Otra 5,
+	SUB.L	#12,D1			; at most $7000 (~125 lines: the
+	CMP.L	#$7000,D1		; counter is a word).
+	BLS.S	*+8
+	MOVE.L	#$7000,D1
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.L	A0,-(SP)
@@ -14814,6 +14837,24 @@ PerfK0Off:
 	BSET	#0,KEY+0(A3)
 PerfK0Fin:
 	ENDC
+	IFD	PERFDOWN
+; Test input: cursor down (MSX row 8 bit 6) for 5 frames at frames PERFDOWN,
+; +20 and +40 (Relevo's Snowboarding: down x3 in its menu, then Space).
+	MOVE.L	PerfFrN,D1
+	SUB.L	#PERFDOWN,D1
+	BCS.S	PerfDnOff
+	CMP.L	#60,D1
+	BCC.S	PerfDnOff
+	DIVU	#20,D1
+	SWAP	D1
+	CMP.W	#5,D1
+	BCC.S	PerfDnOff
+	BCLR	#6,KEY+8(A3)
+	BRA.S	PerfDnFin
+PerfDnOff:
+	BSET	#6,KEY+8(A3)
+PerfDnFin:
+	ENDC
 
 	IFD	PERF
 	JSR	PerfStamp		; C: copper + hardware updates.
@@ -16115,7 +16156,7 @@ MODO8DATS:
 Inter:
 	MOVE.W	#$2700,SR
 	BTST	#5,$DFF01F
-	BEQ.S	VDP_Emul
+	BEQ	VDP_Emul
 	MOVE.W	#$0020,$DFF09C
 	IFD	PERF
 	ADDQ.L	#1,PerfTick		; VBlank (line 0): speed counter clock.
@@ -16143,7 +16184,11 @@ PerfPCv:	MOVE.L	A0,PerfPCPtr
 	IFD	PERFTICKS
 	CMP.L	#PERFTICKS,PerfTick	; Optional escape after n VBlanks, even if
 	BNE.S	PerfNoEsc		; the emulation hangs: RTE into SALIR (back
-	MOVE.L	#SALIR,2(SP)		; to the menu, which writes perf.bin).
+	MOVE.W	(SP),DIRCONTI		; to the menu, which writes perf.bin),
+	MOVE.L	2(SP),DIRCONTI+2	; as the Ctrl+Alt exit (SISALIR2) does.
+	CLR.W	(SP)
+	MOVE.L	#SALIR,2(SP)
+	SF	DERSTACK
 PerfNoEsc:
 	ENDC
 	NOP
