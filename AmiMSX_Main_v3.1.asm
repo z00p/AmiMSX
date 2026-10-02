@@ -186,6 +186,53 @@ SNAPSPR:	MACRO
 \@Fin:
 	ENDM
 
+; Screen mode change (VDP0/VDP1, D1.W = new mode). During the display it is
+; a mode split (MSplitL = first line in the new mode); while splits keep
+; coming (MSplitSeen), SCREEN 4 <-> SCREEN 5 flips keep the SCREEN 4 screen
+; and caches (no full redraw) unless VDP commands drew in SCREEN 5.
+MODESW:	MACRO
+	MOVE.W	D1,MsNewW
+	MOVE.B	ScrModo(A3),MsOld
+	MOVE.B	D1,ScrModo(A3)
+	MOVE.W	CurLine(A3),D1
+	BEQ.S	\@ns
+	CMP.W	#191,D1
+	BCC.S	\@ns
+	TST.W	MSplitL
+	BNE.S	\@ns
+	ADDQ.W	#1,D1
+	MOVE.W	D1,MSplitL
+	OR.B	#$01,(TabRasCMDS.L,D1.W)
+	MOVE.B	MsOld,MSplitTop
+	MOVE.B	DVDP2(A3),MS_DVDP2
+	MOVE.B	VDPLinY(A3),MS_LinY
+	MOVE.B	#3,MSplitSeen
+\@ns:
+	TST.B	MSplitSeen
+	BEQ.S	\@full
+	MOVE.B	MsNewW+1,D1
+	CMP.B	#3,D1			; 4 -> 5: SCREEN 5 isn't rendered.
+	BNE.S	\@n5
+	CMP.B	#2,MsOld
+	BEQ.S	\@keep
+	BRA.S	\@full
+\@n5:	CMP.B	#2,D1			; 5 -> 4: keep unless commands drew.
+	BNE.S	\@full
+	CMP.B	#3,MsOld
+	BNE.S	\@full
+	TST.B	M5Tracked		; Only if SCREEN 5 marked the SCREEN 4
+	BEQ.S	\@full			; cache all along (OUT98AT).
+	TST.B	Pl5Dirty
+	BEQ.S	\@keep
+	BRA.S	\@full
+\@keep:
+	BRA.S	\@end
+\@full:	ST	ACTODO(A3)
+	ST	ACTODOB(A3)
+\@end:
+	MOVE.W	MsNewW,D1
+	ENDM
+
 BankNum:	MACRO
 	MOVEQ	#0,D1
 	MOVE.B	(A4),D1
@@ -6659,6 +6706,64 @@ VRAM98X:
 	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 	RTS
 
+
+; OUT98/OUT98X once the SCREEN 5/7 planes are valid (V5All clear): also
+; the 1 KB dirty blocks for ActPlanos5. Plain ones otherwise (no cost).
+	CNOP	0,8
+OUT98M:
+	MOVE.B	D1,D2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	TST.B	D1
+	BEQ.S	VRAM98M
+	MOVE.B	D2,(A2)+
+	LSR.L	#3,D1
+	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
+	LSR.W	#7,D1			; 1 KB block: not in the SCREEN 5/7 planes.
+	ST	(VBlk5-REGS.W,A3,D1.W)
+	RTS
+VRAM98M:
+	AND.W	#$3FFF,D1
+	LEA	([VRAM.W,A3],D1.W),A2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	MOVE.B	D2,(A2)+
+	LSR.L	#3,D1
+	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
+	LSR.W	#7,D1			; 1 KB block: not in the SCREEN 5/7 planes.
+	ST	(VBlk5-REGS.W,A3,D1.W)
+	RTS
+
+
+	CNOP	0,8
+OUT98XM:
+	MOVE.B	D1,D2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	TST.B	D1
+	BEQ.S	VRAM98XM
+	MOVE.B	D2,(A2)+
+	LSR.L	#3,D1
+	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
+	LSR.W	#7,D1			; 1 KB block: not in the SCREEN 5/7 planes.
+	ST	(VBlk5-REGS.W,A3,D1.W)
+	RTS
+VRAM98XM:
+	AND.L	#$1FFFF,D1
+	LEA	(DIRVRAM.L,D1.L),A2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	MOVE.B	D2,(A2)+
+	LSR.L	#3,D1
+	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
+	LSR.W	#7,D1			; 1 KB block: not in the SCREEN 5/7 planes.
+	ST	(VBlk5-REGS.W,A3,D1.W)
+	RTS
+
 ;	-----------
 
 	CNOP	0,8
@@ -6704,6 +6809,29 @@ VRAM98A:
 	MOVE.L	A2,D1
 	SUB.L	#DIRVRAM,D1
 	BRA.S	CRAM98A
+
+	CNOP	0,8
+OUT98AT:				; OUT98A during a mode split: also the
+	MOVE.B	D1,D2			; SCREEN 4 cache's dirty flags.
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	TST.B	D1
+	BNE.S	CRAM98AT
+	AND.L	#$1FFFF,D1
+	LEA	(DIRVRAM.L,D1.L),A2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+CRAM98AT:
+	ROR.L	#3,D1
+	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)
+	ROL.L	#3,D1
+	CMP.L	SCRTLo,D1		; In the page shown above the split?
+	BCS	CRAM98A
+	CMP.L	SCRTHi,D1
+	BCC	CRAM98A
+	ST	SCRTDirty
+	BRA	CRAM98A
 
 	CNOP	0,8		; Screen 5 y 7
 OUT98A:
@@ -7033,7 +7161,10 @@ OUT9Ab:
 	MOVE.W	D1,(MSX2Pal-$200.L,D2.W*2)
 ; -=-
 	MOVE.W	D1,(COLORSPR2+2-$400.L,D2.W*4)
+	TST.B	PalSplitSeen		; Mid-frame palettes: the copper loads
+	BNE.S	OU9ANoHW1		; the colours where they belong.
 	MOVE.W	D1,($DFF1A0-$200.L,D2.W*2)
+OU9ANoHW1:
 ; -=-
 	SWAP	D0
 	MOVE.B	MCAGA+10,D0
@@ -7045,13 +7176,54 @@ OUT9Ab:
 	MOVE.W	D1,(COLORMSX2+2-$400.L,D2.W*4)
 	SWAP	D0
 ; -=-
-	RTS
+	BRA.S	OU9ACap
 OU9ANoCero:
 	EOR.B	D0,D2
+	TST.B	PalSplitSeen
+	BNE.S	OU9ANoHW2
 	MOVE.W	D1,($DFF180-$200.L,D2.W*2)
+OU9ANoHW2:
 	MOVE.W	D1,(COLORMSX2+2-$400.L,D2.W*4)
 	SWAP	D0
 ; -=-
+; Palette write during the display: an event for the copper (AcCoRutPal).
+OU9ACap:
+	MOVE.W	CurLine(A3),D1
+	BEQ	OU9ACapX
+	CMP.W	#212,D1
+	BCC	OU9ACapX
+	TST.W	PalEvN
+	BEQ.S	OU9ACapN
+	SUB.W	PalEvLast,D1		; Same burst (within 8 lines)?
+	CMP.W	#8,D1
+	BCS.S	OU9ACapU
+	MOVE.W	CurLine(A3),D1
+OU9ACapN:
+	CMP.W	#PALEVMAX,PalEvN
+	BCC	OU9ACapX
+	MOVE.W	D1,PalEvLast
+	ADDQ.W	#1,D1			; From the next line.
+	OR.B	#$04,(TabRasCMDS.L,D1.W)
+	MOVE.W	D1,PalEvTmp		; (No stack here: A7 is the Restas table.)
+	MOVE.W	PalEvN,D1
+	ADD.W	D1,D1
+	MOVE.W	PalEvTmp,(PalEvLines.L,D1.W)
+	ADDQ.W	#1,PalEvN
+	MOVE.B	#3,PalSplitSeen
+OU9ACapU:
+	MOVE.W	PalEvN,D1
+	SUBQ.W	#1,D1
+	LSL.W	#5,D1			; 32 bytes an event.
+	MOVE.L	MSX2Pal+0,(PalEvBuf+0.L,D1.W)
+	MOVE.L	MSX2Pal+4,(PalEvBuf+4.L,D1.W)
+	MOVE.L	MSX2Pal+8,(PalEvBuf+8.L,D1.W)
+	MOVE.L	MSX2Pal+12,(PalEvBuf+12.L,D1.W)
+	MOVE.L	MSX2Pal+16,(PalEvBuf+16.L,D1.W)
+	MOVE.L	MSX2Pal+20,(PalEvBuf+20.L,D1.W)
+	MOVE.L	MSX2Pal+24,(PalEvBuf+24.L,D1.W)
+	MOVE.L	MSX2Pal+28,(PalEvBuf+28.L,D1.W)
+OU9ACapX:
+	MOVEQ	#0,D1
 	RTS
 
 ; -=*=-
@@ -8688,6 +8860,9 @@ ModoTxt:
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98,DREGIN98(A3)
 	MOVE.L	#OUT98,DREGOUT98(A3)
+	TST.B	V5All
+	BNE.S	*+10
+	MOVE.L	#OUT98M,DREGOUT98(A3)
 
 	MOVE.L	RetOut(A3),-(A7)
 
@@ -8717,6 +8892,9 @@ ModoTxtX:
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98X,DREGIN98(A3)
 	MOVE.L	#OUT98X,DREGOUT98(A3)
+	TST.B	V5All
+	BNE.S	*+10
+	MOVE.L	#OUT98XM,DREGOUT98(A3)
 
 	MOVE.L	RetOut(A3),-(A7)
 
@@ -8746,6 +8924,9 @@ ModoTxt4:
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98X,DREGIN98(A3)
 	MOVE.L	#OUT98X,DREGOUT98(A3)
+	TST.B	V5All
+	BNE.S	*+10
+	MOVE.L	#OUT98XM,DREGOUT98(A3)
 
 	MOVE.L	RetOut(A3),-(A7)
 
@@ -8756,6 +8937,7 @@ ModoTxt4:
 	CNOP	0,4
 ModoGfx6:
 	MOVE.L	(A7)+,RetOut(A3)
+	ST	V5All			; (SCR0 reused: SCREEN 5/7 planes gone.)
 
 	MOVE.W	#$000F,MCAGA+2
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
@@ -8808,6 +8990,14 @@ M5Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98A,DREGIN98(A3)
 	MOVE.L	#OUT98A,DREGOUT98(A3)
+	TST.B	MSplitSeen
+	BNE.S	M5AT
+	ST	SCRTDirty		; (Plain OUT98A: SCREENT may go stale,
+	SF	M5Tracked		; and the SCREEN 4 cache.)
+	BRA.S	M5NoAT
+M5AT:	MOVE.L	#OUT98AT,DREGOUT98(A3)
+	ST	M5Tracked
+M5NoAT:
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -8841,6 +9031,8 @@ M7Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98A,DREGIN98(A3)
+	SF	M5Tracked
+	ST	SCRTDirty
 	MOVE.L	#OUT98A,DREGOUT98(A3)
 	SWAP	D2
 	MOVEQ	#$17,D1
@@ -8855,6 +9047,7 @@ M7Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 	CNOP	0,4
 ModoGfx8:
 	MOVE.L	(A7)+,RetOut(A3)
+	ST	V5All			; (SCR0 reused: SCREEN 5/7 planes gone.)
 
 	MOVE.W	#$000F,MCAGA+2
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
@@ -8933,9 +9126,7 @@ HORINTACT:
 	BNE.S	SiCamScr0
 	RTS
 SiCamScr0:
-	MOVE.B	D1,ScrModo(A3)
-	ST	ACTODO(A3)
-	ST	ACTODOB(A3)
+	MODESW
 	JMP	([TABScr+4.W,PC,D1.W*8])
 NoCamScr:RTS
 ; <=---------------------------------------------------------=>
@@ -8960,9 +9151,7 @@ VDP1C0:
 	BNE.S	SiCamScr1
 	RTS
 SiCamScr1:
-	MOVE.B	D1,ScrModo(A3)
-	ST	ACTODO(A3)
-	ST	ACTODOB(A3)
+	MODESW
 	JMP	([TABScr+4.W,PC,D1.W*8])
 ; <=---------------------------------------------------------=>
 ;VDP8:
@@ -9878,6 +10067,11 @@ ModoChg7a0:
 	BNE.S	ModChg50Con
 	RTS
 ModChg50Con:
+	TST.B	Pl5Dirty		; VRAM = planes unless a VDP command drew
+	BNE.S	ModChg5Go		; in them (OUT98A writes both).
+	RTS
+ModChg5Go:
+	SF	Pl5Dirty
 
 	NOINT
 	MOVEM.L	D0-D7/A0-A2/A4-A5,BUFER(A3)
@@ -9958,8 +10152,46 @@ ActPla7Con:
 
 	NOINT
 	MOVEM.L	D0-D7/A0-A2/A4-A5,BUFER(A3)
-
+	MOVE.L	A6,ActPA6
+	TST.B	V5All			; All of VRAM (start, after SCREEN 6/8)...
+	BNE.S	ActPlaAll
+	SUB.L	A6,A6			; ...or the 1 KB blocks written since.
+ActPlaBlk:
+	CMP.W	#128,A6
+	BCC	ActPlaFin
+	TST.B	(VBlk5.L,A6.W)
+	BEQ.S	ActPlaNx
+	SF	(VBlk5.L,A6.W)
+	CMP.W	SCRTBLo,A6		; (SCREENT only for its page's blocks.)
+	BCS.S	ActPlaNoT
+	CMP.W	SCRTBHi,A6
+	BCC.S	ActPlaNoT
+	ST	SCRTDirty
+ActPlaNoT:
+	MOVE.L	A6,D7
+	LSL.L	#8,D7			; 256 plane bytes per 1 KB of VRAM.
+	LEA	(SCR0.L,D7.L),A0
+	LEA	(SCR0+(SIZEX*SIZEY*1),D7.L),A1
+	LEA	(SCR0+(SIZEX*SIZEY*2),D7.L),A2
+	LEA	(SCR0+(SIZEX*SIZEY*3),D7.L),A5
+	LSL.L	#2,D7
+	LEA	(DIRVRAM.L,D7.L),A4
+	MOVE.W	#(1024/8)-1,D7
+	MOVE.L	#ActPlaNx,ActPRet
+	BRA.S	PU4_BUC
+ActPlaNx:
+	ADDQ.W	#1,A6
+	BRA.S	ActPlaBlk
+ActPlaAll:
+	SF	V5All
+	ST	SCRTDirty
+	LEA	VBlk5,A0
+	MOVEQ	#(128/4)-1,D7
+ActPlaClr:
+	CLR.L	(A0)+
+	DBF	D7,ActPlaClr
 	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
+	MOVE.L	#ActPlaFin,ActPRet
 
 PU4_BUC:
 	MOVEQ	#4-1,D6
@@ -10012,11 +10244,18 @@ PU4_BUC1:
 	MOVE.W	D2,(A2)+
 	MOVE.W	D3,(A5)+
 	DBF	D7,PU4_BUC
-
+	JMP	([ActPRet.L])		; (No BSR here: one call level.)
+ActPlaFin:
+	MOVE.L	ActPA6,A6
 	MOVEM.L	BUFER(A3),D0-D7/A0-A2/A4-A5
 	SIINT
 
 	RTS
+ActPA6:		DC.L	0
+ActPRet:	DC.L	0
+V5All:		DC.B	$FF		; SCR0 planes: convert all of VRAM.
+Pl5Dirty:	DC.B	0		; SCR0 planes drawn by VDP commands.
+		EVEN
 
 ; <=---------------------------------------------------------=>
 
@@ -14377,7 +14616,7 @@ SUBSLOT3:		; $620(A3)
 	DC.B	0	; $6ED(A3)	Modo_EI
 	DC.B	0	; $6EE(A3)	ScanningY
 	DC.B	0	; $6EF(A3)	Modo060
-	DC.L	0	; $6F0(A3)	CPUCopyBufer
+	DC.L	0	; $6F0(A3)	(was CPUCopyBufer: see CPUCopyBuf)
 	DC.B	0	; $6F4(A3)	DatDAA
 	DC.B	0	; $6F5(A3)
 	DC.W	0	; $6F6(A3)	DVDP4
@@ -14838,8 +15077,13 @@ PerfK0Off:
 PerfK0Fin:
 	ENDC
 	IFD	PERFDOWN
-; Test input: cursor down (MSX row 8 bit 6) for 5 frames at frames PERFDOWN,
-; +20 and +40 (Relevo's Snowboarding: down x3 in its menu, then Space).
+; Test input: a cursor key (MSX row 8 bit PERFDBIT: 4 left, 5 up, 6 down
+; (default), 7 right) for 5 frames at frames PERFDOWN, +20 and +40.
+; Relevo's Snowboarding: down x3 in its menu; BUN-GA-RUA: left (English)
+; on its title. Then Space (PERFSPACE).
+	IFND	PERFDBIT
+PERFDBIT=6
+	ENDC
 	MOVE.L	PerfFrN,D1
 	SUB.L	#PERFDOWN,D1
 	BCS.S	PerfDnOff
@@ -14849,10 +15093,10 @@ PerfK0Fin:
 	SWAP	D1
 	CMP.W	#5,D1
 	BCC.S	PerfDnOff
-	BCLR	#6,KEY+8(A3)
+	BCLR	#PERFDBIT,KEY+8(A3)
 	BRA.S	PerfDnFin
 PerfDnOff:
-	BSET	#6,KEY+8(A3)
+	BSET	#PERFDBIT,KEY+8(A3)
 PerfDnFin:
 	ENDC
 
@@ -14869,6 +15113,13 @@ PerfDnFin:
 	MOVE.B	ScrModo(A3),PerfIntMin	; Screen mode of the last render,
 	MOVE.B	DVDP0(A3),PerfIntMin+1	; and R#0.
 	ENDC
+	MOVE.B	ScrModo(A3),D1		; Another mode than the last render
+	CMP.B	LastRend,D1		; (MODESW may have kept the caches).
+	BEQ.S	RendSame
+	MOVE.B	D1,LastRend
+	ST	ACTODO(A3)
+	ST	ACTODOB(A3)
+RendSame:
 	JSR	([RVDP.W,A3])		; Emulación del VDP.
 	IFD	PERF
 	JSR	PerfStamp		; D: VDP render done.
@@ -14926,6 +15177,7 @@ NoWait60fps:
 ; ***********************************************************
 	DC.L	0
 	CNOP	0,8
+VBlk5:	DS.B	128		; VRAM 1 KB blocks written outside SCREEN 5/7.
 TAB98:	DS.B	$800*8	; VRAM de 128Kb !!!!
 	DC.L	0
 	CNOP	0,8
@@ -14975,7 +15227,8 @@ VDP2B:	MVDPX	DVDPNY
 VDP2D:	MVDPX	DVDPARG
 ; <=---------------------------------------------------------=>
 VDP2C:
-
+	ST	Pl5Dirty
+	ST	SCRTDirty
 	MOVE.B	D2,DVDPCL(A3)
 	MOVE.B	DVDPREG(A3),D2
 	BTST	#0,DVDPS2(A3)		; ¿Ejecución terminada?
@@ -15007,7 +15260,8 @@ VDP2Enada:
 ; -=*=*=-
 	CNOP	0,8
 VDP2E:
-
+	ST	Pl5Dirty		; Commands draw in the planes only.
+	ST	SCRTDirty
 	CMP.B	#$07,ScrModo(A3)
 	BNE.S	Torna8
 	JMP	VDP2Escr8
@@ -15247,7 +15501,7 @@ LMMCDESY:
 	MOVE.W	$10(A4),D4
 	MOVE.L	$2C(A4),A5
 
-	MOVEM.L	D1/D4/D5/D6/A5,CPUCopyBufer(A3)
+	MOVEM.L	D1/D4/D5/D6/A5,CPUCopyBuf
 
 NoIniLMMC:
 
@@ -15275,7 +15529,7 @@ LMMCPunteros:
 
 LMMCRut:MACRO
 
-	MOVEM.L	CPUCopyBufer(A3),D1/D4/D5/D6/A5
+	MOVEM.L	CPUCopyBuf,D1/D4/D5/D6/A5
 
 \@LMMCBuc1:
 
@@ -15326,12 +15580,12 @@ LMMCRut:MACRO
 	BFINS	D3,(A6){D1:1}
 \@NoLMMCopy:
 
-	ADD.L	D5,CPUCopyBufer(A3)
+	ADD.L	D5,CPUCopyBuf
 
 	SUBQ.W	#1,CONTA2CX(A3)
 	BNE.S	\@NoResXLMMC
 
-	ADD.L	D6,CPUCopyBufer(A3)
+	ADD.L	D6,CPUCopyBuf
 
 	SUBQ.W	#1,CONTA2C(A3)
 	BEQ.S	\@LMMCFinalizar
@@ -19553,6 +19807,9 @@ AcCoRut:
 	LSR.B	#1,D5
 	CALLCS	AcCoRutAdjust
 
+	LSR.B	#1,D5
+	CALLCS	AcCoRutPal
+
 
 
 	IFEQ	ColorDebug			;*;
@@ -19573,6 +19830,45 @@ AcCoRut:
 
 	BRA	AcCoRet
 ; ----------------------------------<=
+
+; Palette for line D7 (line 0: PalTop, else its OUT9Ab event): one MOVE per
+; COLORMSX2 entry (its register; entry k = MSX colour k EOR MCAGA+10), not
+; the border's $180 (COLBORDE).
+AcCoRutPal:
+	MOVEM.L	D1-D2/D4/A0-A1,-(SP)
+	LEA	PalTop,A0
+	TST.W	D7
+	BEQ.S	ACPalGo
+	MOVE.W	PalEvN,D1
+ACPalFind:
+	SUBQ.W	#1,D1
+	BMI.S	ACPalFin
+	CMP.W	(PalEvLines.L,D1.W*2),D7
+	BNE.S	ACPalFind
+	LSL.W	#5,D1
+	LEA	(PalEvBuf.L,D1.W),A0
+ACPalGo:
+	MOVEQ	#0,D4
+	MOVE.B	MCAGA+10,D4
+	LEA	COLORMSX2,A1
+	MOVEQ	#0,D1
+ACPalBuc:
+	MOVE.W	(A1),D2
+	CMP.W	#$0180,D2
+	BEQ.S	ACPalNx
+	MOVE.W	D2,(A3)+
+	MOVE.W	D1,D2
+	EOR.B	D4,D2
+	AND.W	#$0F,D2
+	MOVE.W	(A0,D2.W*2),(A3)+
+ACPalNx:
+	ADDQ.W	#4,A1
+	ADDQ.W	#1,D1
+	CMP.W	#16,D1
+	BCS.S	ACPalBuc
+ACPalFin:
+	MOVEM.L	(SP)+,D1-D2/D4/A0-A1
+	RTS
 
 AcCoRutAdjust:
 
@@ -19834,6 +20130,15 @@ NexBpl8=(32*512)
 
 	CNOP	0,4
 AcCoRutGBY4:
+	TST.B	MSplitOn5		; Above a SCREEN 5 / 4 split: SCREENT.
+	BEQ.S	AcCoGBY4t
+	CMP.W	MSplitL,D7
+	BCC.S	AcCoGBY4t
+	MOVE.W	D7,D1
+	MULU	#(32*4),D1
+	ADD.L	#SCREENT,D1
+	BRA.S	AcCoGBY4w
+AcCoGBY4t:
 	MOVE.W	TSplit,D1		; Below a table split: SCREENB,
 	BEQ.S	AcCoGBY4n		; drawn in display order (HUDSplit4).
 	CMP.W	D1,D7
@@ -20499,6 +20804,25 @@ MiraInterBand:
 	CNOP	0,4
 MiraInter0S:
 	CLR.W	TSplit			; Table split: new frame.
+	CLR.W	MSplitL			; Mode split too (regime: MSplitSeen).
+	MOVE.L	MSX2Pal+0,PalTop+0	; Palette at the frame's top (AcCoRutPal).
+	MOVE.L	MSX2Pal+4,PalTop+4
+	MOVE.L	MSX2Pal+8,PalTop+8
+	MOVE.L	MSX2Pal+12,PalTop+12
+	MOVE.L	MSX2Pal+16,PalTop+16
+	MOVE.L	MSX2Pal+20,PalTop+20
+	MOVE.L	MSX2Pal+24,PalTop+24
+	MOVE.L	MSX2Pal+28,PalTop+28
+	CLR.W	PalEvN
+	TST.B	PalSplitSeen
+	BEQ.S	PalS0None
+	SUBQ.B	#1,PalSplitSeen
+	OR.B	#$04,TabRasCMDS		; Line 0: the top palette.
+PalS0None:
+	TST.B	MSplitSeen
+	BEQ.S	MS0None
+	SUBQ.B	#1,MSplitSeen
+MS0None:
 	MIDSAMPLE			; (Lilly's Saga: sprites off and adjust 0
 					; for its HUD at line ~173.)
 	CLR.W	BandN			; Sprite bands: on with line interrupts
@@ -20633,6 +20957,7 @@ Planos2Buc:
 ; RendTabCheck stay on it), then HUDSplit4 draws the lines below the split.
 	CNOP	0,4
 PRINT4S:
+	BSR	MSplitFill		; SCREEN 5 above a mode split.
 	TST.W	TSplit
 	BNE.S	PRINT4Sp
 	JMP	PRINT4
@@ -20670,6 +20995,117 @@ PRINT4Sp:
 	BSR	HUDSplit4
 	LEA	REGS,A3
 	RTS
+
+; SCREEN 5 above a mode split (MODESW): display lines 0..MSplitL-1 from the
+; SCR0 planes (VRAM line page*256 + (y + R#23) & 255, 32 bytes a plane) into
+; SCREENT in SCREEN 4's layout (4 interleaved planes of 32 bytes a line).
+	CNOP	0,4
+MSplitFill:
+	SF	MSplitOn5
+	TST.W	MSplitL
+	BEQ	MSFRet
+	CMP.B	#3,MSplitTop
+	BNE	MSFRet
+	TST.B	DirPrefs+$6B		; (Planes kept: Refresh 100% Graphics.)
+	BEQ	MSFRet
+	ST	MSplitOn5
+	MOVEM.L	D0-D7/A0-A2,-(SP)
+	MOVE.W	MSplitL,D0		; Key: split line, R#2, R#23.
+	SWAP	D0
+	MOVE.B	MS_DVDP2,D0
+	LSL.W	#8,D0
+	MOVE.B	MS_LinY,D0
+	TST.B	SCRTDirty		; SCREENT still valid: no copy (chip
+	BNE.S	MSFCopy			; to chip is slow).
+	CMP.L	MSFKey,D0
+	BEQ	MSFDone
+MSFCopy:
+	SF	SCRTDirty
+	MOVE.L	D0,MSFKey
+	MOVEQ	#0,D0			; This page's VRAM range and blocks.
+	MOVE.B	MS_DVDP2,D0
+	AND.W	#$60,D0
+	LSR.W	#5,D0
+	MOVE.W	D0,D1
+	LSL.W	#5,D1			; 32 blocks of 1 KB a page.
+	MOVE.W	D1,SCRTBLo
+	ADD.W	#32,D1
+	MOVE.W	D1,SCRTBHi
+	MOVEQ	#15,D1
+	LSL.L	D1,D0			; 32 KB a page.
+	MOVE.L	D0,SCRTLo
+	ADD.L	#$8000,D0
+	MOVE.L	D0,SCRTHi
+	MOVEQ	#0,D0
+	MOVE.B	MS_DVDP2,D0
+	AND.W	#$60,D0
+	LSL.W	#3,D0			; Page * 256 lines.
+	MOVEQ	#0,D6
+	MOVE.B	MS_LinY,D6
+	LEA	SCREENT,A1
+	MOVE.W	MSplitL,D7
+	SUBQ.W	#1,D7
+	MOVEQ	#0,D5
+MSFLin:
+	MOVE.W	D5,D1
+	ADD.W	D6,D1
+	AND.W	#$FF,D1
+	ADD.W	D0,D1
+	MULU	#32,D1
+	LEA	(SCR0.L,D1.L),A0
+	MOVEQ	#4-1,D4
+MSFPla:
+	MOVE.L	A0,A2
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	MOVE.L	(A2)+,(A1)+
+	ADD.L	#SIZEX*SIZEY,A0		; Next plane.
+	DBF	D4,MSFPla
+	ADDQ.W	#1,D5
+	DBF	D7,MSFLin
+MSFDone:
+	MOVEM.L	(SP)+,D0-D7/A0-A2
+MSFRet:	RTS
+
+MsNewW:		DC.W	0
+MSplitL:	DC.W	0		; First line in the new mode, 0: none.
+MsOld:		DC.B	0
+MSplitTop:	DC.B	0		; Mode above the split.
+MS_DVDP2:	DC.B	0		; R#2 / R#23 there.
+MS_LinY:	DC.B	0
+MSplitSeen:	DC.B	0		; Frames left in the split regime.
+; LMMC state: D1/D4/D5/D6/A5, 20 bytes. It used to be CPUCopyBufer(A3), a
+; 4-byte slot at REGS+$6F0, so every LMMC overwrote DatDAA (DAA) and DVDP4
+; (R#4: TBloque then took block 3's patterns from block 0, BUN-GA-RUA's HUD).
+CPUCopyBuf:	DS.L	5
+MSplitOn5:	DC.B	0		; SCREENT shown this render.
+		EVEN
+PalDbgBlk:
+PalSplitSeen:	DC.B	0		; Frames left with mid-frame palettes.
+		EVEN
+PALEVMAX=6
+PalEvN:		DC.W	0		; Palette events this frame (OUT9Ab).
+PalEvTmp:	DC.W	0
+PalEvLast:	DC.W	0		; Line of the last event's first write.
+PalEvLines:	DS.W	PALEVMAX	; Line each event applies from.
+PalEvBuf:	DS.B	32*PALEVMAX	; Its 16 colours (as MSX2Pal).
+PalTop:		DS.W	16		; Palette at the frame's top.
+PalDbgEnd:
+SCRTDirty:	DC.B	$FF		; SCREEN 5/7 planes written since the copy.
+		EVEN
+MSFKey:		DC.L	-1		; Split line, R#2, R#23 of the copy.
+SCRTLo:		DC.L	0		; VRAM range of the page copied,
+SCRTHi:		DC.L	$20000
+SCRTBLo:	DC.W	0		; and its 1 KB blocks.
+SCRTBHi:	DC.W	128
+LastRend:	DC.B	$FF		; Mode of the last render.
+M5Tracked:	DC.B	0		; This SCREEN 5 stay marks the SCREEN 4 cache.
+		EVEN
 
 ; Display lines TSplit..191 from the current tables (R#2, R#3/R#10, R#4,
 ; R#23), straight from VRAM into SCREENB (128 bytes a line, 4 interleaved
@@ -22107,6 +22543,7 @@ TABLA7E:	DS.B	256*1024
 ; --------------------------------
 	CNOP	0,8
 SCREENB:	DS.B	(212*32*4)	; Lines below a SCREEN 4 table split.
+SCREENT:	DS.B	(212*32*4)	; Lines above a SCREEN 5 / 4 mode split.
 	DS.B	12*8
 
 ; --------------------------------

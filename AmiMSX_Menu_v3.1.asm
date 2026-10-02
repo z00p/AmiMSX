@@ -489,10 +489,45 @@ PerfDump:
 	MOVE.L	#TSplit,D2
 	MOVE.L	#2,D3
 	BSR	WRITEFILE
+	MOVE.L	#PalDbgBlk,D2		; Mid-frame palette state (debug).
+	MOVE.L	#PalDbgEnd-PalDbgBlk,D3
+	BSR	WRITEFILE
+	MOVE.L	CopperLineDos,D2	; Copper: line slots, then the routines.
+	MOVE.L	#212*CoppLineSize,D3
+	BSR	WRITEFILE
+	MOVE.L	CopperOptsDos,D2
+	MOVE.L	#4096,D3
+	BSR	WRITEFILE
+	MOVE.L	#CopperLineDos,D2	; (and both pointers)
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
+	MOVE.L	#CopperOptsDos,D2
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
+	MOVE.L	#SCREEN,D2		; SCREEN 2/4 buffer (32 KB).
+	MOVE.L	#32*32*8*4,D3
+	BSR	WRITEFILE
+	MOVE.L	GfxCaPtr,D2		; Character cache in use (64 KB),
+	MOVE.L	#64*1024,D3
+	BSR	WRITEFILE
+	MOVE.L	#GfxCaPtr,D2		; and which one (GFXCA, GFXCA2).
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
+	MOVE.L	#GfxCaAdr,D2
+	MOVE.L	#8,D3
+	BSR	WRITEFILE
+	MOVE.L	#TAB98,D2		; Dirty flags of both cache banks.
+	MOVE.L	#$800*8,D3
+	BSR	WRITEFILE
+	MOVE.L	#TAB98B,D2
+	MOVE.L	#$800*8,D3
+	BSR	WRITEFILE
 	BSR	CLOSEFILE
 PerfDFin:
 	RTS
 PerfName:	DC.B	"AmiMSX:perf.bin",0
+		EVEN
+GfxCaAdr:	DC.L	GFXCA,GFXCA2
 	EVEN
 	ENDC
 	IFD	TRACE
