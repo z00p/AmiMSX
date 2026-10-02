@@ -78,21 +78,48 @@ TRVLOG:	MACRO
 
 ; PERF builds: sub-timers (see PerfStamp). PERFSUB0 marks, PERFSUB n adds the
 ; time since the last mark to sub-timer n (0-7) and marks again.
+; Sub-timers are opt-in (vasm -DPERF=1 -DPERFSUBS=1): with them, PERF builds
+; hang at boot in some code layouts (2 Oct 2026; cause not found: not their
+; stack use, flags or registers; without them every layout tested boots).
+; No stack: these run inside the Z80 core's render paths, where A7 is the
+; Restas table; pushes there overwrite the Desbor entries below it with
+; return addresses (layout-dependent boot hangs in PERF builds, 2 Oct 2026).
+PERFSTAMPI:	MACRO			; PerfNow = now (as PerfStamp), no stack.
+	MOVEM.L	D0-D1,PerfSv
+\@B:	MOVE.L	PerfTick,D1
+	MOVE.L	$DFF004,D0
+	CMP.L	PerfTick,D1
+	BNE.S	\@B
+	MOVE.L	D0,PerfSv+8
+	LSR.L	#8,D0
+	AND.L	#$1FF,D0
+	CMP.W	PerfVMax,D0
+	BLS.S	\@P
+	MOVE.W	D0,PerfVMax
+\@P:	MULU.L	#313,D1
+	ADD.L	D1,D0
+	MULU.L	#227,D0
+	MOVE.L	PerfSv+8,D1
+	AND.L	#$FF,D1
+	ADD.L	D1,D0
+	MOVE.L	D0,PerfNow
+	MOVEM.L	PerfSv,D0-D1
+	ENDM
 PERFMARK:	MACRO
-	IFD	PERF
-	JSR	PerfStamp
+	IFD	PERFSUBS
+	PERFSTAMPI
 	MOVE.L	PerfNow,PerfSubT
 	ENDC
 	ENDM
 PERFSUB:	MACRO
-	IFD	PERF
-	JSR	PerfStamp
-	MOVE.L	D0,-(SP)
+	IFD	PERFSUBS
+	PERFSTAMPI
+	MOVE.L	D0,PerfSv+12
 	MOVE.L	PerfNow,D0
 	SUB.L	PerfSubT,D0
 	ADD.L	D0,PerfRec+32+(\1*4)
 	MOVE.L	PerfNow,PerfSubT
-	MOVE.L	(SP)+,D0
+	MOVE.L	PerfSv+12,D0
 	ENDC
 	ENDM
 
@@ -1298,6 +1325,21 @@ S5D2:		DC.L	0
 S5Save:		DS.L	9
 S5Cnt:		DS.B	256
 S5Tab:		DS.B	192
+; Sprite collision (S#0 bit 5, see SCCalc).
+	IFD	PERF
+SCCalls:	DC.L	0
+	ENDC
+SCPend:		DC.B	0		; Frame ended: check at the next S#0 read.
+SCHit:		DC.B	0
+SCDblOK:	DC.B	0		; SCDbl built.
+SCSI:		DC.B	0		; 16x16,
+SCMag:		DC.B	0		; magnified,
+SCM2:		DC.B	0		; sprite mode 2.
+		EVEN
+SCH:		DC.W	0		; Sprite height = width (8, 16, 32).
+SCNL:		DC.W	0		; Display lines.
+SCLim:		DC.W	0		; Sprites per line (4, 8).
+SCStop:		DC.W	0		; Y that ends the list (208, 216).
 
 ; ---------------------------------------=> Debug trap (vasm -DTRACE=1).
 ; Every INSTR entry points at a stub that logs the Z80 PC, opcode and port
@@ -1324,8 +1366,22 @@ TraceStub:	MACRO
 	BEQ	TraceFreeze
 	ENDC
 	IFD	TRACEPC
-	CMP.W	#TRACEPC,D1		; Optional trigger: this PC (+1).
+	CMP.W	#TRACEPC,D1		; Optional trigger: this PC (+1)...
+	IFND	TRACEFR
 	BEQ	TraceFreeze
+	ELSEIF
+	BNE.S	\@P			; ...from MSX frame TRACEFR on, at its
+	CMP.L	#TRACEFR,KeyFrN		; TRACEPCN-th pass (default 1).
+	BCS.S	\@P
+	ADDQ.W	#1,TrPcPass
+	IFND	TRACEPCN
+	BRA	TraceFreeze
+	ELSEIF
+	CMP.W	#TRACEPCN,TrPcPass
+	BEQ	TraceFreeze
+	ENDC
+\@P:
+	ENDC
 	ENDC
 	IFD	TRACENOPS
 	TST.B	D2			; Optional trigger: TRACENOPS NOPs in a
@@ -1355,6 +1411,9 @@ TraceStubB:
 	TraceStub	4
 
 	CNOP	0,4
+	IFD	TRACEFR
+TrPcPass:	DC.W	0
+	ENDC
 TraceFreeze:
 	LEA	TraceHdr+16,A4
 	MOVEQ	#8-1,D1
@@ -3760,6 +3819,10 @@ MPUSH:	MACRO
 	ENDM
 
 
+; POP/RET crossing a 256-byte boundary: read the next byte through the read
+; pointer and rebuild A6 with CogePagS (ROM: read pointer). It used the write
+; pointer, so a POP sequence through ROM (Barbarian's fighters: LD SP,source
+; and POP into OUT (98h)) turned to NORAM/BIOS bytes after 256 bytes.
 MPOP:	MACRO
 	ADDQ.B	#2,D0
 	BCS.S	\@D
@@ -3770,11 +3833,11 @@ MPOP:	MACRO
 \@D:	ADD.W	#$100,D0
 	MOVE.W	D0,D1
 	SUBQ.W	#1,D1
-	CogePagE D1,A4
+	CogePag	D1,A4
 	MOVE.W	(A4),\1
 	MOVE.B	(A6),\1
 	MOVE.W	D0,D1
-	CogePagE D1,A6
+	CogePagS D1,A6
 	Otra	\3
 
 	ELSEIF
@@ -3787,12 +3850,12 @@ MPOP:	MACRO
 	ADD.W	#$100,D0
 	MOVE.W	D0,D1
 	SUBQ.W	#1,D1
-	CogePagE D1,A4
+	CogePag	D1,A4
 	MOVE.W	(A4),D1
 	MOVE.B	(A6),D1
 	MOVE.L	D1,\1
 	MOVE.W	D0,D1
-	CogePagE D1,A6
+	CogePagS D1,A6
 	Otra	\3
 
 	ELSEIF
@@ -3806,11 +3869,11 @@ MPOP:	MACRO
 	MOVE.W	D0,D1
 	SUBQ.W	#1,D1
 	MOVE.B	(A6),D3
-	CogePagE D1,A6
+	CogePagS D1,A6
 	MOVE.B	(A6),D7
 	MOVE.B	Flags_Pop(A3,D3.W*4),D3
 	MOVE.W	D0,D1
-	CogePagE D1,A6
+	CogePagS D1,A6
 	BFEXTU	D0{23:8},D1
 	MOVE.B	Flags_DAA(A3,D1.W*4),DatDAA(A3)
 	Otra	\3
@@ -3834,13 +3897,13 @@ MRET:	MACRO
 	ADD.W	#$100,D0
 	MOVE.W	D0,D1
 	SUBQ.W	#1,D1
-	CogePagE D1,A4
+	CogePag	D1,A4
 	MOVE.W	(A4),D1
 	MOVE.B	(A6),D1
-	MOVE.W	D1,A4
+	MOVE.W	D1,A5			; (Not A4: CogePagS uses it.)
 	MOVE.W	D0,D1
-	CogePagE D1,A6
-	MOVE.W	A4,D1
+	CogePagS D1,A6
+	MOVE.W	A5,D1
 	BRA.S	\@3
 	CNOP	0,4
 	ENDM
@@ -4548,17 +4611,14 @@ CCF:	BCHG	#0,D3
 	Otra	4
 
 ICPL:	NOT.B	D7
+	OR.B	#$50,D3			; H and N set (D3 b6 = H, b4 = N)
 	Otra	4
 
+; NEG: the 68k NEG flags are the Z80 ones (C and X = A was not 0, so N via
+; X; V = A was 80h); only N needs forcing, for A = 0.
 NEG:	NEG.B	D7
-	BEQ.S	ERA0
 	MOVE.W	CCR,D3
-	AND.B	#$7E,D3
-	OR.B	#$02,D3
-	Otra	8
-ERA0:	MOVE.W	CCR,D3
-	AND.B	#$7D,D3
-	OR.B	#$01,D3
+	OR.B	#$10,D3
 	Otra	8
 
 IRLA:	LSR.B	#1,D3
@@ -10798,7 +10858,7 @@ SPRMODE5con:
 
 	LEA	4(A4,D0.W*8),A4
 	LSR.B	#1,D0
-	BCS.S	SPRMODE5b
+	BCS	SPRMODE5b
 
 	MOVE.L	(A4),A0
 	MOVE.L	A0,NUMSPR2
@@ -10831,7 +10891,7 @@ SISPRASC:
 
 	LEA	REGS(PC),A3
 	TST.B	COSPR2(A3)
-	BEQ.S	SPR2OFF
+	BEQ	SPR2OFF
 
 	MOVE.L	(A4)+,A5
 	MOVE.L	A5,NUMSPR2
@@ -11376,11 +11436,53 @@ ModC61:	MOVE.W	#(-64*256)-8,D1
 
 ; ---------------------------------------------------------
 
+; SCPATT row,base: pattern row (row register: pattern line, base: the
+; sprite's pattern in VRAM) as 32 bits, leftmost pixel in bit 31 (16 wide
+; with SI, doubled with MAG), into the row register. Uses D1.
+SCPATT:	MACRO
+	MOVEQ	#0,D1
+	MOVE.B	(\2,\1.W),D1
+	TST.B	SCSI
+	BEQ.S	\@8
+	LSL.W	#8,D1
+	MOVE.B	16(\2,\1.W),D1
+	TST.B	SCMag
+	BEQ.S	\@16
+	MOVEQ	#0,\1			; 16 -> 32 bits.
+	MOVE.B	D1,\1
+	MOVE.W	(SCDbl.L,\1.W*2),\1
+	LSR.W	#8,D1
+	MOVE.W	(SCDbl.L,D1.W*2),D1
+	SWAP	D1
+	MOVE.W	\1,D1
+	MOVE.L	D1,\1
+	BRA.S	\@E
+\@16:	SWAP	D1			; 16 bits.
+	MOVE.L	D1,\1
+	BRA.S	\@E
+\@8:	TST.B	SCMag
+	BEQ.S	\@8b
+	MOVE.W	(SCDbl.L,D1.W*2),D1	; 8 -> 16 bits.
+	SWAP	D1
+	MOVE.L	D1,\1
+	BRA.S	\@E
+\@8b:	ROR.L	#8,D1			; 8 bits.
+	MOVE.L	D1,\1
+\@E:
+	ENDM
+
 IVDP0:
 	SF	PetInt38+1(A3)
 
 	MOVE.B	Estado(A3),D1
 	SF	Estado(A3)
+	TST.B	SCPend			; Sprite collision of the last frame.
+	IFND	NOSPRCOL		; (A/B: -DNOSPRCOL=1: same code size, never
+	BNE	SCCalc			; checks.)
+	ELSEIF
+	BRA.W	SCBack
+	ENDC
+SCBack:
 ;;	BFTST	$DFF00E{1:6}		; Colisión de sprites?
 ;;	BNE.S	SiDetecSpr
 
@@ -11491,6 +11593,357 @@ S5Fin:	MOVEM.L	S5Save,D0-D1/D3-D7/A0-A1
 SiDetecSpr:
 	OR.B	#$20,D1
 	RTS
+
+; Sprite collision flag (S#0 bit 5), as the VDP and openMSX SpriteChecker:
+; set when two sprites shown on the same display line have a set pattern
+; pixel in the same visible column. Only the first 4 (mode 1) / 8 (mode 2)
+; sprites of a line are shown; the list ends at Y = 208 / 216; EC moves a
+; sprite 32 pixels left; in mode 2, CC or IC in the line's colour byte leave
+; the sprite out. No collisions with sprites or the display off, or in text
+; modes. Checked once a frame, at the first S#0 read after the frame (the
+; BIOS interrupt handler's), on the sprite tables as they are then; the
+; read clears the bit (Estado). L'Abbaye des Morts only runs its hit test
+; when the bit is set.
+; No stack (A7 is the Restas table): registers saved in SCSave, back by BRA.
+SCCalc:
+	IFD	PERF
+	ADDQ.L	#1,SCCalls		; (PERF dump: checks run.)
+	ENDC
+	SF	SCPend
+	SF	SCHit
+	SF	SCCutOK
+	MOVEM.L	D0-D7/A0-A6,SCSave
+	TST.B	SCDblOK
+	BNE.S	SCDblY
+	LEA	SCDbl,A0		; SCDbl[b] = b with each bit doubled.
+	MOVEQ	#0,D0
+SCDblB:	MOVEQ	#0,D1
+	MOVEQ	#7,D2
+SCDblC:	LSL.W	#2,D1
+	BTST	D2,D0
+	BEQ.S	SCDblD
+	OR.W	#3,D1
+SCDblD:	DBF	D2,SCDblC
+	MOVE.W	D1,(A0)+
+	ADDQ.W	#1,D0
+	CMP.W	#256,D0
+	BNE.S	SCDblB
+	ST	SCDblOK
+SCDblY:
+	MOVE.B	DVDP1(A3),D0
+	BTST	#6,D0			; Display off.
+	BEQ	SCEnd
+	BTST	#4,D0			; Text mode.
+	BNE	SCEnd
+	BTST	#1,DVDP8(A3)		; SPD: sprites off.
+	BNE	SCEnd
+	MOVEQ	#8,D6			; Height: 8, 16 (SI), x2 (MAG).
+	BTST	#1,D0
+	SNE	SCSI
+	BEQ.S	SCNoSI
+	MOVEQ	#16,D6
+SCNoSI:	BTST	#0,D0
+	SNE	SCMag
+	BEQ.S	SCNoMag
+	ADD.W	D6,D6
+SCNoMag:MOVE.W	D6,SCH
+	MOVE.B	DVDP0(A3),D0		; Mode 2: G3-G7 (M4 or M5).
+	AND.B	#$0C,D0
+	SNE	SCM2
+	MOVE.W	#192,SCNL
+	MOVEQ	#4,D1
+	MOVE.W	#208,D4
+	TST.B	SCM2
+	BEQ.S	SCMode1
+	MOVEQ	#8,D1
+	MOVE.W	#216,D4
+	BTST	#7,DVDP9(A3)		; 212 lines.
+	BEQ.S	SCMode1
+	MOVE.W	#212,SCNL
+SCMode1:MOVE.W	D1,SCLim
+	MOVE.L	PVDP5(A3),D0		; Attribute table (mode 2: A8, A7 from
+	TST.B	SCM2			; R#5 not used, colours 512 bytes below).
+	BEQ.S	SCSat1
+	AND.L	#$1FE7F,D0
+SCSat1:	MOVE.W	D4,SCStop
+	LEA	DIRVRAM,A0
+	ADD.L	D0,A0
+	LEA	-$200(A0),A1		; Colours (mode 2).
+	LEA	DIRVRAM,A2
+	ADD.L	PVDP6(A3),A2		; Pattern table.
+; 1. The sprites on screen, in table order (SCSpr, for the per-line limit).
+; Those that can collide also go into SCList, sorted by top: a pixel in the
+; pattern and (mode 2) a line without CC or IC. Parked blank sprites and
+; the CC half of layered colour sprites can't.
+	LEA	SCSpr,A4
+	MOVEQ	#0,D5			; Sprites collected.
+	MOVEQ	#0,D2			; ...that can collide.
+	MOVEQ	#32-1,D3
+SCGet:	MOVEQ	#0,D0
+	MOVE.B	(A0),D0			; Y
+	CMP.W	D4,D0			; End of the list.
+	BEQ	SCGot
+	ADDQ.W	#1,D0			; Shown from line Y+1; one that would
+	MOVE.W	D0,D1			; run past line 255 starts above line 0.
+	ADD.W	D6,D1
+	CMP.W	#256,D1
+	BLE.S	SCTop
+	SUB.W	#256,D0
+SCTop:	CMP.W	SCNL,D0			; Below the display: never shown.
+	BGE	SCNext
+	MOVE.W	D0,(A4)
+	MOVEQ	#0,D0
+	MOVE.B	1(A0),D0		; X
+	TST.B	SCM2
+	BNE.S	SCX
+	BTST	#7,3(A0)		; Mode 1 EC.
+	BEQ.S	SCX
+	SUB.W	#32,D0
+SCX:	MOVE.W	D0,2(A4)
+	MOVEQ	#0,D0
+	MOVE.B	2(A0),D0		; Pattern.
+	TST.B	SCSI
+	BEQ.S	SCPat
+	AND.B	#$FC,D0
+SCPat:	LSL.W	#3,D0
+	LEA	(A2,D0.W),A6
+	MOVE.L	A6,4(A4)
+	MOVE.L	A1,8(A4)
+	MOVE.L	(A6),D1			; Any pixel?
+	OR.L	4(A6),D1
+	TST.B	SCSI
+	BEQ.S	SCBlank
+	OR.L	8(A6),D1
+	OR.L	12(A6),D1
+	OR.L	16(A6),D1
+	OR.L	20(A6),D1
+	OR.L	24(A6),D1
+	OR.L	28(A6),D1
+SCBlank:TST.L	D1
+	BEQ	SCKeep
+	TST.B	SCM2
+	BEQ.S	SCCan
+	MOVEQ	#8-1,D1			; Mode 2: a line without CC and IC?
+	TST.B	SCSI
+	BEQ.S	SCCcL
+	MOVEQ	#16-1,D1
+SCCcL:	MOVE.B	(A1,D1.W),D0
+	AND.B	#$60,D0
+	BEQ.S	SCCan
+	DBF	D1,SCCcL
+	BRA	SCKeep
+SCCan:	LEA	SCList,A3			; Insert into SCList, by top.
+	MOVE.W	D2,D7
+	LSL.W	#5,D7
+	ADD.W	D7,A3
+	MOVE.W	(A4),D0
+SCIns:	CMP.L	#SCList,A3
+	BEQ.S	SCInsW
+	CMP.W	-32(A3),D0
+	BGE.S	SCInsW
+	MOVE.L	-32(A3),(A3)
+	MOVE.L	-28(A3),4(A3)
+	MOVE.L	-24(A3),8(A3)
+	MOVE.L	-20(A3),12(A3)
+	MOVE.L	-16(A3),16(A3)
+	SUB.W	#32,A3
+	BRA.S	SCIns
+SCInsW:	MOVE.W	2(A4),D7		; Columns: X to X + width, from X - 32
+	MOVE.W	D7,16(A3)		; if some line has EC (mode 2).
+	ADD.W	D6,D7
+	MOVE.W	D7,18(A3)
+	TST.B	SCM2
+	BEQ.S	SCInsE
+	MOVEQ	#8-1,D7
+	TST.B	SCSI
+	BEQ.S	SCEcL
+	MOVEQ	#16-1,D7
+SCEcL:	TST.B	(A1,D7.W)
+	BMI.S	SCEcY
+	DBF	D7,SCEcL
+	BRA.S	SCInsE
+SCEcY:	SUB.W	#32,16(A3)
+SCInsE:	MOVE.W	D0,(A3)			; Top,
+	ADD.W	D6,D0
+	MOVE.W	D0,2(A3)		; bottom (one past),
+	MOVE.W	2(A4),4(A3)		; X,
+	MOVE.W	D5,6(A3)		; number in SCSpr,
+	MOVE.L	4(A4),8(A3)		; pattern,
+	MOVE.L	A1,12(A3)		; colours.
+	ADDQ.W	#1,D2
+SCKeep:	ADD.W	#16,A4
+	ADDQ.W	#1,D5
+SCNext:	ADDQ.W	#4,A0
+	ADD.W	#16,A1
+	DBF	D3,SCGet
+SCGot:	CMP.W	#2,D2			; Fewer than two can collide.
+	BCS	SCEnd
+	MOVE.W	D5,SCN
+	MOVE.W	D2,SCM
+; 2. Sweep SCList: for sprite J, the earlier ones (by top) whose lines reach
+; J's top; all are SCH high, so the first that ends above J ends the scan.
+; Then columns close enough; 3. then line by line.
+	MOVEQ	#1,D7
+SCJ:	CMP.W	SCM,D7
+	BGE	SCEnd
+	MOVE.W	D7,D1
+	LSL.W	#5,D1
+	LEA	SCList,A4
+	ADD.W	D1,A4
+	LEA	-32(A4),A5
+	MOVE.W	D7,D6
+	SUBQ.W	#1,D6
+	MOVE.W	(A4),D0			; Top of J,
+	MOVE.W	16(A4),D3		; its columns.
+	MOVE.W	18(A4),D4
+SCI:	CMP.W	2(A5),D0		; I ends above J: so do all before it.
+	BGE.S	SCJNx
+	CMP.W	16(A5),D4		; Columns overlap?
+	BLE.S	SCIf
+	CMP.W	18(A5),D3
+	BLT.S	SCPair
+SCIf:	SUB.W	#32,A5
+	DBF	D6,SCI
+SCJNx:	ADDQ.W	#1,D7
+	BRA.S	SCJ
+SCPair:	TST.W	D0			; Lines both cover: D0 (J's top, from
+	BPL.S	SCP1			; line 0) to I's bottom (to the end of
+	MOVEQ	#0,D0			; the display), less one.
+SCP1:	MOVE.W	2(A5),D1
+	CMP.W	SCNL,D1
+	BLE.S	SCP2
+	MOVE.W	SCNL,D1
+SCP2:	CMP.W	D1,D0
+	BGE	SCINx
+	MOVE.W	D1,SCHi
+	MOVE.W	6(A4),D1		; The later one in the table decides
+	CMP.W	6(A5),D1		; whether both are shown on a line.
+	BCC.S	SCP3
+	MOVE.W	6(A5),D1
+SCP3:	MOVE.B	D1,SCRk
+SCL:	MOVE.W	D0,D2			; Pattern rows.
+	SUB.W	(A5),D2
+	MOVE.W	D0,D3
+	SUB.W	(A4),D3
+	TST.B	SCMag
+	BEQ.S	SCR1
+	LSR.W	#1,D2
+	LSR.W	#1,D3
+SCR1:	MOVE.W	4(A5),D4		; X of I and J.
+	MOVE.W	4(A4),D5
+	TST.B	SCM2
+	BEQ.S	SCVis
+	MOVE.L	12(A5),A6		; Mode 2: the line's colour bytes.
+	MOVE.B	(A6,D2.W),D1
+	AND.B	#$60,D1			; CC or IC
+	BNE	SCLNx
+	TST.B	(A6,D2.W)		; EC
+	BPL.S	SCE1
+	SUB.W	#32,D4
+SCE1:	MOVE.L	12(A4),A6
+	MOVE.B	(A6,D3.W),D1
+	AND.B	#$60,D1
+	BNE	SCLNx
+	TST.B	(A6,D3.W)
+	BPL.S	SCVis
+	SUB.W	#32,D5
+SCVis:	TST.B	SCCutOK			; Both shown on line D0 (among the
+	BEQ	SCCutMk			; first SCLim there)?
+SCCutBk:MOVE.B	(SCCut.L,D0.W),D1
+	CMP.B	SCRk,D1
+	BLS	SCLNx
+	MOVE.L	8(A5),A6		; Row patterns, leftmost pixel in bit 31.
+	SCPATT	D2,A6
+	MOVE.L	8(A4),A6
+	SCPATT	D3,A6
+	SUB.W	D4,D5			; D5 = Xj - Xi.
+	BMI.S	SCDNeg
+	CMP.W	#32,D5
+	BGE	SCLNx
+	LSR.L	D5,D3
+	AND.L	D3,D2			; Common pixels, column 0 at Xi.
+	BRA.S	SCClip
+SCDNeg:	NEG.W	D5
+	CMP.W	#32,D5
+	BGE	SCLNx
+	LSR.L	D5,D2
+	AND.L	D3,D2			; Column 0 at Xj.
+	SUB.W	D5,D4
+SCClip:	TST.L	D2
+	BEQ.S	SCLNx
+	TST.W	D4			; Left of the screen: not shown.
+	BPL.S	SCClip2
+	MOVE.W	D4,D5
+	NEG.W	D5
+	CMP.W	#32,D5
+	BGE.S	SCLNx
+	MOVEQ	#-1,D1
+	LSR.L	D5,D1
+	AND.L	D1,D2
+SCClip2:MOVE.W	#256,D5			; Right of column 255: not shown.
+	SUB.W	D4,D5
+	CMP.W	#32,D5
+	BGE.S	SCClip3
+	MOVEQ	#-1,D1
+	LSR.L	D5,D1
+	NOT.L	D1
+	AND.L	D1,D2
+SCClip3:TST.L	D2
+	BNE	SCHitY
+SCLNx:	ADDQ.W	#1,D0
+	CMP.W	SCHi,D0
+	BLT	SCL
+SCINx:	MOVE.W	(A4),D0			; Back to the sweep.
+	MOVE.W	16(A4),D3
+	MOVE.W	18(A4),D4
+	BRA	SCIf
+
+; SCCut[line] = number (in SCSpr) of the first sprite not shown on that line
+; (every sprite counts, blank or not). Built once per check, when a pair
+; first reaches the pixel test. Keeps D0, D2-D7, A4, A5.
+SCCutMk:
+	MOVEM.L	D0/D2-D3,SCCutSv
+	LEA	SCCnt,A6
+	MOVEQ	#(256/4)-1,D1
+SCCutC:	CLR.L	(A6)+			; SCCnt: 0,
+	DBF	D1,SCCutC
+	MOVEQ	#(256/4)-1,D1		; SCCut: $FF.
+SCCutF:	MOVE.L	#-1,(A6)+
+	DBF	D1,SCCutF
+	LEA	SCSpr,A6
+	MOVEQ	#0,D3			; Sprite number.
+SCCutS:	MOVE.W	(A6),D0			; Lines D0..D0+SCH-1, clipped.
+	MOVE.W	SCH,D2
+	SUBQ.W	#1,D2
+SCCutL:	TST.W	D0
+	BMI.S	SCCutN
+	CMP.W	SCNL,D0
+	BGE.S	SCCutX
+	ADDQ.B	#1,(SCCnt.L,D0.W)
+	MOVE.B	(SCCnt.L,D0.W),D1
+	CMP.B	SCLim+1,D1
+	BLS.S	SCCutN
+	CMP.B	#$FF,(SCCut.L,D0.W)
+	BNE.S	SCCutN
+	MOVE.B	D3,(SCCut.L,D0.W)
+SCCutN:	ADDQ.W	#1,D0
+	DBF	D2,SCCutL
+SCCutX:	ADD.W	#16,A6
+	ADDQ.W	#1,D3
+	CMP.W	SCN,D3
+	BLT.S	SCCutS
+	ST	SCCutOK
+	MOVEM.L	SCCutSv,D0/D2-D3
+	BRA	SCCutBk
+SCHitY:	ST	SCHit
+SCEnd:	MOVEM.L	SCSave,D0-D7/A0-A6
+	IFD	SCDISCARD		; (Cost A/B: check, but report nothing.)
+	SF	SCHit
+	ENDC
+	TST.B	SCHit
+	BEQ	SCBack
+	OR.B	#$20,D1
+	BRA	SCBack
 
 IVDP0Spr:
 	MOVE.B	Estado(A3),D1
@@ -11939,14 +12392,8 @@ NoEsTruco2:
 	MOVE.W	#((32*8*4)/4)-1,D0
 	BSR	TRANSBLT4	; Actualiza Gfx y colores de Caracteres.
 
-	IFD	PERF
 	PERFSUB	5			; 5: SCREEN 4 tiles (partial)
-	BSR	SPRMODE6
-	PERFSUB	7			; 7: SCREEN 4 sprites (SPRMODE6)
-	RTS
-	ELSE
-	BRA	SPRMODE6
-	ENDC
+	BRA	SPRMODE6		; (No BSR: one call level here.)
 ; -=-=-
 	CNOP	0,8
 ACTUTODO4:
@@ -11958,14 +12405,8 @@ ACTUTODO4:
 	MOVEQ	#(4)-1,D6
 	BSR	ACTUALIZA4	; Actualiza pantalla al 100%
 
-	IFD	PERF
 	PERFSUB	6			; 6: SCREEN 4 full redraw
-	BSR	SPRMODE6
-	PERFSUB	7			; 7: SCREEN 4 sprites (SPRMODE6)
-	RTS
-	ELSE
 	BRA	SPRMODE6
-	ENDC
 	RTS
 
 ************************************************************
@@ -14902,6 +15343,7 @@ MiraInter212:
 MiraInterVB:
 
 InterVer:
+	ST	SCPend			; Sprite collisions: check at next S#0.
 	BSET	#7,Estado(A3)		; Petición de Interrupción Vertical.
 	ST	PetInt38+1(A3)
 
@@ -21495,6 +21937,7 @@ PerfRec:	DS.L	16			; elapsed, frames, core, wait, other,
 						; render, renders, VBlank ints,
 						; PERFSUB 0-7 (colour clocks)
 PerfSubT:	DC.L	0
+PerfSv:		DS.L	4		; PERFSTAMPI / PERFSUB register saves.
 PerfHdr:	DC.L	"APRF"
 PerfCount:	DC.L	0			; Records written.
 PerfPtr:	DC.L	PerfRing
@@ -22709,3 +23152,25 @@ GFXCA2:	DS.B	64*1024		; Character cache bank 2 (RendTabCheck).
 	CNOP	0,8
 SCREEN2B:	DS.B	(32*32*8*4)	; SCREEN 2 screen of cache bank 2.
 	DS.B	12*8
+
+; --------------------------------
+	SECTION	SPRCOL,BSS
+; --------------------------------
+	CNOP	0,4
+; Sprite collision tables (SCCalc).
+SCSave:		DS.L	15
+SCDbl:		DS.W	256		; Byte with every bit doubled.
+SCN:		DS.W	1		; Sprites collected.
+SCHi:		DS.W	1
+SCCutOK:	DS.B	1		; SCCut built this check.
+		EVEN
+SCCutSv:	DS.L	3
+SCM:		DS.W	1		; Sprites that can collide.
+SCRk:		DS.B	1		; Later sprite of the pair (SCSpr number).
+		EVEN
+SCSpr:		DS.B	32*16		; Top.W, X.W, pattern.L, colours.L
+SCList:		DS.B	32*32		; Can collide, by top: top.W, bottom.W,
+					; X.W, SCSpr number.W, pattern.L, colours.L,
+					; columns from.W, to.W (one past; EC included)
+SCCnt:		DS.B	256		; Sprites on each line so far,
+SCCut:		DS.B	256		; first one not shown there ($FF: none).

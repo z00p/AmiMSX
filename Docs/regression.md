@@ -55,7 +55,7 @@ include play.keys
 - **Repeatability.** A scripted run gives the same MSX state at the same frame every time; VRAM was compared byte for byte at frame 1500 across two runs. Several things make that true:
   - **Start:** the MSX starts at the top of an Amiga frame.
   - **Host input is ignored:** the Amiga keyboard, mouse and joysticks are blocked (moving the mouse over WinUAE used to reach MSX joystick 2).
-  - **Sprites:** `option sprites 1` makes AmiMSX draw sprites every frame.
+  - **Options:** `option` records (`sprites`, `collisions`) are applied at GO, after AmiMSX copies the GUI settings into its prefs. Before 2 Oct 2026 they were applied earlier and silently overwritten, so every baseline so far was captured with the GUI defaults. `tools/regress.py` no longer forces `option sprites 1`.
   - **Captures:** the harness only arms after the Workbench boot has lit and then dimmed the LED (it used to capture the boot screen). It keeps re-grabbing while the LED is lit and keeps the last grab: in warp mode WinUAE presents frames to the window only now and then, so an early grab can show an older frame.
   - **One SNAP per run:** `tools/regress.py` makes one run per capture. That costs time but keeps every capture independent.
 

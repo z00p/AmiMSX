@@ -522,7 +522,18 @@ PerfDump:
 	MOVE.L	#TAB98B,D2
 	MOVE.L	#$800*8,D3
 	BSR	WRITEFILE
+	MOVE.L	REGS+$10+6*4,D2		; MSX RAM C000-FFFF as mapped now (PagWrite
+	ADD.L	#$C000,D2		; holds base minus Z80 address, per 8 KB).
+	MOVE.L	#$2000,D3
+	BSR	WRITEFILE
+	MOVE.L	REGS+$10+7*4,D2
+	ADD.L	#$E000,D2
+	MOVE.L	#$2000,D3
+	BSR	WRITEFILE
 	MOVE.L	#KeyFrN,D2		; Key-script frame count (last 4 bytes).
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
+	MOVE.L	#SCCalls,D2		; Sprite collision checks run (after it).
 	MOVE.L	#4,D3
 	BSR	WRITEFILE
 	BSR	CLOSEFILE
@@ -757,19 +768,7 @@ NoAutoCart2:
 	BSR	CLOSEFILE
 	CLR.L	KeyFrN
 	MOVE.L	#KeyScr,KeyScrPtr
-	LEA	KeyScr,A0		; Option records (row $FE): settings for
-KeyOptBuc:				; the test run. 1 = sprite frames
-	CMP.L	#-1,(A0)		; (DirPrefs+$16: 1 every frame, 2...).
-	BEQ.S	NoKeyScrL
-	CMP.B	#$FE,4(A0)
-	BNE.S	KeyOptNx
-	CMP.B	#1,5(A0)
-	BNE.S	KeyOptNx
-	MOVE.W	6(A0),DirPrefs+$16
-KeyOptNx:
-	ADDQ.W	#8,A0
-	BRA.S	KeyOptBuc
-NoKeyScrL:
+NoKeyScrL:				; (Option records: KeyOptApply, at GO.)
 	TST.B	AutoDisk		; Test hook: disk image in drive A, then GO.
 	BEQ.S	NoAutoDisk
 	SF	AutoDisk
@@ -6177,6 +6176,32 @@ PONPREFS2:
 	RTS
 ; -----------------------------------
 	CNOP	0,4
+; Option records (row $FE) of a loaded key script: settings for the test run,
+; applied after ACTUPREFS (which copies the GUI over DirPrefs at every GO).
+; 1 = sprite frames (DirPrefs+$16: 1 every frame, 2...), 2 = sprite
+; collisions option (DirPrefs+$6C).
+KeyOptApply:
+	TST.L	KeyScrPtr
+	BEQ.S	KeyOptFin
+	LEA	KeyScr,A0
+KeyOptBuc:
+	CMP.L	#-1,(A0)
+	BEQ.S	KeyOptFin
+	CMP.B	#$FE,4(A0)
+	BNE.S	KeyOptNx
+	CMP.B	#1,5(A0)
+	BNE.S	KeyOpt2
+	MOVE.W	6(A0),DirPrefs+$16
+KeyOpt2:
+	CMP.B	#2,5(A0)
+	BNE.S	KeyOptNx
+	MOVE.B	7(A0),DirPrefs+$6C
+KeyOptNx:
+	ADDQ.W	#8,A0
+	BRA.S	KeyOptBuc
+KeyOptFin:
+	RTS
+
 ACTUPREFS:
 	LEA	DIRPrefs,A5
 
@@ -6459,6 +6484,7 @@ MSX_GO:
 
 MSX_GoCon:
 	BSR	ACTUPREFS
+	BSR	KeyOptApply		; Key-script options over the GUI prefs.
 	MOVE.B	DIRPrefs+$7D(PC),DisCheaDat	; Refresca Disable Cheats.
 
 	TST.B	GODAT(PC)

@@ -23,8 +23,8 @@ id,file,kind,set,romtype,keys,config,shots,smoke,notes,features
 BombJack,BombJack.rom,rom,core,,play,030,"30,45,60",,,cmd:HMMM cmd:HMMV cmd:LMMM machine:MSX2 mapper:plain mode:S5 palette split:border split:mode split:sprite-tables split:sprites-on/off split:tables sprites:mode2
 M_Abbaye_A8,M_Abbaye_A8.rom,rom,core,ASCII8,abbaye,030,"40,50,62",,,machine:MSX2 mapper:ASCII8 mode:S2 split:mode sprites:mode1
 M_AlienAttack_A16,M_AlienAttack_A16.rom,rom,core,ASCII16,alienattack,030,"45,60,70",,,machine:MSX2 mapper:ASCII16 mode:S2 split:border split:mode sprites:mode1
-M_Barbarian_A16,M_Barbarian_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,sprite corruption in play (open),cmd:HMMC cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S5 palette:mid-frame split:border split:mode split:tables sprites:mode2
-M_Ianna_A16,M_Ianna_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,,cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM cmd:LMMV cmd:YMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S5 palette:mid-frame split:tables
+M_Barbarian_A16,M_Barbarian_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,fighters fixed 2 Oct 2026 (POP/RET page crossing read ROM through the write pointer),cmd:HMMC cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S5 palette:mid-frame split:border split:mode split:tables sprites:mode2
+M_Ianna_A16,M_Ianna_A16.rom,rom,core,ASCII16,play,030,"30,50,60",Y,,cmd:HMMM cmd:HMMV cmd:LMMC cmd:LMMM cmd:LMMV cmd:YMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S5 palette:mid-frame split:tables
 M_Jailbreak_Kon,M_Jailbreak_Kon.rom,rom,core,Konami,play,030,"30,45,60",Y,flashing scenery (open),cmd:HMMM cmd:HMMV cmd:LMMM machine:MSX2 mapper:Konami mode:S5 mode:S8 palette:mid-frame scroll:R#23 split:mode split:scroll split:sprites-on/off split:tables sprites:mode2
 M_Lilly_A16,M_Lilly_A16.rom,rom,core,ASCII16,play,030,"30,45,60",Y,,adjust:R#18 cmd:HMMM cmd:HMMV cmd:LMMM line-interrupts machine:MSX2 mapper:ASCII16 mode:S4 mode:S5 palette:mid-frame scroll:R#23 split:adjust split:mode split:scroll split:sprites-on/off split:tables
 M_Nogalious_A8,M_Nogalious_A8.rom,rom,core,ASCII8,play,030,"30,45,60",,,machine:MSX2 mapper:ASCII8 mode:S2 split:mode sprites:mode1
@@ -65,4 +65,4 @@ R2_akin1,R2_akin1.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan
 R2_akin2,R2_akin2.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
 R2_bold,R2_bold.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
 R2_invasion,R2_invasion.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
-R2_io,R2_io.dsk,disk,set2,,autospace,030,"20,40,60",Y,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
+R2_io,R2_io.dsk,disk,set2,,autospace,030,"22,40,60",Y,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1

@@ -62,7 +62,6 @@ def run_title(r, exe, outdir):
     for s in shots:
         keys = os.path.join(outdir, f"{r['id']}_{s}s.keys")
         with open(keys, "w", encoding="utf-8") as f:
-            f.write("option sprites 1\n")          # sprites drawn every frame: deterministic captures
             f.write(f"include {os.path.relpath(base_keys, outdir)}\n")
             f.write(f"{s}s SNAP\n")
         t0 = datetime.datetime.now().timestamp()
