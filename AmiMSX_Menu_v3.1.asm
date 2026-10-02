@@ -3108,6 +3108,8 @@ MiConMapper0:
 	BSR.S	MiConMapper		; Mapper saved for this cartridge?
 	TST.B	SiNewMapp(PC)
 	BEQ.S	MiConMapFin
+	BSR	TagMapper		; No: a mapper tag in the file name?
+	BNE.S	MiConMapFin
 	BSR	GuessMapper		; No: guess it like openMSX does.
 MiConMapFin:
 	RTS
@@ -3256,6 +3258,58 @@ GuMaEle3:
 GuMaEle4:
 	MOVEM.L	(SP)+,D1-D6/A0-A1
 	RTS
+
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+; Mapper tag in the file name, as in the MiSTer/openMSX sets: "[KonamiSCC]",
+; "[SCC]", "[Konami]", "[Konami4]", "[ASCII8]", "[ASCII16]" (any case).
+; Monster Hunter switches banks with LD (HL),A, so the guess can't see it.
+; Out: D0 = saved-mapper code and NE, or EQ (no tag).
+	CNOP	0,4
+TagMapper:
+	MOVEM.L	D1-D2/A0-A2,-(SP)
+	LEA	FILENOM(PC),A0
+TgMaBuc:
+	MOVE.B	(A0)+,D1
+	BEQ.S	TgMaNo
+	CMP.B	#'[',D1
+	BNE.S	TgMaBuc
+	LEA	TagMapTab(PC),A2
+TgMaEnt:
+	MOVEQ	#0,D0
+	MOVE.B	(A2)+,D0		; Code, 0: end of table.
+	BEQ.S	TgMaBuc
+	MOVE.L	A0,A1
+TgMaCmp:
+	MOVE.B	(A2)+,D1
+	BEQ.S	TgMaEnd
+	MOVE.B	(A1)+,D2
+	OR.B	#$20,D2			; (Lower case.)
+	CMP.B	D2,D1
+	BEQ.S	TgMaCmp
+TgMaSkip:
+	TST.B	(A2)+
+	BNE.S	TgMaSkip
+	BRA.S	TgMaEnt
+TgMaEnd:
+	CMP.B	#']',(A1)
+	BNE.S	TgMaEnt
+	TST.B	D0
+	BRA.S	TgMaFin
+TgMaNo:
+	MOVEQ	#0,D0
+TgMaFin:
+	MOVEM.L	(SP)+,D1-D2/A0-A2	; (Flags kept.)
+	RTS
+
+TagMapTab:
+	DC.B	4,"konamiscc",0
+	DC.B	4,"scc",0
+	DC.B	1,"konami",0
+	DC.B	1,"konami4",0
+	DC.B	2,"ascii8",0
+	DC.B	3,"ascii16",0
+	DC.B	0
+	EVEN
 
 ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

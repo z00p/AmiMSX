@@ -7558,6 +7558,42 @@ KON18:
 ; -------------------------------------<=
 ; -------------------------------------<=
 
+; KonamiSCC ("SCC 1"): bank registers at &H5000-&H57FF, &H7000-&H77FF,
+; &H9000-&H97FF and &HB000-&HB7FF only, as on the cartridge (openMSX
+; RomKonamiSCC). Any write in the page used to switch it: Monster Hunter
+; crashed at boot.
+SCC14:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+8(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag0S1
+	Otra2
+
+SCC16:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+12(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag1S1
+	Otra2
+
+SCC18:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+16(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag2S1
+	Otra2
+
+SCC1A:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+20(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag3S1
+	Otra2
+
 SCC24:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+8(A3),D1
@@ -7574,7 +7610,6 @@ KON24:
 	BEQ.S	Pag0S1
 	Otra2
 
-SCC14:
 
 Pag0S1:
 	SUB.W	(A7),A5
@@ -7616,7 +7651,6 @@ KON26:
 	SUB.W	#$6000,D1
 	NOP			; was: BEQ.S	Pag1S1 (zero-length short branch)
 
-SCC16:
 
 
 Pag1S1:
@@ -7659,7 +7693,6 @@ KON28:
 	SUB.W	#$8000,D1
 	NOP			; was: BEQ.S	Pag2S1 (zero-length short branch)
 
-SCC18:
 
 
 Pag2S1:
@@ -7702,7 +7735,6 @@ KON2A:
 	SUB.W	#$A000,D1
 	NOP			; was: BEQ.S	Pag3S1 (zero-length short branch)
 
-SCC1A:
 
 
 Pag3S1:
@@ -7911,6 +7943,42 @@ KON18b:
 ; -------------------------------------<=
 ; -------------------------------------<=
 
+; KonamiSCC ("SCC 1"): bank registers at &H5000-&H57FF, &H7000-&H77FF,
+; &H9000-&H97FF and &HB000-&HB7FF only, as on the cartridge (openMSX
+; RomKonamiSCC). Any write in the page used to switch it: Monster Hunter
+; crashed at boot.
+SCC14b:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+8(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag0S1b
+	Otra2
+
+SCC16b:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+12(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag1S1b
+	Otra2
+
+SCC18b:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+16(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag2S1b
+	Otra2
+
+SCC1Ab:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+20(A3),D1
+	AND.W	#$1800,D1
+	CMP.W	#$1000,D1
+	BEQ	Pag3S1b
+	Otra2
+
 SCC24b:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+8(A3),D1
@@ -7927,7 +7995,6 @@ KON24b:
 	BEQ.S	Pag0S1b
 	Otra2
 
-SCC14b:
 
 
 Pag0S1b:
@@ -7970,7 +8037,6 @@ KON26b:
 	SUB.W	#$6000,D1
 	NOP			; was: BEQ.S	Pag1S1b (zero-length short branch)
 
-SCC16b:
 
 
 Pag1S1b:
@@ -8013,7 +8079,6 @@ KON28b:
 	SUB.W	#$8000,D1
 	NOP			; was: BCS.S	Pag2S1b (zero-length short branch)
 
-SCC18b:
 
 
 Pag2S1b:
@@ -8056,7 +8121,6 @@ KON2Ab:
 	SUB.W	#$A000,D1
 	NOP			; was: BEQ.S	Pag3S1b (zero-length short branch)
 
-SCC1Ab:
 
 
 Pag3S1b:
@@ -14736,6 +14800,19 @@ PerfFrN:	DC.L	0
 PerfSpOff:
 	BSET	#0,KEY+8(A3)
 PerfSpFin:
+	ENDC
+	IFD	PERFKEY0
+; Test input: "0" (MSX row 0 bit 0) for 10 frames from frame PERFKEY0
+; (Monster Hunter: "push 0 to use SCC" on its title).
+	MOVE.L	PerfFrN,D1
+	SUB.L	#PERFKEY0,D1
+	CMP.L	#10,D1
+	BCC.S	PerfK0Off
+	BCLR	#0,KEY+0(A3)
+	BRA.S	PerfK0Fin
+PerfK0Off:
+	BSET	#0,KEY+0(A3)
+PerfK0Fin:
 	ENDC
 
 	IFD	PERF
