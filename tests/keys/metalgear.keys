@@ -1,5 +1,8 @@
-# Metal Gear: the opening transceiver call is advanced with Space; then move.
-14s   SPACE 5 every 100 until 80s
-82s   UP    100
-85s   RIGHT 100
-88s   LEFT  60
+# Metal Gear: Space through the title; the opening transceiver call waits for
+# trigger B (M or N; Space, RETURN, ESC, F1-F5, SELECT, STOP and TAB don't
+# advance it: probe 2 Oct 2026, build/regress/mgprobe); then move.
+14s   SPACE 5 every 100 until 56s
+58s   M     5 every 75 until 96s
+98s   UP    100
+101s  RIGHT 100
+104s  LEFT  60
