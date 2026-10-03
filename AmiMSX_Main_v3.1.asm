@@ -1315,6 +1315,7 @@ GFXSPRT:	DC.L	0		; Top table's pattern slots, 0: none (remap).
 SprSnap:	DS.B	512+128		; 512 bytes before the table, then the table.
 SprSnapT:	DS.B	512+128
 S5Valid:	DC.B	0		; 5th sprite flag (see IVDP0).
+RFrame:		DC.B	0		; MSX frames, low byte (LD A,R).
 S0LastV:	DC.B	0		; Idle poll (S0Nada): last S#0 value,
 S0IdleN:	DC.B	0		; repeats,
 		EVEN
@@ -4379,10 +4380,18 @@ LDAI:
 	MOVE.B	IFF(A3),D1
 	BFINS	D1,D3{30:1}
 	Otra	9
+; LD A,R: R from the emulated time (line, cycles left in it, frame), so it
+; varies like the real refresh counter but is the same on every run. It
+; read the Amiga beam ($DFF007): games that seed randomness from R (Zanac)
+; ran differently every time.
 LDAR:
+	MOVE.W	CurLine(A3),D1
+	MULU	#57,D1			; ~M1 cycles per line (228 / 4)
+	SUB.W	(A3),D1			; cycles left in the line count down
+	ADD.B	RFrame,D1
+	AND.W	#$007F,D1
+	MOVE.B	D1,D7
 	MOVE.B	D3,D1
-	MOVE.B	$DFF007,D7
-	AND.B	#$7F,D7
 	OR.B	R(A3),D7
 	MOVE.W	CCR,D3
 	BFINS	D1,D3{31:1}
@@ -15205,6 +15214,7 @@ MiraInter:
 	JMP	([JumpCurLine.W,PC,D1.W*4])
 
 MiraInter0:
+	ADDQ.B	#1,RFrame		; (LD A,R)
 	SF	S5Valid			; 5th sprite flag: new frame.
 	CLR.W	S5Next
 

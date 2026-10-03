@@ -11,11 +11,10 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 | Jailbreak: flashing scenery | Bitmap-mode R#23 / R#2 splits are timed from the Amiga beam, not the MSX line | High | Medium |
 | Uridium 2: ship drop-outs | "2 frames" sprite mode samples one of two alternating sprite tables | High | Small (setting), see L'Abbaye |
 | L'Abbaye: sprites over the story page | Stale story screen while gameplay sprites are live | Medium | Unknown |
-| MSX Unleashed: "Internal error in ..." | Z80 fault drops into BASIC's error handler; possibly fixed by the POP/RET fix | Medium | Check first |
+| MSX Unleashed: "Internal error in ..." | Z80 fault into BASIC's error handler; probably fixed by the POP/RET fix (at 60 s it now shows demo part 2) | Medium | Confirm with a 70 s+ capture |
 | Snake and Rhino: page turn tiles | SCREEN 2 two-bank tile cache misses an update during the page turn | Low | Unknown |
 | Snake and Rhino: colours | The game's MSX2 palette (written in openMSX at 4.3 s) never set in AmiMSX: probably an MSX1 machine type | Medium | Small |
-| Metal Gear: stuck on the radio call | Needs trigger B (M) | Confirmed in probe | Done (key script) |
-| DEVA: "needs 128 Kb of mapped RAM" | Mapper size detection fails on AmiMSX's unmirrored 128 KB mapper | High (runs in openMSX with 1 MB) | Small |
+| Metal Gear: stuck on the radio call | Needs trigger B (M) | Confirmed: in play at 92 s | Done |
 
 ## Space Manbow (R2K_SpaceManbow, KonamiSCC)
 
@@ -106,8 +105,14 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 
 - **Lilly's Saga:** 1-line seams at the edges of the 16-line sprite bands.
 - **Uridium:** HUD colours differ from openMSX (white digits, single-colour logo).
-- **DEVA:** not a stall. Both emulators show the game's "ERROR: You need at least 128 Kb of mapped RAM". openMSX's C-BIOS MSX2 machine has a 512 KB mapper in a sub-slot and is refused too; with `-ext ram1mb` (a 1 MB mapper in its own slot) the game runs ("VR testing facility"). AmiMSX has an 8-segment (128 KB) mapper with segments 8 and up mapped to NOMEM/NORAM; a real 128 KB mapper mirrors them (segment AND 7), and size detection relies on that wrap. **Fix:** a 512 KB mapper (32 segments, mirrored above that), as in openMSX; cheap on 030/040 and PiStorm machines. Also check what the mapper ports FCh-FFh return when read (real MSX2s return the segment with the unused upper bits set).
-- **Zanac Ex:** plays normally in AmiMSX and openMSX (probe captures at 38-56 s); the old title-screen problem was probably the Konami SCC decode fixed in 9e000a8. Confirm the title screen in the overnight captures.
+- **DEVA: works in AmiMSX** (in play at 30 s in the 3 Oct full run). The "ERROR: You need at least 128 Kb of mapped RAM" message comes from openMSX's C-BIOS MSX2 machine (512 KB mapper in a sub-slot); with `-ext ram1mb` it runs there too. AmiMSX's 128 KB mapper is accepted. If more RAM is ever needed, a 512 KB mapper with segment mirroring would match openMSX.
+- **Zanac Ex:** plays normally (full run, 3 Oct); the old title-screen problem was probably the Konami SCC decode fixed in 9e000a8.
 - **Z80:** H and N flags not modelled; DAA wrong without a tracked add or subtract. Nothing known depends on them yet (L'Abbaye didn't). Plan if needed: lazy flags. The add/subtract handlers already store A before the operation (PARDAAS/PARDAAR into DatDAA). Also store which kind it was, and on PUSH AF compute N from the kind and H from A before, A after and the carry (H = (A ^ operand ^ result) & 10h, with the operand recovered from A and the result). That costs one byte store per ALU operation, with nothing extra until a game reads F.
 - **PERF builds:** with the sub-timers on (-DPERFSUBS=1), some code layouts hang at boot. Not stack, flags or registers.
-- **Triton:** the launch sequence is still unknown (waiting for the user).
+- **Triton:** after the title it shows a galaxy map ("Upgrade your ship or choose a planet to attack", buttons Upgrade/Password/Quit, start planet Ithaki at the bottom left). The map is random (it differed between the two overnight runs: the R register), so a route can only be scripted once LD A,R is deterministic. A cursor shows on a planet near the bottom middle by 60 s in one run. The current script (RIGHT then Space, 31-40 s) doesn't launch.
+
+## Run-to-run variation (full run, 3 Oct 2026)
+
+52 of 66 titles were pixel-identical across two runs. The ones that varied: Bomb Jack, Zanac, Zanac Ex, Zanac Ex Enhanced, Triton, Alien Attack, Universe Unknown, Bit Logic, Knight Lore, Sacred Valley, Bold, Invasion and io.
+
+**Cause found:** AmiMSX's `LD A,R` returned the Amiga's horizontal beam position (`$DFF007`), so every game that seeds randomness from the R register ran differently on each run. R is now derived from the emulated time (line, cycles left in it, frame counter). The varying titles are being re-calibrated with that build.
