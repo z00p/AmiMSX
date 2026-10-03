@@ -4,7 +4,9 @@
 param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
       [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "",
-      [string]$Keys = "", [int]$SnapWait = 200)
+      [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun)
+# -NoRun: boot without the CLI start of AmiMSX (Workbench tests: a project in
+#   WBStartup starts it instead); the line is left commented out until the next run
 # -Keys file.keys: scripted MSX keyboard input in the emulator (tools\keyscript.py format),
 #   focus-independent; converted to run\Keys\<rom>.key and passed as AmiMSX's 2nd argument
 # -Hold key@from-to[,...]: hold a key (right, left, up, down, space) e.g. "right@40-48"
@@ -96,7 +98,8 @@ foreach ($rom in $Roms) {
     $keyArg = " `"AmiMSX:Keys/$kn.key`""
     $snaps = @(Get-Content $snapf | Where-Object { $_ })
   }
-  $s = [regex]::Replace($s, '(?m)^Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"$keyArg")
+  $pre = if ($NoRun) { "; " } else { "" }
+  $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', "${pre}Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"$keyArg")
   [IO.File]::WriteAllText($seq, $s, $latin1)
   Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1
   Start-Process "C:\Program Files\WinUAE\winuae64.exe" -ArgumentList "-f `"$base\winuae\$Config`"" -WorkingDirectory "C:\Program Files\WinUAE"

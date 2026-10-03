@@ -12,7 +12,7 @@ k = min(range(len(ents)), key=lambda i: (ents[i][0] == 0 and ents[i][1] == 0, en
 seq = ents[k:] + ents[:k]
 seq = [e for e in seq if e != (0, 0, 0, 0, 0)]
 names = {5: "R#5", 6: "R#6", 0xFF: "FRAME", 0xF8: "snapT", 0xF9: "snapM", 0xFE: "IMPSPR",
-         0xFD: "adjust", 0xFC: "TSplit", 0xFB: "R#8", 0xFA: "split!"}
+         0xFD: "adjust", 0xFC: "TSplit", 0xFB: "R#8", 0xFA: "split!", 2: "R#2 w", 8: "R#8 w", 0xC0: "corr0", 0xC1: "corr1", 0xC2: "corr2", 0xC3: "corr3", 0xC4: "corrAt", 0xC5: "corrAt"}
 lastf = int(sys.argv[2]) if len(sys.argv) > 2 else 60
 fmax = max(e[0] for e in seq)
 for f, line, tag, val, split in seq:

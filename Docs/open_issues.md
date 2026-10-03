@@ -9,7 +9,8 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 | Space Manbow: ground strip missing | SCREEN 4 renderer draws 24 name rows; the game shows rows 24-31 through vertical scroll in 212-line mode | High | Medium |
 | Space Manbow: enemies missing | Mid-screen R#5 switch in sprite mode 2 isn't supported (two-pass split is mode 1 only) | High | Medium |
 | Jailbreak: flashing scenery | Bitmap-mode R#23 / R#2 splits are timed from the Amiga beam, not the MSX line | High | Medium |
-| Uridium 2: ship drop-outs | "2 frames" sprite mode samples one of two alternating sprite tables | High | Small (setting), see L'Abbaye |
+| Uridium 2: ship and sprites missing for seconds | Fixed 3 Oct: the HUD's sprites-off R#8 write (line 167, no table change) was sampled as the playfield's | Fixed | Register-split segments (longest wins) |
+| Debug builds (TRACE, PERFSUBS) hang at boot | Fixed 3 Oct: a `BNE.S *+10` landed mid-instruction once a MOVE.L to DREGOUT98(A3) grew to 12 bytes | Fixed | Labels; build.sh rejects `*+n` branches |
 | L'Abbaye: sprites over the story page | Not reproducible since 89427e6: AmiMSX's attribute table matches openMSX (all parked at Y = 193) | Resolved | - |
 | MSX Unleashed: "Internal error in ..." | Z80 fault into BASIC's error handler; probably fixed by the POP/RET fix (at 60 s it now shows demo part 2) | Medium | Confirm with a 70 s+ capture |
 | Snake and Rhino: page turn tiles | SCREEN 2 two-bank tile cache misses an update during the page turn | Low | Unknown |
@@ -52,19 +53,41 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 - **Confirm:** log the MSX line of each R#23/R#2 write (CurLine) next to the Amiga line used. They will differ, and the difference will vary.
 - **Fix:** handle bitmap-mode R#23 and R#2 splits like the mid-frame palette and mode splits: record them as events at the emulated MSX line (TabRasCMDS) and build the copper split from those. That's deterministic, and it doesn't busy-wait on the beam (which also costs time).
 
-## Uridium 2 (M_Uridium2_SCC, KonamiSCC)
+## Uridium 2 (M_Uridium2_SCC, KonamiSCC): fixed 3 Oct 2026
 
-**Symptom.** The player ship drops out in some frames. openMSX only hides it during the death sequence.
+**Symptom.** The player ship, and at times every sprite, missing for seconds at a time, in both sprite settings. openMSX only hides the ship during the death sequence.
 
 **openMSX:**
-- SCREEN 8, 192 lines.
-- Bottom split for the HUD (page flip plus R#23/R#18).
-- Horizontal scroll by R#18 plus HMMM copies.
-- R#5 alternates between FFh and F7h every frame, in VBlank: two sprite attribute tables shown on alternate frames.
+- SCREEN 8, 192 lines, horizontal scroll by R#18 plus HMMM copies.
+- R#5 alternates between FFh and F7h every frame, in VBlank: two sprite attribute tables, shown on alternate frames.
+- HUD split by line interrupt (R#19 = A7h, display line 167): R#2 = 1Fh, R#23 = 0Ah, R#18 = 00h and R#8 = 2Ah (sprites off). The VBlank handler restores the playfield values.
 
-**Theory.** AmiMSX's default "2 frames" sprite setting (DirPrefs+$16 = 2) draws the mode-2 sprite overlay every other frame, so it always samples the same one of the two tables. Anything the game puts in only one table, such as when it rotates sprites to keep within 8 per line, shows intermittently or not at all.
-- **Confirm:** run with sprites every frame (the key-script `option sprites 1` works since 1863a1f).
-- **Fix:** default to sprites every frame in the 030/50 and Emu68 builds. That first needs the L'Abbaye story-page issue checked, since it showed up with sprites every frame.
+**Cause (AmiMSX event ring, trace-lite build frozen at 39 s).** On frames where the playfield page is also 1Fh, the line-167 R#2 write changes nothing, so no table split was recorded. MIDSAMPLE then kept sampling and took the HUD's R#8 = 2Ah as the playfield's (TopR8 = 2Ah every frame). The overlay counted down and turned off, and R#18 was sampled as the HUD's 00h as well.
+
+**Fix: register-split segments.**
+- **Segments:** a change of R#8, R#18 or R#23 on display lines 16-191 (RSPLITCHK) ends a segment. Lines 0-15 count as the frame's own setup, and there are no segments after a table split.
+- **Choice:** at line 192 (SEGCLOSE, before the render), the longest segment's MIDSAMPLE values are used.
+- **Why not simply stop at the first change:** that broke Bun-Ga-Rua. It turns sprites off above line 79 and on below for its play area, so stopping at the first change kept the sprites-off top, and the heroine vanished.
+- **Results:**
+  - Uridium 2: with sprites every frame, the 30-57 s film shows the ship and enemies in every capture except the death explosion.
+  - Regression (split titles): Uridium 2 at 60 s shows the ship and Nemesis 3 at 45 s shows enemies, both missing in the baselines. Bun-Ga-Rua is unchanged.
+  - Chikubi Ninja: the enemies moved a few pixels against the scenery (game state unchanged: 45 s identical, and each capture is its own run). It writes R#18 = F9h/FAh (fine X scroll) for the play area and 00h at line 160 for its panel. The old sample (line 176) took 00h, so sprites ignored the play area's fine scroll, and R#18 moves sprites with the background on the VDP. Now correct; baselines accepted for Chikubi Ninja, Uridium 2 and Nemesis 3.
+  - Jailbreak at 60 s: a one-line strip under the orange blocks differs. That's where its known split-timing problem is, so the baseline is kept until the Jailbreak fix.
+
+**Still to check.** "2 frames" mode always draws one of the two alternating tables. Film it for the A1200 preset.
+
+## Debug builds hanging at boot: fixed 3 Oct 2026
+
+TRACE and PERFSUBS builds hung on a blue screen from 1863a1f on, and so did a release build with 4 bytes added at the wrong place.
+- **Found by** an exception catcher (`-DEXCCHK`): a Line-F exception at the second word of `MOVE.L #OUT98M,DREGOUT98(A3)`.
+- **Cause.** The instruction is skipped with `BNE.S *+10` (added in 1ee3275), which assumes it is 8 bytes. DREGOUT98 is OUTS - REGS: once that passes -32 KB, vasm encodes a 32-bit displacement, the MOVE grows to 12 bytes, and the branch lands on $FFFF.
+- **Fix.** The three skips (and two safe `BLS.S *+8`) now use labels. `build.sh` refuses `B.. *+n` branches.
+- **Debug tools added:**
+  - `TRACELITE` (event ring only, full speed);
+  - `CORRCHK` (code addresses in the page tables);
+  - `HANGCHK` (VBlank watchdog);
+  - `EXCCHK` (exception catcher, PC into the ring).
+  - The ring now wraps before TrvRegs, which TraceFreeze overwrites.
 
 ## L'Abbaye des Morts: sprites over the story page (resolved)
 

@@ -68,7 +68,7 @@ TRVLOG:	MACRO
 	MOVE.B	#\1,(A0)+
 	MOVE.B	\2,(A0)+
 	MOVE.W	SprSplit,(A0)+
-	CMP.L	#TrvEnd,A0
+	CMP.L	#TrvRegs,A0		; (Not TrvEnd: TraceFreeze fills TrvRegs.)
 	BCS.S	\@ok
 	LEA	TrvBuf,A0
 \@ok:	MOVE.L	A0,TrvPtr
@@ -76,11 +76,59 @@ TRVLOG:	MACRO
 	ENDM
 	ENDC
 
+; CORRCHK (TRACE builds, vasm -DTRACE=1 -DCORRCHK=1): every line, look for a
+; code address in the page tables below REGS (Desbor -160..-97, Restas longs
+; -92+8p). The Z80 core keeps A7 in that table, and a port or line handler's
+; first-level JSR leaves its return address in the page's scratch long
+; (-96+8p); anything pushed deeper (a nested BSR/JSR, MOVEM -(SP)) lands on
+; another page's Restas or Desbor entry. On the first hit: CorrVal (the
+; value: a return address names the call), CorrAt (where + 4), CorrLine,
+; CorrFrame, then TraceFreeze (trace.bin).
+	IFD	CORRCHK
+CORRCHECK:	MACRO
+	MOVEM.L	D0-D1/A0,CorrSv
+	LEA	REGS-160,A0
+	MOVEQ	#16-1,D0
+\@D:	MOVE.L	(A0)+,D1
+	CMP.L	#CodeLo,D1
+	BCS.S	\@Dn
+	CMP.L	#CodeHi,D1
+	BCS	\@Hit
+\@Dn:	DBF	D0,\@D
+	LEA	REGS-92+4,A0
+	MOVEQ	#8-1,D0
+\@R:	MOVE.L	-4(A0),D1
+	CMP.L	#CodeLo,D1
+	BCS.S	\@Rn
+	CMP.L	#CodeHi,D1
+	BCS	\@Hit
+\@Rn:	ADDQ.L	#8,A0
+	DBF	D0,\@R
+	BRA	\@X
+\@Hit:	SUB.L	#CodeLo,D1		; Offset in the code section,
+	MOVE.L	D1,CorrVal
+	SUB.L	#REGS,A0		; the slot's offset from REGS (+4),
+	MOVE.L	A0,CorrAt
+	MOVE.W	REGS+CurLine,CorrLine
+	MOVE.W	TrvFrame,CorrFrame
+	TRVLOG	$C0,CorrVal		; into the event ring (read_trv.py).
+	TRVLOG	$C1,CorrVal+1
+	TRVLOG	$C2,CorrVal+2
+	TRVLOG	$C3,CorrVal+3
+	TRVLOG	$C4,CorrAt+2
+	TRVLOG	$C5,CorrAt+3
+	MOVEM.L	CorrSv,D0-D1/A0
+	JMP	TraceFreeze
+\@X:	MOVEM.L	CorrSv,D0-D1/A0
+	ENDM
+	ENDC
+
 ; PERF builds: sub-timers (see PerfStamp). PERFSUB0 marks, PERFSUB n adds the
 ; time since the last mark to sub-timer n (0-7) and marks again.
-; Sub-timers are opt-in (vasm -DPERF=1 -DPERFSUBS=1): with them, PERF builds
-; hang at boot in some code layouts (2 Oct 2026; cause not found: not their
-; stack use, flags or registers; without them every layout tested boots).
+; Sub-timers are opt-in (vasm -DPERF=1 -DPERFSUBS=1). The boot hangs they
+; seemed to cause (2 Oct 2026) were a layout bug elsewhere: BNE.S *+10 over a
+; MOVE.L to DREGOUT98(A3), which grows from 8 to 12 bytes once OUTS is more
+; than 32 KB from REGS (fixed 3 Oct 2026; build.sh now rejects *+n branches).
 ; No stack: these run inside the Z80 core's render paths, where A7 is the
 ; Restas table; pushes there overwrite the Desbor entries below it with
 ; return addresses (layout-dependent boot hangs in PERF builds, 2 Oct 2026).
@@ -152,6 +200,58 @@ TSPLITCHK:	MACRO
 	MOVE.L	PVDP4(A3),TA_PVDP4
 	MOVE.L	PVDP4B(A3),TA_PVDP4B
 \@n:
+	ENDM
+
+; Register splits: a change of R#8, R#18 or R#23 during the display (lines
+; 16-191; earlier ones are the frame's own setup, and none after a table
+; split) ends a segment. The playfield is the longest segment: SEGCLOSE (line
+; 192, before the render) puts that segment's MIDSAMPLE values (TopR8, MidAdj,
+; MidLinY) in place. Uridium 2: sprites off and R#2 unchanged for its HUD at
+; line 167 (playfield above); Bun-Ga-Rua: sprites off above line 79 (playfield
+; below). One sample a frame took the wrong region in one or the other.
+; \1 = the register's byte in REGS, D2.B = the new value. Registers kept.
+RSPLITCHK:	MACRO
+	CMP.B	\1(A3),D2
+	BEQ.W	\@n
+	TST.W	TSplit
+	BNE.W	\@n
+	CMP.W	#16,CurLine(A3)
+	BCS.W	\@n
+	CMP.W	#192,CurLine(A3)
+	BCC.W	\@n
+	MOVE.L	D1,SegSv
+	MOVE.W	CurLine(A3),D1
+	SUB.W	SegStart,D1		; Length of the segment it ends.
+	CMP.W	SegBest,D1
+	BLS.S	\@k
+	MOVE.W	D1,SegBest		; Longest so far: keep its samples.
+	MOVE.B	TopR8,SegR8
+	MOVE.B	MidAdj,SegAdj
+	MOVE.B	MidLinY,SegLinY
+\@k:	MOVE.W	CurLine(A3),SegStart
+	ST	SegSeen
+	MOVE.L	SegSv,D1
+	IFD	TRACE
+	TRVLOG	$F6,D2
+	ENDC
+\@n:
+	ENDM
+
+; Line 192: if the last segment (to the table split or line 192) isn't the
+; longest, the longest one's samples replace MIDSAMPLE's. Uses D1.W.
+SEGCLOSE:	MACRO
+	TST.B	SegSeen
+	BEQ.S	\@x
+	MOVE.W	TSplit,D1
+	BNE.S	\@t
+	MOVE.W	#192,D1
+\@t:	SUB.W	SegStart,D1
+	CMP.W	SegBest,D1
+	BHI.S	\@x
+	MOVE.B	SegR8,TopR8
+	MOVE.B	SegAdj,MidAdj
+	MOVE.B	SegLinY,MidLinY
+\@x:
 	ENDM
 
 ; Sprite mode 2 band snapshot (see IMPSPR2B): colour table (512 bytes) and
@@ -271,6 +371,7 @@ BankNum:	MACRO
 
 ; --------------------------------
 	SECTION	MSX2,CODE
+CodeLo:
 ; --------------------------------
 
 	IFEQ	Usuario
@@ -1065,7 +1166,9 @@ ConMapper:
 ; ------------------------------------<=
 
 	IFD	TRACE
-	BSR	TraceInstala		; Debug trap: after the mapper patches.
+	IFND	TRACELITE		; TRACELITE: only the sprite-table event
+	BSR	TraceInstala		; ring (TRVLOG), at full speed.
+	ENDC
 	ENDC
 
 ; ---------------------------------------=> Actualiza Relentizador.
@@ -1268,6 +1371,14 @@ ESPERA:
 	CLR.B	$BFEC01
 	MOVE.L	VBRPun,A0
 	MOVE.L	#Inter,$6C(A0)
+	IFD	EXCCHK
+	MOVEQ	#10-1,D0		; Vectors 2-11: bus and address error,
+	LEA	8(A0),A1		; illegal, zero divide, CHK, TRAPV,
+	LEA	ExcOrig,A2		; privilege, trace, line A, line F.
+ExcInst:MOVE.L	(A1),(A2)+
+	MOVE.L	#ExcCatch,(A1)+
+	DBF	D0,ExcInst
+	ENDC
 	MOVE.W	#$86E0,$096(A6)		; BPL Off
 ;;;	MOVE.W	#$C028,$09A(A6)
 	JMP	MSX			; (BRA: out of range with TRACE code.)
@@ -1418,6 +1529,86 @@ TraceStubB:
 	IFD	TRACEFR
 TrPcPass:	DC.W	0
 	ENDC
+	IFD	EXCCHK
+; EXCCHK (TRACE builds, -DEXCCHK=1 -DHANGCHK=1): a CPU exception during
+; emulation (vectors 2-11). Note the PC, SR and format/vector word, drop
+; the exception frame, and RTE into HangGo in user mode (trace.bin with the
+; PC in the event ring: $C8-$CB PC, $CC-$CD SR, $CE-$CF format/vector).
+ExcCatch:
+	MOVE.L	D0,-(SP)		; Only exceptions in AmiMSX's code:
+	MOVE.L	4+2(SP),D0		; the rest (the OS's own uses) go to
+	CMP.L	#CodeLo,D0		; the original handler.
+	BCS.S	ExcChain
+	CMP.L	#CodeHi,D0
+	BCC.S	ExcChain
+	MOVE.L	(SP)+,D0
+	MOVE.L	2(SP),HangPC
+	MOVE.W	(SP),HangSR
+	MOVE.W	6(SP),ExcFmt
+	MOVEQ	#0,D0
+	MOVE.B	6(SP),D0
+	LSR.B	#4,D0
+	MOVE.B	(ExcSize.L,D0.W),D0	; Frame size by format.
+	ADD.L	D0,SP
+	CLR.W	-(SP)			; Format 0.
+	PEA	HangGo
+	CLR.W	-(SP)			; User mode, IPL 0.
+	RTE
+ExcChain:
+	MOVE.W	4+6(SP),D0
+	AND.W	#$0FFF,D0		; Vector offset.
+	MOVE.L	(ExcOrig-8.L,D0.W),D0
+	MOVE.L	D0,-(SP)		; Target, saved D0, frame.
+	MOVE.L	4(SP),D0
+	MOVE.L	(SP)+,(SP)		; Target over the saved D0...
+	RTS				; ...and go there, frame intact.
+ExcRestore:				; Put the original vectors back.
+	MOVEM.L	D0/A0-A1,-(SP)
+	MOVE.L	VBRPun,A0
+	ADDQ.L	#8,A0
+	LEA	ExcOrig,A1
+	MOVEQ	#10-1,D0
+ExcRBuc:MOVE.L	(A1)+,(A0)+
+	DBF	D0,ExcRBuc
+	MOVEM.L	(SP)+,D0/A0-A1
+	RTS
+ExcOrig:	DS.L	10
+ExcSize:	DC.B	8,8,12,12,16,8,8,60,58,20,32,92,24,8,8,8
+ExcFmt:		DC.W	0
+		DS.L	32
+HangStk:
+		EVEN
+	ENDC
+	IFD	HANGCHK
+; HANGCHK (TRACE builds, -DHANGCHK=1): the VBlank interrupt saw no MSX frame
+; for 3 s. Log the interrupted PC (offset in the code section) and its SR
+; into the event ring ($C8-$CB, $CC-$CD), then freeze (trace.bin).
+HangGo:
+	IFD	EXCCHK
+	LEA	HangStk,SP		; (A7 was the Z80 core's table.)
+	BSR	ExcRestore
+	ENDC
+	LEA	REGS,A3
+	MOVE.L	HangPC,D1
+	SUB.L	#CodeLo,D1
+	MOVE.L	D1,HangPC
+	TRVLOG	$C8,HangPC
+	TRVLOG	$C9,HangPC+1
+	TRVLOG	$CA,HangPC+2
+	TRVLOG	$CB,HangPC+3
+	TRVLOG	$CC,HangSR
+	TRVLOG	$CD,HangSR+1
+	IFD	EXCCHK
+	TRVLOG	$CE,ExcFmt
+	TRVLOG	$CF,ExcFmt+1
+	ENDC
+	JMP	TraceFreeze
+	ENDC
+	IFD	CORRCHK
+CorrTest:
+	CORRCHECK
+	JMP	CorrRet
+	ENDC
 TraceFreeze:
 	LEA	TraceHdr+16,A4
 	MOVEQ	#8-1,D1
@@ -1467,6 +1658,19 @@ TraceHdr:	DC.L	"ATRC",0,0,0		; +4 ring offset, +8 count, +15 A8
 		DS.L	16			; +16 PagRead[8], +48 PRINT2 count, +52 ACTUTODO2
 TraceBuf:	DS.L	4096			; PC.w, opcode.b, A8.b
 TraceBufEnd:
+	IFD	HANGCHK
+HangPC:		DC.L	0
+HangLastF:	DC.W	0
+HangCnt:	DC.W	0
+HangSR:		DC.W	0
+	ENDC
+	IFD	CORRCHK
+CorrSv:		DS.L	3
+CorrVal:	DC.L	0		; (CORRCHECK)
+CorrAt:		DC.L	0
+CorrLine:	DC.W	0
+CorrFrame:	DC.W	0
+	ENDC
 TrvA0:		DC.L	0
 TrvPtr:		DC.L	TrvBuf
 TrvFrame:	DC.W	0
@@ -5691,8 +5895,9 @@ LDIR:
 	MULU.L	#23,D1			; BC*(21+2) - 12, + the final Otra 5,
 	SUB.L	#12,D1			; at most $7000 (~125 lines: the
 	CMP.L	#$7000,D1		; counter is a word).
-	BLS.S	*+8
+	BLS.S	BlkCyc1
 	MOVE.L	#$7000,D1
+BlkCyc1:
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.L	A0,-(SP)
@@ -5725,8 +5930,9 @@ LDDR:
 	MULU.L	#23,D1			; BC*(21+2) - 12, + the final Otra 5,
 	SUB.L	#12,D1			; at most $7000 (~125 lines: the
 	CMP.L	#$7000,D1		; counter is a word).
-	BLS.S	*+8
+	BLS.S	BlkCyc2
 	MOVE.L	#$7000,D1
+BlkCyc2:
 	SUB.W	D1,(A3)			; * Resta Cycles *
 
 	MOVE.L	A0,-(SP)
@@ -8960,8 +9166,9 @@ ModoTxt:
 	MOVE.L	#IN98,DREGIN98(A3)
 	MOVE.L	#OUT98,DREGOUT98(A3)
 	TST.B	V5All
-	BNE.S	*+10
+	BNE.S	V5AllKeep1		; (A label: the MOVE's size depends on the layout.)
 	MOVE.L	#OUT98M,DREGOUT98(A3)
+V5AllKeep1:
 
 	MOVE.L	RetOut(A3),-(A7)
 
@@ -8992,8 +9199,9 @@ ModoTxtX:
 	MOVE.L	#IN98X,DREGIN98(A3)
 	MOVE.L	#OUT98X,DREGOUT98(A3)
 	TST.B	V5All
-	BNE.S	*+10
+	BNE.S	V5AllKeep2		; (A label: the MOVE's size depends on the layout.)
 	MOVE.L	#OUT98XM,DREGOUT98(A3)
+V5AllKeep2:
 
 	MOVE.L	RetOut(A3),-(A7)
 
@@ -9024,8 +9232,9 @@ ModoTxt4:
 	MOVE.L	#IN98X,DREGIN98(A3)
 	MOVE.L	#OUT98X,DREGOUT98(A3)
 	TST.B	V5All
-	BNE.S	*+10
+	BNE.S	V5AllKeep3		; (A label: the MOVE's size depends on the layout.)
 	MOVE.L	#OUT98XM,DREGOUT98(A3)
+V5AllKeep3:
 
 	MOVE.L	RetOut(A3),-(A7)
 
@@ -9284,6 +9493,10 @@ VDP8Con1:
 	RTS
 ; ---
 VDP8:
+	IFD	TRACE
+	TRVLOG	$08,D2
+	ENDC
+	RSPLITCHK	DVDP8
 
 	MOVE.B	D2,DVDP8(A3)
 	BTST	#1,D2
@@ -9454,6 +9667,9 @@ VD9CON1:
 	RTS
 ; <=---------------------------------------------------------=>
 VDP2:
+	IFD	TRACE
+	TRVLOG	$02,D2
+	ENDC
 	TSPLITCHK	DVDP2
 	MOVE.B	D2,DVDP2(A3)
 	MOVE.W	D2,D1
@@ -9688,10 +9904,12 @@ Dir_Scan:DC.L	TabCop5+(TabCop5Add)+$E
 
 ; <=---------------------------------------------------------=>
 VDP12mT:
+	RSPLITCHK	VDPAdjust
 	MOVE.B	D2,VDPAdjust(A3)
 	SWAP	D2
 	RTS
 VDP12:
+	RSPLITCHK	VDPAdjust
 	MOVE.B	D2,VDPAdjust(A3)
 
 	MOVE.W	CurLine(A3),D1
@@ -9756,6 +9974,7 @@ AdjustSpr:
 VDP17m5:
 	NOINT
 	IInsBuc
+	RSPLITCHK	VDPLinY
 	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
 	MOVEM.L	D0/D1/D3/A0,BUFER(A3)
 
@@ -9866,6 +10085,7 @@ Ant_Rest:DC.W	0
 VDP17m7:
 	NOINT
 	IInsBuc
+	RSPLITCHK	VDPLinY
 	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
 	MOVEM.L	D0/D1/D3/A0,BUFER(A3)
 
@@ -9970,6 +10190,7 @@ ModC71:	MOVE.W	#(-64*256)-8,D0
 VDP17m8:
 	NOINT
 	IInsBuc
+	RSPLITCHK	VDPLinY
 	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
 	MOVEM.L	D0/D1/D3/A0,BUFER(A3)
 
@@ -10093,6 +10314,7 @@ ModC81:	MOVE.W	#(-32*256)-8,D0
 
 ;	-----------------------=>  VDP ($17)  Hardware Vertical Scroll
 VDP17:
+	RSPLITCHK	VDPLinY
 	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
 
 	MOVEQ	#0,D1
@@ -15241,6 +15463,10 @@ MiraInter0:
 MiraInterBuc:
 	ADD.W	#HPeriod,(A3)		; Suma Cyclos de 1 linea.
 	BMI.S	MiraInter
+	IFD	CORRCHK
+	JMP	CorrTest
+CorrRet:
+	ENDC
 	TST.W	PetInt38(A3)
 	BNE.S	FastInterRun
 	JMP	([A3,D2.W*8])		; Vuelta al Z-80 emul.
@@ -15298,6 +15524,9 @@ ModoFastCPU:
 ;	------------------------<=
 
 MiraInter192:
+	IFND	NOSEG
+	SEGCLOSE
+	ENDC
 	CMP.B	#1,DirPrefs+$7E
 	BEQ.S	ModoFastCPU
 
@@ -16900,6 +17129,24 @@ MODO8DATS:
 	CNOP	0,8
 Inter:
 	MOVE.W	#$2700,SR
+	IFD	HANGCHK
+	MOVE.L	D0,-(SP)		; (HANGCHK: SR at 4(SP), PC at 6(SP).)
+	MOVE.W	TrvFrame,D0
+	CMP.W	HangLastF,D0
+	BEQ.S	HangSame
+	MOVE.W	D0,HangLastF
+	CLR.W	HangCnt
+	BRA.S	HangDone
+HangSame:
+	ADDQ.W	#1,HangCnt
+	CMP.W	#150,HangCnt		; No MSX frame for 3 s:
+	BNE.S	HangDone
+	MOVE.L	6(SP),HangPC		; note where it was and go to HangGo.
+	MOVE.W	4(SP),HangSR
+	MOVE.L	#HangGo,6(SP)
+HangDone:
+	MOVE.L	(SP)+,D0
+	ENDC
 	BTST	#5,$DFF01F
 	BEQ	VDP_Emul
 	MOVE.W	#$0020,$DFF09C
@@ -21303,6 +21550,9 @@ MiraInterBand:
 	CNOP	0,4
 MiraInter0S:
 	CLR.W	TSplit			; Table split: new frame.
+	CLR.W	SegStart		; Register split segments too.
+	CLR.W	SegBest
+	SF	SegSeen
 	CLR.W	MSplitL			; Mode split too (regime: MSplitSeen).
 	MOVE.L	MSX2Pal+0,PalTop+0	; Palette at the frame's top (AcCoRutPal).
 	MOVE.L	MSX2Pal+4,PalTop+4
@@ -21772,6 +22022,13 @@ HUDS4Col:
 	RTS
 
 		CNOP	0,4
+SegSeen:	DC.B	0		; Register split this frame (RSPLITCHK),
+SegR8:		DC.B	0		; and the longest segment's R#8,
+SegAdj:		DC.B	0		; R#18,
+SegLinY:	DC.B	0		; R#23,
+SegStart:	DC.W	0		; current segment's first line,
+SegBest:	DC.W	0		; longest segment's length.
+SegSv:		DC.L	0
 TSplit:		DC.W	0		; First line with the new tables, 0: none.
 TA_DVDP2:	DC.B	0		; Tables above the split (playfield)...
 TA_LinY:	DC.B	0
@@ -22231,6 +22488,7 @@ SpSlOClr2:
 
 
 ; --------------------------------
+CodeHi:
 	SECTION	BPL,DATA_C
 ; --------------------------------
 

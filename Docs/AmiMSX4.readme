@@ -1,0 +1,57 @@
+Short:        MSX/MSX2/MSX2+ emulator, accuracy update
+Author:       Juan Antonio Gomez Galvez (RED Soft); 4.0 changes: <uploader>
+Uploader:     <uploader> (<email>)
+Type:         misc/emu
+Version:      4.0
+Replaces:     -
+Architecture: m68k-amigaos >= 3.0.0
+Requires:     68030 or better (68020 runs with the A1200 preset), AGA or ECS
+Distribution: Aminet
+Kurz:         MSX/MSX2/MSX2+ Emulator, Genauigkeits-Update
+
+DRAFT - not for upload until the original author agrees to the release,
+its name and its licence (see Docs/release_4.0.md).
+
+AmiMSX 4.0 is an update of AmiMSX 3.1 by Juan Antonio Gomez Galvez
+(RED Soft), built from the 3.1 source released on Aminet
+(misc/emu/AmiMSX_asm). This version puts accuracy first: a fast 68030 or
+68040 is the baseline, and PiStorm (Emu68) systems have speed to spare.
+
+What's new
+----------
+- Sprite collisions (S#0), the 5th sprite flag and mid-frame splits
+  (sprite tables, SCREEN 4 tables, SCREEN 5/4 modes, palettes, R#8/R#18/R#23).
+- Z80 fixes: POP/RET through ROM, NEG/CPL flags, M1 wait states, LD A,R.
+- VDP command fixes: transparent copies, LMMC.
+- 48/64 KB linear ROMs, 4 MB ROMs, openMSX-style mapper guessing.
+- Three Workbench presets (A1200, 030, PiStorm) using the new
+  PREFS=<file> ToolType.
+- Ships with C-BIOS 0.29 as AmiMSX2.data. See below for disks and BASIC.
+
+See CHANGES_4.0 for the full list.
+
+System ROMs
+-----------
+The included AmiMSX2.data holds C-BIOS (http://cbios.sourceforge.net), a
+free MSX BIOS that runs cartridges. It has no MSX-BASIC and no disk ROM.
+For disk images (MVD) and BASIC, copy AmiMSX2.data from the AmiMSX 3.2
+package (Aminet misc/emu/AmiMSX) over the included one.
+
+Installation
+------------
+Copy the AmiMSX drawer anywhere. Start one of the preset icons:
+  AmiMSX A1200    68020/14 MHz: sprites every 2nd frame, no collisions
+  AmiMSX 030      68030/50 MHz: sprites every frame, collisions on
+  AmiMSX PiStorm  Emu68: everything at full accuracy
+Each preset keeps its own settings file. Save Prefs in the menu writes to
+the preset you started.
+
+Credits
+-------
+AmiMSX: Juan Antonio Gomez Galvez, RED Soft (1994-2000).
+C-BIOS: the C-BIOS team (BSD-style licence, see C-BIOS.txt).
+Testing references: openMSX.
+
+Licence
+-------
+<to be agreed with the author>

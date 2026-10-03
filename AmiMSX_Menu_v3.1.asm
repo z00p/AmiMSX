@@ -81,6 +81,7 @@ YASTC20:
 	JSR	-$174(A6)
 	MOVE.L	D0,MENSWB
 	MOVE.L	D0,A2
+	BSR	WBToolTypes		; PREFS=<file> from the icon.
 	MOVE.L	$24(A2),D0
 	BEQ.S	CLI
 	MOVE.L	_DOSBASE,A6
@@ -5793,6 +5794,84 @@ MapperIdInit:
 
 
 ; -----------------------------------
+; Workbench start (A2 = WBStartup): if the last argument's icon (the project
+; icon a preset was started from, or AmiMSX's own icon) has a PREFS=<file>
+; ToolType, that file replaces S:AmiMSX2.prefs for loading and saving.
+; A relative name is taken from the icon's drawer.
+; D5 = IconBase, D4 = DiskObject, A2 = WBArg.
+	CNOP	0,4
+WBToolTypes:
+	MOVEM.L	D2-D5/A2/A6,-(SP)
+	MOVE.L	$1C(A2),D2		; sm_NumArgs
+	BEQ	WBTTRet
+	MOVE.L	$24(A2),A2		; sm_ArgList
+	SUBQ.L	#1,D2
+	LSL.L	#3,D2
+	ADD.L	D2,A2			; Last WBArg.
+	MOVEQ	#0,D0
+	LEA	ICONNOM(PC),A1
+	MOVE.L	4.W,A6
+	JSR	-$228(A6)		; OpenLibrary
+	MOVE.L	D0,D5
+	BEQ	WBTTRet
+	MOVE.L	(A2),D1			; wa_Lock
+	MOVE.L	_DOSBASE,A6
+	JSR	-$7E(A6)		; CurrentDir
+	MOVE.L	4(A2),A0		; wa_Name
+	MOVE.L	D5,A6
+	JSR	-$4E(A6)		; GetDiskObject
+	MOVE.L	D0,D4
+	BEQ.S	WBTTClose
+	MOVE.L	D4,A0
+	MOVE.L	$36(A0),A0		; do_ToolTypes
+	LEA	TTPREFS(PC),A1
+	JSR	-$60(A6)		; FindToolType
+	MOVE.L	D0,D2
+	BEQ.S	WBTTFree
+	MOVE.L	D0,A0
+	TST.B	(A0)
+	BEQ.S	WBTTFree
+	MOVE.L	_DOSBASE,A6
+	MOVE.L	(A2),D1			; The icon's drawer...
+	BEQ.S	WBTTName
+	MOVE.L	D2,-(SP)
+	MOVE.L	#NomPrefs,D2
+	MOVE.L	#NOMPREFSLEN,D3
+	JSR	-$192(A6)		; NameFromLock
+	MOVE.L	(SP)+,D2
+	TST.L	D0
+	BEQ.S	WBTTName
+	MOVE.L	#NomPrefs,D1		; ...plus the name (AddPart keeps
+	MOVE.L	#NOMPREFSLEN,D3		; an absolute name as it is).
+	JSR	-$372(A6)		; AddPart
+	TST.L	D0
+	BNE.S	WBTTFree
+WBTTName:
+	MOVE.L	D2,A0			; No drawer name: the name as given.
+	LEA	NomPrefs,A1
+	MOVE.W	#NOMPREFSLEN-2,D0
+WBTTCopy:
+	MOVE.B	(A0)+,(A1)+
+	DBEQ	D0,WBTTCopy
+	CLR.B	(A1)
+WBTTFree:
+	MOVE.L	D5,A6
+	MOVE.L	D4,A0
+	JSR	-$5A(A6)		; FreeDiskObject
+WBTTClose:
+	MOVE.L	D5,A1
+	MOVE.L	4.W,A6
+	JSR	-$19E(A6)		; CloseLibrary
+WBTTRet:
+	MOVEM.L	(SP)+,D2-D5/A2/A6
+	RTS
+
+ICONNOM:
+	DC.B	"icon.library",0
+TTPREFS:
+	DC.B	"PREFS",0
+
+; -----------------------------------
 	CNOP	0,4
 LOADPREFS:
 	MOVE.L	#NomPrefs,D1
@@ -5870,8 +5949,10 @@ ERDEVICE2:
 	RTS
 
 	CNOP	0,8
+NOMPREFSLEN=256
 NomPrefs:
-	DC.B	"S:AmiMSX2.prefs",0,0,0,0
+	DC.B	"S:AmiMSX2.prefs",0	; Or the PREFS ToolType (WBToolTypes).
+	DS.B	NOMPREFSLEN-16
 	CNOP	0,8
 NomPrefsOld:
 	DC.B	"S:MSX2emulator.prefs",0,0,0,0
