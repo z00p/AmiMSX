@@ -10,7 +10,7 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 | Space Manbow: enemies missing | Mid-screen R#5 switch in sprite mode 2 isn't supported (two-pass split is mode 1 only) | High | Medium |
 | Jailbreak: flashing scenery | Bitmap-mode R#23 / R#2 splits are timed from the Amiga beam, not the MSX line | High | Medium |
 | Uridium 2: ship drop-outs | "2 frames" sprite mode samples one of two alternating sprite tables | High | Small (setting), see L'Abbaye |
-| L'Abbaye: sprites over the story page | Stale story screen while gameplay sprites are live | Medium | Unknown |
+| L'Abbaye: sprites over the story page | Not reproducible since 89427e6: AmiMSX's attribute table matches openMSX (all parked at Y = 193) | Resolved | - |
 | MSX Unleashed: "Internal error in ..." | Z80 fault into BASIC's error handler; probably fixed by the POP/RET fix (at 60 s it now shows demo part 2) | Medium | Confirm with a 70 s+ capture |
 | Snake and Rhino: page turn tiles | SCREEN 2 two-bank tile cache misses an update during the page turn | Low | Unknown |
 | Snake and Rhino: colours | The game's MSX2 palette (written in openMSX at 4.3 s) never set in AmiMSX: probably an MSX1 machine type | Medium | Small |
@@ -66,15 +66,9 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 - **Confirm:** run with sprites every frame (the key-script `option sprites 1` works since 1863a1f).
 - **Fix:** default to sprites every frame in the 030/50 and Emu68 builds. That first needs the L'Abbaye story-page issue checked, since it showed up with sprites every frame.
 
-## L'Abbaye des Morts: sprites over the story page
+## L'Abbaye des Morts: sprites over the story page (resolved)
 
-**Symptom.** In some AmiMSX runs, crusader sprites show over the story text page.
-
-**openMSX.** Through the whole story page, sprites 0-7 are parked at Y = 193 (below the 192 lines), and sprite 8 is the Y = 208 end marker. At 30.5 s, when play starts, they move to gameplay positions.
-
-**Theory.** The sprites AmiMSX shows look like gameplay sprites, so AmiMSX is probably still showing the story screen after the game has drawn the play screen: a stale tile screen while the sprites are live. One possible cause is a screen update skipped while the display is blanked (R#1 BL), or the "Refresh 100%" setting being off. It is probably not the sprite renderer itself.
-- **Confirm:** PERF dump at those frames (MSX frame ~1300-1550): the attribute table and name table against what's on screen.
-- **Fix:** depends on the cause.
+Seen in runs with the old "collisions always on" option, and in builds before the POP/RET (1863a1f) and LD A,R (89427e6) fixes. With the current build, at frame 1400 the attribute table matches openMSX exactly: sprites 0-7 parked at Y = 193, sprite 8 = Y 208. No sprites show at 24-30 s with sprites drawn every frame or every 2nd frame.
 
 ## MSX Unleashed (R2_Unleashed, Konami)
 
