@@ -670,12 +670,14 @@ SiEstaData2:
 
 ; ------------------------------------------
 
+	IFD	SPLASH			; Matra splash: off by default in 4.0 (-DSPLASH=1).
 	TST.B	AutoCart		; Test hook: no splash.
 	BNE.S	NoShowMatra
 	TST.B	AutoDisk
 	BNE.S	NoShowMatra
 	BSR	ShowMatra
 NoShowMatra:
+	ENDC
 
 ; ------------------------------------------
 

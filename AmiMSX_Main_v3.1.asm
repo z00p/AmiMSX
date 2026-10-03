@@ -9668,6 +9668,12 @@ VD9CON1:
 ; <=---------------------------------------------------------=>
 VDP2:
 	IFD	TRACE
+	IFD	TRAPR2			; Debug: freeze on R#2 = TRAPR2.
+	CMP.B	#TRAPR2,D2
+	BNE.S	VDP2NoTrap
+	JMP	TraceFreeze
+VDP2NoTrap:
+	ENDC
 	TRVLOG	$02,D2
 	ENDC
 	TSPLITCHK	DVDP2
@@ -12201,7 +12207,8 @@ IVDP2:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$6C,D2		;  Timing X e Y Off. (no usados a 1)
 
-	MOVE.W	CurLine+1(A3),D1
+	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
+	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
 
 	CMP2.L	(Timming_Y.W,PC),D1
@@ -12229,7 +12236,8 @@ IVDP2tr:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$EC,D2		; TR Realizada, Timing X e Y Off. (no usados a 1)
 
-	MOVE.W	CurLine+1(A3),D1
+	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
+	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
 
 	CMP2.L	(Timming_Y.W,PC),D1
@@ -12260,7 +12268,8 @@ IVDP2060:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$6C,D2		;  Timing X e Y Off. (no usados a 1)
 
-	MOVE.W	CurLine+1(A3),D1
+	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
+	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
 
 	CMP.L	(Timming_Y+4.W,PC),D1
@@ -12292,7 +12301,8 @@ IVDP2tr060:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$EC,D2		; TR Realizada, Timing X e Y Off. (no usados a 1)
 
-	MOVE.W	CurLine+1(A3),D1
+	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
+	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
 
 	CMP.L	(Timming_Y+4.W,PC),D1
@@ -15425,9 +15435,20 @@ DREGOUT9A=(OUTS+($9A*4))-REGS
 
 
 	CNOP	0,4
+; Line interrupt line reached: FH (S#1 bit 0). With IE1 on (R#0 bit 4) it
+; stays up to 7 lines or until S#1 is read, and requests the interrupt.
+; With IE1 off it only shows during the matching line, as in openMSX:
+; Jailbreak polls FH with IE1 off right after setting R#19, while Zanac EX's
+; VBlank handler must not see a match from line 208 (it would take its
+; line-interrupt path in VBlank: page 1 shown, sprites off).
 InterHor:
 	BSET	#0,DVDPS1(A3)		; Petición de Interrupción Horizontal.
 	MOVE.B	#7,PetInt38(A3)		; Petición de Interrupción.
+	BTST	#4,DVDP0(A3)
+	BNE.S	InterHorX
+	MOVE.B	#2,PetInt38(A3)		; IE1 off: cleared at the next line (1 would
+					; clear it here, before the line runs).
+InterHorX:
 	JMP	([JumpCurLine.W,PC,D1.W*4])
 
 	CNOP	0,8

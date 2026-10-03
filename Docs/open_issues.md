@@ -76,6 +76,22 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 
 **Still to check.** "2 frames" mode always draws one of the two alternating tables. Film it for the A1200 preset.
 
+## Zanac EX: title shows the graphics pages (fixed 3 Oct 2026)
+
+**Symptom.** From about 6 to 14 s AmiMSX showed VRAM page 1 (the game's graphics sheets), with sprites off, instead of the title being built on page 0. openMSX keeps the display blanked while it builds, then shows the title.
+
+**Cause** (event ring and a full trace frozen on the R#2 = 3Fh write):
+- During the title the game sets R#23 = 30h with R#19 = 0, so the line-interrupt line is (0 - 30h) & 255 = 208, with line interrupts off (IE1 = 0).
+- AmiMSX raised FH (S#1 bit 0) at line 208 anyway and held it for 7 lines.
+- The VBlank interrupt at line 212 found FH set, so the game's handler (4BEEh, bank 14) took its line-interrupt path. With VR (S#2 bit 6) set, that path selects page 1 (R#2 = 3Fh), R#23 = D8h, R#19 = E4h and sprites off.
+
+**Fix.** With IE1 off, InterHor shows FH only during the matching line (cleared at the next line). With IE1 on, nothing changed: FH stays up to 7 lines or until read, and requests the interrupt.
+- openMSX does the same, measured with a probe on status reads. Zanac's handler reads S#1 = 00h after a match at line ~208.
+- Jailbreak sets R#19 and then polls FH with IE1 off (4350h: `IN A,(99h) / RRCA / JR NC`). A first fix that never raised FH with IE1 off left Jailbreak on a black screen.
+- Zanac's title and its GAME START menu now match openMSX.
+
+**Also seen.** The VR timing in IVDP2 uses only the line's low byte, so lines 256-312 (still in VBlank) report VR clear. It is not involved here, but needs fixing (see Other open items).
+
 ## Debug builds hanging at boot: fixed 3 Oct 2026
 
 TRACE and PERFSUBS builds hung on a blue screen from 1863a1f on, and so did a release build with 4 bytes added at the wrong place.
@@ -119,6 +135,10 @@ Seen in runs with the old "collisions always on" option, and in builds before th
 The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, ESC, F1-F5, SELECT, STOP and TAB don't (probe captures in `build/regress/mgprobe`). `tests/keys/metalgear.keys` now presses M from 58 to 96 s, then moves. Its shot times (60, 85 s) need moving to about 100 and 108 s once the overnight run is done.
 
 ## Other open items
+
+- **VR flag (S#2 bit 6) after line 255:** IVDP2 compares only the line's low byte, so PAL lines 256-312 read as in the display (VR clear).
+- **Chikubi Ninja:** enemies vanish near the hero (user report, 3 Oct). Check the 8-sprites-per-line handling and collisions (off in the defaults).
+- **Zanac EX:** the score area at the top in play may differ from openMSX (user report, 3 Oct). Compare.
 
 - **Lilly's Saga:** 1-line seams at the edges of the 16-line sprite bands.
 - **Uridium:** HUD colours differ from openMSX (white digits, single-colour logo).

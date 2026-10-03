@@ -162,9 +162,13 @@ foreach ($rom in $Roms) {
         Start-Sleep -Seconds 4                                                              # let the dump finish
       }
     }
-    elseif ([WU]::GetForegroundWindow() -eq $hwnd) {
-      [WU]::keybd_event(0x20, 0x39, 0x8, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120   # Space down (scancode)
-      [WU]::keybd_event(0x20, 0x39, 0xA, [UIntPtr]::Zero)                                  # Space up
+    else {
+      if ([WU]::GetForegroundWindow() -ne $hwnd) { [void][WU]::SetForegroundWindow($hwnd); Start-Sleep -Milliseconds 300 }
+      if ([WU]::GetForegroundWindow() -eq $hwnd) {
+        [WU]::keybd_event(0x20, 0x39, 0x8, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120   # Space down (scancode)
+        [WU]::keybd_event(0x20, 0x39, 0xA, [UIntPtr]::Zero)                                  # Space up
+        "$name : Space at $($e.t) s"
+      } else { "$name : Space at $($e.t) s skipped (WinUAE not in front)" }
     }
   }
   if ($WaitFile) {
