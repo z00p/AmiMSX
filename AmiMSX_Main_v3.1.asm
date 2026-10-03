@@ -904,6 +904,8 @@ ACTPAG1:
 ; ---------------------------------------<=
 
 ; -----------------------------------<= Parche de MSX2 para mostrar Kb RAM y Ratón
+	CMP.B	#"C",DirBaseROM+13	; C-BIOS data file ("data CB1"): its
+	BEQ	NoROMPatSub		; SUB-ROM differs, no patches there.
 	LEA	ROM33+$1AE,A1		; Parche para Ratón. (MSX2+)
 	CMP.B	#1,DirPrefs+$10
 	BNE.S	NoROM_MSX2
@@ -921,6 +923,7 @@ NoROM_MSX2:
 ; 	--------------------
 	MOVE.W	#$ED16,(A1)+
 	MOVE.B	#$C9,(A1)+
+NoROMPatSub:
 ; -----------------------------------<=
 
 ; -------------------------------------------
