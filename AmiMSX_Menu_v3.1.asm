@@ -592,9 +592,19 @@ TraceDump:
 	MOVE.L	#4,D3
 	BSR	WRITEFILE
 	BSR	CLOSEFILE
+	MOVE.L	#ScrDumpName,D1		; The SCREEN 2/4 bitmap (256 lines,
+	MOVE.L	#$3EE,D2		; 4 interleaved planes): screen.bin.
+	BSR	OPENFILE
+	TST.L	D0
+	BEQ.S	TrDumpFin
+	MOVE.L	#SCREEN,D2		; (The one the copper shows.)
+	MOVE.L	#32*32*8*4,D3
+	BSR	WRITEFILE
+	BSR	CLOSEFILE
 TrDumpFin:
 	RTS
 TraceName:	DC.B	"AmiMSX:trace.bin",0
+ScrDumpName:	DC.B	"AmiMSX:screen.bin",0
 	EVEN
 	ENDC
 AutoCart:	DC.B	0		; Test hook flags (see ANEM).

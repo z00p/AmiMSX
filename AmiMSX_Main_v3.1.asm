@@ -6951,6 +6951,18 @@ IVRAM98:
 
 	CNOP	0,8		; Screen 0, 1 y 2
 OUT98:
+	IFD	TRAPVA			; Debug (TRACE): freeze on a VRAM write to
+	CMPA.L	#DIRVRAM+TRAPVA,A2	; TRAPVA from MSX frame TRAPVF on.
+	BNE.S	OUT98NoTrap
+	CMP.W	#TRAPVF,TrvFrame
+	BCS.S	OUT98NoTrap
+	IFD	TRAPVV			; ...and with this value.
+	CMP.B	#TRAPVV,D1
+	BNE.S	OUT98NoTrap
+	ENDC
+	JMP	TraceFreeze
+OUT98NoTrap:
+	ENDC
 	MOVE.B	D1,D2
 	MOVE.L	A2,D1
 	SUB.L	#DIRVRAM,D1
@@ -21970,7 +21982,7 @@ KeyScr:		DS.B	KEYSCRMAX*8
 KEYNOM:		DS.B	256		; CLI key script file name.
 		EVEN
 
-; Display lines TSplit..191 from the current tables (R#2, R#3/R#10, R#4,
+; Display lines TSplit..191 (211 in 212-line mode) from the current tables (R#2, R#3/R#10, R#4,
 ; R#23), straight from VRAM into SCREENB (128 bytes a line, 4 interleaved
 ; planes of 32 bytes, as SCREEN), line TSplit first. No cache: meant for a
 ; HUD of a few lines. TABLA7E gives the 4 plane bytes of a pattern/colour
@@ -21982,7 +21994,11 @@ HUDSplit4:
 	LEA	SCREENB,A1
 	LEA	TABLA7E,A2
 	MOVE.W	TSplit,D7		; Display line.
-	MOVE.W	#192,D6
+	MOVE.W	#192,D6			; Last display line + 1: 212 with LN
+	BTST	#7,DVDP9(A3)		; (R#9 bit 7). Space Manbow's ground
+	BEQ.S	HUDS4N192		; strip is lines 196-211, below a table
+	MOVE.W	#212,D6			; split at line 81.
+HUDS4N192:
 HUDS4Lin:
 	MOVEQ	#0,D0
 	MOVE.B	VDPLinY(A3),D0		; VRAM line = display line + R#23.

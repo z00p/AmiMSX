@@ -6,14 +6,14 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 
 | Issue | Theory | Confidence | Fix size |
 |---|---|---|---|
-| Space Manbow: ground strip missing | SCREEN 4 renderer draws 24 name rows; the game shows rows 24-31 through vertical scroll in 212-line mode | High | Medium |
+| Space Manbow: ground strip missing | Fixed 3 Oct: the playfield is below a table split (R#2 3Fh to 30h at line 81), drawn by HUDSplit4, which stopped at line 192; now 212 with R#9 LN | Fixed | - |
 | Space Manbow: enemies missing | Mid-screen R#5 switch in sprite mode 2 isn't supported (two-pass split is mode 1 only) | High | Medium |
 | Jailbreak: flashing scenery | Bitmap-mode R#23 / R#2 splits are timed from the Amiga beam, not the MSX line | High | Medium |
 | Uridium 2: ship and sprites missing for seconds | Fixed 3 Oct: the HUD's sprites-off R#8 write (line 167, no table change) was sampled as the playfield's | Fixed | Register-split segments (longest wins) |
 | Debug builds (TRACE, PERFSUBS) hang at boot | Fixed 3 Oct: a `BNE.S *+10` landed mid-instruction once a MOVE.L to DREGOUT98(A3) grew to 12 bytes | Fixed | Labels; build.sh rejects `*+n` branches |
 | L'Abbaye: sprites over the story page | Not reproducible since 89427e6: AmiMSX's attribute table matches openMSX (all parked at Y = 193) | Resolved | - |
 | MSX Unleashed: "Internal error in ..." | Z80 fault into BASIC's error handler; probably fixed by the POP/RET fix (at 60 s it now shows demo part 2) | Medium | Confirm with a 70 s+ capture |
-| Snake and Rhino: CONTROLS page garbled | Upper part of the CONTROLS page (icons, ESC box) garbled in AmiMSX at 15-16 s; openMSX clean (17.5-18 s, later boot). The SELECT WORLD page turn (18.1-18.9 s) renders correctly. SCREEN 2 tile cache or the S2/S3 mode split | Medium | Unknown |
+| Snake and Rhino: CONTROLS page garbled | Known, narrow: a race in the game. It draws the page with interrupts on, setting each VRAM address with two port-99h writes; in AmiMSX the VBlank interrupt lands between them, and the BIOS handler's S#0 read resets the latch, so colour bytes go to the pattern table. openMSX's timing misses that 2-instruction window. Accepted as a known issue (3 Oct) | Known | Timing study if other games show it |
 | Snake and Rhino: colours | The game's MSX2 palette (written in openMSX at 4.3 s) never set in AmiMSX: probably an MSX1 machine type | Medium | Small |
 | Metal Gear: stuck on the radio call | Needs trigger B (M) | Confirmed: in play at 92 s | Done |
 
@@ -33,7 +33,7 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 - No VDP commands are used. VRAM is written by the CPU (36-915 bytes a frame through port 98h, R#14 = 3).
 
 **Ground strip.** With 212 lines and R#23 = 24h, display lines 220-255 of the 256-line name space come from name-table rows 24-31. That's why the game uses 1 KB name tables, not 768 bytes. AmiMSX's SCREEN 2/4 tile pass covers `32*24` names (PREPRUT1, COPYBUF and others), so rows 24-31 are never drawn: the empty band.
-- **Confirm:** dump AmiMSX's SCREEN buffer at a play frame; rows 24-31 will be missing.
+- **What it really was (3 Oct 2026):** AmiMSX's VRAM has rows 24-31 (rendered with tools/render_scr4_full.py), and the SCREEN 4 tile pass covers 32 rows. The R#2 change at line 81 (status page 3Fh to name table 30h/31h) is a table split, so the playfield (lines 81-211) is drawn line by line by HUDSplit4 into SCREENB, which stopped at line 192. Lines 192-211 showed the backdrop. Fixed: HUDSplit4 runs to line 212 in 212-line mode.
 - **Fix:** in SCREEN 4 (and SCREEN 2 on the V9938) with 212 lines or a non-zero R#23, render 32 name rows and wrap the vertical scroll at 256 lines, not 192. Also the G3 pattern/colour tables: rows 24-31 use the fourth table block, masked by R#4/R#3 like the other three.
 
 **Enemies.** AmiMSX supports a mid-frame sprite table switch (R#5/R#6) only for sprite mode 1. The snapshots and the two-pass IMPSPR read mode-1 tables; IMPSPR2 (mode 2) reads one table for the whole frame. Space Manbow draws its sprites from two attribute tables, one above the split and one below, so one set is lost.
