@@ -13,7 +13,7 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 | Debug builds (TRACE, PERFSUBS) hang at boot | Fixed 3 Oct: a `BNE.S *+10` landed mid-instruction once a MOVE.L to DREGOUT98(A3) grew to 12 bytes | Fixed | Labels; build.sh rejects `*+n` branches |
 | L'Abbaye: sprites over the story page | Not reproducible since 89427e6: AmiMSX's attribute table matches openMSX (all parked at Y = 193) | Resolved | - |
 | MSX Unleashed: "Internal error in ..." | Z80 fault into BASIC's error handler; probably fixed by the POP/RET fix (at 60 s it now shows demo part 2) | Medium | Confirm with a 70 s+ capture |
-| Snake and Rhino: page turn tiles | SCREEN 2 two-bank tile cache misses an update during the page turn | Low | Unknown |
+| Snake and Rhino: CONTROLS page garbled | Upper part of the CONTROLS page (icons, ESC box) garbled in AmiMSX at 15-16 s; openMSX clean (17.5-18 s, later boot). The SELECT WORLD page turn (18.1-18.9 s) renders correctly. SCREEN 2 tile cache or the S2/S3 mode split | Medium | Unknown |
 | Snake and Rhino: colours | The game's MSX2 palette (written in openMSX at 4.3 s) never set in AmiMSX: probably an MSX1 machine type | Medium | Small |
 | Metal Gear: stuck on the radio call | Needs trigger B (M) | Confirmed: in play at 92 s | Done |
 

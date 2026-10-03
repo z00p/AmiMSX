@@ -6455,7 +6455,7 @@ DIRPrefs:
 	DC.B	0	; $12 - Multi-Key On.
 	DC.B	0	; $13 - Port 0 On.
 	DC.W	0	; $14 - Interrupciones.
-	DC.W	2	; $16 - MSX2 Sprites.
+	DC.W	1	; $16 - MSX2 Sprites. (4.0: every frame; was 2.)
 	DC.B	5	; $18 - Drive A:
 	DC.B	4	; $19 - Drive B:
 	DC.W	0	; $1A - Retardo.
