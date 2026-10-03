@@ -115,4 +115,6 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 
 52 of 66 titles were pixel-identical across two runs. The ones that varied: Bomb Jack, Zanac, Zanac Ex, Zanac Ex Enhanced, Triton, Alien Attack, Universe Unknown, Bit Logic, Knight Lore, Sacred Valley, Bold, Invasion and io.
 
-**Cause found:** AmiMSX's `LD A,R` returned the Amiga's horizontal beam position (`$DFF007`), so every game that seeds randomness from the R register ran differently on each run. R is now derived from the emulated time (line, cycles left in it, frame counter). The varying titles are being re-calibrated with that build.
+**Cause found:** AmiMSX's `LD A,R` returned the Amiga's horizontal beam position (`$DFF007`), so every game that seeds randomness from the R register ran differently on each run. R is now derived from the emulated time (line, cycles left in it, frame counter). Re-calibrated with that build (89427e6): 12 of the 13 are now pixel-identical across runs, including the Zanac family, Bomb Jack and Triton.
+
+**Still varying: io (disk).** Its 60 s capture differs only in the phase of an animated element (a few frames). Likely cause: disk loading time. If AmiMSX's disk routines wait on real AmigaDOS reads while MSX frames keep counting, the load time varies with host disk speed and shifts everything after it. That also fits io's earlier variation at its 20 s logo transition. Low priority; marked unstable in the baseline.
