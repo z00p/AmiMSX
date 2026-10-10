@@ -3606,6 +3606,21 @@ DISKCONT1:
 	MOVE.L	(A1)+,(A0)+
 	MOVE.L	A0,D2
 	BSR	READFILE
+	BEQ.S	DiskReadOK
+	BSR	CLOSEFILE		; Incomplete: no disk rather than a
+	MOVE.L	DIRFILE,A1		; partly empty one.
+	MOVE.L	BUCFILE,D0
+	MOVE.L	4.W,A6
+	JSR	-$D2(A6)		; FreeMem
+	CLR.L	DIRFILE
+	CLR.L	BUCFILE
+	LEA	TLEEREAD,A0
+	BSR	IMPERROR
+	MOVE.L	#TVD0BEM,A0
+	MOVE.L	#MSX2IText7,A1
+	BSR	COPYNOM2
+	BRA	FINALOAD
+DiskReadOK:
 	BSR	CLOSEFILE
 
 
@@ -5462,6 +5477,7 @@ TLEEnoimp:	DC.B	"       Not implemented!       ",0
 TLEEprefs:	DC.B	"    Preferences not saved!    ",0
 TLEENOTMD:	DC.B	"     Not a MSX Disk File.     ",0
 TLEECANTO:	DC.B	"      I Can't open file.      ",0
+TLEEREAD:	DC.B	"   File read error: aborted.  ",0
 TLEENOFILE:	DC.B	"     MVD: buffer is empty.    ",0
 TLEENOASL:	DC.B	"   I can't open ASL.library.  ",0
 TLeeDskErres:	DC.B	"CAUTION: Some Sectors are bad!",0
@@ -5990,12 +6006,27 @@ WRITEFILE:
 	MOVE.L	(SP)+,D3
 	CMP.L	D0,D3
 	RTS
+; D2 = buffer, D3 = bytes. Reads until all are in, the end of the file or an
+; error: AmigaDOS Read may return fewer bytes than asked, and a short or
+; failed read of a disk image left the MSX booting a partly empty disk.
+; Out: D0 = bytes read, Z set if all of them.
 READFILE:
+	MOVEM.L	D2-D4,-(SP)
+	MOVE.L	D3,D4			; Bytes still to read.
+RFBuc:	TST.L	D4
+	BEQ.S	RFFin
 	MOVE.L	_DOSBASE,A6
 	MOVE.L	DISBASE,D1
-	MOVE.L	D3,-(SP)
+	MOVE.L	D4,D3
 	JSR	-42(A6)			; READ
-	MOVE.L	(SP)+,D3
+	TST.L	D0
+	BLE.S	RFFin			; End of file (0) or error (-1).
+	ADD.L	D0,D2
+	SUB.L	D0,D4
+	BRA.S	RFBuc
+RFFin:	MOVE.L	4(SP),D0		; Bytes asked (the saved D3)...
+	SUB.L	D4,D0			; ...less those not read.
+	MOVEM.L	(SP)+,D2-D4
 	CMP.L	D0,D3
 	RTS
 
