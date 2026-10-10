@@ -233,6 +233,7 @@ SEGEND:	MACRO
 RSPLITCHK:	MACRO
 	CMP.B	\1(A3),D2
 	BEQ.W	\@n
+	BANDPEND
 	CMP.W	#16,CurLine(A3)
 	BCS.W	\@n
 	CMP.W	#192,CurLine(A3)
@@ -272,9 +273,9 @@ MIDSAMPLE:	MACRO
 
 BANDSHOT:	MACRO
 	TST.B	BandOn
-	BEQ.S	\@x
+	BEQ.W	\@x
 	CMP.W	#BANDMAX,BandN
-	BCC.S	\@x
+	BCC.W	\@x
 	MOVEM.L	D0/A0-A1,SnapSave
 	MOVEQ	#0,D0
 	MOVE.W	BandN,D0
@@ -290,6 +291,10 @@ BANDSHOT:	MACRO
 	MOVE.W	#(640/4)-1,D0
 \@c:	MOVE.L	(A0)+,(A1)+
 	DBF	D0,\@c
+	MOVE.W	BandN,D0
+	LEA	BandLine,A1		; First line of the band (a 16-line
+	MOVE.W	REGS+CurLine,(A1,D0.W*2) ; step or a split: BANDPEND).
+	SF	BandSplitP
 	MOVE.W	BandN,D0		; R#23 of the band: sprites move with
 	LEA	BandLinY,A1		; the vertical scroll in effect on
 	MOVE.B	VDPLinY(A3),(A1,D0.W)	; each line (Space Manbow: C0h over its
@@ -297,6 +302,19 @@ BANDSHOT:	MACRO
 	MOVE.B	DVDP8(A3),(A1,D0.W)	; (sprites off) over that status bar.
 	ADDQ.W	#1,BandN
 	MOVEM.L	SnapSave,D0/A0-A1
+\@x:
+	ENDM
+
+; A sprite-relevant register changed during the display (R#5/R#6 sprite
+; tables, R#8 SPD, R#23 scroll): start a new band at the next line, so the
+; band holds that line's state (Zanac EX: sprites vanished just below its
+; status bar, whose sprites-off band ran on into the playfield). No registers.
+BANDPEND:	MACRO
+	TST.B	BandOn
+	BEQ.S	\@x
+	CMP.W	#192,CurLine(A3)
+	BCC.S	\@x
+	ST	BandSplitP
 \@x:
 	ENDM
 
@@ -9770,6 +9788,10 @@ VDP5:
 	BCS.S	VDP5Disp		; frame (the beam checks no lines there).
 	MOVE.W	#192,S5Next		; Uridium resets its HUD table at VBlank
 VDP5Disp:				; and polls S#0 at once for the line 63 split.
+	CMP.B	DVDP5+1(A3),D2
+	BEQ.S	VDP5Same
+	BANDPEND
+VDP5Same:
 	MOVE.B	D2,DVDP5+1(A3)
 	MOVE.W	DVDP5(A3),D1
 	AND.W	#$03FF,D1
@@ -9798,6 +9820,7 @@ VDP6:
 	CMP.L	PVDP6(A3),D1
 	BEQ.S	NOCAM6
 	MOVE.L	D1,PVDP6(A3)		; (Full conversion: TRANSSPR decides.)
+	BANDPEND
 	MOVE.W	CurLine(A3),D1		; Sprite tables changed mid-frame
 	CMP.W	#SNAPTOP,D1		; between the two snapshots: split
 	BLE.S	NoSplit6			; there (IMPSPR draws two passes).
@@ -15482,6 +15505,10 @@ InterHorX:
 
 	CNOP	0,8
 MiraInter:
+	TST.B	BandSplitP		; A split asked for a band here.
+	BEQ.S	MiraInterBRet
+	JMP	MiraInterBSplit
+MiraInterBRet:
 	ADDQ.B	#1,CurLine+1(A3)
 	MOVE.W	CurLine(A3),D1
 	CMP.W	HorLine(A3),D1		; ¿Generar Line Int.?
@@ -15512,7 +15539,7 @@ MiraInter0:
 	MOVE.B	DVDP2(A3),(TabRasDATA+1,D1.W*8)	; VDP (2)
 MiraInterBuc:
 	ADD.W	#HPeriod,(A3)		; Suma Cyclos de 1 linea.
-	BMI.S	MiraInter
+	BMI.W	MiraInter
 	IFD	CORRCHK
 	JMP	CorrTest
 CorrRet:
@@ -21598,6 +21625,12 @@ MiraInterBand:
 	MIDSAMPLE
 	BANDSHOT
 	JMP	MiraInterBuc
+	CNOP	0,4
+MiraInterBSplit:			; (Before CurLine moves on: the band
+	ADDQ.B	#1,CurLine+1(A3)	; starts at the next line.)
+	BANDSHOT
+	SUBQ.B	#1,CurLine+1(A3)
+	JMP	MiraInterBRet
 
 
 ; Line 0: new frame for the sprite snapshots, then MiraInter0.
@@ -22123,14 +22156,13 @@ IMPS2BBuc:
 	MOVE.W	BandK,D0
 	CMP.W	BandN,D0
 	BCC	IMPS2BFin
-	MOVE.W	D0,D1
-	LSL.W	#4,D1
-	MOVE.W	D1,BandLo
-	ADD.W	#16,D1
+	LEA	BandLine,A1		; From its first line...
+	MOVE.W	(A1,D0.W*2),BandLo
 	ADDQ.W	#1,D0
-	CMP.W	BandN,D0
-	BCS.S	IMPS2BHi
-	MOVE.W	#256,D1			; Last band: to the bottom.
+	MOVE.W	#256,D1			; ...to the next band's (the last
+	CMP.W	BandN,D0		; one to the bottom).
+	BCC.S	IMPS2BHi
+	MOVE.W	(A1,D0.W*2),D1
 IMPS2BHi:
 	MOVE.W	D1,BandHi
 	SUBQ.W	#1,D0
@@ -22163,7 +22195,7 @@ IMPS2BFin:
 	SF	BandLater
 	RTS
 
-BANDMAX=12
+BANDMAX=24				; 12 steps of 16 lines + splits.
 TopR8:		DC.B	0		; Playfield R#8 (sprites on/off, SPD),
 MidAdj:		DC.B	0		; R#18,
 MidLinY:	DC.B	0		; R#23 (MIDSAMPLE).
@@ -22178,6 +22210,10 @@ BandCnt:	DC.W	0
 BandTotal:	DC.W	0
 BandReal:	DC.L	0
 BandLinY:	DS.B	BANDMAX		; R#23 at each band snapshot.
+		EVEN
+BandLine:	DS.W	BANDMAX		; First line of each band.
+BandSplitP:	DC.B	0		; Band asked for at the next line.
+		EVEN
 BandLinYCur:	DC.B	0
 BandR8:		DS.B	BANDMAX		; R#8 at each band snapshot.
 		EVEN
