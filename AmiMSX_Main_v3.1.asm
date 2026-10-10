@@ -2,13 +2,13 @@
 ;	 -----------------------------------------------
 ;	/  AmiMSX Emulator v3.1  (For AMIGA Computers)  \
 ;	|  1994/00 (c) RED Soft.  (10-4/94 => 25-9/00)  |
-;	|  Sistemas de emulación y programación por:    |
-;	\  Juan Antonio Gómez Gálvez.   (Alias 007!)    /
+;	|  Sistemas de emulaciï¿½n y programaciï¿½n por:    |
+;	\  Juan Antonio Gï¿½mez Gï¿½lvez.   (Alias 007!)    /
 ;	 -----------------------------------------------
 
-;  **  Escrito con Devpac III  **  Código para MC68020 o superiores. **
+;  **  Escrito con Devpac III  **  Cï¿½digo para MC68020 o superiores. **
 
-Usuario=0		; Número de usuario registrado.
+Usuario=0		; Nï¿½mero de usuario registrado.
 MENU=0
 TOTAL=0			; 1=No prepara datos fundamentales AmigaDos.
 
@@ -413,7 +413,7 @@ CodeLo:
 VAMOS:
 	JMP	ANEM
 	DC.B	"$VER:AmiMSX Emulator v3.1  (25.9.00)",0,0
-	DC.B	" By Juan Antonio Gómez.",0,0
+	DC.B	" By Juan Antonio Gï¿½mez.",0,0
 
 
 
@@ -742,7 +742,7 @@ INSTBUC:
 	DBF	D0,INSTBUC
 ; ------------------------------------<
 
-; ------------------------------------> Pone A $FF página ROM.
+; ------------------------------------> Pone A $FF pï¿½gina ROM.
 	LEA	NOMEM,A0
 	MOVEQ	#-1,D1
 	MOVE.W	#((16*1024)/8)-1,D0
@@ -940,9 +940,9 @@ ESSCC0:
 	MOVE.L	#OutXX,Outs+($D8*4)
 	MOVE.L	#OutXX,Outs+($D9*4)
 	MOVE.L	#InXX,Ins+($D9*4)
-	TST.B	DirPrefs+$7B		; ¿Usar Kanji ROM?
+	TST.B	DirPrefs+$7B		; ï¿½Usar Kanji ROM?
 	BEQ.S	NoUsaKanji
-	TST.B	KanjiDat		; ¿Está ya residente?
+	TST.B	KanjiDat		; ï¿½Estï¿½ ya residente?
 	BEQ.S	NoUsaKanji
 	MOVE.L	#OutD8,Outs+($D8*4)
 	MOVE.L	#OutD9,Outs+($D9*4)
@@ -950,7 +950,7 @@ ESSCC0:
 NoUsaKanji:
 ; ---------------------------------------<=
 
-; ---------------------------------------=> And de Paginación segun RAM
+; ---------------------------------------=> And de Paginaciï¿½n segun RAM
 	LSR.W	#8,D7
 	MOVE.B	D7,PAGIND
 ; ---------------------------------------<=
@@ -963,7 +963,7 @@ NoUsaKanji:
 ESMPAUSA:
 ; ---------------------------------------<=
 
-; ---------------------------------------=> Emulación de Shifs como Space
+; ---------------------------------------=> Emulaciï¿½n de Shifs como Space
 	MOVE.W	#$0006,TECLADO+($60*2)
 	TST.B	$62(A5)
 	BEQ.S	NOLSPACE
@@ -989,12 +989,12 @@ NoMC060:
 	LEA	IVDP2060,A1
 	LEA	IVDP2tr,A2
 	LEA	IVDP2tr060,A3
-	TST.B	EsUn060			; ¿Es un 060?
+	TST.B	EsUn060			; ï¿½Es un 060?
 	BPL.S	NoMC060b
 	MOVE.L	A1,A0
 	MOVE.L	A3,A2
 NoMC060b:
-	TST.B	DirPrefs+$6E		; ¿Modo tr?
+	TST.B	DirPrefs+$6E		; ï¿½Modo tr?
 	BEQ.S	NoVDP2TR
 	MOVE.L	A2,A0
 NoVDP2TR:
@@ -1030,13 +1030,13 @@ ACTPAG1:
 	DBF	D0,ACTPAG0
 ; ---------------------------------------<=
 
-; -----------------------------------<= Parche de MSX2 para mostrar Kb RAM y Ratón
+; -----------------------------------<= Parche de MSX2 para mostrar Kb RAM y Ratï¿½n
 	CMP.B	#"C",DirBaseROM+13	; C-BIOS data file ("data CB1"): its
 	BEQ	NoROMPatSub		; SUB-ROM differs, no patches there.
-	LEA	ROM33+$1AE,A1		; Parche para Ratón. (MSX2+)
+	LEA	ROM33+$1AE,A1		; Parche para Ratï¿½n. (MSX2+)
 	CMP.B	#1,DirPrefs+$10
 	BNE.S	NoROM_MSX2
-	LEA	ROM22+$1AE,A1		; Parche para Ratón. (MSX2)
+	LEA	ROM22+$1AE,A1		; Parche para Ratï¿½n. (MSX2)
 ; 	--------------------
 	LEA	ROM22,A0
 	MOVE.W	#$4B00,$1C67(A0)
@@ -1063,21 +1063,21 @@ NoROMPatSub:
 ; -------------------------------------------
 
 ; -------------------------------------------
-	CMP.B	#2,DirPrefs+$10		; ¿MSX2+ ROM?
+	CMP.B	#2,DirPrefs+$10		; ï¿½MSX2+ ROM?
 	BEQ.S	SiJapanID
 	LEA	DirROM+$2B,A0		; Parche Japanese ID.
 	MOVE.W	#$9000,(A0)
 	TST.B	DirPrefs+$7A		; Use Japanese ID.
 	BNE.S	SiJapanId
 	MOVE.W	#$9111,(A0)	; MSX1
-	TST.B	DirPrefs+$10		; ¿MSX1 ROM?
+	TST.B	DirPrefs+$10		; ï¿½MSX1 ROM?
 	BEQ.S	SiJapanID
 	MOVE.W	#$9116,(A0)	; MSX2
 SiJapanId:
 ; -------------------------------------------
 
 
-; ---------------------------------------=> ¿Es Continuar?
+; ---------------------------------------=> ï¿½Es Continuar?
  	TST.B	D3
 	BEQ	ESCONTINUAR
 ; ---------------------------------------<=
@@ -1151,23 +1151,23 @@ VD9CON0B:MOVE.W	D1,$DFF1DC
 VD9CON1B:
 ; ---------------------------------------<=
 
-; ------------------------------------=> Pone modo de Paginación.
+; ------------------------------------=> Pone modo de Paginaciï¿½n.
 
 	MOVE.L	DirCartS1,A0		; Linear 48/64Kb carts: no mapper.
 	MiraLin	A0,BucCartS1,D0
 	BNE.S	MiraMapperS2
 
-	CMP.L	#($2080*5),BucCartS1	; ¿Es mayor de 40Kb?
+	CMP.L	#($2080*5),BucCartS1	; ï¿½Es mayor de 40Kb?
 	BCC.S	ConMapperS
 MiraMapperS2:
 	MOVE.L	DirCartS2,A0
 	MiraLin	A0,BucCartS2,D0
 	BNE.S	SinMapper
 
-	CMP.L	#($2080*5),BucCartS2	; ¿Es menor de 40Kb?
+	CMP.L	#($2080*5),BucCartS2	; ï¿½Es menor de 40Kb?
 	BCS.S	SinMapper
 
-	CMP.B	#2,DIRPREFS+$65		; ¿Disk ROM = None?
+	CMP.B	#2,DIRPREFS+$65		; ï¿½Disk ROM = None?
 	BEQ.S	ConMapperS
 SinMapper:
 	LEA	MapNorm(PC),A0
@@ -1210,7 +1210,7 @@ ConMapper:
 	CMP.L	#BUCLE,DIRCONTI+2
 	BNE	SETDRIVESC
 
-	CMP.B	#2,DIRPREFS+$65			; ¿Disk ROM?
+	CMP.B	#2,DIRPREFS+$65			; ï¿½Disk ROM?
 	BEQ	NoDrives
 
 	TST.B	DIRPREFS+$65			; Tipo de DOS version.
@@ -1410,7 +1410,7 @@ ExcInst:MOVE.L	(A1),(A2)+
 	JMP	MSX			; (BRA: out of range with TRACE code.)
 ; ---------------------------------------<=
 
-; ---------------------------------------=> Punteros para Paginación.
+; ---------------------------------------=> Punteros para Paginaciï¿½n.
 	CNOP	0,8
 MapNorm:DC.L	LDMA,LDHLA,LDHLB,LDHLC,LDHLD,LDHLE
 	DC.L	LDHLH,LDHLL,LDBCA,LDDEA,LDHLMN
@@ -1753,7 +1753,7 @@ ESPERA2:
 	JSR	DESCONGELA
 
 
-	CMP.B	#2,DIRPREFS+$65			; ¿Disk ROM?
+	CMP.B	#2,DIRPREFS+$65			; ï¿½Disk ROM?
 	BEQ	NoDrives2
 
 	TST.B	UNIDADES
@@ -1818,7 +1818,7 @@ ModoChgRET:
 ;	|  MM   MM  SSSSS X   X  |
 ;	|  M M M M SS      X X   |  	-*  Emulador  Z-80A  *-
 ;	|  M  M  M  SSSS    X    |
-;	|  M     M     SS  X X   |  Por  Juan Antonio Gómez Gálvez.
+;	|  M     M     SS  X X   |  Por  Juan Antonio Gï¿½mez Gï¿½lvez.
 ;	|  M     M SSSSS  X   X  |
 ;	\------------------------/
 
@@ -1833,7 +1833,7 @@ ModoChgRET:
 ;	D4 = HL	(.w)			A4 = Uso libre.
 ;	D5 = BC	(.w)			A5 = PC (Actual)
 ;	D6 = DE	(.w)			A6 = SP (Actual)
-;	D7 = A y A' (Swap) (.b)		A7 = Punteros paginación.
+;	D7 = A y A' (Swap) (.b)		A7 = Punteros paginaciï¿½n.
 
 
 DVDP4=$6F6
@@ -1992,7 +1992,7 @@ HARDRESET:
 	MOVE.L	D0,(A0)+
 	MOVE.L	D0,(A0)+
 
-; ------------------------------	; ¿Es continuar?
+; ------------------------------	; ï¿½Es continuar?
 	CMP.L	#BUCLE,DIRCONTI+2
 	BNE	CONTINUAR
 ; ------------------------------
@@ -2122,7 +2122,7 @@ BUCLR2:	CLR.L	(A0)+
 	MOVE.L	#RAM00-$C000,(A0)+
 	MOVE.L	#RAM00-$C000,(A0)+
 
-; ------------------------------------> Prepara punteros Paginación.
+; ------------------------------------> Prepara punteros Paginaciï¿½n.
 	MOVE.L	SLOT0,D0
 	LEA	RESTA0(A3),A7
 	MOVE.W	D0,RESAB(A3)
@@ -2249,10 +2249,10 @@ FLAGSBUC:
 	MOVE.B	DirPrefs+$67,Contador2(A3)
 
 ; ------------------------------------=>
-	BCLR	#2,DVDPS1(A3)			; Desactivación modo MSX2+
+	BCLR	#2,DVDPS1(A3)			; Desactivaciï¿½n modo MSX2+
 	CMP.B	#2,DirPrefs+$10
 	BLT.S	NOES2Plus
-	BSET	#2,DVDPS1(A3)			; Activación modo MSX2+
+	BSET	#2,DVDPS1(A3)			; Activaciï¿½n modo MSX2+
 NOES2Plus:
 ; ------------------------------------<=
 
@@ -2280,13 +2280,13 @@ NOES2Plus:
 
 	LEA	REGS,A3
 
-	CMP.L	#Bucle,DirConti+2		; ¿Power ON?
+	CMP.L	#Bucle,DirConti+2		; ï¿½Power ON?
 	BEQ.S	Slt1EsPowerOn
 
-	TST.B	Slot1Cart			; ¿Insertado un cartucho?
+	TST.B	Slot1Cart			; ï¿½Insertado un cartucho?
 	BNE.S	Slt1EsPowerOn
 
-	MOVE.L	CheckIdS1Old,D0			; ¿El mismo Cartucho?
+	MOVE.L	CheckIdS1Old,D0			; ï¿½El mismo Cartucho?
 	CMP.L	CheckIdS1,D0
 	BEQ	NoSlot1Cart
 	MOVE.L	CheckIdS1,CheckIdS1Old
@@ -2294,8 +2294,8 @@ NOES2Plus:
 Slt1EsPowerOn:
 	SF	Slot1Cart
 
-;-;	MOVE.L	#NOMEM-$0000,SLOT1		; Para Página 0
-;-;	MOVE.L	#NOMEM-$0000,SubSLOT1		; Para Página 0
+;-;	MOVE.L	#NOMEM-$0000,SLOT1		; Para Pï¿½gina 0
+;-;	MOVE.L	#NOMEM-$0000,SubSLOT1		; Para Pï¿½gina 0
 
 	MOVE.L	#NOMEM-$4000,SLOT1+8
 	MOVE.L	#NOMEM-$8000,SLOT1+16
@@ -2306,7 +2306,7 @@ Slt1EsPowerOn:
 	MOVE.L	#NOMEM-$0000,SubSLOT1+0
 	MOVE.L	#NOMEM-$C000,SubSLOT1+24
 
-	TST.L	BucCartS1			; ¿Hay cartucho en Slot 1?
+	TST.L	BucCartS1			; ï¿½Hay cartucho en Slot 1?
 	BEQ	NoSlot1Cart
 
 	MOVE.L	DirCartS1,A0			; Linear 48/64Kb cart from &H0000:
@@ -2334,22 +2334,22 @@ Slt1EsPowerOn:
 	BRA	NoSlot1Cart
 NoLinealS1:
 
-	CMP.L	#($2080*3+$80),BucCartS1	; ¿Es de 16Kb? (menor de 24Kb)
+	CMP.L	#($2080*3+$80),BucCartS1	; ï¿½Es de 16Kb? (menor de 24Kb)
 	BCC	EsMegaROMS1
 
 	MOVE.L	DirCartS1,A0			; Pone Cartucho de 16Kb
 	ADD.W	#$0080,A0
 	MOVE.L	A0,MapROMBase1(A3)
 
-;-;	LEA	SLOT1,A1		; Para Página 0
-;-;	LEA	SubSLOT1,A2		; Para Página 0
-;-;	BFTST	(A0){24:2}		; Para Página 0
-;-;	BEQ.S	PonCarConS1		; Para Página 0
+;-;	LEA	SLOT1,A1		; Para Pï¿½gina 0
+;-;	LEA	SubSLOT1,A2		; Para Pï¿½gina 0
+;-;	BFTST	(A0){24:2}		; Para Pï¿½gina 0
+;-;	BEQ.S	PonCarConS1		; Para Pï¿½gina 0
 
 	LEA	SLOT1+8,A1
 	LEA	SubSLOT1+8,A2
 	SUB.W	#$4000,A0
-	TST.B	$4003(A0)			; ¿En página 1 o 2?
+	TST.B	$4003(A0)			; ï¿½En pï¿½gina 1 o 2?
 	BPL.S	PonCarConS1
 	LEA	SLOT1+16,A1
 	LEA	SubSLOT1+16,A2
@@ -2362,7 +2362,7 @@ PonCarConS1:
 	BRA.S	NoSlot1Cart
 
 EsMegaROMS1:
-	MOVE.L	DirCartS1,A0			; Pone Cartucho de 32Kb o más.
+	MOVE.L	DirCartS1,A0			; Pone Cartucho de 32Kb o mï¿½s.
 	ADD.W	#$0080,A0
 	MOVE.L	A0,MapROMBase1(A3)
 	SUB.W	#$4000,A0
@@ -2377,17 +2377,17 @@ EsMegaROMS1:
 NoSlot1Cart:
 ; ===
 
-	CMP.B	#2,DIRPREFS+$65			; ¿Disk ROM?
+	CMP.B	#2,DIRPREFS+$65			; ï¿½Disk ROM?
 	BNE	NoSlot2Cart
 
 
-	CMP.L	#Bucle,DirConti+2		; ¿Power ON?
+	CMP.L	#Bucle,DirConti+2		; ï¿½Power ON?
 	BEQ.S	Slt2EsPowerOn
 
-	TST.B	Slot2Cart			; ¿Insertado un cartucho?
+	TST.B	Slot2Cart			; ï¿½Insertado un cartucho?
 	BNE.S	Slt2EsPowerOn
 
-	MOVE.L	CheckIdS2Old,D0			; ¿El mismo Cartucho?
+	MOVE.L	CheckIdS2Old,D0			; ï¿½El mismo Cartucho?
 	CMP.L	CheckIdS2,D0
 	BEQ	NoSlot2Cart
 	MOVE.L	CheckIdS2,CheckIdS2Old
@@ -2402,7 +2402,7 @@ Slt2EsPowerOn:
 	MOVE.L	#NOMEM-$C000,SLOT2+24		; Page 3: linear carts.
 	MOVE.L	#NOMEM-$C000,SubSLOT2+24
 
-	TST.L	BucCartS2			; ¿Hay Cartucho en Slot 2?
+	TST.L	BucCartS2			; ï¿½Hay Cartucho en Slot 2?
 	BEQ	NoSlot2Cart
 
 	MOVE.L	DirCartS2,A0			; Linear 48/64Kb cart from &H0000,
@@ -2427,7 +2427,7 @@ Slt2EsPowerOn:
 	BRA	NoSlot2Cart
 NoLinealS2:
 
-	CMP.L	#($2080*3+$80),BucCartS2	; ¿Es de 16Kb? (menor de 24Kb)
+	CMP.L	#($2080*3+$80),BucCartS2	; ï¿½Es de 16Kb? (menor de 24Kb)
 	BCC	EsMegaROMS2
 
 	MOVE.L	DirCartS2,A0			; Pone Cartucho de 16Kb
@@ -2437,7 +2437,7 @@ NoLinealS2:
 	LEA	SLOT2+8,A1
 	LEA	SubSLOT2+8,A2
 	SUB.W	#$4000,A0
-	TST.B	$4003(A0)			; ¿En página 1 o 2?
+	TST.B	$4003(A0)			; ï¿½En pï¿½gina 1 o 2?
 	BPL.S	PonCarConS2
 	LEA	SLOT2+16,A1
 	LEA	SubSLOT2+16,A2
@@ -2473,7 +2473,7 @@ NoSlot2Cart:
 	LSL.W	#5,D0
 	LEA	(Mapper0,D0.W),A0
 
-	CMP.L	#($2080*5),BucCartS1	; ¿Es mayor de 40Kb?
+	CMP.L	#($2080*5),BucCartS1	; ï¿½Es mayor de 40Kb?
 	BCS.S	StdMappS1
 	MOVE.L	A0,A1
 	MOVE.L	DirCartS1,A0
@@ -2484,7 +2484,7 @@ StdMappS1:
 	LEA	Mapper0,A0
 NoStdMappS1:
 
-	MOVE.W	PagCartS1,D0		; Pone Nº de Páginas en Slot 1
+	MOVE.W	PagCartS1,D0		; Pone Nï¿½ de Pï¿½ginas en Slot 1
 
 	IFEQ	Key_ON
 	MOVE.L	([KeyBase.W,PC],$14.w),A1
@@ -2520,12 +2520,12 @@ MaskOkS1:
 	LSL.W	#5,D0
 	LEA	(Mapper0b,D0.W),A0
 
-	CMP.B	#2,DIRPREFS+$65		; ¿Disk ROM = None?
+	CMP.B	#2,DIRPREFS+$65		; ï¿½Disk ROM = None?
 	BEQ.S	PonMapper
 
 	LEA	Mapper0b,A0
 PonMapper:
-	CMP.L	#($2080*5),BucCartS2	; ¿Es mayor de 40Kb?
+	CMP.L	#($2080*5),BucCartS2	; ï¿½Es mayor de 40Kb?
 	BCS.S	StdMappS2
 	MOVE.L	A0,A1
 	MOVE.L	DirCartS2,A0
@@ -2536,7 +2536,7 @@ StdMappS2:
 	LEA	Mapper0b,A0
 NoStdMappS2:
 
-	MOVE.W	PagCartS2,D0		; Pone Nº de Páginas en Slot 2
+	MOVE.W	PagCartS2,D0		; Pone Nï¿½ de Pï¿½ginas en Slot 2
 
 	IFEQ	Key_ON
 	MOVE.L	([KeyBase.W,PC],$18.w),A1
@@ -2567,7 +2567,7 @@ MaskOkS2:
 	ENDC
 ; ---------------------------------------<=
 
-; ---------------------------------------=> Refresca 'Restas' para Mapeación.
+; ---------------------------------------=> Refresca 'Restas' para Mapeaciï¿½n.
 	IFEQ	Key_ON
 	MOVE.L	KeyBase(PC),A0
 	JSR	([A0,$1C.w])			; Salto a Key
@@ -2648,7 +2648,7 @@ EsperaInt2:
 ; ----------------------------------
 	NOP
 ;	NOP
-;	MOVE.W	#$0FFF,$DFF098		; Colisión de sprites.
+;	MOVE.W	#$0FFF,$DFF098		; Colisiï¿½n de sprites.
 ;	NOP
 ;	MOVE.W	#$0000,$DFF10C
 ;	NOP
@@ -2776,7 +2776,7 @@ ESSCC1:
 
 
 ;	/------------------------------------------------------\
-;	|  Z-80A & R-800  Macros v4.0  Por Juan Antonio Gómez  |
+;	|  Z-80A & R-800  Macros v4.0  Por Juan Antonio Gï¿½mez  |
 ;	\------------------------------------------------------/
 
 ;	D0 = Pila y Gfx.		A0 = IX.
@@ -2786,7 +2786,7 @@ ESSCC1:
 ;	D4 = HL	(.w)			A4 = Uso libre.
 ;	D5 = BC	(.w)			A5 = PC (Actual)
 ;	D6 = DE	(.w)			A6 = SP (Actual)
-;	D7 = A y A' (Swap) (.b)		A7 = Punteros paginación.
+;	D7 = A y A' (Swap) (.b)		A7 = Punteros paginaciï¿½n.
 
 ;	ANA:  en (A3)
 	
@@ -3052,7 +3052,7 @@ PonCCR:	MACRO
 	OtraZ	\2		; Guarda flag Z.
 	ENDC
 	IFC	"P","\1"
-	OtraP	\2		; Guarda flag P y demás.
+	OtraP	\2		; Guarda flag P y demï¿½s.
 	ENDC
 	ENDM
 
@@ -3230,7 +3230,7 @@ MIns:	MACRO
 	PonCCR	\5,\7			; Recoge Flags.
 	ENDC
 
-	IFC	"10","\4"		; Operación de (N) en registro A.
+	IFC	"10","\4"		; Operaciï¿½n de (N) en registro A.
 	MOVE.B	(A5)+,D2
 	BEQ.S	\@M
 	PONF	\5,\6
@@ -3277,7 +3277,7 @@ MIns:	MACRO
 
 
 MROT:	MACRO
-	IFC	"2","\4"		; Rotación con (HL)
+	IFC	"2","\4"		; Rotaciï¿½n con (HL)
 	CogePagE \2,A4
 	MOVE.B	(A4),D2
 	IFC	"S","\3"
@@ -3291,7 +3291,7 @@ MROT:	MACRO
 	MOVE.B	D2,(A4)
 	ENDC
 
-	IFC	"2I","\4"		; Rotación con (IX,IY)
+	IFC	"2I","\4"		; Rotaciï¿½n con (IX,IY)
 	CogePagIE \2,A4
 	MOVE.B	(A4),D2
 	IFC	"S","\3"
@@ -3305,7 +3305,7 @@ MROT:	MACRO
 	MOVE.B	D2,(A4)
 	ENDC
 
-	IFC	"0","\4"		; Rotación en registros bajos.
+	IFC	"0","\4"		; Rotaciï¿½n en registros bajos.
 	IFC	"S","\3"
 	OR.B	#$10,CCR
 	ENDC
@@ -3316,7 +3316,7 @@ MROT:	MACRO
 	MOVE.W	CCR,D3
 	ENDC
 
-	IFC	"1","\4"		; Rotación en registros altos.
+	IFC	"1","\4"		; Rotaciï¿½n en registros altos.
 	ROR.W	#8,\2
 	IFC	"S","\3"
 	OR.B	#$10,CCR
@@ -4155,7 +4155,7 @@ MRETC:	MACRO
 
 MINC:	MACRO
 	MOVE.B	D5,D2
-	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	MOVE.B	D3,D2
 	IFC	"1","\2"
 	LSL.W	#8,D1
@@ -4179,7 +4179,7 @@ MOUTC:	MACRO
 	ELSEIF
 	MOVE.B	\1,D1
 	ENDC
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	Otra	\3
 	CNOP	0,4
 	ENDM
@@ -4727,7 +4727,7 @@ RLCB0:
 	CogePag	D1,A5
 	LEA	Restas(A3,D1.W*8),A7
 	MOVE.B	(A5)+,D2
-	JMP	([InsCB-$400,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCB-$400,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 
 MInsCB2:MACRO
@@ -4883,7 +4883,7 @@ DI:	SF	IFF(A3)
 EI:
 	ST	IFF(A3)
 
-;	BTST	#4,DVDP0(A3)		; ¿Interrupción Horizontal?
+;	BTST	#4,DVDP0(A3)		; ï¿½Interrupciï¿½n Horizontal?
 ;	BEQ.S	EIcon
 ;	TST.B	PetInt38(A3)		; LineInt Flag
 ;	BEQ.S	EIcon
@@ -5028,7 +5028,7 @@ INHC:	MINC	D4,1,12
 INLC:	MINC	D4,0,12
 INAC:	MINC	D7,0,12
 INAN:	MOVE.B	(A5)+,D2
-	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	MOVE.B	D1,D7
 	Otra	11
 
@@ -5041,7 +5041,7 @@ OUTCL:	MOUTC	D4,0,12
 OUTCA:	MOUTC	D7,0,12
 OUTNA:	MOVE.B	(A5)+,D2
 	MOVE.B	D7,D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	Otra	11
 
 
@@ -5598,7 +5598,7 @@ IINFC:	MINC	D1,0,12
 
 RInsCB:	MOVE.B	(A5)+,D2
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
-	JMP	([InsCB-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCB-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 CB00:
 	CMP.L	Desbor+4(A7),A5
@@ -5611,13 +5611,13 @@ CB00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	CogePag	D1,A5
 	LEA	Restas(A3,D1.W*8),A7
 	MOVE.B	(A5)+,D2
-	JMP	([InsCB-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCB-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 
 
 	CNOP	0,4
 RInsDD:	MOVE.B	(A5)+,D2
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
-	JMP	([InsDD-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsDD-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 DD00:
 	CMP.L	Desbor+4(A7),A5
@@ -5630,13 +5630,13 @@ DD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	CogePag	D1,A5
 	LEA	Restas(A3,D1.W*8),A7
 	MOVE.B	(A5)+,D2
-	JMP	([InsDD-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsDD-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 
 
 	CNOP	0,4
 RInsED:	MOVE.B	(A5)+,D2
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
-	JMP	([InsED-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsED-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 ED00:
 	CMP.L	Desbor+4(A7),A5
@@ -5649,13 +5649,13 @@ ED00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	CogePag	D1,A5
 	LEA	Restas(A3,D1.W*8),A7
 	MOVE.B	(A5)+,D2
-	JMP	([InsED-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsED-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 
 
 	CNOP	0,4
 RInsFD:	MOVE.B	(A5)+,D2
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
-	JMP	([InsFD-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsFD-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 FD00:
 	CMP.L	Desbor+4(A7),A5
@@ -5668,7 +5668,7 @@ FD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 	CogePag	D1,A5
 	LEA	Restas(A3,D1.W*8),A7
 	MOVE.B	(A5)+,D2
-	JMP	([InsFD-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsFD-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 
 
 	CNOP	0,4
@@ -5676,7 +5676,7 @@ RInsCBIX:
 	MOVE.B	(A5)+,D1
 	EXT.W	D1
 	MOVE.B	(A5)+,D2
-	JMP	([InsCBIX-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCBIX-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 CBX0:
 	CMP.L	Desbor+4(A7),A5
@@ -5689,7 +5689,7 @@ CBX0C:
 	MOVE.B	D1,D2
 	LSR.W	#8,D1
 	EXT.W	D1
-	JMP	([InsCBIX-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCBIX-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 
 
 	CNOP	0,4
@@ -5697,7 +5697,7 @@ RInsCBIY:
 	MOVE.B	(A5)+,D1
 	EXT.W	D1
 	MOVE.B	(A5)+,D2
-	JMP	([InsCBIY-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCBIY-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 CBY0:
 	CMP.L	Desbor+4(A7),A5
@@ -5710,7 +5710,7 @@ CBY0C:
 	MOVE.B	D1,D2
 	LSR.W	#8,D1
 	EXT.W	D1
-	JMP	([InsCBIY-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([InsCBIY-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 
 
 	CNOP	0,4
@@ -5750,7 +5750,7 @@ IRLD:
 
 INI:
 	MOVE.B	D5,D2
-	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	MOVE.B	D1,D2
 	CogePagE D4,A4
 	MOVE.B	D2,(A4)
@@ -5760,7 +5760,7 @@ INI:
 
 IND:
 	MOVE.B	D5,D2
-	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	MOVE.B	D1,D2
 	CogePagE D4,A4
 	MOVE.B	D2,(A4)
@@ -5777,13 +5777,13 @@ OUTI:
 	AND.B	#$FB,D3
 	MOVE.B	D2,D5
 	MOVE.B	(A4),D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	Otra	16
 OUTIfZ:
 	OR.B	#$04,D3
 	MOVE.B	D2,D5
 	MOVE.B	(A4),D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	Otra	16
 
 OUTD:
@@ -5795,13 +5795,13 @@ OUTD:
 	AND.B	#$FB,D3
 	MOVE.B	D2,D5
 	MOVE.B	(A4),D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	Otra	16
 OUTDfZ:
 	OR.B	#$04,D3
 	MOVE.B	D2,D5
 	MOVE.B	(A4),D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	Otra	16
 
 INIR:
@@ -5813,7 +5813,7 @@ INIR:
 
 	MOVE.B	D5,D2
 INIRB:
-	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	MOVE.B	D1,D2
 	CogePagE D4,A4
 	MOVE.B	D2,(A4)
@@ -5836,7 +5836,7 @@ INDR:
 
 	MOVE.B	D5,D2
 INDRB:
-	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	MOVE.B	D1,D2
 	CogePagE D4,A4
 	MOVE.B	D2,(A4)
@@ -5863,7 +5863,7 @@ OTIRCon:
 	MOVE.B	D2,D5
 	CogePag	D4,A4
 	MOVE.B	(A4),D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	ADDQ.W	#1,D4
 	MOVE.B	D5,D2
 	SUB.W	D2,D5
@@ -5884,7 +5884,7 @@ OTDRCon:
 	MOVE.B	D2,D5
 	CogePag	D4,A4
 	MOVE.B	(A4),D1
-	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	SUBQ.W	#1,D4
 	MOVE.B	D5,D2
 	SUB.W	D2,D5
@@ -7681,7 +7681,7 @@ VDPPUNT:
 ; -------------------------------
 
 
-; -----------------------------=> Conversión de tablas para Screen 8
+; -----------------------------=> Conversiï¿½n de tablas para Screen 8
 	CNOP	0,8
 PasScr8Out:	DS.B	$100
 PasScr8In:	DS.B	$100
@@ -7788,7 +7788,7 @@ TABLAB4:
 ; -------------------------------------<=
 
 
-; -------------------------------------=> Emulación de la Kanji ROM.
+; -------------------------------------=> Emulaciï¿½n de la Kanji ROM.
 OutD8:
 	AND.B	#$3F,D1
 	MOVE.B	D1,KanjiD8(A3)
@@ -7819,7 +7819,7 @@ InD9:
 	RTS
 ; -------------------------------------<=
 
-; -------------------------------------=> Emulación Caset.
+; -------------------------------------=> Emulaciï¿½n Caset.
 	CNOP	0,8
 ED18:
 	TST.B	ModoCaset
@@ -7879,7 +7879,7 @@ CasetError:
 	Otra2
 ; -------------------------------------<=
 
-; -------------------------------------=> Emulación Ratón
+; -------------------------------------=> Emulaciï¿½n Ratï¿½n
 	CNOP	0,8
 ED16:			;	**** MOUSE EMULATION ****
 	TST.B	LEEJOY2(A3)
@@ -7910,7 +7910,7 @@ ANTMOX:	DC.B	0
 
 	CNOP	0,8
 
-; Parchear fichero "HINIROM.2" posición &H1AE (contiene C3,DD,34)
+; Parchear fichero "HINIROM.2" posiciï¿½n &H1AE (contiene C3,DD,34)
 ; -----------------===========----------=====--------------------
 ; -------------------------------------<=
 
@@ -8014,7 +8014,7 @@ Asc26:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+12(A3),D1
 
-	AND.W	#$1000,D1		; ¿Página 0 o 1?
+	AND.W	#$1000,D1		; ï¿½Pï¿½gina 0 o 1?
 	BNE	KON18
 
 	SUB.W	(A7),A5
@@ -8399,7 +8399,7 @@ Asc26b:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+12(A3),D1
 
-	AND.W	#$1000,D1		; ¿Página 0 o 1?
+	AND.W	#$1000,D1		; ï¿½Pï¿½gina 0 o 1?
 	BNE	KON18b
 
 	SUB.W	(A7),A5
@@ -8965,7 +8965,7 @@ OUT0C:	MOVE.B	D1,D2
 	MOVE.B	D2,D1
 	MOVE.B	(A5)+,D2
 	TST.B	D1
-	JMP	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 ; ------------------------------------------------------------------	
 	CNOP	0,4
 IN00:
@@ -8982,7 +8982,7 @@ IN0C:	SUBQ.W	#1,A5
 	LEA	Restas-4(A3,D1.W*8),A7
 	MOVE.L	A4,(A7)				; Dir para el RTS
 	MOVE.B	(A5)+,D2
-	JMP	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulación.
+	JMP	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaciï¿½n.
 	CNOP	0,4
 ; ------------------------------------------------------------------	
 
@@ -9166,7 +9166,7 @@ Act_AdjCon:
 ;	/  V   V  DDD    PPPP  \
 ;	|  V   V  D  D   P   P |   -*  Emulador VDP Y9938 v3.07  *-
 ;	|  V   V  D   D  PPPP  |
-;	|   V V   D  D   P     |    Por: Juan Antonio Gómez Gálvez.
+;	|   V V   D  D   P     |    Por: Juan Antonio Gï¿½mez Gï¿½lvez.
 ;	\    V    DDD    P     /
 ;	 ----------------------
 
@@ -9195,7 +9195,7 @@ ModoTxt:
 	MOVE.L	#VDP17,VDPPUNT+($17*4)
 
 	MOVE.L	#VDP2Enada,VDPPUNT+($2E*4)
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 	MOVE.L	#ModoChgRET,DirModoChg(A3)
@@ -9228,7 +9228,7 @@ ModoTxtX:
 	MOVE.L	#VDP17,VDPPUNT+($17*4)
 
 	MOVE.L	#VDP2Enada,VDPPUNT+($2E*4)
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 	MOVE.L	#ModoChgRET,DirModoChg(A3)
@@ -9261,7 +9261,7 @@ ModoTxt4:
 	MOVE.L	#VDP17,VDPPUNT+($17*4)
 
 	MOVE.L	#VDP2Enada,VDPPUNT+($2E*4)
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 	MOVE.L	#ModoChgRET,DirModoChg(A3)
@@ -9296,7 +9296,7 @@ M6Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 
 	MOVE.L	#VDP2E,VDPPUNT+($2E*4)
 	MOVE.L	#Modo6Dats,MSXVideoMode(A3)
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 
 ;	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 ;	BSR	ActPlanos6			; Actualiza VRAM en Bit-Planos.
@@ -9327,7 +9327,7 @@ M5Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 
 	MOVE.L	#VDP2E,VDPPUNT+($2E*4)
 	MOVE.L	#Modo5Dats,MSXVideoMode(A3)
-	BCLR	#0,DVDPS2(A3)			; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)			; Ejecuciï¿½n SI terminada.
 
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 	BSR	ActPlanos5			; Actualiza VRAM en Bit-Planos.
@@ -9369,7 +9369,7 @@ M7Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 
 	MOVE.L	#VDP2E,VDPPUNT+($2E*4)
 	MOVE.L	#Modo7Dats,MSXVideoMode(A3)
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 	BSR	ActPlanos7			; Actualiza VRAM en Bit-Planos.
@@ -9406,7 +9406,7 @@ M8Chap:	MOVE.L	#VDP17,VDPPUNT+($17*4)	; *m8
 
 	MOVE.L	#VDP2E,VDPPUNT+($2E*4)
 	MOVE.L	#Modo8Dats,MSXVideoMode(A3)
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 
 ;	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
 ;	BSR	ActPlanos8			; Actualiza VRAM en Bit-Planos.
@@ -9944,7 +9944,7 @@ VDP13:
 	IFD	TRACE
 	TRVLOG	$13,D2
 	ENDC
-	MOVE.B	D2,VDPIntY(A3)		; Interrupción de scaning.
+	MOVE.B	D2,VDPIntY(A3)		; Interrupciï¿½n de scaning.
 
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
@@ -10079,7 +10079,7 @@ ModC52:	SUBQ.W	#8,D3
 ; -=-=-
 V17Con1:
 ; -=-=-
-ModC50:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de página en copper.
+ModC50:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de pï¿½gina en copper.
 	MOVE.L	Cop_Rest(PC),A0
 	MOVE.W	D0,(A0)
 	MOVE.W	D0,4(A0)
@@ -10190,7 +10190,7 @@ ModC72:	SUBQ.W	#8,D3
 ; -=-=-
 V17Con71:
 ; -=-=-
-ModC70:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de página en copper.
+ModC70:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de pï¿½gina en copper.
 	MOVE.L	Cop_Rest(PC),A0
 	MOVE.W	D0,(A0)
 	MOVE.W	D0,4(A0)
@@ -10295,7 +10295,7 @@ ModC82:	SUBQ.W	#8,D3
 ; -=-=-
 V17Con81:
 ; -=-=-
-ModC80:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de página en copper.
+ModC80:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de pï¿½gina en copper.
 	MOVE.L	Cop_Rest(PC),A0
 	MOVE.W	D0,(A0)
 	MOVE.W	D0,4(A0)
@@ -11775,7 +11775,7 @@ IVDP0:
 	BRA.W	SCBack
 	ENDC
 SCBack:
-;;	BFTST	$DFF00E{1:6}		; Colisión de sprites?
+;;	BFTST	$DFF00E{1:6}		; Colisiï¿½n de sprites?
 ;;	BNE.S	SiDetecSpr
 
 ; 5th sprite flag (TMS9918 / V9938 sprite mode 1, as openMSX SpriteChecker):
@@ -12239,7 +12239,7 @@ SCEnd:	MOVEM.L	SCSave,D0-D7/A0-A6
 
 IVDP0Spr:
 	MOVE.B	Estado(A3),D1
-	MOVE.B	#$20,Estado(A3)		; Colisión de sprites ON.
+	MOVE.B	#$20,Estado(A3)		; Colisiï¿½n de sprites ON.
 	RTS
 
 ; -------------------------------------------------
@@ -12248,9 +12248,9 @@ IVDP1:
 	SF	PetInt38(A3)
 
 	MOVE.B	DVDPS1(A3),D1
-	BCLR	#0,DVDPS1(A3)		; Interrupción Horizontal.
+	BCLR	#0,DVDPS1(A3)		; Interrupciï¿½n Horizontal.
 ;	BCHG	#7,DVDPS1(A3)		; Lightpen.
-;	BSET	#2,D1			; Activación modo MSX2+
+;	BSET	#2,D1			; Activaciï¿½n modo MSX2+
 	RTS
 
 ; -------------------------------------------------
@@ -12405,7 +12405,7 @@ IVDP5:
 ; -------------------------------------------------
 
 IVDP7:
-	BTST	#0,DVDPS2(A3)		; ¿Ejecución terminada?
+	BTST	#0,DVDPS2(A3)		; ï¿½Ejecuciï¿½n terminada?
 	BNE.S	IVDP7Con
 	MOVE.B	COLREAD(A3),D1
 	RTS
@@ -12460,7 +12460,7 @@ vLMCMDESY:
 
 	SUBQ.W	#1,CONTA2C(A3)
 	BNE.S	vLMCMCON0
-	BCLR	#0,DVDPS2(A3)		; Ejecución terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n terminada.
 vLMCMCON0:
 
 
@@ -12478,7 +12478,7 @@ MODOPantV7:	DC.L	MODO5DATS
 
 
 ;	 ----------------------------
-;	- Emulación de Screens 0,1,2 -
+;	- Emulaciï¿½n de Screens 0,1,2 -
 ;	 ----------------------------
 
 	CNOP	0,8
@@ -12526,14 +12526,14 @@ PRINT1:
 	BSR	PREPARATXT1	; Actualiza Gfx De caracteres ya impresos.
 	BSR	TRANSBLT1	; Actualiza Gfx y colores de Caracteres.
 	BSR	COPIATXT1	; Actualiza Pantalla.
-	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
+	BSR	BorraSprTab	; Borra Tabla de actualizaciï¿½n de Sprites.
 	RTS
 
 	CNOP	0,8
 ACTUTODO1:
 	BSR	TRANSBLT1	; Actualiza Gfx y colores de Caracteres.
 	BSR	ACTUALIZA1	; Actualiza pantalla al 100%
-	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
+	BSR	BorraSprTab	; Borra Tabla de actualizaciï¿½n de Sprites.
 	RTS
 
 ************************************************************
@@ -12567,7 +12567,7 @@ NoEsTruco:
 	BSR	COPIATXT	; Actualiza Pantalla.
 	BSR	PREPARATXT	; Actualiza Gfx De caracteres ya impresos.
 	BSR	TRANSBLT	; Actualiza Gfx y colores de Caracteres.
-	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
+	BSR	BorraSprTab	; Borra Tabla de actualizaciï¿½n de Sprites.
 	JMP	Planos2			; (The bank's screen: SCREEN 2 only.)
 
 	CNOP	0,8
@@ -12577,7 +12577,7 @@ ACTUTODO2:
 	ENDC
 	BSR	TRANSBLT	; Actualiza Gfx y colores de Caracteres.
 	BSR	ACTUALIZA	; Actualiza pantalla al 100%
-	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
+	BSR	BorraSprTab	; Borra Tabla de actualizaciï¿½n de Sprites.
 	JMP	Planos2
 
 ************************************************************
@@ -12600,13 +12600,13 @@ PRINT3:
 
 	BSR	PreparaTxt3	; Actualiza Gfx De caracteres ya impresos.
 	BSR	CopiaTexto3	; Actualiza Pantalla.
-	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
+	BSR	BorraSprTab	; Borra Tabla de actualizaciï¿½n de Sprites.
 	RTS
 
 	CNOP	0,8
 ActuTodo3:
 	BSR	Actualiza3	; Actualiza Pantalla al 100%.
-	BSR	BorraSprTab	; Borra Tabla de actualización de Sprites.
+	BSR	BorraSprTab	; Borra Tabla de actualizaciï¿½n de Sprites.
 	RTS
 
 ************************************************************
@@ -13749,7 +13749,7 @@ Actualiza3:
 	ADD.L	PVDP4(A3),A5		; Tabla de Colores.
 
 	LEA	SCREEN,A4		; Pantalla Destino Amiga.
-	LEA	TABLA7E,A6		; Tabla de conversión de Gfx (MSX=>Amiga)
+	LEA	TABLA7E,A6		; Tabla de conversiï¿½n de Gfx (MSX=>Amiga)
 
 	MOVE.L	#$0000F000,D1
 	MOVE.W	#(32*8*4)-32,D7
@@ -13848,7 +13848,7 @@ CopiaTexto3:
 	ADD.L	PVDP4(A3),A5		; Tabla de Colores.
 
 	LEA	SCREEN,A4		; Pantalla Destino Amiga.
-	LEA	TABLA7E,A6		; Tabla de conversión de Gfx (MSX=>Amiga)
+	LEA	TABLA7E,A6		; Tabla de conversiï¿½n de Gfx (MSX=>Amiga)
 
 	MOVE.L	#$0000F000,D1
 	MOVE.W	#(32*8*4)-32,D7
@@ -14359,7 +14359,7 @@ ESPBLTT2:BTST	#$E,(A6)
 
 	MOVE.W	#(32*4*8)-32,D5
 	MOVE.W	#(32*$40)+1,D3
-;;;	MOVEQ	#(3)-1,D7		; Está mas arriba.
+;;;	MOVEQ	#(3)-1,D7		; Estï¿½ mas arriba.
 COPIABUC2:
 	MOVE.W	#(8)-1,D0
 COPIABUC1:
@@ -14466,7 +14466,7 @@ ESPBLTA2:BTST	#$E,(A6)
 	MOVE.W	#(32*$40)+1,D3
 	MOVEQ	#$E,D7
 
-;;;	MOVEQ	#(3)-1,D6		; Está mas arriba.
+;;;	MOVEQ	#(3)-1,D6		; Estï¿½ mas arriba.
 COPIABUCB2:
 	MOVEQ	#(8)-1,D0
 COPIABUCB1Z:
@@ -14585,7 +14585,7 @@ SPR16BUC:
 	MOVE.B	(A0)+,D0	; MSX Y
 	CMP.B	#208,D0
 	BEQ.S	NOMASPR
-	ADD.B	#15,D0		; ¿Se ve en pantalla?
+	ADD.B	#15,D0		; ï¿½Se ve en pantalla?
 	CMP.W	#(192+15),D0
 	BGE.S	OTROSPRI
 	CMP.W	SprWinLo,D0		; In this pass's part of the screen?
@@ -14594,7 +14594,7 @@ SPR16BUC:
 	BGE	OTROSPRI
 
 	MOVE.B	D0,D5
-	ADD.B	#INIPANT-15+3,D0 ; Suma Coor Y , ¿Se ve en pantalla?
+	ADD.B	#INIPANT-15+3,D0 ; Suma Coor Y , ï¿½Se ve en pantalla?
 	BCS.S	OTROSPRI
 
 	SUBQ.B	#2,D0
@@ -14610,7 +14610,7 @@ NOSALPAN:
 	LSR.B	#1,D0
 	ROXL.B	#1,D1		; Amiga Y final y bit 0 de X
 
-	TST.B	1(A0)		; ¿Modo Coor. X=X-32?
+	TST.B	1(A0)		; ï¿½Modo Coor. X=X-32?
 	BPL.S	SPRNONEG
 	SUB.B	#16,D0
 SPRNONEG:
@@ -14667,7 +14667,7 @@ CONTSPR:
 	MOVE.W	D0,(A4)
 
 	MULU	#SPRADD,D5
-	LEA	(A2,D5.W),A4	; Coge Dirección Y del Copper.
+	LEA	(A2,D5.W),A4	; Coge Direcciï¿½n Y del Copper.
 
 	MOVEQ	#0,D5
 	MOVE.B	(A3),D5
@@ -14684,7 +14684,7 @@ CONTSPR:
 	ADD.W	#$1200,A3
 NOSUMAS:
 	MOVE.B	(A0)+,D5
-	AND.W	#$000F,D5	; ¿Es de color trasparente?
+	AND.W	#$000F,D5	; ï¿½Es de color trasparente?
 	BNE.S	NOSPRTRAS
 	LEA	(-18*4)(A1),A3
 NOSPRTRAS:
@@ -14788,12 +14788,12 @@ SPR8BUC:
 	MOVE.B	(A0)+,D0	; MSX Y
 	CMP.B	#208,D0
 	BEQ.S	NOMASPR8
-	ADD.B	#15,D0		; ¿Se ve en pantalla?
+	ADD.B	#15,D0		; ï¿½Se ve en pantalla?
 	CMP.W	#(192+15),D0
 	BGE.S	OTROSPRI8
 
 	MOVE.B	D0,D5
-	ADD.B	#INIPANT-15+3,D0 ; Suma Coor Y , ¿Se ve en pantalla?
+	ADD.B	#INIPANT-15+3,D0 ; Suma Coor Y , ï¿½Se ve en pantalla?
 	BCS.S	OTROSPRI8
 
 	SUBQ.B	#2,D0
@@ -14809,7 +14809,7 @@ NOSALPAN8:
 	LSR.B	#1,D0
 	ROXL.B	#1,D1		; Amiga Y final y bit 0 de X
 
-	TST.B	1(A0)		; ¿Modo Coor. X=X-32?
+	TST.B	1(A0)		; ï¿½Modo Coor. X=X-32?
 	BPL.S	SPRNONEG8
 	SUB.B	#16,D0
 SPRNONEG8:
@@ -14863,7 +14863,7 @@ CONTSPR8:
 	MOVE.W	D0,(A4)
 
 	MULU	#SPRADD,D5
-	LEA	(A2,D5.W),A4	; Coge Dirección Y del Copper.
+	LEA	(A2,D5.W),A4	; Coge Direcciï¿½n Y del Copper.
 
 	MOVEQ	#0,D5
 	MOVE.B	(A3),D5
@@ -14880,7 +14880,7 @@ CONTSPR8:
 	ADD.W	#$1200*2,A3
 NOSUMAS8:
 	MOVE.B	(A0)+,D5
-	AND.W	#$000F,D5	; ¿Es de color trasparente?
+	AND.W	#$000F,D5	; ï¿½Es de color trasparente?
 	BNE.S	NOSPRTRAS8
 	LEA	(-9*4)(A1),A3
 NOSPRTRAS8:
@@ -15085,7 +15085,7 @@ NOSUMAS18:
 	RTS
 ; -----------------------------<
 
-; -----------------------------> Borra actualización de tabla de Sprites
+; -----------------------------> Borra actualizaciï¿½n de tabla de Sprites
 	CNOP	0,8
 BorraSprTab:
 	LEA	TAB98(PC),A6
@@ -15146,7 +15146,7 @@ HorLine=-$13A	DC.W	0	;-$13A(A3)
 	DC.B	0	;-$136(A3)	KanjiD8
 	DC.B	0	;-$135(A3)	KanjiCnt
 
-	DC.L	0	;-$134(A3)	RVDP	Salto Rutina Impresión
+	DC.L	0	;-$134(A3)	RVDP	Salto Rutina Impresiï¿½n
 
 	DC.L	0	; -304(A3)	PVDP2
 	DC.L	0	; -300(A3)	PVDP3
@@ -15260,7 +15260,7 @@ REGS:
 	DC.B	$FF	; $48(A3)	Teclado MSX 8
 	DCB.B	7,$FF
 
-	DC.L	SPRMODE5; $50(A3)	RSPR  Emulación MSX2 Sprits.
+	DC.L	SPRMODE5; $50(A3)	RSPR  Emulaciï¿½n MSX2 Sprits.
 	DC.L	0	; $54(A3)	MapROMBase1
 	DC.L	0	; $58(A3)	MapROMBase2
 	DC.W	0	; $5C(A3)	MaskROM
@@ -15494,8 +15494,8 @@ DREGOUT9A=(OUTS+($9A*4))-REGS
 ; VBlank handler must not see a match from line 208 (it would take its
 ; line-interrupt path in VBlank: page 1 shown, sprites off).
 InterHor:
-	BSET	#0,DVDPS1(A3)		; Petición de Interrupción Horizontal.
-	MOVE.B	#7,PetInt38(A3)		; Petición de Interrupción.
+	BSET	#0,DVDPS1(A3)		; Peticiï¿½n de Interrupciï¿½n Horizontal.
+	MOVE.B	#7,PetInt38(A3)		; Peticiï¿½n de Interrupciï¿½n.
 	BTST	#4,DVDP0(A3)
 	BNE.S	InterHorX
 	MOVE.B	#2,PetInt38(A3)		; IE1 off: cleared at the next line (1 would
@@ -15511,7 +15511,7 @@ MiraInter:
 MiraInterBRet:
 	ADDQ.B	#1,CurLine+1(A3)
 	MOVE.W	CurLine(A3),D1
-	CMP.W	HorLine(A3),D1		; ¿Generar Line Int.?
+	CMP.W	HorLine(A3),D1		; ï¿½Generar Line Int.?
 	BEQ.S	InterHor
 	JMP	([JumpCurLine.W,PC,D1.W*4])
 
@@ -15521,7 +15521,7 @@ MiraInter0:
 	CLR.W	S5Next
 
 ;;	SF	PetInt38+1(A3)
-;;	BCLR	#7,Estado(A3)		; Petición de Interrupción Vertical.
+;;	BCLR	#7,Estado(A3)		; Peticiï¿½n de Interrupciï¿½n Vertical.
 
 
 	MOVE.B	OverDat,VERPAN+6
@@ -15569,12 +15569,12 @@ FastInterRun:
 
 	SUBQ.B	#1,PetInt38(A3)
 	BNE.S	FaInRuCon
-	BCLR	#0,DVDPS1(A3)		; Quita Petición de Interrupción Horizontal.
+	BCLR	#0,DVDPS1(A3)		; Quita Peticiï¿½n de Interrupciï¿½n Horizontal.
 	TST.B	PetInt38+1(A3)
 	BNE	InterRunV
 	BRA	InterX
 FaInRuCon:
-	BTST	#4,DVDP0(A3)		; ¿Interrupción Horizontal?
+	BTST	#4,DVDP0(A3)		; ï¿½Interrupciï¿½n Horizontal?
 	BNE	InterRun
 	TST.B	PetInt38+1(A3)
 	BNE	InterRunV
@@ -15589,7 +15589,7 @@ ZALI:	SUBQ	#1,A5
 ;	------------------------=> Modo "Fast CPU"
 	CNOP	0,4
 ModoFastCPU:
-	TST.B	fps60Dat(A3)		; ¿Se ha desbordado el frame?
+	TST.B	fps60Dat(A3)		; ï¿½Se ha desbordado el frame?
 	BEQ.S	EmulaGfx
 
 	SUBQ.B	#1,CurLine+1(A3)
@@ -15608,7 +15608,7 @@ MiraInter192:
 	BEQ.S	ModoFastCPU
 
 EmulaGfx:
-	BTST	#2,Key+14(A3)		; ¿Help Pulsada?
+	BTST	#2,Key+14(A3)		; ï¿½Help Pulsada?
 	BEQ.S	ZALI
 
 
@@ -15640,7 +15640,7 @@ PauseFin:
 	MOVEM.L	Bufer(A3),D0-D7/A0-A7
 ;	-----------------------------
 
-	BTST	#7,DVDP9(A3)		; ¿Modo 192?
+	BTST	#7,DVDP9(A3)		; ï¿½Modo 192?
 	BNE	MiraInterBuc
 
 	MOVE.B	#((INIPANT+192)&$FF),OverDat
@@ -15650,7 +15650,7 @@ PauseFin:
 
 	CNOP	0,4
 MiraInter212:
-	BTST	#7,DVDP9(A3)		; ¿Modo 212?
+	BTST	#7,DVDP9(A3)		; ï¿½Modo 212?
 	BEQ	MiraInterBuc
 
 	MOVE.B	#((INIPANT+212)&$FF),OverDat		; Modo 192 o 212
@@ -15663,17 +15663,17 @@ MiraInterVB:
 
 InterVer:
 	ST	SCPend			; Sprite collisions: check at next S#0.
-	BSET	#7,Estado(A3)		; Petición de Interrupción Vertical.
+	BSET	#7,Estado(A3)		; Peticiï¿½n de Interrupciï¿½n Vertical.
 	ST	PetInt38+1(A3)
 
 	ADD.W	#HPeriod,(A3)
 	BMI	MiraInter
 InterRunV:
-	BTST	#5,DVDP1(A3)		; ¿Interrupción Vertical?
+	BTST	#5,DVDP1(A3)		; ï¿½Interrupciï¿½n Vertical?
 	BEQ.S	InterX
 
 InterRun:
-	TST.B	IFF(A3)			; ¿Modo DI?
+	TST.B	IFF(A3)			; ï¿½Modo DI?
 	BNE.S	SiInterRun
 InterX:	JMP	([A3,D2.W*8])		; Vuelta al Z-80 emul.
 
@@ -15717,7 +15717,7 @@ NoModoHalt:
 	Otra2
 ;	----------------
 NoModo1:
-	BMI.S	SiModo2			; ¿Es Modo IM 0?
+	BMI.S	SiModo2			; ï¿½Es Modo IM 0?
 	LEA	$66(A4),A5
 	Otra2
 ;	----------------
@@ -15813,7 +15813,7 @@ BufBasura:	DS.L	20
 ;	----------------
 
 
-; ---------------------------------=> Emulación de 1 Frame.
+; ---------------------------------=> Emulaciï¿½n de 1 Frame.
 	CNOP	0,4
 Emula1Frame:
 	IFD	PERF
@@ -15913,7 +15913,7 @@ PerfDnFin:
 	ST	ACTODO(A3)
 	ST	ACTODOB(A3)
 RendSame:
-	JSR	([RVDP.W,A3])		; Emulación del VDP.
+	JSR	([RVDP.W,A3])		; Emulaciï¿½n del VDP.
 	TST.W	SnapPend		; Key-script SNAP: hold this frame.
 	BEQ.S	NoSnapDo
 	JSR	KeySnapDo
@@ -15940,7 +15940,7 @@ Refresh:DC.W	0
 	CNOP	0,4
 Wait60fps:
 	LEA	Regs(PC),A3
-	CMP.B	#2,DirPrefs+$7E		; ¿Modo Turbo?
+	CMP.B	#2,DirPrefs+$7E		; ï¿½Modo Turbo?
 	BEQ.S	NoWait60fps
 
 	TST.B	fps60Dat(A3)
@@ -16028,7 +16028,7 @@ VDP2C:
 	ST	SCRTDirty
 	MOVE.B	D2,DVDPCL(A3)
 	MOVE.B	DVDPREG(A3),D2
-	BTST	#0,DVDPS2(A3)		; ¿Ejecución terminada?
+	BTST	#0,DVDPS2(A3)		; ï¿½Ejecuciï¿½n terminada?
 	BEQ.S	V2CNoCopy
 
 	IInsBuc
@@ -16050,7 +16050,7 @@ V2CNoCopy:
 	CNOP	0,8
 VDP2Enada:
 	MOVE.B	D2,DVDPREG(A3)
-	BCLR	#0,DVDPS2(A3)		; Ejecución terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n terminada.
 	CLR.W	CONTA2C(A3)
 	SWAP	D2
 	RTS
@@ -16068,7 +16068,7 @@ Torna8:
 	MOVEM.L	D0-D7/A0-A6,BUFER(A3)
 
 	MOVE.B	D2,DVDPREG(A3)
-	BCLR	#0,DVDPS2(A3)		; Ejecución terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n terminada.
 	CLR.W	CONTA2C(A3)
 
 	MOVE.L	DVDPSX(A3),DVDPSX2(A3)
@@ -16205,7 +16205,7 @@ PSET:
 
 	CNOP	0,8
 LMCM:
-	BSET	#0,DVDPS2(A3)		; Ejecución no terminada.
+	BSET	#0,DVDPS2(A3)		; Ejecuciï¿½n no terminada.
 	BNE	V2EMAL
 
 	MOVE.L	A4,MODOPantV7
@@ -16244,7 +16244,7 @@ LMMC:
 	MOVE.W	$30(A4),D1
 	ROL.B	D1,D2
 HMMCont:
-	BSET	#0,DVDPS2(A3)		; Ejecución no terminada.
+	BSET	#0,DVDPS2(A3)		; Ejecuciï¿½n no terminada.
 	BNE	NoIniLMMC
 
 
@@ -16407,7 +16407,7 @@ LMMCRut:MACRO
 	RTS
 
 \@LMMCFinalizar:
-	BCLR	#0,DVDPS2(A3)		; Ejecución SI terminada.
+	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n SI terminada.
 	MOVEM.L	BUFER(A3),D0-D7/A0-A6
 	FInsBuc
 	SWAP	D2
@@ -16437,7 +16437,7 @@ LMMCTXor:	LMMCRut	Cero,Xor
 ;	ROL.B	D0,D5
 ;	MOVE.B	D5,DVDPCL(A3)
 ;LMMC:
-;	BSET	#0,DVDPS2(A3)		; Ejecución no terminada.
+;	BSET	#0,DVDPS2(A3)		; Ejecuciï¿½n no terminada.
 ;
 ;	TST.W	CONTA2C(A3)
 ;	BNE.S	LMMCCON2
@@ -16469,7 +16469,7 @@ LMMCTXor:	LMMCRut	Cero,Xor
 ;
 ;	SUBQ.W	#1,CONTA2C(A3)
 ;	BNE.S	LMMCCON1
-;	BCLR	#0,DVDPS2(A3)		; Ejecución terminada.
+;	BCLR	#0,DVDPS2(A3)		; Ejecuciï¿½n terminada.
 ;LMMCCON1:
 ;
 ;	BTST	#3,DVDPARG(A3)
@@ -17096,13 +17096,13 @@ MODO7DATS:
 	DC.W	64		; $0A  Size X.
 	DC.W	512		; $0C  Max copy X
 	DC.W	512		; $0E  Max copy Y
-	DC.W	4		; $10  Número de planos
+	DC.W	4		; $10  Nï¿½mero de planos
 	DC.L	SCR0-(64*512)	; $12  Inicio plano Mascara.
 	DC.L	(64*512)	; $16  Size de 1 plano
 	DC.W	$FFFE		; $1A  Mascara para X dots
-	DC.W	2		; $1C  Número de dots en Byte.
-	DC.W	0		; $1E  Rotación para TABSPR.
-	DC.W	4		; $20  Rotación para CPU Copy.
+	DC.W	2		; $1C  Nï¿½mero de dots en Byte.
+	DC.W	0		; $1E  Rotaciï¿½n para TABSPR.
+	DC.W	4		; $20  Rotaciï¿½n para CPU Copy.
 	DC.B	$0F		; $22  Mascara color.
 	DC.B	0		; $23  
 	DC.L	POINTA		; $24  Rutina  IN A,(98)
@@ -17121,13 +17121,13 @@ MODO5DATS:
 	DC.W	32		; $0A  Size X.
 	DC.W	256		; $0C  Max copy X
 	DC.W	1024		; $0E  Max copy Y
-	DC.W	4		; $10  Número de planos
+	DC.W	4		; $10  Nï¿½mero de planos
 	DC.L	SCR0-(64*512)	; $12  Inicio plano Mascara.
 	DC.L	(64*512)	; $16  Size de 1 plano
 	DC.W	$FFFE		; $1A  Mascara para X dots
-	DC.W	2		; $1C  Número de dots en Byte.
-	DC.W	1		; $1E  Rotación para TABSPR.
-	DC.W	4		; $20  Rotación para CPU Copy.
+	DC.W	2		; $1C  Nï¿½mero de dots en Byte.
+	DC.W	1		; $1E  Rotaciï¿½n para TABSPR.
+	DC.W	4		; $20  Rotaciï¿½n para CPU Copy.
 	DC.B	$0F		; $22  Mascara color.
 	DC.B	0		; $23  
 	DC.L	POINTA		; $24  Rutina  IN A,(98)
@@ -17146,13 +17146,13 @@ MODO6DATS:
 	DC.W	64		; $0A  Size X.
 	DC.W	512		; $0C  Max copy X
 	DC.W	1024		; $0E  Max copy Y
-	DC.W	2		; $10  Número de planos
+	DC.W	2		; $10  Nï¿½mero de planos
 	DC.L	SCR0-(64*1024)	; $12  Inicio plano Mascara.
 	DC.L	(64*1024)	; $16  Size de 1 plano
 	DC.W	$FFFC		; $1A  Mascara para X dots
-	DC.W	4		; $1C  Número de dots en Byte.
-	DC.W	1		; $1E  Rotación para TABSPR.
-	DC.W	2		; $20  Rotación para CPU Copy.
+	DC.W	4		; $1C  Nï¿½mero de dots en Byte.
+	DC.W	1		; $1E  Rotaciï¿½n para TABSPR.
+	DC.W	2		; $20  Rotaciï¿½n para CPU Copy.
 	DC.B	$03		; $22  Mascara color.
 	DC.B	0		; $23  
 	DC.L	POINTC		; $24  Rutina  IN A,(98)
@@ -17171,13 +17171,13 @@ MODO8DATS:
 	DC.W	32		; $0A  Size X.
 	DC.W	256		; $0C  Max copy X
 	DC.W	512		; $0E  Max copy Y
-	DC.W	8		; $10  Número de planos
+	DC.W	8		; $10  Nï¿½mero de planos
 	DC.L	SCR0-(32*512)	; $12  Inicio plano Mascara.
 	DC.L	(32*512)	; $16  Size de 1 plano
 	DC.W	$FFFF		; $1A  Mascara para X dots
-	DC.W	1		; $1C  Número de dots en Byte.
-	DC.W	0		; $1E  Rotación para TABSPR.
-	DC.W	0		; $20  Rotación para CPU Copy.
+	DC.W	1		; $1C  Nï¿½mero de dots en Byte.
+	DC.W	0		; $1E  Rotaciï¿½n para TABSPR.
+	DC.W	0		; $20  Rotaciï¿½n para CPU Copy.
 	DC.B	$FF		; $22  Mascara color.
 	DC.B	0		; $23  
 	DC.L	POINTB		; $24  Rutina  IN A,(98)
@@ -17198,7 +17198,7 @@ MODO8DATS:
 
 
 ;	 -------------------------------------
-;	- Rutinas Amiga (Intertupción VBlank) -
+;	- Rutinas Amiga (Intertupciï¿½n VBlank) -
 ;	 -------------------------------------
 
 
@@ -17471,7 +17471,7 @@ INTERCON:
 	BSR	TESTEAJOY
 ; -------------------------------------<
 
-; -------------------------------------> Emulación de Sonido.
+; -------------------------------------> Emulaciï¿½n de Sonido.
 	MOVE.B	SFXCHIP,D0
 	BEQ.S	EsPSG
 	CMPI.B	#3,D0
@@ -17485,7 +17485,7 @@ SfxFin:
 
 ; -------------------------------------<
 
-; -------------------------------------> Retardo de la emulación.
+; -------------------------------------> Retardo de la emulaciï¿½n.
 ;	MOVE.W	VELOCID,D0		; Retardo.
 ;	SUBQ.W	#1,D0
 ;	BMI.S	NOVELOCID
@@ -17508,7 +17508,7 @@ SfxFin:
 
 
 ;	 --------------------------
-;	- Emulación de teclado MSX -	Por Juan Antonio Gómez.
+;	- Emulaciï¿½n de teclado MSX -	Por Juan Antonio Gï¿½mez.
 ;	 --------------------------
 
 	CNOP	0,8
@@ -17766,7 +17766,7 @@ LEEJOY:
 
 
 ;	-------------------------
-;	Emulación de MSX2 Sprits.
+;	Emulaciï¿½n de MSX2 Sprits.
 ;	-------------------------
 
 
@@ -17776,8 +17776,8 @@ LINSPR=8*2
 
 
 SPR2PMAC:MACRO
-	ADD.W	D5,A3			; Siguiente línea Y de Pantalla.
-	DBF	D1,SPR2PBUC0		; Siguiente línea Y de Sprit.
+	ADD.W	D5,A3			; Siguiente lï¿½nea Y de Pantalla.
+	DBF	D1,SPR2PBUC0		; Siguiente lï¿½nea Y de Sprit.
 	DBF	D0,SPR2PBUC		; Siguiente Sprit.
 	MOVE.L	SPR2_Pila(PC),SP
 	RTS
@@ -17992,9 +17992,9 @@ SPR2_16b:
 	MOVE.W	-16(A2),D3		; 1 linea GFX sprit.
 	MOVE.B	(A2)+,D3		; 1 linea GFX sprit.
 	LSL.L	D4,D3			; Rota a su coordenada X.
-	MOVE.B	(A0)+,D2		; Nº de color.
+	MOVE.B	(A0)+,D2		; Nï¿½ de color.
 	MOVE.B	D2,(A5)+
-	JMP	([A1,D2.W*4])		; Salto a impresión.
+	JMP	([A1,D2.W*4])		; Salto a impresiï¿½n.
 ; ---
 	CNOP	0,8
 SPR2RET:RTS
@@ -18018,9 +18018,9 @@ SPR2_8b:
 	MOVE.B	(A2)+,D3
 	LSL.W	#8,D3
 	LSL.L	D4,D3			; Rota a su coordenada X.
-	MOVE.B	(A0)+,D2		; Nº de color.
+	MOVE.B	(A0)+,D2		; Nï¿½ de color.
 	MOVE.B	D2,(A5)+
-	JMP	([A1,D2.W*4])		; Salto a impresión.
+	JMP	([A1,D2.W*4])		; Salto a impresiï¿½n.
 ; --------------------------------------------
 ; Band copies (IMPSPR2B): lines outside the band get colour 0 (nothing drawn,
 ; nothing for CLEARSPR2 to clear).
@@ -18185,7 +18185,7 @@ SPRCON0:
 ; ---
 	CNOP	0,8
 AntVDP5:	DC.W	0	; Coordenadas de los Sprites.
-AntPVDP6:	DC.L	0	; Gráficos de los Sprites.
+AntPVDP6:	DC.L	0	; Grï¿½ficos de los Sprites.
 AntLinY:	DC.B	0	; Scroll por Hardware.
 ; ---
 	CNOP	0,8
@@ -18750,8 +18750,8 @@ TABCORX:
 ;	-----------------------
 
 SPC2PMAC:MACRO
-	ADD.W	D5,A3			; Siguiente línea Y de Pantalla.
-	DBF	D1,SPC2PBUC0		; Siguiente línea Y de Sprit.
+	ADD.W	D5,A3			; Siguiente lï¿½nea Y de Pantalla.
+	DBF	D1,SPC2PBUC0		; Siguiente lï¿½nea Y de Sprit.
 	DBF	D0,SPC2PBUC		; Siguiente Sprit.
 	RTS
 	CNOP	0,8
@@ -18779,8 +18779,8 @@ SPC2PBUC:
 	MOVEM.L	(A0)+,A2/A3
 	MOVE.W	D7,D1			; 16 o 8 Lineas Y de 1 sprit a imprimir.
 SPC2PBUC0:
-	MOVE.B	(A0)+,D2		; Nº de color.
-	JMP	([A2,D2.W*4])		; Salto a impresión.
+	MOVE.B	(A0)+,D2		; Nï¿½ de color.
+	JMP	([A2,D2.W*4])		; Salto a impresiï¿½n.
 SPC2RET:RTS
 	CNOP	0,8
 SPCA0:
@@ -18977,7 +18977,7 @@ BUFERSPR2b:
 
 
 ;	 ----------------------------------
-;	- Emulación de Disquetera MSX v1.0 -	Por Juan Antonio Gómez.
+;	- Emulaciï¿½n de Disquetera MSX v1.0 -	Por Juan Antonio Gï¿½mez.
 ;	 ----------------------------------
 
 MIRAUNI:MACRO
@@ -19769,7 +19769,7 @@ PISTA1:	DS.B	512*9
 
 
 ;	 --------------------------------
-;	- Emulación de la Impresora v1.0 - Por Sergi Martínez.
+;	- Emulaciï¿½n de la Impresora v1.0 - Por Sergi Martï¿½nez.
 ;	 --------------------------------
 
 	CNOP	0,8
@@ -19784,7 +19784,7 @@ OUT91:
 	RTS
 
 IN90:
-	BTST	#0,$BFD000		; Señal "busy"
+	BTST	#0,$BFD000		; Seï¿½al "busy"
 	BEQ.S	IN90C
 	MOVE.B	#$92,D1
 	RTS
@@ -19802,8 +19802,8 @@ IN90C:
 
 
 ;	 ------------------------
-;	- Emulación del PSG v2.0 -	Base por Sergi Martínez.
-;	 ------------------------	Actualización por Juan Antonio Gómez.
+;	- Emulaciï¿½n del PSG v2.0 -	Base por Sergi Martï¿½nez.
+;	 ------------------------	Actualizaciï¿½n por Juan Antonio Gï¿½mez.
 
 FREC:	MACRO
 	MOVE.W	PSG+\1(A3),D1
@@ -20058,7 +20058,7 @@ OndaVol:DC.W	0,0
 
 
 ;	 ----------------------------
-;	- Emulación del FM-Pack v0.1 -	Por Juan Antonio Gómez.
+;	- Emulaciï¿½n del FM-Pack v0.1 -	Por Juan Antonio Gï¿½mez.
 ;	 ----------------------------
 
 
@@ -20136,7 +20136,7 @@ TABFRE:
 
 
 ;	 ------------------------
-;	- Emulación del SCC v1.0 -	Por Juan Antonio Gómez.
+;	- Emulaciï¿½n del SCC v1.0 -	Por Juan Antonio Gï¿½mez.
 ;	 ------------------------
 
 	CNOP	0,8
@@ -20699,7 +20699,7 @@ ACPalFin:
 
 AcCoRutAdjust:
 
-;	CMP.B	#$07,Regs+ScrModo	; ¿Es Screen 8?
+;	CMP.B	#$07,Regs+ScrModo	; ï¿½Es Screen 8?
 ;	BEQ.S	AcCoAdjRet
 
 	LEA	(TabRasDATA.L,D7.W*8),A0
@@ -22005,6 +22005,7 @@ KeySnapDo:
 	BSET	#1,$BFE201		; (DDRA: LED bit an output.)
 	BCLR	#1,$BFE001		; LED on.
 	MOVE.W	SnapPend,D2
+	MOVE.W	D2,SnapHold
 	CLR.W	SnapPend
 	SUBQ.W	#1,D2
 KeySnapF:
@@ -22024,9 +22025,25 @@ KeySnapG:
 	AND.B	#$02,D0			; LED back as it was.
 	BCLR	#1,$BFE001
 	OR.B	D0,$BFE001
+	MOVE.W	SnapHold,D2		; Still frozen as long again with the LED
+	SUBQ.W	#1,D2			; dark, so the capture sees each SNAP end
+KeySnapH:				; even when the next one is a frame away
+	MOVE.L	$DFF004,D0		; (consecutive-frame bursts; WinUAE warp
+	LSR.L	#8,D0			; mode makes Amiga frames short).
+	AND.W	#$1FF,D0
+	CMP.W	#20,D0
+	BCS.S	KeySnapH
+KeySnapI:
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#20,D0
+	BCC.S	KeySnapI
+	DBF	D2,KeySnapH
 	MOVEM.L	(SP)+,D0/D2
 	RTS
 SnapPend:	DC.W	0
+SnapHold:	DC.W	0
 
 KeyScrPtr:	DC.L	0		; Loaded script (Menu), 0: none.
 KeyFrN:		DC.L	0		; MSX frames since power on.
@@ -22705,7 +22722,7 @@ CNXOR:	DC.W	$010C,$0011
 	DC.W	$0096,$8020		; Sprites ON
 
 	DC.W	$C021,$FFFE
-Int_VDN:DC.W	$009C,$8010		; Emulación del VDP
+Int_VDN:DC.W	$009C,$8010		; Emulaciï¿½n del VDP
 	DC.L	$FFFFFFFE
 	DC.L	$FFFFFFFE
 
@@ -22805,7 +22822,7 @@ PANPOS:	SET	PANPOS+1
 PANPOS:	SET	(PANPOS&$FF)
 	ENDC
 	ENDR
-Int_VD0:DC.W	$009C,$8010		; Emulación del VDP
+Int_VD0:DC.W	$009C,$8010		; Emulaciï¿½n del VDP
 	DC.L	$FFFFFFFE
 ; ------------------------------------------------ ;
 	CNOP	0,8
@@ -22837,7 +22854,7 @@ PANPOS:	SET	PANPOS+1
 PANPOS:	SET	(PANPOS&$FF)
 	ENDC
 	ENDR
-Int_VD9:DC.W	$009C,$8010		; Emulación del VDP
+Int_VD9:DC.W	$009C,$8010		; Emulaciï¿½n del VDP
 	DC.L	$FFFFFFFE
 
 ; ------------------------------------------------ ;
@@ -22868,7 +22885,7 @@ Plano4b:DS.W	4*4
 
 
 	DC.W	$FFD9,$FFFE
-Int_VD4:DC.W	$009C,$8010		; Emulación del VDP
+Int_VD4:DC.W	$009C,$8010		; Emulaciï¿½n del VDP
 	DC.L	$FFFFFFFE
 
 
@@ -22904,7 +22921,7 @@ COPSPR2=ICOPSPR2+4+SPRADD
 	REPT	(26*8)
 	COLSPR
 	ENDR
-Int_VD2:DC.W	$009C,$8010		; Emulación del VDP
+Int_VD2:DC.W	$009C,$8010		; Emulaciï¿½n del VDP
 	DC.L	$FFFFFFFE
 
 	DS.B	32*SPRADD	; Seguridad para colores sprites.
@@ -22930,7 +22947,7 @@ COPSPR2B=ICOPSPR2B+4+SPRADD
 	REPT	(26*8)
 	COLSPR
 	ENDR
-Int_VD2B:DC.W	$009C,$8010		; Emulación del VDP
+Int_VD2B:DC.W	$009C,$8010		; Emulaciï¿½n del VDP
 	DC.L	$FFFFFFFE
 
 	DS.B	32*SPRADD	; Seguridad para colores sprites.
