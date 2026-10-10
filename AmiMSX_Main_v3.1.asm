@@ -9425,6 +9425,9 @@ TabScr:
 
 ; <=---------------------------------------------------------=>
 VDP0:
+	IFD	TRACE
+	TRVLOG	$00,D2
+	ENDC
 	MOVEQ	#$0,D1
 	BTST	#4,D2
 	BEQ.S	HORINTACT
@@ -9451,6 +9454,9 @@ SiCamScr0:
 NoCamScr:RTS
 ; <=---------------------------------------------------------=>
 VDP1:
+	IFD	TRACE
+	TRVLOG	$01,D2
+	ENDC
 	SF	S5Valid			; 5th sprite flag: recompute.
 	MOVE.W	#$0100,D1
 	BTST	#6,D2
@@ -9904,6 +9910,9 @@ VDP11:	MVDPX	VDPREGE			; Registro de escritura.
 
 ;	-----------------------=>  VDP ($13)  Line Interrupt Line.
 VDP13:
+	IFD	TRACE
+	TRVLOG	$13,D2
+	ENDC
 	MOVE.B	D2,VDPIntY(A3)		; Interrupción de scaning.
 
 	MOVEQ	#0,D1
