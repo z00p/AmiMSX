@@ -290,6 +290,11 @@ BANDSHOT:	MACRO
 	MOVE.W	#(640/4)-1,D0
 \@c:	MOVE.L	(A0)+,(A1)+
 	DBF	D0,\@c
+	MOVE.W	BandN,D0		; R#23 of the band: sprites move with
+	LEA	BandLinY,A1		; the vertical scroll in effect on
+	MOVE.B	VDPLinY(A3),(A1,D0.W)	; each line (Space Manbow: C0h over its
+	LEA	BandR8,A1		; status bar, 24h below), and R#8: SPD
+	MOVE.B	DVDP8(A3),(A1,D0.W)	; (sprites off) over that status bar.
 	ADDQ.W	#1,BandN
 	MOVEM.L	SnapSave,D0/A0-A1
 \@x:
@@ -17797,6 +17802,10 @@ SPR2PBUC1:
 	BEQ.S	NoBase21
 	MOVE.B	AntLinY(PC),D7		; *.*
 NoBase21:
+	TST.B	BandPass		; By bands: the band's own R#23.
+	BEQ.S	NoBandLinY
+	MOVE.B	BandLinYCur,D7
+NoBandLinY:
 ; ---
 	MOVE.L	REGS+PVDP6,D6
 	TST.B	DirPrefs+$64
@@ -22113,7 +22122,7 @@ IMPSPR2B:
 IMPS2BBuc:
 	MOVE.W	BandK,D0
 	CMP.W	BandN,D0
-	BCC.S	IMPS2BFin
+	BCC	IMPS2BFin
 	MOVE.W	D0,D1
 	LSL.W	#4,D1
 	MOVE.W	D1,BandLo
@@ -22129,14 +22138,21 @@ IMPS2BHi:
 	LEA	BandBuf+512,A4
 	ADD.L	D0,A4
 	LEA	-512(A4),A0
+	MOVE.W	BandK,D0
+	LEA	BandR8,A1		; Sprites off on this band's lines:
+	BTST	#1,(A1,D0.W)		; nothing to draw.
+	BNE.S	IMPS2BSkip
+	LEA	BandLinY,A1
+	MOVE.B	(A1,D0.W),BandLinYCur
 	LEA	SPR2TABLA(PC),A1
 	JSR	IMPSPR2c		; (A5 moves on through all passes.)
 	MOVE.W	BandCnt,D0
 	ADDQ.W	#1,D0
 	ADD.W	D0,BandTotal
 	ST	BandLater
+IMPS2BSkip:
 	ADDQ.W	#1,BandK
-	BRA.S	IMPS2BBuc
+	BRA	IMPS2BBuc
 IMPS2BFin:
 	MOVE.L	BandReal,A0
 	MOVE.W	BandTotal,D0
@@ -22161,6 +22177,10 @@ BandK:		DC.W	0
 BandCnt:	DC.W	0
 BandTotal:	DC.W	0
 BandReal:	DC.L	0
+BandLinY:	DS.B	BANDMAX		; R#23 at each band snapshot.
+BandLinYCur:	DC.B	0
+BandR8:		DS.B	BANDMAX		; R#8 at each band snapshot.
+		EVEN
 
 	IFD	PERF
 ; Time stamp in PAL colour clocks: (VBlank interrupts (PerfTick) * 313 +
