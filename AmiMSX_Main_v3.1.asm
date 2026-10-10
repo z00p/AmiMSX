@@ -186,6 +186,7 @@ TSPLITCHK:	MACRO
 	BCC	\@n
 	ADDQ.W	#1,D1
 	MOVE.W	D1,TSplit
+	SEGEND				; (The playfield may be below it.)
 	OR.B	#$01,(TabRasCMDS.L,D1.W)
 	IFD	TRACE
 	TRVLOG	$FA,D2
@@ -202,23 +203,9 @@ TSPLITCHK:	MACRO
 \@n:
 	ENDM
 
-; Register splits: a change of R#8, R#18 or R#23 during the display (lines
-; 16-191; earlier ones are the frame's own setup, and none after a table
-; split) ends a segment. The playfield is the longest segment: SEGCLOSE (line
-; 192, before the render) puts that segment's MIDSAMPLE values (TopR8, MidAdj,
-; MidLinY) in place. Uridium 2: sprites off and R#2 unchanged for its HUD at
-; line 167 (playfield above); Bun-Ga-Rua: sprites off above line 79 (playfield
-; below). One sample a frame took the wrong region in one or the other.
-; \1 = the register's byte in REGS, D2.B = the new value. Registers kept.
-RSPLITCHK:	MACRO
-	CMP.B	\1(A3),D2
-	BEQ.W	\@n
-	TST.W	TSplit
-	BNE.W	\@n
-	CMP.W	#16,CurLine(A3)
-	BCS.W	\@n
-	CMP.W	#192,CurLine(A3)
-	BCC.W	\@n
+; End the current segment at this line (register or table split): if it is
+; the longest so far, keep its MIDSAMPLE values. Registers kept.
+SEGEND:	MACRO
 	MOVE.L	D1,SegSv
 	MOVE.W	CurLine(A3),D1
 	SUB.W	SegStart,D1		; Length of the segment it ends.
@@ -231,21 +218,39 @@ RSPLITCHK:	MACRO
 \@k:	MOVE.W	CurLine(A3),SegStart
 	ST	SegSeen
 	MOVE.L	SegSv,D1
+	ENDM
+
+; Register splits: a change of R#8, R#18 or R#23 during the display (lines
+; 16-191; earlier ones are the frame's own setup) ends a segment, and so does
+; a table split (TSPLITCHK). The playfield is the longest segment: SEGCLOSE (line
+; 192, before the render) puts that segment's MIDSAMPLE values (TopR8, MidAdj,
+; MidLinY) in place. Uridium 2: sprites off and R#2 unchanged for its HUD at
+; line 167 (playfield above); Bun-Ga-Rua: sprites off above line 79 (playfield
+; below); Space Manbow: status bar above a table split at line 30, sprites
+; on below it (playfield below); Lilly's Saga: HUD below a table split at
+; line ~173 (playfield above). One sample a frame took the wrong region.
+; \1 = the register's byte in REGS, D2.B = the new value. Registers kept.
+RSPLITCHK:	MACRO
+	CMP.B	\1(A3),D2
+	BEQ.W	\@n
+	CMP.W	#16,CurLine(A3)
+	BCS.W	\@n
+	CMP.W	#192,CurLine(A3)
+	BCC.W	\@n
+	SEGEND
 	IFD	TRACE
 	TRVLOG	$F6,D2
 	ENDC
 \@n:
 	ENDM
 
-; Line 192: if the last segment (to the table split or line 192) isn't the
+; Line 192: if the last segment (to line 192) isn't the
 ; longest, the longest one's samples replace MIDSAMPLE's. Uses D1.W.
 SEGCLOSE:	MACRO
 	TST.B	SegSeen
 	BEQ.S	\@x
-	MOVE.W	TSplit,D1
-	BNE.S	\@t
 	MOVE.W	#192,D1
-\@t:	SUB.W	SegStart,D1
+	SUB.W	SegStart,D1
 	CMP.W	SegBest,D1
 	BHI.S	\@x
 	MOVE.B	SegR8,TopR8
@@ -256,11 +261,9 @@ SEGCLOSE:	MACRO
 
 ; Sprite mode 2 band snapshot (see IMPSPR2B): colour table (512 bytes) and
 ; attributes (128) into BandBuf[BandN], when BandOn (set per frame).
-; Playfield R#8/R#18/R#23 for the frame: sampled every 16 lines until a
-; table split (TSplit), so a split or late VBlank writes don't count.
+; Playfield R#8/R#18/R#23 for the frame: sampled every 16 lines; with splits,
+; the longest segment's samples win (SEGEND, SEGCLOSE).
 MIDSAMPLE:	MACRO
-	TST.W	TSplit
-	BNE.S	\@x
 	MOVE.B	DVDP8(A3),TopR8
 	MOVE.B	VDPAdjust(A3),MidAdj
 	MOVE.B	VDPLinY(A3),MidLinY

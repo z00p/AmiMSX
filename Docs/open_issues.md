@@ -7,7 +7,7 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 | Issue | Theory | Confidence | Fix size |
 |---|---|---|---|
 | Space Manbow: ground strip missing | Fixed 3 Oct: the playfield is below a table split (R#2 3Fh to 30h at line 81), drawn by HUDSplit4, which stopped at line 192; now 212 with R#9 LN | Fixed | - |
-| Space Manbow: enemies missing | Mid-screen R#5 switch in sprite mode 2 isn't supported (two-pass split is mode 1 only) | High | Medium |
+| Space Manbow: sprites missing | Fixed 10 Oct: the status bar (SCREEN 5, sprites off) is above a table split at line 30; sampling stopped at table splits, so the whole frame took the status bar's sprites-off R#8. Table splits now end a segment and the longest segment decides | Fixed | - |
 | Jailbreak: flashing scenery | Bitmap-mode R#23 / R#2 splits are timed from the Amiga beam, not the MSX line | High | Medium |
 | Uridium 2: ship and sprites missing for seconds | Fixed 3 Oct: the HUD's sprites-off R#8 write (line 167, no table change) was sampled as the playfield's | Fixed | Register-split segments (longest wins) |
 | Debug builds (TRACE, PERFSUBS) hang at boot | Fixed 3 Oct: a `BNE.S *+10` landed mid-instruction once a MOVE.L to DREGOUT98(A3) grew to 12 bytes | Fixed | Labels; build.sh rejects `*+n` branches |
