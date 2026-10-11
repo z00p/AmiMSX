@@ -69,6 +69,19 @@ A Python model of the wavetable approach, written the way the 68k code will work
 
 So the right notes, at the right times, with close to the right timbre. Listening files in `build/fm/`: `lilly_AB_openmsx_then_tables.wav` (6 s of openMSX, then 6 s of the tables, alternating), `lilly_tables_11025.wav`, `lilly_tables_22050.wav`, `instruments_demo.wav` (a scale on each built-in instrument, 1-15).
 
+## On the Amiga (11 Oct): detection and CPU headroom
+
+- **Detection:** with sound chip 3, AmiMSX now maps a signature-only page (`APRLOPLL` at 4018h, no ROM code) in slot 0-2. Lilly's Saga finds MSX-Music and drives the OPLL: 7,178 data writes in 2,722 MSX frames on the 030 config, and the same custom instrument as in openMSX (`E1 A1 99 0F F5 97 04 77`).
+- **Headroom in Lilly's gameplay** (perf build, emulator time per MSX frame as % of an Amiga frame; over 100% = below full speed):
+
+| Config | Load | Speed |
+|---|---|---|
+| A1200 (68020/14) | 188-238% | 42-50% |
+| 68030 | 112-117% | 86-89% |
+| 68060 | 87-91% | 100% (about 10-13% spare) |
+
+- **What that means:** a 9-voice software mixer at 11 kHz is roughly 20,000 instructions a frame, about 8% of a 68030/50 frame and 2-3% of a 68060. Lilly already runs below full speed on the A1200 and the 030, so a mixer would slow it further there; the 060 and PiStorm/BigMig have room. So: Paula hardware voices (almost no CPU) on the A1200 and 030, the software mixer on fast machines.
+
 ## Next steps
 
 1. Run Lilly's Saga with the FM-PAC enabled in AmiMSX (sound chip 3 through a key-script option) to confirm the game finds MSX-Music, and see what v0.1 sounds like.
