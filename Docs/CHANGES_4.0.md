@@ -23,8 +23,15 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - SCREEN 4 table splits (Lilly's Saga);
   - SCREEN 5/4 mode splits;
   - mid-frame palette changes;
-  - register splits: when R#8, R#18 or R#23 change during the display, the largest region's values are used. Uridium 2's HUD no longer hides the sprites, and Nemesis 3's enemies show.
-- **Sprite mode 2:** bands, and the EC bit.
+  - register splits: when R#8, R#18 or R#23 change during the display, the largest region's values are used. Uridium 2's HUD no longer hides the sprites, and Nemesis 3's enemies show. A table split ends a region too (Space Manbow, Zanac EX);
+  - display off and on during the frame (R#1 BL): those lines show the border colour. Lilly's Saga no longer shows a stray line above its HUD;
+  - table splits in 212-line mode render to the last line (Space Manbow's ground).
+- **Sprite mode 2:**
+  - sprites are drawn in bands, each with its own R#23 (vertical scroll). Bands with sprites off (R#8 SPD) draw nothing, so Space Manbow's ship no longer lands on the ground row;
+  - a new band starts at the line after a sprite register changes. Zanac EX's enemies no longer vanish near its status bar;
+  - the EC bit.
+- **Line interrupts:** with IE1 off, the line-interrupt flag (S#1 FH) is set for the matching line only, as openMSX does. Fixes Zanac EX's title. VR is set in the VBlank lines.
+- **Mid-frame palettes:** MSX colour 0 with TP off shows the border colour on lines with palette changes, as it does elsewhere.
 - **SCREEN 2 and 4:** the R#3 and R#4 table masks apply per screen block.
 - **VDP commands:**
   - transparent copies (LMMM with TIMP, TAND, TOR, TXOR and TNOT) work;
@@ -37,6 +44,15 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - the mapper is guessed as openMSX does;
   - banks wrap at the ROM's size;
   - KonamiSCC bank registers are decoded as on the cartridge.
+
+### Disks
+
+- **Disk images** are read completely. A short read used to leave the MSX booting a partly empty disk (some disk demos failed at random); a file that can't be read in full is now an error.
+
+## Defaults
+
+- **Sprites every frame**, as on an MSX (the setting is still in the menu; the A1200 preset uses every 2nd frame).
+- **The Matra splash** is off (build with `-DSPLASH=1` to show it).
 
 ## System ROMs
 
@@ -59,3 +75,5 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - `PERF` (frame timing and profile);
   - `CORRCHK`, `HANGCHK` and `EXCCHK` (fault finding).
 - **Regression:** a tiered suite in WinUAE (smoke, feature, full), with captures compared pixel by pixel against accepted baselines.
+- **Cross-checks with openMSX:** consecutive-frame bursts from both emulators (`tools/burst.py`), VDP register and palette logs, palette probes, and an overnight batch (`tools/overnight.py`).
+- **Tester:** `winuae/AmiMSX-Tester.ps1`, a Windows launcher for playing in WinUAE (68030 or PiStorm-like speed) with one-click issue reports.

@@ -9483,6 +9483,23 @@ VDP1:
 	IFD	TRACE
 	TRVLOG	$01,D2
 	ENDC
+	MOVE.B	DVDP1(A3),D1		; BL (display enable) changed during the
+	EOR.B	D2,D1			; display: those lines show the border
+	BTST	#6,D1			; (Lilly's Saga turns it off for ~2 lines
+	BEQ.S	VDP1NoBl		; at its HUD split while it switches the
+	MOVE.W	CurLine(A3),D1		; tables; the copper used to show the
+	BEQ.S	VDP1NoBl		; half-switched line). From the line after
+	CMP.W	#210,D1			; next: Lilly keeps its last ground line
+	BCC.S	VDP1NoBl		; and the two above its HUD go blank, as
+	ADDQ.W	#2,D1			; openMSX shows them.
+	OR.B	#$08,(TabRasCMDS.L,D1.W)
+	MOVE.B	#1,(BlankTab.L,D1.W)	; 1: blank,
+	BTST	#6,D2
+	BEQ.S	VDP1BlOff
+	MOVE.B	#2,(BlankTab.L,D1.W)	; 2: display again.
+VDP1BlOff:
+	MOVE.B	#3,PalSplitSeen		; Colours via the copper from line 0.
+VDP1NoBl:
 	SF	S5Valid			; 5th sprite flag: recompute.
 	MOVE.W	#$0100,D1
 	BTST	#6,D2
@@ -20637,6 +20654,9 @@ AcCoRut:
 	LSR.B	#1,D5
 	CALLCS	AcCoRutPal
 
+	LSR.B	#1,D5
+	CALLCS	AcCoRutBlank
+
 
 
 	IFEQ	ColorDebug			;*;
@@ -20669,7 +20689,7 @@ AcCoRutPal:
 	MOVE.W	PalEvN,D1
 ACPalFind:
 	SUBQ.W	#1,D1
-	BMI.S	ACPalFin
+	BMI.W	ACPalFin
 	CMP.W	(PalEvLines.L,D1.W*2),D7
 	BNE.S	ACPalFind
 	LSL.W	#5,D1
@@ -20687,13 +20707,113 @@ ACPalBuc:
 	MOVE.W	D1,D2
 	EOR.B	D4,D2
 	AND.W	#$0F,D2
+	BNE.S	ACPalCol
+	BTST	#5,REGS+DVDP8		; MSX colour 0 with TP off: transparent,
+	BNE.S	ACPalCol		; so the border colour (COLBORDE does
+	MOVE.W	D4,D2			; the same for the frame; palette[0] here
+	AND.W	#$0F,D2			; showed Lilly's yellow colour 0).
+ACPalCol:
 	MOVE.W	(A0,D2.W*2),(A3)+
 ACPalNx:
 	ADDQ.W	#4,A1
 	ADDQ.W	#1,D1
 	CMP.W	#16,D1
 	BCS.S	ACPalBuc
+	TST.W	D7			; Line 0 on AGA (not SCREEN 8): the blank
+	BNE.S	ACPalFin		; bank, colours 32-47, all the border
+	CMP.W	#$01FC,MCAGA		; colour (BPLCON3 bank 1, then back).
+	BNE.S	ACPalFin
+	CMP.B	#$07,REGS+ScrModo
+	BEQ.S	ACPalFin
+	MOVE.L	#$01062C40,(A3)+
+	MOVE.W	#$0180,D1
+ACPalBk:
+	MOVE.W	D1,(A3)+
+	MOVE.W	ColBorde+2,(A3)+
+	ADDQ.W	#2,D1
+	CMP.W	#$01A0,D1
+	BCS.S	ACPalBk
+	MOVE.L	#$01060C40,(A3)+
 ACPalFin:
+	MOVEM.L	(SP)+,D1-D2/D4/A0-A1
+	RTS
+
+; Display disabled from line D7 (R#1 BL, BlankTab 1): every COLORMSX2
+; register to the border colour (bitplane DMA stays on, so the planes' line
+; pointers keep moving). Enabled again (BlankTab 2): the palette in effect at
+; that line (the last palette event at or above it, else PalTop).
+AcCoRutBlank:
+	MOVEM.L	D1-D2/D4/A0-A1,-(SP)
+	MOVE.B	(BlankTab.L,D7.W),D1
+	CLR.B	(BlankTab.L,D7.W)
+	CMP.W	#$01FC,MCAGA		; AGA, not SCREEN 8: switch the planes to
+	BNE.S	ACBlEcs			; the blank bank (colours 32-47, filled
+	CMP.B	#$07,REGS+ScrModo	; at line 0 by AcCoRutPal) and back: one
+	BEQ.S	ACBlEcs			; MOVE each, so it fits in the blanking.
+	MOVE.W	#$010C,(A3)+		; BPLCON4 as MASTERCOPPER has it (its
+	MOVE.W	MCAGA+10,D2		; BPLAM is R#7's colour: the hardware
+	CMP.B	#1,D1			; does the colour EOR), and to blank,
+	BNE.S	ACBlOn4			; with the bank bit too (32-47).
+	EOR.W	#$2000,D2
+ACBlOn4:
+	MOVE.W	D2,(A3)+
+	BRA.W	ACBlFin
+ACBlEcs:
+	LEA	COLORMSX2,A1
+	MOVEQ	#0,D2
+	CMP.B	#1,D1
+	BNE.S	ACBlOn
+ACBlBuc:
+	MOVE.W	(A1),D1
+	CMP.W	#$0180,D1
+	BEQ.S	ACBlNx
+	MOVE.W	D1,(A3)+
+	MOVE.W	ColBorde+2,(A3)+
+ACBlNx:
+	ADDQ.W	#4,A1
+	ADDQ.W	#1,D2
+	CMP.W	#16,D2
+	BCS.S	ACBlBuc
+	BRA.S	ACBlFin
+ACBlOn:
+	CMP.B	#2,D1
+	BNE.S	ACBlFin
+	LEA	PalTop,A0
+	MOVEQ	#0,D1
+ACBlEv:
+	CMP.W	PalEvN,D1
+	BCC.S	ACBlGo
+	CMP.W	(PalEvLines.L,D1.W*2),D7
+	BCS.S	ACBlGo
+	MOVE.W	D1,D4
+	LSL.W	#5,D4
+	LEA	(PalEvBuf.L,D4.W),A0
+	ADDQ.W	#1,D1
+	BRA.S	ACBlEv
+ACBlGo:
+	MOVEQ	#0,D4
+	MOVE.B	MCAGA+10,D4
+ACBlPal:
+	MOVE.W	(A1),D1
+	CMP.W	#$0180,D1
+	BEQ.S	ACBlPNx
+	MOVE.W	D1,(A3)+
+	MOVE.W	D2,D1
+	EOR.B	D4,D1
+	AND.W	#$0F,D1
+	BNE.S	ACBlCol
+	BTST	#5,REGS+DVDP8		; Colour 0, TP off: the border colour.
+	BNE.S	ACBlCol
+	MOVE.W	D4,D1
+	AND.W	#$0F,D1
+ACBlCol:
+	MOVE.W	(A0,D1.W*2),(A3)+
+ACBlPNx:
+	ADDQ.W	#4,A1
+	ADDQ.W	#1,D2
+	CMP.W	#16,D2
+	BCS.S	ACBlPal
+ACBlFin:
 	MOVEM.L	(SP)+,D1-D2/D4/A0-A1
 	RTS
 
@@ -21051,6 +21171,8 @@ TabRasRESTUno:	DC.L	TabRasREST1-2
 TabRasRESTDos:	DC.L	TabRasREST0-2
 
 TabRasCMDS:	DS.B	260
+BlankTab:	DS.B	260		; Per line: 1 display off, 2 on (R#1 BL).
+		EVEN
 TabRasDATA:	DS.L	260*2
 
 		DC.L	-1	<=- No Quitar.

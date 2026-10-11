@@ -81,6 +81,17 @@ public class WU {
 [void][WU]::SetProcessDPIAware()   # physical pixels for both GetWindowRect and CopyFromScreen
 $seq = "$base\winuae\wb\S\Startup-Sequence"
 $latin1 = [Text.Encoding]::GetEncoding(28591)
+# The AmiMSX Tester (winuae\AmiMSX-Tester.ps1) shares this Workbench and WinUAE:
+# wait for a play session to end rather than closing the user's WinUAE.
+$lock = "$base\run\tester.lock"
+while ((Test-Path $lock) -and (Get-Process -Id ([int](Get-Content $lock)) -ErrorAction SilentlyContinue)) {
+  "waiting: an AmiMSX Tester session is running"; Start-Sleep 30
+}
+Remove-Item $lock -ErrorAction SilentlyContinue
+# Settings saved from the AmiMSX menu in a tester session: keep the harness on the defaults.
+if (Test-Path "$base\winuae\wb\S\AmiMSX2.prefs") {
+  Move-Item "$base\winuae\wb\S\AmiMSX2.prefs" "$base\run\AmiMSX2.prefs.tester" -Force
+}
 function Capture($hwnd, $path) {   # WinUAE's window content only: never other windows
   $res = [WU]::Grab($hwnd, $path, 5000)
   if ($res -ne "ok") { "capture $path : $res" }
