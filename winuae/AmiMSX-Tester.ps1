@@ -56,7 +56,10 @@ $soundKeys = @('sound_output=exact', 'sound_channels=stereo', 'sound_stereo_sepa
 
 function Make-Configs {
   # From the regression config (it holds the local paths): real speed and sound.
-  $src = @(Get-Content "$base\winuae\AmiMSX-030.uae" | Where-Object { $_ -notmatch '^sound_' }) + $soundKeys
+  $src = @(Get-Content "$base\winuae\AmiMSX-030.uae" | Where-Object { $_ -notmatch '^(sound_|gfx_fullscreen_amiga=)' }) + $soundKeys
+  # Fullscreen: WinUAE's borderless full-window mode (no display mode change on
+  # the 4K desktop). Alt+Enter switches it in WinUAE, F12 opens WinUAE's settings.
+  $src += if ($chkFull.Checked) { 'gfx_fullscreen_amiga=fullwindow' } else { 'gfx_fullscreen_amiga=false' }
   $c030 = $src | ForEach-Object {
     if ($_ -match '^warp=') { 'warp=false' }
     elseif ($_ -match '^config_description=') { 'config_description=AmiMSX Tester: 68030/50 cycle-exact, real speed' }
@@ -219,7 +222,9 @@ $grp = New-Object Windows.Forms.GroupBox; $grp.Text = "Speed mode"; $grp.AutoSiz
 $gf = New-Object Windows.Forms.FlowLayoutPanel; $gf.Dock = "Fill"; $gf.AutoSize = $true; $gf.FlowDirection = "TopDown"
 $rb030 = New-Object Windows.Forms.RadioButton; $rb030.Text = "68030 / 50 MHz  (cycle-exact: the 4.0 baseline)"; $rb030.AutoSize = $true; $rb030.Checked = $true
 $rbPi = New-Object Windows.Forms.RadioButton; $rbPi.Text = "PiStorm-like  (68040 JIT, full speed: as the BigMig)"; $rbPi.AutoSize = $true
-$gf.Controls.AddRange(@($rb030, $rbPi)); $grp.Controls.Add($gf)
+$chkFull = New-Object Windows.Forms.CheckBox; $chkFull.Text = "Fullscreen  (Alt+Enter switches it in WinUAE; Alt+Tab back here to report an issue)"; $chkFull.AutoSize = $true
+$chkFull.Margin = "3,10,3,3"
+$gf.Controls.AddRange(@($rb030, $rbPi, $chkFull)); $grp.Text = "Speed mode and display"; $grp.Controls.Add($gf)
 
 $ff = New-Object Windows.Forms.FlowLayoutPanel; $ff.AutoSize = $true; $ff.Dock = "Fill"; $ff.WrapContents = $false
 $lblF = New-Object Windows.Forms.Label; $lblF.Text = "Find:"; $lblF.AutoSize = $true; $lblF.Margin = "3,7,3,3"

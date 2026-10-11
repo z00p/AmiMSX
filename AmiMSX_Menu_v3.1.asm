@@ -2821,7 +2821,8 @@ InsSl1NoGP:
 ; (DirPrefs+$16), sprite collisions (DirPrefs+$6C), mask screen edges
 ; (PrefMask). Inserting a cartridge applies its file (GUI included, as GO
 ; copies the GUI over DirPrefs); a cartridge without one brings the global
-; settings back. Save Prefs always writes the global settings.
+; settings back, with the SCC sound chip for a Konami SCC cartridge. Save
+; Prefs always writes the global settings.
 GP_LEN=12
 
 ; DirPrefs -> the 12-byte block at A1, and back.
@@ -2919,6 +2920,23 @@ GPLoadSet:
 	BSR	GPToPrefs
 	BRA	GPShowGUI
 GPLoadNone:
+	CMP.B	#5,DirPrefs+$76		; No game file, but a Konami SCC mapper
+	BCS.S	GPNoScc			; (5 = SCC 1, 6 = SCC 2): the global
+	CMP.B	#6,DirPrefs+$76		; settings with the SCC sound chip, if
+	BHI.S	GPNoScc			; they have the PSG (SCC+ is kept).
+	TST.B	GPActive
+	BNE.S	GPScc1
+	BSR	GPGUIToPrefs
+	LEA	GPSaved,A1
+	BSR	GPFromPrefs
+	ST	GPActive
+GPScc1:	LEA	GPSaved,A1
+	BSR	GPToPrefs
+	TST.B	DirPrefs+$1D
+	BNE.S	GPScc2
+	MOVE.B	#1,DirPrefs+$1D
+GPScc2:	BRA	GPShowGUI
+GPNoScc:
 	TST.B	GPActive		; None: the global settings again.
 	BEQ.S	GPLoadRet
 GPRestore:
