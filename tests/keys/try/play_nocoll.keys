@@ -1,0 +1,3 @@
+include ../play.keys
+option collisions 0
+25s SNAP

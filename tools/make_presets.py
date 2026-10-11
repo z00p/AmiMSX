@@ -15,14 +15,15 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Prefs offsets (DIRPrefs in AmiMSX_Menu_v3.1.asm)
 SPRITES = 0x16      # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 2nd frame, 3 = every 3rd
-COLLIDE = 0x6C      # byte: sprite collisions (S#0 bit 5), 0 off / FFh on
+COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
+                    # read report a collision (IVDP0Spr). Real collision detection always runs. Keep 0.
 # 4.0 block after the credits string: PrefMask (mask screen edges, FFh = 8 dots) at
 # the first byte, left at the binary's default (off).
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0)}),
-    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0xFF)}),
-    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0xFF)}),
+    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0)}),
+    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0)}),
 ]
 
 W, H = 46, 46

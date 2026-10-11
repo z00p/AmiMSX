@@ -40,8 +40,8 @@ package (Aminet misc/emu/AmiMSX) over the included one.
 Installation
 ------------
 Copy the AmiMSX drawer anywhere. Start one of the preset icons:
-  AmiMSX A1200    68020/14 MHz: sprites every 2nd frame, no collisions
-  AmiMSX 030      68030/50 MHz: sprites every frame, collisions on
+  AmiMSX A1200    68020/14 MHz: sprites every 2nd frame
+  AmiMSX 030      68030/50 MHz: sprites every frame
   AmiMSX PiStorm  Emu68: everything at full accuracy
 Each preset keeps its own settings file. Save Prefs in the menu writes to
 the preset you started.
