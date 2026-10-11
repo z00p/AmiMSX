@@ -65,6 +65,25 @@ TABLEN = 256
 # modulator attenuation (0.375 dB units, on top of the patch's TL) for each table
 MOD_LEVELS = [0, 4, 8, 12, 18, 26, 40, 127]
 VOLSTEPS = 64                 # gain steps of 0.75 dB
+PASSES = 3                    # table build: 2 cycles settle the feedback, the 3rd is kept
+# Paula output locked to the PAL frame (313 lines x 227 colour clocks): 227
+# samples a frame at period 313 (11,332 Hz), or 313 at period 227 (15,625 Hz)
+PAULA_CLOCK = 3546895
+MODES = {227: 313, 313: 227}          # samples per frame: Paula period
+XO_OLD = [3, 8, 16, 63]               # cross-fade: gain index offsets per quarter
+XO_NEW = [16, 8, 3, 0]                # (old table fades out, new fades in)
+# 8-bit output: CLIP[(mix >> 4) + CLIPC] = mix / 64, with a soft knee above 96
+CLIPC = 1152
+
+
+def _clip(y):
+    v = y / 4
+    if abs(v) > 96:
+        v = math.copysign(96 + 31 * math.tanh((abs(v) - 96) / 31), v)
+    return max(-128, min(127, round(v)))
+
+
+CLIP = [_clip(y - CLIPC) for y in range(2 * CLIPC)]
 
 
 def decode(d):
@@ -115,13 +134,13 @@ def make_tables(dump):
         att_m = m["TL"] * 2 + lv
         o0 = o1 = 0
         out = []
-        for n in range(TABLEN * 6):
+        for n in range(TABLEN * PASSES):
             k = n % TABLEN
             fm = (o0 + o1) >> (9 - m["FB"]) if m["FB"] else 0
             mo = op(k * sm + fm, att_m, m["WS"])
             o1, o0 = o0, mo
             co = op(k * sc + 2 * (mo >> 1), 0, c["WS"])
-            if n >= TABLEN * 5:
+            if n >= TABLEN * (PASSES - 1):
                 out.append(max(-127, min(127, co >> 5)))
         tabs.append(out)
     return tabs, g
@@ -151,7 +170,7 @@ def attack_curve(rh, rl, spf, maxf=600):
     if rh >= 15:
         return [0]
     if rh == 0:
-        return [124] * 2
+        return [255]                      # 255: hold (attack rate 0)
     shift = 13 - rh if rh < 12 else 0
     mask = (1 << shift) - 1
     eg, cnt, curve, acc = 124, 0, [], 0.0
@@ -172,142 +191,170 @@ def attack_curve(rh, rl, spf, maxf=600):
                 if s > 0:
                     eg = max(0, eg - (eg >> s) - 1)
         curve.append(eg)
+    if curve[-1]:
+        curve.append(0)
     return curve
 
 
-class Env:
+def tables_static():
+    """The 68k's static tables (also written to Sound/fmx.dat)."""
+    spf = FS / 50
+    t = {}
+    t["gain"] = [round(256 * 2 ** (-(2 * v) / 16)) for v in range(VOLSTEPS)]
+    t["gain"][VOLSTEPS - 1] = 0
+    t["dec"] = [min(32512, decay_inc(rh, rl, spf)) for rh in range(16) for rl in range(4)]   # (one frame to silence)
+    t["att"] = [attack_curve(rh, rl, spf) for rh in range(16) for rl in range(4)]
+    t["modlv"] = [min(range(len(MOD_LEVELS)), key=lambda i: abs(MOD_LEVELS[i] - m)) for m in range(128)]
+    t["ksl"] = []
+    for kl in (1, 2, 3):
+        for blk in range(8):
+            for f4 in range(16):
+                tmp = int(KL_DB2[f4] - 6 * (7 - blk))
+                t["ksl"].append(0 if tmp <= 0 else int((tmp >> (3 - kl)) / 0.375))
+    return t
+
+
+def step_k(period):
+    """Phase step = ((fnum << block) * g * K) >> 4, in table entries x 65536 per sample."""
+    return round(period * FS / (16 * PAULA_CLOCK) * 256 * 16)
+
+
+class Slot:
     def __init__(s):
         s.state, s.eg, s.pos = OFF, 127 * 256, 0
 
 
 class Synth:
-    def __init__(s, rate=11025, fps=50, ramp=4):
-        s.rate, s.fps, s.ramp = rate, fps, ramp
-        s.spf = FS / fps
-        s.dec = [[decay_inc(rh, rl, s.spf) for rl in range(4)] for rh in range(16)]
-        s.att = [[attack_curve(rh, rl, s.spf) for rl in range(4)] for rh in range(16)]
+    """Integer model of the 68k FMX engine, step for step."""
+
+    def __init__(s, n_frame=227):
+        s.n = n_frame
+        s.period = MODES[n_frame]
+        s.rate = PAULA_CLOCK / s.period
+        s.K = step_k(s.period)
+        t = tables_static()
+        s.gain, s.dec, s.att, s.modlv, s.kslt = t["gain"], t["dec"], t["att"], t["modlv"], t["ksl"]
+        s.voltab = [[(((u ^ 0x80) - 0x80) * g) >> 4 for u in range(256)] for g in s.gain]
         s.regs = [0] * 64
-        s.user = [0] * 8
+        s.keyev = [0] * 9
+        s.pdirty = True
         s.tabs = {i: make_tables(PATCHES[i]) for i in range(1, 16)}
-        s.tabs[0] = make_tables(s.user)
-        s.ch = [dict(car=Env(), mod=Env(), ph=0, key=0) for _ in range(9)]
-        s.gain = [round(256 * 2 ** (-(2 * v) / 16)) for v in range(VOLSTEPS)]
-        s.gain[VOLSTEPS - 1] = 0
+        s.ch = [dict(car=Slot(), mod=Slot(), modkey=0, prevkey=0, frac=0, idx=0, gi=63, tab=None)
+                for _ in range(9)]
 
-    # register write (applied at the frame it was logged in)
     def write(s, r, v):
+        """OUT 7Dh: the register table, plus key-on edges and patch changes."""
+        r &= 0x3f
         if r < 8:
-            s.user[r] = v
-            s.tabs[0] = make_tables(s.user)      # the 68k rebuilds on patch change
-            return
-        old = s.regs[r]
+            s.pdirty = True
+        elif 0x20 <= r <= 0x28 and v & 0x10 and not s.regs[r] & 0x10:
+            s.keyev[r - 0x20] = 1
         s.regs[r] = v
-        if 0x20 <= r <= 0x28:
-            c = s.ch[r - 0x20]
-            if (v & 0x10) and not (old & 0x10):
-                s.key_on(c)
-            elif not (v & 0x10) and (old & 0x10):
-                c["car"].state = RELEASE
-                c["mod"].key = 0
-            c["key"] = v & 0x10
 
-    def patch(s, n):
-        inst = s.regs[0x30 + n] >> 4
-        return inst, decode(PATCHES[inst] if inst else s.user)
-
-    def key_on(s, c):
-        for e in (c["car"], c["mod"]):
-            e.state, e.eg, e.pos = ATTACK, 124 * 256, 0
-        c["mod"].key = 1
-        c["ph"] = 0
-
-    def rates(s, n, sl, r):
-        """Effective rate (rh, rl) with key scaling."""
+    def rix(s, n, sl, r):
+        if r == 0:
+            return 0
         fn = s.regs[0x10 + n] | (s.regs[0x20 + n] & 1) << 8
         blk = s.regs[0x20 + n] >> 1 & 7
         bf = blk << 1 | fn >> 8
         rks = bf if sl["KR"] else bf >> 2
-        if r == 0:
-            return 0, 0
-        return min(15, r + (rks >> 2)), rks & 3
+        return min(15, r + (rks >> 2)) * 4 + (rks & 3)
 
-    def step_env(s, n, e, sl, is_car):
+    def env(s, n, e, sl):
         if e.state == OFF:
             return
-        if not is_car and not getattr(e, "key", 1):
-            return                                   # modulator holds after key off
         if e.state == ATTACK:
-            rh, rl = s.rates(n, sl, sl["AR"])
-            cur = s.att[rh][rl]
+            cur = s.att[s.rix(n, sl, sl["AR"])]
             e.pos += 1
-            e.eg = cur[min(e.pos, len(cur)) - 1] * 256 if e.pos <= len(cur) else 0
-            if e.eg == 0:
-                e.state = DECAY
+            v = cur[e.pos - 1]
+            if v == 255:
+                e.pos -= 1
+            elif v == 0:
+                e.eg, e.state = 0, DECAY
+            else:
+                e.eg = v << 8
             return
         if e.state == DECAY:
             r = sl["DR"]
         elif e.state == SUSTAIN:
             r = 0 if sl["EG"] else sl["RR"]
         else:
-            sus = s.regs[0x20 + n] & 0x20
-            r = 5 if sus else (sl["RR"] if sl["EG"] else 7)
-        rh, rl = s.rates(n, sl, r)
-        e.eg = min(127 * 256, e.eg + s.dec[rh][rl])
+            r = 5 if s.regs[0x20 + n] & 0x20 else (sl["RR"] if sl["EG"] else 7)
+        e.eg = min(127 * 256, e.eg + s.dec[s.rix(n, sl, r)])
         if e.state == DECAY and (e.eg >> 11) >= sl["SL"]:
             e.state = SUSTAIN
         if e.state == RELEASE and e.eg >= 127 * 256:
             e.state = OFF
 
     def ksl(s, n, sl):
-        if sl["KL"] == 0:
+        if not sl["KL"]:
             return 0
         fn = s.regs[0x10 + n] | (s.regs[0x20 + n] & 1) << 8
         blk = s.regs[0x20 + n] >> 1 & 7
-        tmp = int(KL_DB2[fn >> 5] - 6 * (7 - blk))
-        return 0 if tmp <= 0 else int((tmp >> (3 - sl["KL"])) / 0.375)
+        return s.kslt[(sl["KL"] - 1) * 128 + blk * 16 + (fn >> 5)]
 
     def frame(s):
-        """Run the envelopes, then return this frame's samples."""
-        s.acc = getattr(s, "acc", 0) + s.rate
-        n_out, s.acc = divmod(s.acc, s.fps)
-        mix = [0] * n_out
+        """One MSX frame: the 16-bit mix (before the 8-bit output step)."""
+        if s.pdirty:
+            s.tabs[0] = make_tables(s.regs[0:8])
+            s.pdirty = False
+        mix = [0] * s.n
         for n, c in enumerate(s.ch):
-            inst, (m, cr) = s.patch(n)
-            s.step_env(n, c["mod"], m, False)
-            s.step_env(n, c["car"], cr, True)
-            g0 = c.get("g", 0)
+            key = s.regs[0x20 + n] & 0x10
+            if s.keyev[n]:
+                for e in (c["car"], c["mod"]):
+                    e.state, e.eg, e.pos = ATTACK, 124 * 256, 0
+                c["modkey"], c["frac"], c["idx"] = 1, 0, 0
+                c["prevkey"] = 1
+                s.keyev[n] = 0
+            if c["prevkey"] and not key:
+                c["car"].state = RELEASE
+                c["modkey"] = 0
+            c["prevkey"] = key
+            inst = s.regs[0x30 + n] >> 4
+            m, cr = decode(PATCHES[inst] if inst else s.regs[0:8])
+            if c["modkey"]:
+                s.env(n, c["mod"], m)
+            s.env(n, c["car"], cr)
+            g0 = c["gi"]
             vol = s.regs[0x30 + n] & 15
-            att = (c["car"].eg >> 8) + vol * 8 + s.ksl(n, cr)
-            g = 0 if c["car"].state == OFF else s.gain[min(VOLSTEPS - 1, att >> 1)]
-            c["g"] = g
-            if not g and not g0:
+            if c["car"].state == OFF:
+                g1 = 63
+            else:
+                g1 = min(63, ((c["car"].eg >> 8) + vol * 8 + s.ksl(n, cr)) >> 1)
+            c["gi"] = g1
+            if g0 == 63 and g1 == 63:
                 continue
-            matt = (c["mod"].eg >> 8) + s.ksl(n, m)
-            k = min(range(len(MOD_LEVELS)), key=lambda i: abs(MOD_LEVELS[i] - matt))
-            tabs, gg = s.tabs[inst]
+            k = s.modlv[min(127, (c["mod"].eg >> 8) + s.ksl(n, m))]
+            tabs, g = s.tabs[inst]
             tab = tabs[k]
-            # a new modulator level cross-fades in over the frame (in RAMP steps),
-            # since a sudden change of waveform clicks
-            old_tab = c.get("tab", tab)
+            old = c["tab"] if c["tab"] is not None else tab
             c["tab"] = tab
             fn = s.regs[0x10 + n] | (s.regs[0x20 + n] & 1) << 8
             blk = s.regs[0x20 + n] >> 1 & 7
-            f = FS * fn * (1 << blk) / (1 << 19) * gg / 2
-            step = int(f / s.rate * (1 << 32)) & 0xffffffff
-            ph = c["ph"]
-            xf = old_tab is not tab
-            rs = s.ramp or 1
-            for i in range(n_out):
-                # gain moves from last frame's value to this one's in RAMP steps
-                gi = g if not s.ramp else g0 + (g - g0) * min(s.ramp, i * s.ramp // n_out + 1) // s.ramp
-                if xf:
-                    w = min(rs, i * rs // n_out + 1)
-                    mix[i] += (old_tab[ph >> 24] * (rs - w) + tab[ph >> 24] * w) * gi // rs
-                else:
-                    mix[i] += tab[ph >> 24] * gi
-                ph = (ph + step) & 0xffffffff
-            c["ph"] = ph
-        return [max(-32768, min(32767, v >> 3)) for v in mix]
+            step = ((fn << blk) * g * s.K) >> 4
+            si, sf = (step >> 16) & 255, step & 0xffff
+            parts = [(tab, [min(63, g0 + ((g1 - g0) * (q + 1) >> 2)) for q in range(4)])]
+            if old is not tab:
+                gq = parts[0][1]
+                parts = [(old, [min(63, gq[q] + XO_OLD[q]) for q in range(4)]),
+                         (tab, [min(63, gq[q] + XO_NEW[q]) for q in range(4)])]
+            for t, gq in parts:
+                frac, idx, i = c["frac"], c["idx"], 0
+                for q in range(4):
+                    vt = s.voltab[gq[q]]
+                    for _ in range(s.n * (q + 1) // 4 - s.n * q // 4):
+                        frac += sf
+                        idx = (idx + si + (frac >> 16)) & 255
+                        frac &= 0xffff
+                        mix[i] += vt[t[idx] & 255]
+                        i += 1
+            c["frac"], c["idx"] = frac, idx
+        return mix
+
+    @staticmethod
+    def out8(mix):
+        return [CLIP[(v >> 4) + CLIPC] for v in mix]
 
 
 def write_wav(path, rate, samples):
@@ -319,7 +366,14 @@ def write_wav(path, rate, samples):
     w.close()
 
 
-def render(regs_path, out, rate, fps, frames=None):
+def frames8(syn, k=1):
+    out = []
+    for _ in range(k):
+        out += [v << 8 for v in syn.out8(syn.frame())]
+    return out
+
+
+def render(regs_path, out, n_frame=227, fps=50, frames=None):
     log = {}
     last = 0
     for line in open(regs_path):
@@ -328,18 +382,18 @@ def render(regs_path, out, rate, fps, frames=None):
             f = round(float(p[3]) * fps) if len(p) > 3 else int(p[0])   # 4th column: time (s)
             log.setdefault(f, []).append((int(p[1], 16), int(p[2], 16)))
             last = max(last, f)
-    syn = Synth(rate, fps)
+    syn = Synth(n_frame)
     out_s = []
     for f in range(frames or last + fps * 2):
         for r, v in log.get(f, []):
             syn.write(r, v)
-        out_s += syn.frame()
-    write_wav(out, rate, out_s)
-    print(f"{out}: {len(out_s) / rate:.1f} s")
+        out_s += frames8(syn)
+    write_wav(out, round(syn.rate), out_s)
+    print(f"{out}: {len(out_s) / syn.rate:.1f} s at {syn.rate:.0f} Hz (8-bit Paula output)")
 
 
-def demo(out, rate=22050, fps=50):
-    syn = Synth(rate, fps)
+def demo(out, n_frame=313):
+    syn = Synth(n_frame)
     out_s = []
     notes = [(172, 4), (193, 4), (217, 4), (229, 4), (258, 4), (289, 4), (325, 4), (344, 4)]
     for inst in range(1, 16):
@@ -347,37 +401,76 @@ def demo(out, rate=22050, fps=50):
         for fn, blk in notes:
             syn.write(0x10, fn & 255)
             syn.write(0x20, 0x10 | blk << 1 | fn >> 8)
-            for _ in range(12):
-                out_s += syn.frame()
+            out_s += frames8(syn, 12)
             syn.write(0x20, blk << 1 | fn >> 8)
-            for _ in range(3):
-                out_s += syn.frame()
-        for _ in range(25):
-            out_s += syn.frame()
-    write_wav(out, rate, out_s)
-    print(f"{out}: {len(out_s) / rate:.1f} s, instruments 1-15 in order")
+            out_s += frames8(syn, 3)
+        out_s += frames8(syn, 25)
+    write_wav(out, round(syn.rate), out_s)
+    print(f"{out}: {len(out_s) / syn.rate:.1f} s, instruments 1-15 in order")
+
+
+def fmxdat(folder):
+    """Sound/fmx.dat (the 68k's tables) and Sound/fmx.i (its offsets)."""
+    import os
+    os.makedirs(folder, exist_ok=True)
+    t = tables_static()
+    parts = []
+    tab = bytearray()
+    gs = bytearray(16)
+    for i in range(1, 16):
+        tabs, g = make_tables(PATCHES[i])
+        gs[i] = g
+        for x in tabs:
+            tab += bytes(v & 255 for v in x)
+    parts.append(("TAB", bytes(tab)))
+    parts.append(("G", bytes(gs)))
+    parts.append(("PATCH", bytes(b for p in PATCHES for b in p)))
+    parts.append(("LOGSIN", struct.pack(">256H", *LOGSIN)))
+    parts.append(("EXP", struct.pack(">256H", *EXP)))
+    parts.append(("DEC", struct.pack(">64H", *t["dec"])))
+    parts.append(("GAIN", struct.pack(">64H", *t["gain"])))
+    parts.append(("KSL", bytes(t["ksl"])))
+    parts.append(("MODLV", bytes(t["modlv"])))
+    parts.append(("MODLEVELS", bytes(MOD_LEVELS)))
+    curves, offs = bytearray(), []
+    for c in t["att"]:
+        offs.append(len(curves))
+        curves += bytes(c)
+    parts.append(("CLIP", bytes(v & 255 for v in CLIP)))
+    parts.append(("ATTOFF", struct.pack(">64H", *offs)))
+    parts.append(("ATT", bytes(curves)))
+    data, inc = bytearray(), []
+    for name, b in parts:
+        inc.append(f"FMX_{name}=\t{len(data)}\t\t; {len(b)} bytes")
+        data += b
+        if len(data) & 1:
+            data += b"\0"
+    inc.append(f"FMX_SIZE=\t{len(data)}")
+    inc.append(f"FMX_K227=\t{step_k(313)}\t\t; phase step factor, 227 samples/frame (period 313)")
+    inc.append(f"FMX_K313=\t{step_k(227)}\t\t; 313 samples/frame (period 227)")
+    open(os.path.join(folder, "fmx.dat"), "wb").write(data)
+    with open(os.path.join(folder, "fmx.i"), "w", newline="\r\n") as fh:
+        fh.write("; Generated by tools/fm_synth.py fmxdat: offsets into fmx.dat. Do not edit.\n"
+                 "; Built-in YM2413 instrument data from emu2413 (MIT, Mitsutaka Okazaki).\n"
+                 + "\n".join(inc) + "\n")
+    print(f"{folder}/fmx.dat: {len(data)} bytes; {folder}/fmx.i")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["render", "tables", "demo"])
+    ap.add_argument("cmd", choices=["render", "fmxdat", "demo"])
     ap.add_argument("args", nargs="*")
-    ap.add_argument("--rate", type=int, default=11025)
+    ap.add_argument("--n", type=int, default=227, choices=[227, 313],
+                    help="samples per frame: 227 (11.3 kHz) or 313 (15.6 kHz)")
     ap.add_argument("--fps", type=int, default=50)
     ap.add_argument("--frames", type=int)
     a = ap.parse_args()
     if a.cmd == "render":
-        render(a.args[0], a.args[1], a.rate, a.fps, a.frames)
+        render(a.args[0], a.args[1], a.n, a.fps, a.frames)
     elif a.cmd == "demo":
-        demo(a.args[0], a.rate, a.fps)
+        demo(a.args[0], a.n)
     else:
-        with open(a.args[0], "wb") as fh:
-            for i in range(1, 16):
-                tabs, g = make_tables(PATCHES[i])
-                fh.write(bytes([g]))
-                for t in tabs:
-                    fh.write(bytes(v & 255 for v in t))
-        print(f"{a.args[0]}: 15 instruments x {len(MOD_LEVELS)} tables x {TABLEN} bytes")
+        fmxdat(a.args[0] if a.args else "Sound")
 
 
 if __name__ == "__main__":

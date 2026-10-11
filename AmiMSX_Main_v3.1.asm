@@ -940,6 +940,11 @@ SiAGA:
 
 ; ---------------------------------------=> PSG Outs On/Off
 	MOVE.L	#OUTA1S,OUTS+($A1*4)
+	CMP.B	#3,D7			; (4.0) Sound chip 3: the PSG, plus
+	SEQ	FMXOn			; MSX-Music by FMX on channel 3.
+	BNE.S	NoFMX0
+	SF	D7
+NoFMX0:
 	MOVE.B	D7,SFXCHIP
 	BNE.S	ESSCC0
 	MOVE.L	#OUTA1,OUTS+($A1*4)
@@ -1143,10 +1148,13 @@ EsContinuar:
 NoEsFMPak:
 	ENDC
 	IFNE	FM_Pak_ROM
+	SF	FlashOn			; (4.0) flash cartridges: writes off.
+	SF	FlState
 	MOVE.L	#NOMEM-$4000,SUBSLOT2+8	; (4.0) Sound chip FM: MSX-Music
-	CMP.B	#3,SFXCHIP		; signature page in slot 0-2, page 1.
-	BNE.S	NoEsMMus
+	TST.B	FMXOn			; signature page in slot 0-2, page 1,
+	BEQ.S	NoEsMMus		; and the FMX engine reset.
 	MOVE.L	#MMUSIC-$4000,SUBSLOT2+8
+	JSR	FMXInit
 NoEsMMus:
 	ENDC
 ; ---------------------------------------<=
@@ -2098,6 +2106,10 @@ BUCLR2:	CLR.L	(A0)+
 ; -----------------------------------------------------------------------
 	LEA	TABLA7C,A0		; Borra bufers FM-Pak
 	MOVEQ	#-1,D0
+	TST.B	FMXOn			; (4.0) FMX: registers 0 after reset, as
+	BEQ.S	BorFMX			; on the chip (a first key-on must be
+	MOVEQ	#0,D0			; an off -> on change).
+BorFMX:
 	REPT	$40/4
 	MOVE.L	D0,(A0)+
 	ENDR
@@ -2756,6 +2768,10 @@ DATOSINIT:
 
 	MOVE.W	#$800F,$DFF096
 
+	TST.B	FMXOn			; (4.0) FMX restarts channel 3 next frame.
+	BEQ.S	DatIniNF
+	SF	FMXSync
+DatIniNF:
 	MOVE.L	(SP)+,A6
 	RTS
 ; ------------------------------
@@ -6247,6 +6263,8 @@ NoEsCaps1:
 
 	TST.B	SFXCHIP
 	BNE.S	OUTABR
+	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
+	BNE.S	OUTABR
 
 	MOVE.B	PSG+7(A3),D2
 	AND.B	#%00111000,D2
@@ -7743,15 +7761,40 @@ OUT7D:
 	IFD	PERF
 	ADDQ.L	#1,Opll7DCnt		; (perf.bin: OPLL data writes)
 	ENDC
+	IFD	FMXREC			; (FMX check build) frame, register, value.
+	MOVE.L	FMXRecWP,A4
+	CMP.L	#FMXRecWEnd,A4
+	BCC.S	O7DRec
+	MOVE.W	FMXFrN,(A4)+
+	MOVE.B	D7C(A3),(A4)+
+	MOVE.B	D1,(A4)+
+	MOVE.L	A4,FMXRecWP
+O7DRec:
+	ENDC
 	MOVE.B	D1,D2
 	MOVE.B	D7C(A3),D1
 	AND.W	#$3F,D1
 	LEA	(Tabla7C.W,PC,D1.W),A4
+	CMP.B	#$08,D1			; (4.0, FMX) 00h-07h: custom instrument
+	BCS.S	O7DPat			; changed. 20h-28h: key off -> on is a
+	SUB.B	#$20,D1			; key-on event for the channel (kept
+	CMP.B	#$08,D1			; until the next frame, so that an
+	BHI.S	O7DSt			; off/on in one frame retriggers).
+	BTST	#4,D2
+	BEQ.S	O7DSt
+	BTST	#4,(A4)
+	BNE.S	O7DSt
+	ST	FMXKeyEv-Tabla7C-$20(A4)
+O7DSt:	MOVE.B	D2,(A4)
+	RTS
+O7DPat:	ST	FMXPDirty
 	MOVE.B	D2,(A4)
 	RTS
 
 	CNOP	0,8
 Tabla7C:DCB.B	$44,$FF		; Tabla para FM-Pack
+	DCB.B	4,0
+FMXKeyEv:	DCB.B	12,0		; (4.0) FMX key-on events, channels 0-8.
 	IFD	PERF
 Opll7DCnt:	DC.L	0
 	ENDC
@@ -8128,6 +8171,147 @@ KON18:
 
 	Otra2
 
+; (4.0) Flash Konami SCC cartridges (Konami Ultimate Collection style, e.g.
+; Pampas & Selene, 2 MB): Konami SCC banking plus an AMD flash chip for game
+; saves. Writing 7FFFh with bit 4 set enables flash writes; while enabled,
+; writes in 4000h-BFFFh are flash commands (unlock AAh at xAAAh, 55h at
+; x555h; then A0h: program the next byte, or 80h, unlock, 30h at an address:
+; erase its 64 KB sector). Operations end at once (as in openMSX), so a
+; program's status poll reads the final data. The ROM image in memory
+; changes; nothing is saved to disk. Only ROMs over 512 KB (no real Konami
+; SCC game is that big).
+FlashReg:
+	IFD	FLCOUNT
+	ADDQ.W	#1,FlDbg+0		; (perf.bin: 7FFFh writes, last value)
+	MOVE.B	(A4),FlDbg+2
+	ENDC
+	CMP.W	#64,NumROM
+	BLS.S	FlashRgX
+	MOVE.B	(A4),D1
+	BTST	#4,D1
+	IFND	FLNEVER
+	SNE	FlashOn
+	ENDC
+	SF	FlState
+FlashRgX:
+	Otra2
+
+FlashW4:
+	MOVE.W	#8,FlPage		; (D2's high word is Z80 state: keep
+	BRA.S	FlashW			; off it)
+FlashW6:
+	MOVE.W	#12,FlPage
+	BRA.S	FlashW
+FlashW8:
+	MOVE.W	#16,FlPage
+	BRA.S	FlashW
+FlashWA:
+	MOVE.W	#20,FlPage
+; D1.L = Z80 address, FlPage = page offset (PagRead), (A4) = value.
+FlashW:
+	IFD	FLCOUNT
+	ADDQ.W	#1,FlDbg+4		; (perf.bin: flash command writes)
+	ENDC
+	MOVEM.L	D3-D4/A0,FlSave		; (no stack here)
+	MOVE.B	(A4),D3
+	MOVE.W	D1,D4
+	AND.W	#$FFF,D4
+	TST.B	FlState
+	BNE.S	FlashS1
+	CMP.B	#$AA,D3			; 0: first unlock cycle.
+	BNE	FlashRs
+	CMP.W	#$AAA,D4
+	BNE	FlashRs
+	MOVE.B	#1,FlState
+	BRA	FlashX
+FlashS1:
+	CMP.B	#1,FlState		; 1 / 4: second unlock cycle.
+	BEQ.S	FlashU2
+	CMP.B	#4,FlState
+	BNE.S	FlashS2
+FlashU2:
+	CMP.B	#$55,D3
+	BNE	FlashRs
+	CMP.W	#$555,D4
+	BNE	FlashRs
+	ADDQ.B	#1,FlState
+	BRA	FlashX
+FlashS2:
+	CMP.B	#2,FlState		; 2: command.
+	BNE.S	FlashS3
+	CMP.W	#$AAA,D4
+	BNE	FlashRs
+	CMP.B	#$A0,D3
+	BNE.S	FlashS2e
+	MOVE.B	#3,FlState
+	BRA	FlashX
+FlashS2e:
+	CMP.B	#$80,D3
+	BNE	FlashRs
+	MOVE.B	#6,FlState
+	BRA	FlashX
+FlashS3:
+	CMP.B	#3,FlState		; 3: program (bits can only go to 0).
+	BNE.S	FlashS6
+	MOVE.W	FlPage,D4
+	MOVE.L	PagRead(A3,D4.W),A0
+	AND.B	D3,(A0,D1.L)
+	IFD	FLCOUNT
+	ADDQ.W	#1,FlDbg+6		; (programs)
+	ENDC
+	BRA	FlashRs
+FlashS6:
+	CMP.B	#6,FlState		; 6: erase, first unlock cycle again.
+	BNE.S	FlashS5
+	CMP.B	#$AA,D3
+	BNE	FlashRs
+	CMP.W	#$AAA,D4
+	BNE	FlashRs
+	MOVE.B	#4,FlState
+	BRA	FlashX
+FlashS5:
+	CMP.B	#$30,D3			; 5: sector erase (64 KB: 8 banks).
+	BNE.S	FlashRs
+	MOVE.W	FlPage,D4
+	MOVE.L	PagRead(A3,D4.W),A0
+	MOVE.L	D1,D4
+	AND.L	#$E000,D4
+	ADD.L	D4,A0			; this bank's data
+	MOVE.L	A0,D4
+	SUB.L	MapROMBase1(A3),D4
+	DIVU.W	#$2080,D4
+	AND.L	#$F8,D4			; first bank of the sector
+	MOVE.L	D4,D3
+	ADDQ.W	#8,D3
+	CMP.W	NumROM,D3
+	BHI.S	FlashRs
+	MULU.W	#$2080,D4
+	ADD.L	MapROMBase1(A3),D4
+	MOVE.L	D4,A0
+	IFD	FLCOUNT
+	ADDQ.W	#1,FlDbg+8		; (erases)
+	ENDC
+	MOVEQ	#8-1,D4
+FlashEb:
+	MOVE.W	#($2000/4)-1,D3
+FlashEf:
+	MOVE.L	#$FFFFFFFF,(A0)+
+	DBF	D3,FlashEf
+	LEA	$80(A0),A0
+	DBF	D4,FlashEb
+FlashRs:
+	SF	FlState
+FlashX:
+	MOVEM.L	FlSave,D3-D4/A0
+	Otra2
+
+FlSave:	DS.L	3
+FlPage:	DS.W	1
+FlDbg:	DS.W	6			; PERF: 7FFF writes, last, commands, programs, erases, mapper
+FlashOn:	DC.B	0		; flash writes enabled (7FFFh bit 4)
+FlState:	DC.B	0		; command state (0 idle .. 6)
+	CNOP	0,4
+
 ; -------------------------------------<=
 ; -------------------------------------<=
 
@@ -8138,6 +8322,8 @@ KON18:
 SCC14:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+8(A3),D1
+	TST.B	FlashOn			; (4.0) Flash writes enabled: commands.
+	BNE	FlashW4
 	AND.W	#$1800,D1
 	CMP.W	#$1000,D1
 	BEQ	Pag0S1
@@ -8146,6 +8332,10 @@ SCC14:
 SCC16:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+12(A3),D1
+	CMP.W	#$7FFF,D1		; (4.0) Flash cartridges: mode register.
+	BEQ	FlashReg
+	TST.B	FlashOn			; (4.0) Flash writes enabled: commands.
+	BNE	FlashW6
 	AND.W	#$1800,D1
 	CMP.W	#$1000,D1
 	BEQ	Pag1S1
@@ -8154,6 +8344,8 @@ SCC16:
 SCC18:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+16(A3),D1
+	TST.B	FlashOn			; (4.0) Flash writes enabled: commands.
+	BNE	FlashW8
 	AND.W	#$1800,D1
 	CMP.W	#$1000,D1
 	BEQ	Pag2S1
@@ -8162,6 +8354,8 @@ SCC18:
 SCC1A:
 	MOVE.L	A4,D1
 	SUB.L	PagWrite+20(A3),D1
+	TST.B	FlashOn			; (4.0) Flash writes enabled: commands.
+	BNE	FlashWA
 	AND.W	#$1800,D1
 	CMP.W	#$1000,D1
 	BEQ	Pag3S1
@@ -17298,6 +17492,7 @@ HangDone:
 	BTST	#5,$DFF01F
 	BEQ	VDP_Emul
 	MOVE.W	#$0020,$DFF09C
+	ADDQ.W	#1,FMXVbl		; (4.0) FMX: Amiga frames.
 	IFD	PERF
 	ADDQ.L	#1,PerfTick		; VBlank (line 0): speed counter clock.
 	MOVE.L	D0,-(SP)
@@ -17548,10 +17743,15 @@ INTERCON:
 	CMPI.B	#3,D0
 	BEQ.S	EsFMPak
 	JSR	TocaSCC
-	BRA.S	SfxFin
+	BRA	SfxFin
 EsFMPak:BSR	TocaFMPak
-	BRA.S	SfxFin
+	BRA	SfxFin
 EsPSG:	BSR	TocaPSG
+	TST.B	FMXOn			; (4.0) MSX-Music (FMX).
+	BEQ	SfxFin
+	PERFMARK
+	JSR	FMXFrame
+	PERFSUB	7			; 7: FMX
 SfxFin:
 
 ; -------------------------------------<
@@ -19938,6 +20138,8 @@ SOUND6:
 	AND.W	#$3F,D1
 	LSL.B	#2,D1
 	ADD.W	#128,D1
+	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
+	BNE.S	NOSOU6
 	MOVE.W	D1,$DFF0D6
 NOSOU6:	RTS
 
@@ -19947,6 +20149,8 @@ SOUND7:
 	CANAL	0,$DFF0A8
 	CANAL	1,$DFF0B8
 	CANAL	2,$DFF0C8
+	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
+	BNE.S	NOSOU6
 
 	MOVE.B	PSG+7(A3),D2
 	MOVE.B	D2,D1
@@ -19970,6 +20174,8 @@ SOUND10:VOLUM	2,$DFF0C8
 
 	CNOP	0,8
 HAYRUID:
+	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
+	BNE	NORUC5
 	MOVE.B	D2,D1
 	LSL.W	#8,D1
 	SF	D2
@@ -20015,7 +20221,7 @@ NORUC3:	MOVEQ	#0,D1
 	MOVE.W	D1,$DFF0D8
 	RTS
 NORUC4:	CLR.W	$DFF0D8
-	RTS
+NORUC5:	RTS
 
 
 SOUND11:RTS
@@ -20111,7 +20317,10 @@ tNORUC3:
 	BCC.S	tNORUC4
 	MOVEQ	#0,D1
 tNORUC4:
+	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
+	BNE.S	tNORUC5
 	MOVE.W	D1,$DFF0D8
+tNORUC5:
 	MOVEM.W	(SP)+,D1-D2
 	RTS
 
@@ -20196,6 +20405,8 @@ TABFRE:
 	DCB.W	$146-$134,224*2
 
 	DCB.W	$220-$146,224*2
+
+	INCLUDE	"AmiMSX_FM_v4.asm"	; (4.0) MSX-Music by wavetables.
 
 
 
@@ -23767,3 +23978,70 @@ SCList:		DS.B	32*32		; Can collide, by top: top.W, bottom.W,
 					; columns from.W, to.W (one past; EC included)
 SCCnt:		DS.B	256		; Sprites on each line so far,
 SCCut:		DS.B	256		; first one not shown there ($FF: none).
+
+; --------------------------------
+	SECTION	FMXD,DATA		; (4.0) FMX tables and variables
+; --------------------------------
+	CNOP	0,4
+FMXDat:	INCBIN	"Sound/fmx.dat"
+	CNOP	0,4
+FMXSave:	DS.L	15
+FMXK:		DS.L	1		; phase step factor
+FMXStep:	DS.L	1
+FMXTabNew:	DS.L	1
+FMXN:		DS.W	1		; samples a frame (227 or 313)
+FMXPer:		DS.W	1		; Paula period (313 or 227)
+FMXQsz:		DS.W	4		; samples in each quarter frame
+FMXQ:		DS.W	1
+FMXInst:	DS.W	1
+FMXFn:		DS.W	1
+FMXBlk:		DS.W	1
+FMXG0:		DS.W	1
+FMXG1:		DS.W	1
+FMXSm:		DS.W	1
+FMXSc:		DS.W	1
+FMXTl2:		DS.W	1
+FMXFb:		DS.W	1
+FMXAttM:	DS.W	1
+FMXVbl:		DS.W	1		; vertical blanks (Inter)
+FMXVbl0:	DS.W	1
+FMXOn:		DS.B	1		; sound chip 3
+FMXFast:	DS.B	1		; 313 samples a frame
+FMXVolOK:	DS.B	1
+FMXPDirty:	DS.B	1
+FMXSync:	DS.B	1
+FMXR20:		DS.B	1
+FMXUserG:	DS.B	1
+FMXWsM:		DS.B	1
+FMXWsC:		DS.B	1
+FMXMLT:		DC.B	1,2,4,6,8,10,12,14,16,18,20,20,24,24,30,30
+FMXXO0:		DC.B	0,0,0,0		; gain index offsets by quarter:
+FMXXOOld:	DC.B	3,8,16,63	; cross-fade, old table out,
+FMXXONew:	DC.B	16,8,3,0	; new table in
+	EVEN
+; --------------------------------
+	SECTION	FMXB,BSS
+; --------------------------------
+FMXVol:		DS.W	64*256		; volume tables (gain index, sample)
+FMXUser:	DS.B	8*256		; custom instrument tables
+FMXMix:		DS.W	320
+FMXCh:		DS.B	9*CH_SIZE
+; --------------------------------
+	SECTION	FMXC,BSS_C
+; --------------------------------
+FMXBuf:		DS.B	FMXBUFSZ	; Paula channel 3 (two halves)
+	IFD	FMXREC
+; --------------------------------
+	SECTION	FMXR,BSS
+; --------------------------------
+FMXRecWP:	DS.L	1
+FMXRecOP:	DS.L	1
+FMXFrN:		DS.W	1
+FMXRecIn:	DS.B	1
+	EVEN
+FMXRecInit:	DS.B	64
+FMXRecW:	DS.B	65536
+FMXRecWEnd:
+FMXRecO:	DS.B	1048576
+FMXRecOEnd:
+	ENDC

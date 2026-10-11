@@ -1724,6 +1724,7 @@ SoundLabels:
     DC.L    SoundLab0
     DC.L    SoundLab1
     DC.L    SoundLab2
+    DC.L    SoundLab3
     DC.L    0
 
 DISKverLabels:
@@ -1800,6 +1801,7 @@ RAMLab5:    DC.B    '4096Kb',0
 SoundLab0:    DC.B    'PSG',0
 SoundLab1:    DC.B    'SCC',0
 SoundLab2:    DC.B    'SCC+',0
+SoundLab3:    DC.B    'PSG+FM',0          ; (4.0) MSX-Music (FMX)
 
     CNOP    0,2
 

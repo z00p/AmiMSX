@@ -11,7 +11,7 @@ import sys, struct
 
 LINES = 313
 SUBS = {0: "BITPLASPR", 1: "BITSPRCOL", 2: "CREASPR", 3: "IMPSPR2", 4: "CLEARSPR2",
-        5: "S4tiles", 6: "S4full", 7: "S4sprites"}
+        5: "S4tiles", 6: "S4full", 7: "FMX"}
 
 
 def read(path):

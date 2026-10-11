@@ -543,6 +543,24 @@ PerfDump:
 	MOVE.L	#Opll7DCnt,D2
 	MOVE.L	#4,D3
 	BSR	WRITEFILE
+	MOVE.B	DirPrefs+$76,FlDbg+11	; (4.0) flash cartridge counters, mapper.
+	MOVE.L	#FlDbg,D2
+	MOVE.L	#12,D3
+	BSR	WRITEFILE
+	IFD	FMXREC			; (FMX check build) start registers,
+	MOVE.L	#FMXRecInit,D2		; pointers, writes (frame.W, reg, value),
+	MOVE.L	#64,D3			; output bytes.
+	BSR	WRITEFILE
+	MOVE.L	#FMXRecWP,D2
+	MOVE.L	#8,D3
+	BSR	WRITEFILE
+	MOVE.L	#FMXRecW,D2
+	MOVE.L	#65536,D3
+	BSR	WRITEFILE
+	MOVE.L	#FMXRecO,D2
+	MOVE.L	#1048576,D3
+	BSR	WRITEFILE
+	ENDC
 	BSR	CLOSEFILE
 PerfDFin:
 	RTS
@@ -596,6 +614,9 @@ TraceDump:
 	BSR	WRITEFILE
 	MOVE.L	#GFXSPRT,D2
 	MOVE.L	#4,D3
+	BSR	WRITEFILE
+	MOVE.L	#FlDbg,D2		; (4.0) flash counters (last 12 bytes)
+	MOVE.L	#12,D3
 	BSR	WRITEFILE
 	BSR	CLOSEFILE
 	MOVE.L	#ScrDumpName,D1		; The SCREEN 2/4 bitmap (256 lines,
@@ -2929,7 +2950,8 @@ GPLoadNone:
 	CMP.B	#5,DirPrefs+$76		; No game file, but a Konami SCC mapper
 	BCS.S	GPNoScc			; (5 = SCC 1, 6 = SCC 2): the global
 	CMP.B	#6,DirPrefs+$76		; settings with the SCC sound chip, if
-	BHI.S	GPNoScc			; they have the PSG (SCC+ is kept).
+	BHI.S	GPNoScc			; they have the PSG or PSG+FM (SCC+
+					; is kept).
 	TST.B	GPActive
 	BNE.S	GPScc1
 	BSR	GPGUIToPrefs
@@ -2939,8 +2961,10 @@ GPLoadNone:
 GPScc1:	LEA	GPSaved,A1
 	BSR	GPToPrefs
 	TST.B	DirPrefs+$1D
+	BEQ.S	GPScc3
+	CMP.B	#3,DirPrefs+$1D
 	BNE.S	GPScc2
-	MOVE.B	#1,DirPrefs+$1D
+GPScc3:	MOVE.B	#1,DirPrefs+$1D
 GPScc2:	BRA	GPShowGUI
 GPNoScc:
 	TST.B	GPActive		; None: the global settings again.

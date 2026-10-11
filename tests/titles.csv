@@ -66,3 +66,15 @@ R2_akin2,R2_akin2.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan
 R2_bold,R2_bold.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
 R2_invasion,R2_invasion.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
 R2_io,R2_io.dsk,disk,set2,,autospace,030,"22,40,60",Y,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
+001_Manbow2,001_Manbow2.rom,rom,core,KonamiSCC,play,030,"30,45,60",,,adjust:R#18 cmd:HMMM cmd:HMMV cmd:LMMM cmd:LMMV line-interrupts machine:MSX2 mapper:KonamiSCC mode:S5 mode:S8 palette:mid-frame scroll:R#23 split:adjust split:border split:mode split:scroll split:sprite-tables split:sprites-on/off split:tables sprites:mode2
+002_PampasSeleneTheMazeofD,002_PampasSeleneTheMazeofD.rom,rom,core,KonamiUltimateCollection,play,030,"30,45,60",,flash SCC mapper: KonamiSCC hangs polling flash at boot (open),cmd:HMMM cmd:HMMV cmd:LMMM line-interrupts machine:MSX2 mapper:KonamiUltimateCollection mode:S5 palette:mid-frame split:mode split:sprite-tables sprites:mode2
+012_CaosBegins,012_CaosBegins.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+014_UwolQuestforMoney,014_UwolQuestforMoney.rom,rom,core,ASCII8,play,030,"30,45,60",,DSK2ROM: calls MSX-BASIC (C-BIOS errors),machine:MSX1 mapper:ASCII8
+019_Alien8Remake,019_Alien8Remake.rom,rom,core,,play,030,"30,45,60",,,cmd:HMMV cmd:LMMM cmd:YMMM machine:MSX2 mapper:plain mode:S5 palette
+020_GradiusIIILegends,020_GradiusIIILegends.dsk,disk,core,,play,030,"30,45,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX2
+023_Shouganai,023_Shouganai.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+024_ZombieCalaveraPrologue,024_ZombieCalaveraPrologue.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+026_HeadoverHeelsRemake,026_HeadoverHeelsRemake.rom,rom,core,KonamiSCC,play,030,"30,45,60",,,cmd:HMMM cmd:HMMV cmd:LMMM cmd:LMMV machine:MSX2 mapper:KonamiSCC mode:S5 mode:S8 palette:mid-frame split:border split:mode split:sprite-tables split:sprites-on/off sprites:mode2
+027_Malaika,027_Malaika.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
+028_Aquattack,028_Aquattack.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S1 split:mode sprites:mode1
+030_DICEDTournament,030_DICEDTournament.rom,rom,core,Konami,play,030,"30,45,60",,,machine:MSX1 mapper:Konami mode:S2 sprites:mode1

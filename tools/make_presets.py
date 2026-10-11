@@ -15,15 +15,17 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Prefs offsets (DIRPrefs in AmiMSX_Menu_v3.1.asm)
 SPRITES = 0x16      # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 2nd frame, 3 = every 3rd
+SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Music by FMX; Konami SCC
+                    # ROMs still get the SCC). FM is on only where there's CPU to spare.
 COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
                     # read report a collision (IVDP0Spr). Real collision detection always runs. Keep 0.
 # 4.0 block after the credits string: PrefMask (mask screen edges, FFh = 8 dots) at
 # the first byte, left at the binary's default (off).
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
-    ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0)}),
-    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0)}),
-    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0)}),
+    ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0), SOUND: ("B", 0)}),
+    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0)}),
+    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3)}),
 ]
 
 W, H = 46, 46

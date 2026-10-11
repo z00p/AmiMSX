@@ -82,6 +82,22 @@ So the right notes, at the right times, with close to the right timbre. Listenin
 
 - **What that means:** a 9-voice software mixer at 11 kHz is roughly 20,000 instructions a frame, about 8% of a 68030/50 frame and 2-3% of a 68060. Lilly already runs below full speed on the A1200 and the 030, so a mixer would slow it further there; the 060 and PiStorm/BigMig have room. So: Paula hardware voices (almost no CPU) on the A1200 and 030, the software mixer on fast machines.
 
+## FMX, the 68k engine (11 Oct, test build)
+
+`AmiMSX_FM_v4.asm`, selected by sound chip 3 (key-script `option sound 3`; no menu entry yet).
+
+- **What it does:** the PSG keeps Paula channels 0-2; FMX mixes the nine FM voices into channel 3. Its noise channel is given up while FMX is on. The output is locked to the PAL frame: 227 samples a frame at period 313 (11.3 kHz), or 313 at period 227 (15.6 kHz, `FMXFast`). The DMA loops over a two-frame buffer, and each frame FMX fills the half that plays next.
+- **Port 7Dh:** a key off-to-on change is kept as an event until the next frame, so an off/on within one frame retriggers the note. A write to registers 00h-07h marks the custom instrument for rebuilding; its 8 tables (2 KB) are built on the 68k from the chip's log-sine/exp tables. The registers start at 0 after a reset in FM mode, as on the chip.
+- **Spec and check:** `tools/fm_synth.py` (class `Synth`) is the 68k code step for step. A check build (`-DPERF=1 -DFMXREC=1`) logs every OPLL write and every output byte; `tools/fmx_check.py` replays the writes through the model and compares. Lilly's Saga, 60 s on the 060 config: 2,953 frames, identical except 3 frames off by 1 in a few samples (when the custom instrument is rebuilt while an old note fades: the 68k rebuilds in place, the model keeps a copy).
+- **Cost in Lilly's gameplay** (perf sub-timer 7):
+
+| Config | FMX per frame | Speed without / with |
+|---|---|---|
+| 68060 | 17-18 lines (about 6%) | 100% / 100% |
+| 68030 | 23-25 lines (about 8%) | 86-89% / 80-83% |
+
+- **Listening:** `build/fm/lilly_amiga_fmx.wav` is what the Amiga played (from the check build); against openMSX it scores chroma 0.94 (the two runs' timing differs a little).
+
 ## Next steps
 
 1. Run Lilly's Saga with the FM-PAC enabled in AmiMSX (sound chip 3 through a key-script option) to confirm the game finds MSX-Music, and see what v0.1 sounds like.
