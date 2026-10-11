@@ -537,6 +537,12 @@ PerfDump:
 	MOVE.L	#SCCalls,D2		; Sprite collision checks run (after it).
 	MOVE.L	#4,D3
 	BSR	WRITEFILE
+	MOVE.L	#Tabla7C,D2		; (4.0) OPLL registers, then the count
+	MOVE.L	#$44,D3			; of OPLL data writes.
+	BSR	WRITEFILE
+	MOVE.L	#Opll7DCnt,D2
+	MOVE.L	#4,D3
+	BSR	WRITEFILE
 	BSR	CLOSEFILE
 PerfDFin:
 	RTS

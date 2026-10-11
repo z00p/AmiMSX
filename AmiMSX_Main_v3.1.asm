@@ -750,6 +750,16 @@ SetFFBuc:
 	MOVE.L	D1,(A0)+
 	MOVE.L	D1,(A0)+
 	DBF	D0,SetFFBuc
+; (4.0) MSX-Music signature page: $FF but for the ID that games look for
+; ("APRLOPLL" at 4018h, as in an MSX2+ with built-in MSX-Music). No ROM code.
+	LEA	MMUSIC,A0
+	MOVE.W	#((16*1024)/8)-1,D0
+SetFFBucM:
+	MOVE.L	D1,(A0)+
+	MOVE.L	D1,(A0)+
+	DBF	D0,SetFFBucM
+	MOVE.L	#"APRL",MMUSIC+$18
+	MOVE.L	#"OPLL",MMUSIC+$1C
 ; ------------------------------------<
 
 
@@ -1131,6 +1141,13 @@ EsContinuar:
 ;;	MOVE.L	#"APRL",FMPak1+$18
 ;;	MOVE.L	#"OPLL",FMPak1+$1C
 NoEsFMPak:
+	ENDC
+	IFNE	FM_Pak_ROM
+	MOVE.L	#NOMEM-$4000,SUBSLOT2+8	; (4.0) Sound chip FM: MSX-Music
+	CMP.B	#3,SFXCHIP		; signature page in slot 0-2, page 1.
+	BNE.S	NoEsMMus
+	MOVE.L	#MMUSIC-$4000,SUBSLOT2+8
+NoEsMMus:
 	ENDC
 ; ---------------------------------------<=
 
@@ -7723,6 +7740,9 @@ OUT7C:
 
 OUT7D:
 ;;	MOVE.W	#-1,$DFF180
+	IFD	PERF
+	ADDQ.L	#1,Opll7DCnt		; (perf.bin: OPLL data writes)
+	ENDC
 	MOVE.B	D1,D2
 	MOVE.B	D7C(A3),D1
 	AND.W	#$3F,D1
@@ -7732,6 +7752,9 @@ OUT7D:
 
 	CNOP	0,8
 Tabla7C:DCB.B	$44,$FF		; Tabla para FM-Pack
+	IFD	PERF
+Opll7DCnt:	DC.L	0
+	ENDC
 ; -------------------------------------<
 
 
@@ -23572,6 +23595,7 @@ DirROM:	DS.B	4*($4100)
 DirDOS:	DS.B	4*($4000)+$100
 NOMEM:	DS.B	(16*1024)
 	DS.B	$100
+MMUSIC:	DS.B	(16*1024)		; (4.0) MSX-Music signature page.
 ESROM=NOMEM+1
 
 ROM10=DirROM
