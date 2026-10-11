@@ -75,6 +75,7 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 - **Assembler:** vasm 2.0f replaces Devpac III. `build.sh` refuses branches to `*+n`, after one crashed builds once the code moved.
 - **Test hooks:**
   - `AmiMSX <cartridge> [keyscript]` inserts a cartridge in Slot 1 and powers on;
+  - `AmiMSX <cartridge> MENU` inserts it and stays in the menu (settings, then Power ON); the Slot 1 label shows the file's name;
   - the key script drives the MSX keyboard and can freeze exact frames for capture.
 - **Debug builds:**
   - `TRACE` (instruction ring), `TRACELITE` (event ring only);

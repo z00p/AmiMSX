@@ -5,9 +5,11 @@
 #             (AmiMSX's own Sound gadget: PSG by default; Konami SCC cartridges need SCC)
 #   PiStorm   68040 with JIT at full speed (as close to Emu68 as WinUAE gets)
 #
-# Games: run\Roms (.rom, Slot 1) and run\Disks (.dsk, drive A). "Play" boots
-# straight into the game; "AmiMSX menu" starts the menu, whose Slot 1 / Disk
-# requesters show the same folders (AmiMSX:Roms, AmiMSX:Disks).
+# Games: run\Roms (.rom, Slot 1) and run\Disks (.dsk, drive A), with title,
+# developer and year from run\Roms\roms.csv (tools\make_rom_list.py; hand edits
+# welcome). "Play" boots straight into the game; "Open in AmiMSX menu" puts the
+# game in Slot 1 and stays in the menu (AmiMSX <cartridge> MENU) for settings
+# and Power ON; with no game selected it opens the menu with Slot 1 empty.
 # Reports: reports\<time>_<game>\ (report.md, report.json, screen.png, 12 frames
 # a little apart) and reports\index.csv.
 #
@@ -45,7 +47,7 @@ $prefsAside = "$base\run\AmiMSX2.prefs.tester"
 $lock = "$base\run\tester.lock"
 $reports = "$base\reports"
 $latin1 = [Text.Encoding]::GetEncoding(28591)
-$script:proc = $null; $script:game = ""; $script:mode = ""; $script:t0 = $null; $script:build = ""
+$script:proc = $null; $script:game = ""; $script:title = ""; $script:mode = ""; $script:t0 = $null; $script:build = ""
 
 # Sound for people (the regression configs stay as they are): in sync with the
 # emulation, 48 kHz stereo, full volume, no automatic switching off.
@@ -92,16 +94,19 @@ function Start-Session($game, $menuOnly) {
   Copy-Item "$base\build\AmiMSX" "$base\run\AmiMSX" -Force
   $script:build = Get-Build
   $s = [IO.File]::ReadAllText($seq, $latin1)
-  if ($menuOnly) { $run = "Run >NIL: AmiMSX:AmiMSX" }
+  if (-not $game) { $run = "Run >NIL: AmiMSX:AmiMSX" }
   else {
     $dir = if ($game -match '\.dsk$') { "Disks" } else { "Roms" }
     $run = "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$game`""
+    # Menu: the cartridge goes into Slot 1 and AmiMSX stays in its menu (settings,
+    # Save game settings, then Power ON). Disk images have no such option: they boot.
+    if ($menuOnly -and $dir -eq "Roms") { $run += " MENU" }
   }
   $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', $run)
   [IO.File]::WriteAllText($seq, $s, $latin1)
   $cfg = if ($rbPi.Checked) { "$base\run\Tester-PiStorm.uae" } else { "$base\run\Tester-030.uae" }
   $script:mode = if ($rbPi.Checked) { "PiStorm-like (68040 JIT)" } else { "68030/50 cycle-exact" }
-  $script:game = if ($menuOnly) { "(AmiMSX menu)" } else { $game }
+  $script:game = if (-not $game) { "(AmiMSX menu)" } elseif ($menuOnly) { "$game (in the menu)" } else { $game }
   $script:proc = Start-Process $winuae -ArgumentList "-f `"$cfg`"" -WorkingDirectory (Split-Path $winuae) -PassThru
   Set-Content $lock $script:proc.Id
   $script:t0 = Get-Date
@@ -148,30 +153,38 @@ function Report-Issue {
     }
     Start-Sleep -Milliseconds 80
   }
-  # Then the description.
+  # Then the description (a layout that scales with the display).
   $f = New-Object Windows.Forms.Form
-  $f.Text = "Report an issue: $($script:game)"; $f.Size = New-Object Drawing.Size 520, 420; $f.StartPosition = "CenterParent"
-  $f.Font = New-Object Drawing.Font "Segoe UI", 10
-  $l1 = New-Object Windows.Forms.Label; $l1.Text = "What kind of problem?"; $l1.Location = "12,12"; $l1.AutoSize = $true
-  $cb = New-Object Windows.Forms.ComboBox; $cb.Location = "12,36"; $cb.Width = 480; $cb.DropDownStyle = "DropDownList"
+  $f.Text = "Report an issue: $($script:game)"; $f.StartPosition = "CenterParent"
+  $f.AutoScaleDimensions = New-Object Drawing.SizeF 96, 96; $f.AutoScaleMode = "Dpi"
+  $f.Font = New-Object Drawing.Font "Segoe UI", 11
+  $f.ClientSize = New-Object Drawing.Size 640, 470; $f.MinimumSize = New-Object Drawing.Size 520, 420
+  $t = New-Object Windows.Forms.TableLayoutPanel; $t.Dock = "Fill"; $t.Padding = "12,12,12,12"; $t.ColumnCount = 1
+  foreach ($k in "AutoSize", "AutoSize", "AutoSize", "Percent", "AutoSize", "AutoSize") {
+    [void]$t.RowStyles.Add((New-Object Windows.Forms.RowStyle $k, 100)) }
+  $l1 = New-Object Windows.Forms.Label; $l1.Text = "What kind of problem?"; $l1.AutoSize = $true
+  $cb = New-Object Windows.Forms.ComboBox; $cb.Dock = "Fill"; $cb.DropDownStyle = "DropDownList"
   "Graphics (wrong or corrupted)", "Sprites (missing, flicker, wrong place)", "Colours", "Scrolling / split screen",
   "Sound / music", "Speed (too slow, stutter)", "Controls / keys", "Crash, hang or reset", "Won't start / load", "Other" |
     ForEach-Object { [void]$cb.Items.Add($_) }
   $cb.SelectedIndex = 0
-  $l2 = New-Object Windows.Forms.Label; $l2.Text = "What happened? (what you did, what you saw, what you expected)"; $l2.Location = "12,72"; $l2.AutoSize = $true
-  $tb = New-Object Windows.Forms.TextBox; $tb.Multiline = $true; $tb.ScrollBars = "Vertical"; $tb.Location = "12,96"; $tb.Size = New-Object Drawing.Size 480, 200
-  $chk = New-Object Windows.Forms.CheckBox; $chk.Text = "It happens every time (reproducible)"; $chk.Location = "12,304"; $chk.AutoSize = $true
-  $ok = New-Object Windows.Forms.Button; $ok.Text = "Save report"; $ok.Location = "300,336"; $ok.Width = 110; $ok.DialogResult = "OK"
-  $cn = New-Object Windows.Forms.Button; $cn.Text = "Discard"; $cn.Location = "416,336"; $cn.Width = 76; $cn.DialogResult = "Cancel"
-  $f.Controls.AddRange(@($l1, $cb, $l2, $tb, $chk, $ok, $cn)); $f.AcceptButton = $null; $f.CancelButton = $cn
+  $l2 = New-Object Windows.Forms.Label; $l2.Text = "What happened? (what you did, what you saw, what you expected)"; $l2.AutoSize = $true
+  $l2.Margin = "3,10,3,3"
+  $tb = New-Object Windows.Forms.TextBox; $tb.Multiline = $true; $tb.ScrollBars = "Vertical"; $tb.Dock = "Fill"
+  $chk = New-Object Windows.Forms.CheckBox; $chk.Text = "It happens every time (reproducible)"; $chk.AutoSize = $true
+  $bp = New-Object Windows.Forms.FlowLayoutPanel; $bp.FlowDirection = "RightToLeft"; $bp.AutoSize = $true; $bp.Dock = "Fill"
+  $cn = New-Object Windows.Forms.Button; $cn.Text = "Discard"; $cn.AutoSize = $true; $cn.Padding = "10,4,10,4"; $cn.DialogResult = "Cancel"
+  $ok = New-Object Windows.Forms.Button; $ok.Text = "Save report"; $ok.AutoSize = $true; $ok.Padding = "10,4,10,4"; $ok.DialogResult = "OK"
+  $bp.Controls.AddRange(@($cn, $ok))
+  $t.Controls.AddRange(@($l1, $cb, $l2, $tb, $chk, $bp)); $f.Controls.Add($t); $f.CancelButton = $cn
   if ($f.ShowDialog($form) -ne "OK") { Remove-Item $dir -Recurse -Force; return }
   $r = [ordered]@{
-    time = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); game = $script:game; mode = $script:mode
+    time = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); game = $script:game; title = $script:title; mode = $script:mode
     seconds_into_session = $elapsed; category = $cb.SelectedItem; reproducible = $chk.Checked
     description = $tb.Text; build = $script:build; folder = $dir
   }
   $r | ConvertTo-Json | Set-Content "$dir\report.json" -Encoding UTF8
-  @("# $($r.game): $($r.category)", "",
+  @("# $($r.title) ($($r.game)): $($r.category)", "",
     "- **When:** $($r.time), $elapsed s into the session", "- **Mode:** $($r.mode)",
     "- **Build:** $($r.build)", "- **Reproducible:** $($r.reproducible)", "",
     $r.description, "", "Files: screen.png (full size), frame00-11.png (about 80 ms apart).") |
@@ -184,38 +197,94 @@ function Report-Issue {
 }
 
 # --- Window ------------------------------------------------------------------
+# Layout panels with Dpi auto-scaling, so the window scales with the display
+# (fixed pixel positions were cramped and cut off on a 4K screen at 150-200 %).
+[Windows.Forms.Application]::EnableVisualStyles()
 $form = New-Object Windows.Forms.Form
-$form.Text = "AmiMSX Tester"; $form.Size = New-Object Drawing.Size 560, 640; $form.StartPosition = "CenterScreen"
-$form.Font = New-Object Drawing.Font "Segoe UI", 10
+$form.Text = "AmiMSX Tester"; $form.StartPosition = "CenterScreen"
+$form.AutoScaleDimensions = New-Object Drawing.SizeF 96, 96; $form.AutoScaleMode = "Dpi"
+$form.Font = New-Object Drawing.Font "Segoe UI", 11
+# Window size in logical units, times the display scale (the panels and the
+# font scale by themselves).
+$gfx = $form.CreateGraphics(); $dpiScale = $gfx.DpiX / 96; $gfx.Dispose()
+$form.ClientSize = New-Object Drawing.Size ([int](980 * $dpiScale)), ([int](760 * $dpiScale))
+$form.MinimumSize = New-Object Drawing.Size ([int](760 * $dpiScale)), ([int](560 * $dpiScale))
 $ico = "$base\winuae\AmiMSX-Tester.ico"; if (Test-Path $ico) { $form.Icon = New-Object Drawing.Icon $ico }
 
-$grp = New-Object Windows.Forms.GroupBox; $grp.Text = "Speed mode"; $grp.Location = "12,8"; $grp.Size = New-Object Drawing.Size 520, 76
-$rb030 = New-Object Windows.Forms.RadioButton; $rb030.Text = "68030 / 50 MHz (cycle-exact: the 4.0 baseline)"; $rb030.Location = "12,22"; $rb030.AutoSize = $true; $rb030.Checked = $true
-$rbPi = New-Object Windows.Forms.RadioButton; $rbPi.Text = "PiStorm-like (68040 JIT, full speed)"; $rbPi.Location = "12,46"; $rbPi.AutoSize = $true
-$grp.Controls.AddRange(@($rb030, $rbPi))
+$tl = New-Object Windows.Forms.TableLayoutPanel; $tl.Dock = "Fill"; $tl.Padding = "12,10,12,10"; $tl.ColumnCount = 1
+foreach ($k in "AutoSize", "AutoSize", "Percent", "AutoSize", "AutoSize", "AutoSize") {
+  [void]$tl.RowStyles.Add((New-Object Windows.Forms.RowStyle $k, 100)) }
 
-$lblF = New-Object Windows.Forms.Label; $lblF.Text = "Find:"; $lblF.Location = "12,98"; $lblF.AutoSize = $true
-$txtF = New-Object Windows.Forms.TextBox; $txtF.Location = "60,95"; $txtF.Width = 472
-$lst = New-Object Windows.Forms.ListBox; $lst.Location = "12,128"; $lst.Size = New-Object Drawing.Size 520, 330
-$all = @(Get-ChildItem "$base\run\Roms" -File | Where-Object { $_.Extension -match '^\.(rom|mx1|mx2)$' } | ForEach-Object { $_.Name }) +
-       @(Get-ChildItem "$base\run\Disks" -File -Filter *.dsk -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-$all = $all | Sort-Object
-function Fill { $lst.BeginUpdate(); $lst.Items.Clear(); $all | Where-Object { $_ -like "*$($txtF.Text)*" } | ForEach-Object { [void]$lst.Items.Add($_) }; $lst.EndUpdate() }
-$txtF.Add_TextChanged({ Fill }); Fill
+$grp = New-Object Windows.Forms.GroupBox; $grp.Text = "Speed mode"; $grp.AutoSize = $true; $grp.Dock = "Fill"
+$gf = New-Object Windows.Forms.FlowLayoutPanel; $gf.Dock = "Fill"; $gf.AutoSize = $true; $gf.FlowDirection = "TopDown"
+$rb030 = New-Object Windows.Forms.RadioButton; $rb030.Text = "68030 / 50 MHz  (cycle-exact: the 4.0 baseline)"; $rb030.AutoSize = $true; $rb030.Checked = $true
+$rbPi = New-Object Windows.Forms.RadioButton; $rbPi.Text = "PiStorm-like  (68040 JIT, full speed: as the BigMig)"; $rbPi.AutoSize = $true
+$gf.Controls.AddRange(@($rb030, $rbPi)); $grp.Controls.Add($gf)
 
-$btnPlay = New-Object Windows.Forms.Button; $btnPlay.Text = "Play selected"; $btnPlay.Location = "12,468"; $btnPlay.Width = 126
-$btnMenu = New-Object Windows.Forms.Button; $btnMenu.Text = "AmiMSX menu"; $btnMenu.Location = "144,468"; $btnMenu.Width = 120
-$btnRep = New-Object Windows.Forms.Button; $btnRep.Text = "Report issue"; $btnRep.Location = "270,468"; $btnRep.Width = 130
+$ff = New-Object Windows.Forms.FlowLayoutPanel; $ff.AutoSize = $true; $ff.Dock = "Fill"; $ff.WrapContents = $false
+$lblF = New-Object Windows.Forms.Label; $lblF.Text = "Find:"; $lblF.AutoSize = $true; $lblF.Margin = "3,7,3,3"
+$txtF = New-Object Windows.Forms.TextBox; $txtF.Width = 420
+$lblN = New-Object Windows.Forms.Label; $lblN.AutoSize = $true; $lblN.Margin = "12,7,3,3"; $lblN.ForeColor = [Drawing.Color]::DimGray
+$ff.Controls.AddRange(@($lblF, $txtF, $lblN))
+
+# Game list: click a column header to sort (again to reverse); blanks sort last.
+$lv = New-Object Windows.Forms.ListView; $lv.View = "Details"; $lv.FullRowSelect = $true; $lv.MultiSelect = $false
+$lv.HideSelection = $false; $lv.Dock = "Fill"; $lv.GridLines = $true
+foreach ($c in @(@("Game", 330), @("Developer", 250), @("Year", 70), @("File", 240))) { [void]$lv.Columns.Add($c[0], [int]($c[1] * $dpiScale)) }
+
+$meta = @{}
+$csvPath = "$base\run\Roms\roms.csv"
+if (Test-Path $csvPath) { Import-Csv $csvPath | ForEach-Object { $meta[$_.file] = $_ } }
+$games = @()
+Get-ChildItem "$base\run\Roms" -File | Where-Object { $_.Extension -match '^\.(rom|mx1|mx2)$' } | ForEach-Object {
+  $m = $meta[$_.Name]
+  $games += [pscustomobject]@{ File = $_.Name; Title = $(if ($m -and $m.title) { $m.title } else { $_.BaseName })
+                               Developer = $(if ($m) { $m.developer } else { "" }); Year = $(if ($m) { $m.year } else { "" }) } }
+Get-ChildItem "$base\run\Disks" -File -Filter *.dsk -ErrorAction SilentlyContinue | ForEach-Object {
+  $games += [pscustomobject]@{ File = $_.Name; Title = "$($_.BaseName) (disk)"; Developer = ""; Year = "" } }
+$keys = @("Title", "Developer", "Year", "File"); $heads = @("Game", "Developer", "Year", "File")
+$script:sortKey = "Title"; $script:sortAsc = $true
+function Fill {
+  $q = $txtF.Text
+  $rows = @($games | Where-Object { -not $q -or "$($_.Title) $($_.Developer) $($_.Year) $($_.File)" -like "*$q*" })
+  $rows = @($rows | Sort-Object @{ Expression = { [string]::IsNullOrEmpty($_.($script:sortKey)) } },
+                                @{ Expression = { $_.($script:sortKey) }; Descending = (-not $script:sortAsc) },
+                                @{ Expression = { $_.Title } })
+  $lv.BeginUpdate(); $lv.Items.Clear()
+  foreach ($g in $rows) {
+    $it = New-Object Windows.Forms.ListViewItem ([string]$g.Title)
+    [void]$it.SubItems.Add([string]$g.Developer); [void]$it.SubItems.Add([string]$g.Year); [void]$it.SubItems.Add([string]$g.File)
+    $it.Tag = $g; [void]$lv.Items.Add($it)
+  }
+  $lv.EndUpdate()
+  for ($k = 0; $k -lt 4; $k++) {
+    $lv.Columns[$k].Text = if ($keys[$k] -eq $script:sortKey) { $heads[$k] + $(if ($script:sortAsc) { "  ^" } else { "  v" }) } else { $heads[$k] }
+  }
+  $lblN.Text = "$($rows.Count) of $($games.Count) games"
+}
+$lv.Add_ColumnClick({ param($sender, $e)
+  $k = $keys[$e.Column]
+  if ($k -eq $script:sortKey) { $script:sortAsc = -not $script:sortAsc } else { $script:sortKey = $k; $script:sortAsc = $true }
+  Fill })
+$txtF.Add_TextChanged({ Fill })
+function Selected { if ($lv.SelectedItems.Count) { return $lv.SelectedItems[0].Tag } }
+
+$bf = New-Object Windows.Forms.FlowLayoutPanel; $bf.AutoSize = $true; $bf.Dock = "Fill"
+function New-Btn($text) { $b = New-Object Windows.Forms.Button; $b.Text = $text; $b.AutoSize = $true; $b.Padding = "12,6,12,6"; $b.Margin = "3,6,9,3"; $b }
+$btnPlay = New-Btn "Play"; $btnMenu = New-Btn "Open in AmiMSX menu"; $btnRep = New-Btn "Report issue"; $btnStop = New-Btn "Stop"
 $btnRep.BackColor = [Drawing.Color]::FromArgb(255, 230, 200)
-$btnStop = New-Object Windows.Forms.Button; $btnStop.Text = "Stop"; $btnStop.Location = "406,468"; $btnStop.Width = 126
-$lblStatus = New-Object Windows.Forms.Label; $lblStatus.Location = "12,506"; $lblStatus.Size = New-Object Drawing.Size 520, 44; $lblStatus.Text = "Not running."
-$lblHelp = New-Object Windows.Forms.Label; $lblHelp.Location = "12,552"; $lblHelp.Size = New-Object Drawing.Size 520, 40
-$lblHelp.Text = "Double-click a game to play. Report issue grabs the WinUAE window right away, then asks what went wrong."
-$lblHelp.ForeColor = [Drawing.Color]::DimGray
+$bf.Controls.AddRange(@($btnPlay, $btnMenu, $btnRep, $btnStop))
 
-$btnPlay.Add_Click({ if ($lst.SelectedItem) { Start-Session $lst.SelectedItem $false } })
-$lst.Add_DoubleClick({ if ($lst.SelectedItem) { Start-Session $lst.SelectedItem $false } })
-$btnMenu.Add_Click({ Start-Session "" $true })
+$lblStatus = New-Object Windows.Forms.Label; $lblStatus.AutoSize = $true; $lblStatus.Text = "Not running."; $lblStatus.Margin = "3,8,3,3"
+$lblHelp = New-Object Windows.Forms.Label; $lblHelp.AutoSize = $true; $lblHelp.ForeColor = [Drawing.Color]::DimGray; $lblHelp.Margin = "3,6,3,3"
+$lblHelp.Text = "Play (or double-click): boots straight into the game.   Open in AmiMSX menu: the game goes into Slot 1 so you can change settings, or use Cartridges > Slot 1 > Save game settings, then Power ON.   Report issue grabs the WinUAE window at once, then asks what went wrong."
+function Wrap-Labels { $w = [Math]::Max(300, $form.ClientSize.Width - 40)
+  $lblHelp.MaximumSize = New-Object Drawing.Size $w, 0; $lblStatus.MaximumSize = New-Object Drawing.Size $w, 0 }
+$form.Add_Resize({ Wrap-Labels })
+
+$btnPlay.Add_Click({ $g = Selected; if ($g) { $script:title = $g.Title; Start-Session $g.File $false } })
+$lv.Add_DoubleClick({ $g = Selected; if ($g) { $script:title = $g.Title; Start-Session $g.File $false } })
+$btnMenu.Add_Click({ $g = Selected; if ($g) { $script:title = $g.Title; Start-Session $g.File $true } else { $script:title = ""; Start-Session "" $true } })
 $btnRep.Add_Click({ Report-Issue })
 $btnStop.Add_Click({ Stop-Session })
 
@@ -223,8 +292,11 @@ $timer = New-Object Windows.Forms.Timer; $timer.Interval = 1000
 $timer.Add_Tick({
   if (-not $script:proc -or $script:proc.HasExited) { End-Session; return }
   $s = [int]((Get-Date) - $script:t0).TotalSeconds
-  $lblStatus.Text = "Running: $($script:game)  |  $($script:mode)  |  ${s}s`n$($script:build)"
+  $who = if ($script:title) { "$($script:title)  -  $($script:game)" } else { $script:game }
+  $lblStatus.Text = "Running: $who   |   $($script:mode)   |   ${s} s`n$($script:build)"
 })
 $form.Add_FormClosing({ Stop-Session })
-$form.Controls.AddRange(@($grp, $lblF, $txtF, $lst, $btnPlay, $btnMenu, $btnRep, $btnStop, $lblStatus, $lblHelp))
+$tl.Controls.AddRange(@($grp, $ff, $lv, $bf, $lblStatus, $lblHelp))
+$form.Controls.Add($tl)
+$form.Add_Shown({ Fill; Wrap-Labels })
 [void]$form.ShowDialog()

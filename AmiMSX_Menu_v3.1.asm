@@ -766,6 +766,13 @@ NOHAYASL2:
 	TST.B	AutoCart		; Test hook: Slot 1 cartridge, then GO.
 	BEQ.S	NoAutoCart2
 	BSR	InsertSl1
+	CMP.L	#"MENU",KEYNOM		; 'AmiMSX <cartridge> MENU': inserted, but
+	BNE.S	AutoCartGo		; stay in the menu (the PC tester's
+	TST.B	KEYNOM+4		; 'Open in AmiMSX menu'), no key script.
+	BNE.S	AutoCartGo
+	CLR.B	KEYNOM
+	BRA.S	NoAutoCart2
+AutoCartGo:
 	ST	AutoGo
 NoAutoCart2:
 	TST.B	KEYNOM			; Test hook: key script from the CLI.
@@ -2974,6 +2981,7 @@ TGPWRITE:	DC.B	" Can't write the game file.   ",0
 GPActive:	DC.B	0		; A game's settings are in force.
 GPOk:		DC.B	0
 CartLoadOK:	DC.B	0		; Set by Insert when the ROM loaded.
+CliCart:	DC.B	0		; This insert came from the CLI.
 		CNOP	0,4
 GPBuf:		DS.B	GP_LEN		; A game's settings (file image).
 GPSaved:	DS.B	GP_LEN		; The global ones while it is in force.
@@ -3008,9 +3016,11 @@ InsertSl2:
 
 	CNOP	0,8
 Insert:
+	SF	CliCart
 	TST.B	AutoCart		; Test hook: FILENOM set from the CLI.
 	BEQ.S	InsertReq
 	SF	AutoCart
+	ST	CliCart			; (Label from FILENOM, not the requester.)
 	BSR	DisMouse
 	BRA.S	InsertAuto
 InsertReq:
@@ -3231,7 +3241,7 @@ NoIDLineal:
 	CLR.L	BucCart
 
 	LEA	TNOFile,A0
-	BRA.S	NoInsert
+	BRA.W	NoInsert
 IDCorrecta:
 ; -=-=-
 	MOVE.L	DirCart,A0
@@ -3269,6 +3279,20 @@ ArrROMPagBuc2:
 
 	MOVE.L	REQBASESLOT,A2
 	MOVE.L	4(A2),A0
+	TST.B	CliCart			; From the CLI: the file part of FILENOM
+	BEQ.S	NoInsert		; (the requester was never used).
+	LEA	FILENOM,A0
+	MOVE.L	A0,A1
+CliNomB:
+	MOVE.B	(A1)+,D0
+	BEQ.S	NoInsert
+	CMP.B	#"/",D0
+	BEQ.S	CliNomS
+	CMP.B	#":",D0
+	BNE.S	CliNomB
+CliNomS:
+	MOVE.L	A1,A0
+	BRA.S	CliNomB
 NoInsert:
 	MOVE.L	DatTxt,A1
 	BSR	PONOM
