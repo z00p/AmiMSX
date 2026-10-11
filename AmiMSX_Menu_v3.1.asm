@@ -6306,7 +6306,8 @@ PONPREFS2:
 ; Option records (row $FE) of a loaded key script: settings for the test run,
 ; applied after ACTUPREFS (which copies the GUI over DirPrefs at every GO).
 ; 1 = sprite frames (DirPrefs+$16: 1 every frame, 2...), 2 = sprite
-; collisions option (DirPrefs+$6C), 3 = mask screen edges (PrefMask).
+; collisions option (DirPrefs+$6C), 3 = mask screen edges (PrefMask),
+; 4 = sound chip (DirPrefs+$1D).
 KeyOptApply:
 	TST.L	KeyScrPtr
 	BEQ.S	KeyOptFin
@@ -6325,9 +6326,13 @@ KeyOpt2:
 	MOVE.B	7(A0),DirPrefs+$6C
 KeyOpt3:
 	CMP.B	#3,5(A0)		; 3 = mask screen edges (PrefMask).
-	BNE.S	KeyOptNx
+	BNE.S	KeyOpt4
 	TST.B	7(A0)
 	SNE	PrefMask
+KeyOpt4:
+	CMP.B	#4,5(A0)		; 4 = sound chip (DirPrefs+$1D: 0 PSG,
+	BNE.S	KeyOptNx		; 1 SCC, 2 SCC+).
+	MOVE.B	7(A0),DirPrefs+$1D
 KeyOptNx:
 	ADDQ.W	#8,A0
 	BRA.S	KeyOptBuc

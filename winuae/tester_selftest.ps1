@@ -3,7 +3,7 @@
 # peak meter (Windows Core Audio) before and while it plays, and grab the
 # WinUAE window. No input is sent to WinUAE.
 # Usage: powershell -File winuae\tester_selftest.ps1 [-TestMode 030|PiStorm] [-Rom M_Lilly_A16.rom] [-Secs 35]
-param([string]$TestMode = "030", [string]$Rom = "M_Lilly_A16.rom", [int]$Secs = 35)
+param([string]$TestMode = "030", [string]$Rom = "M_Lilly_A16.rom", [int]$Secs = 35, [string]$Keys = "")
 $base = Split-Path -Parent $PSScriptRoot
 Add-Type -AssemblyName System.Drawing
 Add-Type @"
@@ -60,7 +60,14 @@ $quiet = [Meter]::Peak(3000)
 Copy-Item "$base\build\AmiMSX" "$base\run\AmiMSX" -Force
 $latin1 = [Text.Encoding]::GetEncoding(28591)
 $s = [IO.File]::ReadAllText($seq, $latin1)
-$s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:Roms/$Rom`"")
+$keyArg = ""
+if ($Keys) {                     # key script (tools\keyscript.py), e.g. "option sound 1" for SCC
+  $kn = [IO.Path]::GetFileNameWithoutExtension($Rom) -replace '[\[\]]', '_'
+  New-Item -ItemType Directory -Force "$base\run\Keys" | Out-Null
+  & python "$base\tools\keyscript.py" $Keys --amimsx "$base\run\Keys\$kn.key" | Out-Null
+  $keyArg = " `"AmiMSX:Keys/$kn.key`""
+}
+$s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:Roms/$Rom`"$keyArg")
 [IO.File]::WriteAllText($seq, $s, $latin1)
 $p = Start-Process $winuae -ArgumentList "-f `"$cfg`"" -WorkingDirectory (Split-Path $winuae) -PassThru
 Start-Sleep $Secs

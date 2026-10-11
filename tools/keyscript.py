@@ -58,7 +58,7 @@ def parse(path, seen=None):
             continue
         t = line.split()
         if t[0].lower() == "option":
-            opts = {"sprites": 1, "collisions": 2, "mask": 3}   # sprites <n>: sprite frames (1 = every frame); mask 1: edges
+            opts = {"sprites": 1, "collisions": 2, "mask": 3, "sound": 4}   # sprites <n>: sprite frames (1 = every frame); mask 1: edges; sound 0/1/2: PSG/SCC/SCC+
             out.append((0, 0xFE, opts[t[1].lower()], int(t[2])))
             continue
         if t[0].lower() == "include":
