@@ -26,6 +26,8 @@ def main():
     for n, i in enumerate(range(0, len(args), 3), 1):
         rid, secs, cap = args[i], args[i + 1], args[i + 2]
         d = os.path.join(BASE, "build", "bursts", tag, rid, f"{secs}s")
+        if not os.path.isdir(d):                     # burst.py --tag <tag> (one title per time)
+            d = os.path.join(BASE, "build", "bursts", tag, f"{secs}s")
         a = Image.open(os.path.join(d, "amimsx", "f00.png")).convert("RGB").resize((640, 472))
         o = Image.open(os.path.join(d, "omsx", "f00.png")).convert("RGB").resize((640, 480))
         img = Image.new("RGB", (1300, 560), (24, 24, 28))
