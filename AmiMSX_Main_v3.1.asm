@@ -1698,6 +1698,8 @@ CorrLine:	DC.W	0
 CorrFrame:	DC.W	0
 	ENDC
 TrvA0:		DC.L	0
+TrvLmmcDone:	DC.B	0
+		EVEN
 TrvPtr:		DC.L	TrvBuf
 TrvFrame:	DC.W	0
 		DC.W	0
@@ -5714,38 +5716,50 @@ CBY0C:
 
 
 	CNOP	0,4
+; RRD/RLD read (HL) through the page's read pointer and write the result
+; through its write pointer: on ROM the write goes to the NORAM dummy, as a
+; real Z80's write is ignored. Both through the write pointer, ROM read as
+; zero: Ianna rotates its hero graphics straight out of ROM, and every second
+; pixel came out 0 (transparent), the hero in stripes.
 IRRD:
-	CogePagE D4,A4
+	CogePag	D4,A4
 	MOVE.B	D7,D1
 	LSL.W	#8,D1
 	MOVE.B	D3,D2		; Flag S
 	MOVE.B	(A4),D1
 	AND.W	#$0FFF,D1
 	ROR.W	#4,D1
-	MOVE.B	D1,(A4)
+	MOVE.B	D1,RxDNew	; New (HL).
 	SF	D1
 	ROL.W	#4,D1
 	AND.B	#$F0,D7
 	OR.B	D1,D7
 	MOVE.W	CCR,D3
 	BFINS	D2,D3{31:1}
+	CogePagE D4,A4
+	MOVE.B	RxDNew,(A4)
 	Otra	12
 
 IRLD:
-	CogePagE D4,A4
+	CogePag	D4,A4
 	MOVEQ	#0,D1
 	MOVE.B	(A4),D1
 	MOVE.B	D3,D2		; Flag S
-	MOVE.B	D7,(A4)
-	AND.B	#$0F,(A4)
+	MOVE.B	D7,RxDNew
+	AND.B	#$0F,RxDNew
 	LSL.W	#4,D1
-	OR.B	D1,(A4)
+	OR.B	D1,RxDNew	; New (HL).
 	LSR.W	#8,D1
 	AND.B	#$F0,D7
 	OR.B	D1,D7
 	MOVE.W	CCR,D3
 	BFINS	D2,D3{31:1}
+	CogePagE D4,A4
+	MOVE.B	RxDNew,(A4)
 	Otra	12
+
+RxDNew:	DC.B	0
+	EVEN
 
 
 INI:
@@ -9064,6 +9078,11 @@ OUTS:
 
 
 	CNOP	0,8
+; Mask screen edges (PrefMask): the display window is 8 dots wider than the
+; 256 picture dots (3 left, 5 right, measured in WinUAE), so hiding 8 dots
+; each side moves its edges in by these.
+EDGEL=11
+EDGER=13
 Act_Adjust:
 	IFD	TRACE
 	TRVLOG	$FD,MidAdj
@@ -9076,6 +9095,11 @@ Act_Adjust:
 	MOVE.W	(AdjustBuf,D2.W*4),AdjustX+10
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+3
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+7
+	TST.B	PrefMask		; Mask screen edges (menu): the window 8
+	BEQ.S	ActAdjNoMask		; dots narrower each side, where games
+	ADD.B	#EDGEL,VERPAN+3		; redraw columns while they scroll
+	SUB.B	#EDGER,VERPAN+7		; (Lilly's Saga).
+ActAdjNoMask:
 
 	BTST	#1,TopR8		; Playfield R#8 (MIDSAMPLE).
 	BNE	Act_AdjCon
@@ -16041,6 +16065,9 @@ VDP2B:	MVDPX	DVDPNY
 VDP2D:	MVDPX	DVDPARG
 ; <=---------------------------------------------------------=>
 VDP2C:
+	IFD	TRACE
+	TRVLOG	$2C,D2			; (Trace: CPU colour bytes, LMMC/HMMC data.)
+	ENDC
 	ST	Pl5Dirty
 	ST	SCRTDirty
 	MOVE.B	D2,DVDPCL(A3)
@@ -16425,6 +16452,12 @@ LMMCRut:MACRO
 
 \@LMMCFinalizar:
 	BCLR	#0,DVDPS2(A3)		; Ejecuci�n SI terminada.
+	IFD	TRVLMMC
+	CMP.W	#TRVLMMC,CONTA3CX(A3)
+	BNE.S	\@nt
+	ST	TrvLmmcDone
+\@nt:
+	ENDC
 	MOVEM.L	BUFER(A3),D0-D7/A0-A6
 	FInsBuc
 	SWAP	D2
@@ -20831,11 +20864,19 @@ AcCoRutAdjust:
 
 	MOVE.W	VERPAN+2,D4
 	MOVE.B	(AdjustBuf+2.w,PC,D1.W*4),D4
+	TST.B	PrefMask		; (Mask screen edges, as Act_Adjust.)
+	BEQ.S	ACAdjM1
+	ADD.B	#EDGEL,D4
+ACAdjM1:
 	MOVE.W	#$008E,(A3)+
 	MOVE.W	D4,(A3)+
 
 	MOVE.W	VERPAN+6,D4
 	MOVE.B	(AdjustBuf+2.w,PC,D1.W*4),D4
+	TST.B	PrefMask
+	BEQ.S	ACAdjM2
+	SUB.B	#EDGER,D4
+ACAdjM2:
 	MOVE.W	#$0090,(A3)+
 	MOVE.W	D4,(A3)+
 AcCoAdjRet:
@@ -21763,6 +21804,15 @@ MiraInter0S:
 	CLR.W	SegBest
 	SF	SegSeen
 	CLR.W	MSplitL			; Mode split too (regime: MSplitSeen).
+	MOVE.B	#$A1,Ver2+3		; SCREEN 1-3 window: masked edges or not.
+	MOVE.B	#$A1,Ver2+7
+	TST.B	PrefMask
+	BEQ.S	FrMaskNo
+	MOVE.B	#$A1+EDGEL,Ver2+3
+	MOVE.B	#$A1-EDGER,Ver2+7
+FrMaskNo:
+	MOVE.W	Ver2+2,Ver2B+2
+	MOVE.W	Ver2+6,Ver2B+6
 	MOVE.L	MSX2Pal+0,PalTop+0	; Palette at the frame's top (AcCoRutPal).
 	MOVE.L	MSX2Pal+4,PalTop+4
 	MOVE.L	MSX2Pal+8,PalTop+8
@@ -21805,6 +21855,12 @@ PerfGo:
 	BNE.S	TrvGo
 	JMP	TraceFreeze
 TrvGo:
+	ENDC
+	IFD	TRVLMMC
+	TST.B	TrvLmmcDone		; Optional trigger: the frame after an
+	BEQ.S	TrvGo2			; LMMC TRVLMMC dots wide finished.
+	JMP	TraceFreeze
+TrvGo2:
 	ENDC
 	ENDC
 	SF	SnapOK			; Sprite snapshots: new frame.

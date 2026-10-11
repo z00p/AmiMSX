@@ -16,6 +16,8 @@ from PIL import Image, ImageDraw, ImageFont
 # Prefs offsets (DIRPrefs in AmiMSX_Menu_v3.1.asm)
 SPRITES = 0x16      # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 2nd frame, 3 = every 3rd
 COLLIDE = 0x6C      # byte: sprite collisions (S#0 bit 5), 0 off / FFh on
+# 4.0 block after the credits string: PrefMask (mask screen edges, FFh = 8 dots) at
+# the first byte, left at the binary's default (off).
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0)}),
@@ -36,6 +38,7 @@ def default_prefs(binary):
     assert 0 < j - i < 0x1000
     end = j + 4
     end += (-(end - i)) % 4      # CNOP 0,4 (DIRPrefs is 8-aligned)
+    end += 4                     # 4.0 block: PrefMask + 3 reserved (FINPREFS)
     return bytearray(b[i:end])
 
 

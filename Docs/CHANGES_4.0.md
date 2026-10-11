@@ -9,6 +9,7 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 ### Z80
 
 - **POP and RET** from tables in ROM read the right bytes across 256-byte page boundaries. Barbarian's fighters were corrupted.
+- **RLD and RRD** on ROM read the ROM byte (the write is ignored, as on a Z80). Ianna unpacks its hero's graphics this way; every second pixel came out transparent, so the hero was drawn in stripes.
 - **Flags:** NEG and CPL set the flags as a real Z80.
 - **LD A,R** comes from emulated time, not the Amiga beam, so runs repeat exactly.
 - **Timing:** M1 wait states are counted, and a line is the real 228 cycles.
@@ -48,6 +49,10 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 ### Disks
 
 - **Disk images** are read completely. A short read used to leave the MSX booting a partly empty disk (some disk demos failed at random); a file that can't be read in full is now an error.
+
+## Options
+
+- **Mask screen edges** (menu, after "VDP 'TR bit' always ready"): hides 8 dots at each side of the picture, where scrolling games redraw columns (Lilly's Saga). Off by default; it is stored in a block appended to the prefs file, so older prefs files load with it off.
 
 ## Defaults
 

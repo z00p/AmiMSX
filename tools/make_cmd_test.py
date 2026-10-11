@@ -19,6 +19,9 @@ TESTS = [(40, 20, 0x00, 0xB0, False),    # A: DIX 0, IMP
          (140, 80, 0x04, 0xB0, False),   # G: DIX 1, IMP, even X
          (39, 352, 0x04, 0xB8, True),    # H: DIX 1, TIMP, odd X, on page 1 (copied below)
          (40, 368, 0x00, 0xB8, True)]    # I: DIX 0, TIMP, on page 1 (copied below)
+# Ianna's way: no TR polling, the bytes streamed with OTIR, a junk high nibble.
+FAST = [(139, 60, 0x04, 0xB8, True),     # J: DIX 1, TIMP
+        (139, 100, 0x00, 0xB0, False)]   # K: DIX 0, IMP
 # HMMM page 1 -> page 0 after the LMMCs (Ianna draws off-screen, then copies):
 COPIES = [(0, 352, 0, 120, 64, 8),       # H's area -> y 120
           (32, 368, 32, 140, 48, 8)]     # I's area -> y 140
@@ -81,6 +84,13 @@ for dx, dy, arg, op, tr in TESTS:
     done = len(code)
     code[jz_done] = (done - (jz_done + 1)) & 0xFF
     code.extend([0xAF, 0xD3, 0x99, 0x3E, 0x8F, 0xD3, 0x99])      # R#15 = 0
+for dx, dy, arg, op, tr in FAST:
+    px = pixels(tr)
+    junk = [(((i * 7) % 15) + 1) << 4 | c for i, c in enumerate(px)]
+    cmd(w(dx) + w(dy) + w(NX) + w(NY) + [junk[0], arg, op])
+    code.extend([0x3E, 0x80 + 44, 0xD3, 0x99, 0x3E, 0x80 + 17, 0xD3, 0x99])
+    ld_hl_data(junk[1:])
+    code.extend([0x0E, 0x9B, 0x06, len(junk) - 1, 0xED, 0xB3])     # LD C,9Bh / LD B,n / OTIR
 for sx, sy, dx, dy, nx, ny in COPIES:              # HMMM
     cmd(w(sx) + w(sy) + w(dx) + w(dy) + w(nx) + w(ny) + [0, 0x00, 0xD0])
 code.extend([0x18, 0xFE])                        # JR $

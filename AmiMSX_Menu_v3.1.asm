@@ -6251,6 +6251,9 @@ PONPREFS:
 
 	MOVE.B	$6E(A5),D0
 	BFINS	D0,MSX2NewMenu41+10{7:1}	; VDP 'TR bit' always ready
+
+	MOVE.B	PrefMask,D0
+	BFINS	D0,MSX2NewMenu41b+10{7:1}	; Mask screen edges (4.0)
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -6303,7 +6306,7 @@ PONPREFS2:
 ; Option records (row $FE) of a loaded key script: settings for the test run,
 ; applied after ACTUPREFS (which copies the GUI over DirPrefs at every GO).
 ; 1 = sprite frames (DirPrefs+$16: 1 every frame, 2...), 2 = sprite
-; collisions option (DirPrefs+$6C).
+; collisions option (DirPrefs+$6C), 3 = mask screen edges (PrefMask).
 KeyOptApply:
 	TST.L	KeyScrPtr
 	BEQ.S	KeyOptFin
@@ -6318,8 +6321,13 @@ KeyOptBuc:
 	MOVE.W	6(A0),DirPrefs+$16
 KeyOpt2:
 	CMP.B	#2,5(A0)
-	BNE.S	KeyOptNx
+	BNE.S	KeyOpt3
 	MOVE.B	7(A0),DirPrefs+$6C
+KeyOpt3:
+	CMP.B	#3,5(A0)		; 3 = mask screen edges (PrefMask).
+	BNE.S	KeyOptNx
+	TST.B	7(A0)
+	SNE	PrefMask
 KeyOptNx:
 	ADDQ.W	#8,A0
 	BRA.S	KeyOptBuc
@@ -6422,6 +6430,11 @@ ACTUPREFS:
 	MOVEQ	#1,D1			; Nº menu.
 	BSR	COGECHECK
 	SNE	$6E(A5)			; VDP 'TR bit'
+
+	MOVE.L	#(4*$40)+13,D0		; Sub-item 4 of item 13:
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefMask		; Mask screen edges (4.0).
 ; -=-
 	MOVEQ	#15,D0			; Nº Línea.
 	MOVEQ	#1,D1			; Nº menu.
@@ -6559,6 +6572,10 @@ TABLAB4:
 	CNOP	0,4
 	DC.B	" -*(  AmiMSX2 Emulator By:  Juan Antonio Gómez Gálvez  )*- "
 	CNOP	0,4
+; 4.0 settings, after the original block: a prefs file from an older version
+; is shorter, so these stay 0 (BUFPREFS starts cleared).
+PrefMask:	DC.B	0		; Mask screen edges: FFh = 8 dots each side.
+		DC.B	0,0,0		; (Reserved.)
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 

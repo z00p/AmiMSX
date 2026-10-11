@@ -2,6 +2,7 @@
 # and report problems with one click (screenshots + notes for analysis).
 #
 #   68030     the regression rig's 68030/50 (cycle-exact), at real speed, sound on
+#             (AmiMSX's own Sound gadget: PSG by default; Konami SCC cartridges need SCC)
 #   PiStorm   68040 with JIT at full speed (as close to Emu68 as WinUAE gets)
 #
 # Games: run\Roms (.rom, Slot 1) and run\Disks (.dsk, drive A). "Play" boots
@@ -46,9 +47,14 @@ $reports = "$base\reports"
 $latin1 = [Text.Encoding]::GetEncoding(28591)
 $script:proc = $null; $script:game = ""; $script:mode = ""; $script:t0 = $null; $script:build = ""
 
+# Sound for people (the regression configs stay as they are): in sync with the
+# emulation, 48 kHz stereo, full volume, no automatic switching off.
+$soundKeys = @('sound_output=exact', 'sound_channels=stereo', 'sound_stereo_separation=7',
+               'sound_frequency=48000', 'sound_volume=0', 'sound_auto=false')
+
 function Make-Configs {
   # From the regression config (it holds the local paths): real speed and sound.
-  $src = Get-Content "$base\winuae\AmiMSX-030.uae"
+  $src = @(Get-Content "$base\winuae\AmiMSX-030.uae" | Where-Object { $_ -notmatch '^sound_' }) + $soundKeys
   $c030 = $src | ForEach-Object {
     if ($_ -match '^warp=') { 'warp=false' }
     elseif ($_ -match '^config_description=') { 'config_description=AmiMSX Tester: 68030/50 cycle-exact, real speed' }
