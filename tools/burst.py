@@ -48,7 +48,7 @@ def amimsx(r, times, n, exe, out):
                 f.write(f"{int(round(t * FPS)) + k} SNAP 300\n")
     name = os.path.splitext(r["file"])[0]
     shots = os.path.join(BASE, "build", "shots")
-    for old in glob.glob(os.path.join(shots, f"{name}_*s.png")):
+    for old in glob.glob(os.path.join(shots, glob.escape(name) + "_*s.png")):
         os.remove(old)
     last = max(times)
     cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
@@ -60,7 +60,7 @@ def amimsx(r, times, n, exe, out):
     got = {}
     for t in times:
         d = tdir(out, t, "amimsx")
-        for old in glob.glob(os.path.join(d, "f*.png")):
+        for old in glob.glob(os.path.join(glob.escape(d), "f*.png")):
             os.remove(old)
         got[t] = []
         f0 = int(round(t * FPS))
@@ -76,7 +76,7 @@ def amimsx(r, times, n, exe, out):
 
 def omsx(r, times, n, out):
     for t in times:
-        for old in glob.glob(os.path.join(tdir(out, t, "omsx"), "f*.png")):
+        for old in glob.glob(os.path.join(glob.escape(tdir(out, t, "omsx")), "f*.png")):
             os.remove(old)
     tcl = os.path.join(out, "burst.tcl")
     last = max(times)
@@ -108,7 +108,7 @@ def omsx(r, times, n, out):
         subprocess.run(cmd, cwd=os.path.dirname(OMSX), timeout=int(last) + 300, capture_output=True)
     except subprocess.TimeoutExpired:
         print("omsx: timeout")
-    got = {t: sorted(glob.glob(os.path.join(out, f"{t:g}s", "omsx", "f*.png"))) for t in times}
+    got = {t: sorted(glob.glob(os.path.join(glob.escape(os.path.join(out, f"{t:g}s", "omsx")), "f*.png"))) for t in times}
     print("omsx:", ", ".join(f"{t:g}s {len(g)}/{n}" for t, g in got.items()))
     return got
 
@@ -165,8 +165,8 @@ def main():
     lines = []
     for t in times:
         d = os.path.join(out, f"{t:g}s")
-        fa = am.get(t) or sorted(glob.glob(os.path.join(d, "amimsx", "f*.png")))
-        fo = om.get(t) or sorted(glob.glob(os.path.join(d, "omsx", "f*.png")))
+        fa = am.get(t) or sorted(glob.glob(os.path.join(glob.escape(os.path.join(d, "amimsx")), "f*.png")))
+        fo = om.get(t) or sorted(glob.glob(os.path.join(glob.escape(os.path.join(d, "omsx")), "f*.png")))
         sheet(os.path.join(d, "sheet.png"), [("ami", fa), ("omsx", fo)])
         lines.append(f"{a.id}\t{t:g}s\tamimsx {len(fa)} flicker {fmt(flicker(fa))}"
                      f"\topenmsx {len(fo)} flicker {fmt(flicker(fo))}")
