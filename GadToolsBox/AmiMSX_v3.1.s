@@ -4796,6 +4796,26 @@ MSX2NewMenu70:
     DC.W    $0100
     DC.L    0,0
 
+MSX2NewMenu70a:
+    DC.B    3,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+MSX2NewMenu70b:
+    DC.B    3,0
+    DC.L    MSX2MName70b
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+MSX2NewMenu70c:
+    DC.B    3,0
+    DC.L    MSX2MName70c
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
 MSX2NewMenu71:
     DC.B    2,0
     DC.L    MSX2MName71
@@ -5286,6 +5306,12 @@ MSX2MName68:
 
 MSX2MName70:
     DC.B    'Save Mapper ID',0
+
+MSX2MName70b:
+    DC.B    'Save game settings',0
+
+MSX2MName70c:
+    DC.B    'Forget game settings',0
 
 MSX2MName71:
     DC.B    'Mapper',0

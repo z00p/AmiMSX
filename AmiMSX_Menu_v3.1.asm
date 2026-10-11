@@ -2786,6 +2786,7 @@ InsertSl1:
 	MOVE.W	PagCartS1(PC),PagCart
 	MOVE.L	#Slot1Cart,SlotxCart
 
+	SF	CartLoadOK
 	BSR	Insert
 
 	BSR	MiraCheckCart
@@ -2800,7 +2801,194 @@ InsertSl1:
 	MOVE.L	BucCartAdd(PC),BucCartAddS1
 	MOVE.W	PagCart(PC),PagCartS1
 	MOVE.L	CheckId(PC),CheckIdS1
+	TST.B	CartLoadOK		; The cartridge's own settings, if it
+	BEQ.S	InsSl1NoGP		; has any (GPLoad).
+	BSR	GPLoad
+InsSl1NoGP:
 	RTS
+
+; ---------------------------------------------------------------------
+; Per-game settings (4.0). A file next to the Slot 1 cartridge, named after
+; it plus ".prefs" (Lilly.rom.prefs), holds the settings that make sense per
+; game: "AMXG", version 1, sound chip (DirPrefs+$1D), MSX2 sprites
+; (DirPrefs+$16), sprite collisions (DirPrefs+$6C), mask screen edges
+; (PrefMask). Inserting a cartridge applies its file (GUI included, as GO
+; copies the GUI over DirPrefs); a cartridge without one brings the global
+; settings back. Save Prefs always writes the global settings.
+GP_LEN=12
+
+; DirPrefs -> the 12-byte block at A1, and back.
+GPFromPrefs:
+	MOVE.L	#"AMXG",(A1)
+	MOVE.B	#1,4(A1)
+	MOVE.B	DirPrefs+$1D,5(A1)
+	MOVE.W	DirPrefs+$16,6(A1)
+	MOVE.B	DirPrefs+$6C,8(A1)
+	MOVE.B	PrefMask,9(A1)
+	CLR.W	10(A1)
+	RTS
+GPToPrefs:
+	MOVE.B	5(A1),DirPrefs+$1D
+	MOVE.W	6(A1),DirPrefs+$16
+	MOVE.B	8(A1),DirPrefs+$6C
+	MOVE.B	9(A1),PrefMask
+	RTS
+
+; Those settings from the GUI into DirPrefs (ACTUPREFS for just these: all
+; of ACTUPREFS also rewrote the Slot 1 mapper the load had just set, and
+; Nemesis 2 boot-looped).
+GPGUIToPrefs:
+	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
+	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
+	MOVE.L	#(2*$40)+13,D0		; Sprites collisions ON.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	DirPrefs+$6C
+	MOVE.L	#(4*$40)+13,D0		; Mask screen edges.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefMask
+	RTS
+
+; The GUI from DirPrefs for those settings (gadgets and menu checkmarks).
+GPShowGUI:
+	LEA	MSX2Gadgets+(GD_SOUND*4),A0
+	MOVE.L	MSX2WND,A1
+	MOVE.L	#$8008000F,D0
+	MOVEQ	#0,D1
+	MOVE.B	DirPrefs+$1D,D1
+	BSR	CanviTags
+	LEA	MSX2Gadgets+(GD_MSX2Spr*4),A0
+	MOVE.L	MSX2WND,A1
+	MOVE.L	#$8008000F,D0
+	MOVEQ	#0,D1
+	MOVE.W	DirPrefs+$16,D1
+	BSR	CanviTags
+	MOVE.L	#(2*$40)+13,D0		; Sprites collisions ON.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	DirPrefs+$6C
+	BEQ.S	GPShow1
+	BSET	#0,$C(A0)
+GPShow1:
+	MOVE.L	#(4*$40)+13,D0		; Mask screen edges.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	PrefMask
+	BEQ.S	GPShow2
+	BSET	#0,$C(A0)
+GPShow2:
+	RTS
+
+; GPName = FILENOM + ".prefs".
+GPBuild:
+	LEA	FILENOM,A0
+	LEA	GPName,A1
+	MOVE.W	#$200-1,D0
+GPBuild1:
+	MOVE.B	(A0)+,(A1)+
+	DBEQ	D0,GPBuild1
+	SUBQ.W	#1,A1
+	LEA	GPExt(PC),A0
+GPBuild2:
+	MOVE.B	(A0)+,(A1)+
+	BNE.S	GPBuild2
+	RTS
+
+GPLoad:
+	BSR	GPBuild
+	MOVE.L	#GPName,D1
+	MOVE.L	#1005,D2
+	BSR	OPENFILE
+	BEQ.S	GPLoadNone
+	MOVE.L	#GPBuf,D2
+	MOVEQ	#GP_LEN,D3
+	BSR	READFILE
+	SEQ	GPOk
+	BSR	CLOSEFILE
+	TST.B	GPOk
+	BEQ.S	GPLoadNone
+	CMP.L	#"AMXG",GPBuf
+	BNE.S	GPLoadNone
+	TST.B	GPActive		; Keep the global settings aside (once).
+	BNE.S	GPLoadSet
+	BSR	GPGUIToPrefs
+	LEA	GPSaved,A1
+	BSR	GPFromPrefs
+	ST	GPActive
+GPLoadSet:
+	LEA	GPBuf,A1
+	BSR	GPToPrefs
+	BRA	GPShowGUI
+GPLoadNone:
+	TST.B	GPActive		; None: the global settings again.
+	BEQ.S	GPLoadRet
+GPRestore:
+	LEA	GPSaved,A1
+	BSR	GPToPrefs
+	SF	GPActive
+	BRA	GPShowGUI
+GPLoadRet:
+	RTS
+
+GameSave:
+	TST.L	DirCartS1
+	BEQ.S	GPNoCart
+	BSR	GPGUIToPrefs
+	TST.B	GPActive		; Not yet a game's: these are the global
+	BNE.S	GameSave1		; settings, kept for the next cartridge.
+	LEA	GPSaved,A1
+	BSR	GPFromPrefs
+	ST	GPActive
+GameSave1:
+	LEA	GPBuf,A1
+	BSR	GPFromPrefs
+	BSR	GPBuild
+	MOVE.L	#GPName,D1
+	MOVE.L	#1006,D2
+	BSR	OPENFILE
+	BEQ.S	GPWriteErr
+	MOVE.L	#GPBuf,D2
+	MOVEQ	#GP_LEN,D3
+	BSR	WRITEFILE
+	SNE	GPOk
+	BSR	CLOSEFILE
+	TST.B	GPOk
+	BNE.S	GPWriteErr2
+	RTS
+GPWriteErr:
+	LEA	TGPWRITE,A0
+	BRA	IMPERROR
+GPWriteErr2:
+	LEA	TGPWRITE,A0
+	BRA	IMPERROR
+GPNoCart:
+	LEA	TGPNOCART,A0
+	BRA	IMPERROR
+
+GameForget:
+	TST.L	DirCartS1
+	BEQ.S	GPNoCart
+	BSR	GPBuild
+	MOVE.L	#GPName,D1
+	MOVE.L	_DOSBASE,A6
+	JSR	-72(A6)			; DeleteFile
+	TST.B	GPActive
+	BNE.W	GPRestore
+	RTS
+
+GPExt:		DC.B	".prefs",0
+TGPNOCART:	DC.B	"   No cartridge in Slot 1.    ",0
+TGPWRITE:	DC.B	" Can't write the game file.   ",0
+GPActive:	DC.B	0		; A game's settings are in force.
+GPOk:		DC.B	0
+CartLoadOK:	DC.B	0		; Set by Insert when the ROM loaded.
+		CNOP	0,4
+GPBuf:		DS.B	GP_LEN		; A game's settings (file image).
+GPSaved:	DS.B	GP_LEN		; The global ones while it is in force.
+GPName:		DS.B	$200+8
 
 	CNOP	0,8
 InsertSl2:
@@ -3082,6 +3270,7 @@ ArrROMPagBuc2:
 ; -=-=-=-
 					; Todo Correcto!
 
+	ST	CartLoadOK		; (Per-game settings: loaded.)
 	MOVE.L	DatItem,D0		; Nº Línea. (Sub-Item+Item)
 	MOVEQ	#3,D1			; Nº menu.
 	BSR	COGECHECK
@@ -5956,18 +6145,40 @@ SAVEPREFS:
 	ROL.W	#5,D0
 	MOVE.W	D0,DirPrefs+$74
 
+	TST.B	GPActive		; A game's settings in force: write the
+	BEQ.S	SavePrefsG		; global ones (and keep the game's).
+	LEA	GPTmp,A1
+	BSR	GPFromPrefs
+	LEA	GPSaved,A1
+	BSR	GPToPrefs
+SavePrefsG:
 	MOVE.L	#NOMPREFS,D1
 	MOVE.L	#1006,D2
 	BSR	OPENFILE
-	BEQ.S	ERDEVICE2
+	BEQ.S	SavePrefsE
 
 	MOVE.L	#DIRPREFS,D2
 	MOVE.L	#BUCPREFS,D3
 	BSR	WRITEFILE
+	SNE	GPOk
+	BSR	SavePrefsBack
+	TST.B	GPOk
 	BNE.S	ERDEVICE2
 
 	BSR	CLOSEFILE
 	RTS
+SavePrefsE:
+	BSR	SavePrefsBack
+	BRA.S	ERDEVICE2
+SavePrefsBack:
+	TST.B	GPActive
+	BEQ.S	SavePrefsB1
+	LEA	GPTmp,A1
+	BSR	GPToPrefs
+SavePrefsB1:
+	RTS
+GPTmp:	DS.B	GP_LEN
+	EVEN
 
 	CNOP	0,4
 ERDEVICE2:
@@ -7474,6 +7685,8 @@ SMSlot1:
 	DC.L	CONTROLRET		; -----
 	DC.L	SaveMappID1		; Save Mapper ID
 	DC.L	CONTROLRET		; -----
+	DC.L	GameSave		; Save game settings (4.0)
+	DC.L	GameForget		; Forget game settings (4.0)
 
 SMSlot2:
 	DC.L	InsertSl2		; Insert Cartridge
