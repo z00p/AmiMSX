@@ -17,7 +17,9 @@ import argparse, datetime, glob, io, os, shutil, subprocess, sys, tarfile, zipfi
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMPORT = "1b4dcfd"                       # "Import AmiMSX v3.1 source as released"
-EXCLUDE = {"AmiMSX2.data", "AmiMSX_asm.lha", "tools/vasmm68k_mot.exe", "tools/vobjdump.exe"}
+EXCLUDE = {"AmiMSX2.data", "AmiMSX_asm.lha", "tools/vasmm68k_mot.exe", "tools/vobjdump.exe",
+           # internal planning notes, not for the review copy
+           "Docs/release_4.0.md", "Docs/gitlab_staging.md", "Docs/regression_candidates.md"}
 EXCLUDE_GLOBS = ["winuae/*.uae"]         # local paths (Kickstart, drives)
 BAD_EXT = {".rom", ".dsk", ".mvd", ".lha", ".lzh", ".adf", ".hdf", ".zip", ".exe"}
 
