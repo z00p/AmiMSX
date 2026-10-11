@@ -1002,11 +1002,9 @@ NoVDP2TR:
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Modo Sprites Collision ON (IN VDP 0)
-	MOVE.L	#IVDP0,IVDPPUNT+(0*4)
-	TST.B	DirPrefs+$6C
-	BEQ.S	NoVDP0Spr
-	MOVE.L	#IVDP0Spr,IVDPPUNT+(0*4)
-NoVDP0Spr:
+	MOVE.L	#IVDP0,IVDPPUNT+(0*4)	; (4.0: DirPrefs+$6C, the old 'collisions
+					; always' option, is ignored: IVDP0Spr
+					; is no longer installed.)
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Actualiza Punteros de Memory Mapper

@@ -154,8 +154,11 @@ def main():
     ap.add_argument("--tag")
     ap.add_argument("--no-omsx", action="store_true")
     ap.add_argument("--no-amimsx", action="store_true")
+    ap.add_argument("--keys", help="key script in tests/keys instead of the title's (e.g. none)")
     a = ap.parse_args()
     r = row(a.id)
+    if a.keys:
+        r = dict(r, keys=a.keys)
     times = [float(x) for x in a.secs.split(",") if x]
     out = os.path.join(BASE, "build", "bursts", a.tag or a.id)
     os.makedirs(out, exist_ok=True)

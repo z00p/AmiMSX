@@ -4579,13 +4579,6 @@ MSX2NewMenu39:
     DC.W    $0109
     DC.L    0,0
 
-MSX2NewMenu40:
-    DC.B    3,0
-    DC.L    MSX2MName40
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
 MSX2NewMenu41:
     DC.B    3,0
     DC.L    MSX2MName41

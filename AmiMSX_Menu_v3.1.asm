@@ -2840,11 +2840,8 @@ GPToPrefs:
 GPGUIToPrefs:
 	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
-	MOVE.L	#(2*$40)+13,D0		; Sprites collisions ON.
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	SNE	DirPrefs+$6C
-	MOVE.L	#(4*$40)+13,D0		; Mask screen edges.
+	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
+	MOVE.L	#(3*$40)+13,D0		; Mask screen edges.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefMask
@@ -2864,15 +2861,7 @@ GPShowGUI:
 	MOVEQ	#0,D1
 	MOVE.W	DirPrefs+$16,D1
 	BSR	CanviTags
-	MOVE.L	#(2*$40)+13,D0		; Sprites collisions ON.
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	BCLR	#0,$C(A0)
-	TST.B	DirPrefs+$6C
-	BEQ.S	GPShow1
-	BSET	#0,$C(A0)
-GPShow1:
-	MOVE.L	#(4*$40)+13,D0		; Mask screen edges.
+	MOVE.L	#(3*$40)+13,D0		; Mask screen edges.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
@@ -6457,9 +6446,6 @@ PONPREFS:
 	MOVE.B	$6B(A5),D0
 	BFINS	D0,MSX2NewMenu39+10{7:1}	; 100% Refresh
 
-	MOVE.B	$6C(A5),D0
-	BFINS	D0,MSX2NewMenu40+10{7:1}	; Sprites Collisions
-
 	MOVE.B	$6E(A5),D0
 	BFINS	D0,MSX2NewMenu41+10{7:1}	; VDP 'TR bit' always ready
 
@@ -6637,17 +6623,16 @@ ACTUPREFS:
 	BSR	COGECHECK
 	SNE	$6B(A5)			; 100% Refresh Screen
 
+	SF	$6C(A5)			; 'Sprites collisions ON (always)': the
+					; menu item is gone in 4.0 (the real
+					; collision check always runs, and the
+					; old forced flag broke most games).
 	MOVE.L	#(2*$40)+13,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
-	BSR	COGECHECK
-	SNE	$6C(A5)			; Sprites Collisions ON
-
-	MOVE.L	#(3*$40)+13,D0		; Nº Línea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; Nº menu.
 	BSR	COGECHECK
 	SNE	$6E(A5)			; VDP 'TR bit'
 
-	MOVE.L	#(4*$40)+13,D0		; Sub-item 4 of item 13:
+	MOVE.L	#(3*$40)+13,D0		; Sub-item 3 of item 13:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefMask		; Mask screen edges (4.0).
@@ -7615,7 +7600,6 @@ MenuMVD:
 MenuInternal:
 	DC.L	CONTROLRET		; Sprites Y coor. from Line Interrupt
 	DC.L	CONTROLRET		; 100% refresh in screen changes
-	DC.L	CONTROLRET		; Sprites collisions ON (always)
 	DC.L	CONTROLRET		; VDP 'TR bit' always ready
 	DC.L	CONTROLRET
 

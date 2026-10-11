@@ -1,0 +1,6 @@
+# Nemesis 2: Space through the title and the story, then play
+14s   SPACE 5 every 100 until 150s
+100s  RIGHT 60
+110s  LEFT 60
+120s  UP 30
+130s  DOWN 30
