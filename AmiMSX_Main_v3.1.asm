@@ -412,7 +412,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v3.1  (25.9.00)",0,0
+	DC.B	"$VER:AmiMSX Emulator v4.0  (11.10.2026)",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
 
 
@@ -21376,7 +21376,7 @@ PRINTCAB:
 PRIRET:	RTS
 		CNOP	0,8
 ;;			|----------------------------------------|
-TEXTO0:		DC.B	"      *  AMIMSX2 EMULATOR  V2.5  *      "
+TEXTO0:		DC.B	"      *  AMIMSX2 EMULATOR  V4.0  *      "
 		DC.B	"  *  BY:  JUAN ANTONIO GOMEZ GALVEZ  *  "
 ;;			|----------------------------------------|
 	EVEN

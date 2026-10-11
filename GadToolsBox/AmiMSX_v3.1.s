@@ -1960,7 +1960,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v3.1  (Pro)',0
+    DC.B    'AmiMSX Emulator v4.0  (Pro)',0
     CNOP    0,2
 
 MSX2STitle:
@@ -4235,10 +4235,10 @@ PasswordIText0:
     CNOP    0,2
 
 AboutIText0:
-    DC.B    'AmiMSX Emulator v3.1',0
+    DC.B    'AmiMSX Emulator v4.0',0
 
 AboutIText1:
-    DC.B    '(September 25th, 2000)',0
+    DC.B    '(October 11th, 2026)',0
 
 AboutIText2:
     DC.B    'Main Program & Emulation Systems:',0
