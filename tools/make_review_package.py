@@ -22,6 +22,12 @@ EXCLUDE = {"AmiMSX2.data", "AmiMSX_asm.lha", "tools/vasmm68k_mot.exe", "tools/vo
            "Docs/release_4.0.md", "Docs/gitlab_staging.md", "Docs/regression_candidates.md"}
 EXCLUDE_GLOBS = ["winuae/*.uae"]         # local paths (Kickstart, drives)
 BAD_EXT = {".rom", ".dsk", ".mvd", ".lha", ".lzh", ".adf", ".hdf", ".zip", ".exe"}
+# Gmail refuses archives holding these (support.google.com/mail/answer/6590): such
+# files are packaged with ".txt" appended, and BUILDING.txt lists them.
+GMAIL_BLOCKED = {".ade", ".adp", ".apk", ".appx", ".bat", ".cab", ".chm", ".cmd", ".com", ".cpl",
+                 ".dll", ".dmg", ".exe", ".hta", ".ins", ".iso", ".jar", ".js", ".jse", ".lib", ".lnk",
+                 ".mde", ".msc", ".msi", ".msix", ".msp", ".mst", ".nsh", ".pif", ".ps1", ".scr", ".sct",
+                 ".shb", ".sys", ".vb", ".vbe", ".vbs", ".vhd", ".vxd", ".wsc", ".wsf", ".wsh", ".xll"}
 
 
 def git(*a):
@@ -71,10 +77,19 @@ def main():
             f.write(tar.extractfile(m).read())
     with open(os.path.join(src, "AmiMSX_3.1_to_4.0.diff"), "wb") as f:
         f.write(git("diff", IMPORT, "HEAD", "--", "AmiMSX_Main_v3.1.asm", "AmiMSX_Menu_v3.1.asm"))
+    renamed = []
+    for root, _, files in os.walk(src):
+        for f in files:
+            if os.path.splitext(f)[1].lower() in GMAIL_BLOCKED:
+                os.rename(os.path.join(root, f), os.path.join(root, f + ".txt"))
+                renamed.append(os.path.relpath(os.path.join(root, f), src).replace(os.sep, "/"))
     with open(os.path.join(src, "BUILDING.txt"), "w", encoding="utf-8") as f:
         f.write("Build: sh build.sh (needs vasm 2.0f, vasmm68k_mot, from http://sun.hasenbraten.de/vasm/,\n"
                 "in tools/). Output: build/AmiMSX. The WinUAE test configs aren't included: they hold\n"
                 "local paths. AmiMSX2.data isn't included: see AmiMSX/ for the C-BIOS build.\n")
+        if renamed:
+            f.write("\nFor e-mail, these files have \".txt\" appended (remove it to use them):\n")
+            f.writelines(f"  {r}\n" for r in sorted(renamed))
 
     # Docs, screenshots, readme
     docs = os.path.join(out, "Docs")
@@ -94,7 +109,7 @@ def main():
         for f in files:
             p = os.path.join(root, f)
             rel = os.path.relpath(p, out).replace(os.sep, "/")
-            if os.path.splitext(f)[1].lower() in BAD_EXT:
+            if os.path.splitext(f)[1].lower() in BAD_EXT | GMAIL_BLOCKED:
                 bad.append(rel)
             if f.lower().endswith(".data") and b"data CB1" not in open(p, "rb").read(64):
                 bad.append(rel + " (not C-BIOS)")
