@@ -4599,6 +4599,13 @@ MSX2NewMenu41b:
     DC.W    $0009
     DC.L    0,0
 
+MSX2NewMenu41c:
+    DC.B    3,0
+    DC.L    MSX2MName41c
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
 MSX2NewMenu42:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
@@ -5219,6 +5226,9 @@ MSX2MName41:
 
 MSX2MName41b:
     DC.B    'Mask screen edges (8 dots)',0
+
+MSX2MName41c:
+    DC.B    'Audio filter (less hiss)',0
 
 MSX2MName43:
     DC.B    'Disable Cheats',0

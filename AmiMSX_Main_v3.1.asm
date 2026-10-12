@@ -105,6 +105,17 @@ BCSUM:	MACRO
 	ENDM
 	ENDC
 
+; (4.0) The power LED bit is also the audio filter (low-pass). AmiMSX used
+; it as a disk light and turned the filter off; with the Audio filter option
+; (PrefFilter) it stays on while a game runs (less hiss from the 8-bit FM
+; and PSG output). FILTOFF: LED/filter off unless the option is on.
+FILTOFF:	MACRO
+	TST.B	PrefFilter
+	BNE.S	\@k
+	BSET	#1,$BFE001
+\@k:
+	ENDM
+
 	IFD	TRACE
 TRVLOG:	MACRO
 	MOVE.L	A0,TrvA0
@@ -2168,6 +2179,7 @@ HARDRESET:
 	BNE	CONTINUAR
 ; ------------------------------
 
+	JSR	ClrSprOv		; (4.0) No sprites left from before.
 ; ------------------------------	; Mira si Reset o HardReset.
 	TST.B	EsReset
 	BEQ	NoReset
@@ -2890,7 +2902,11 @@ DATOSINIT:
 	MOVE.L	A6,-(SP)
 	LEA	$DFF000,A6
 
-	BSET	#1,$BFE001		; Datos Musica.
+	FILTOFF			; Datos Musica.
+	TST.B	PrefFilter		; (4.0) Audio filter on.
+	BEQ.S	DatFiltX
+	BCLR	#1,$BFE001
+DatFiltX:
 
 	TST.B	SFXCHIP
 	BNE.S	ESSCC1
@@ -9480,6 +9496,15 @@ ActAdjNoMask:
 
 	LEA	SPRIT0+1,A0
 	LEA	SPRIT0b+1,A1
+	CMP.W	#1,DirPrefs+$16		; (4.0) Sprites every frame: the overlay
+	BNE.S	ActAdjAB		; alternates buffers (SPRMODE51f), so
+	TST.B	SprBufB			; only the one drawn this frame takes
+	BEQ.S	ActAdjA			; the new position: the one on screen
+	MOVE.L	A1,A0			; keeps its own until the switch.
+	BRA.S	ActAdjAB
+ActAdjA:
+	MOVE.L	A0,A1
+ActAdjAB:
 
 	MOVE.B	D1,8(A0)
 	MOVE.B	D1,(NEXSPR*1)+8(A0)
@@ -11602,6 +11627,64 @@ SPR_ECS:
 	RTS
 ; ---
 
+; (4.0) Sprites every frame (mode 2): draw into the overlay buffer that isn't
+; on screen (SprBufB: 0 = SPRIT0, else SPRIT0b), then point the copper's
+; sprite pointers at it, so the switch shows at the next frame with that
+; frame's playfield. One buffer, cleared and redrawn while on screen, tore
+; and jittered (Space Manbow's ship on BigMig).
+SPR1DBL:	MACRO
+	TST.B	SprBufB
+	BNE.S	\@b
+	LEA	BUFERSPR2-2,A0
+	MOVE.L	A0,NUMSPR2
+	JSR	CLEARSPR2
+	LEA	BUFERSPR2,A5
+	LEA	SPRIT0+16,A6
+	JSR	IMPSPR2
+	LEA	DIRSPRITES2,A0
+	JSR	CREASPRITES
+	ST	SprBufB
+	BRA.S	\@x
+\@b:	LEA	BUFERSPR2b-2,A0
+	MOVE.L	A0,NUMSPR2
+	JSR	CLEARSPR2
+	LEA	BUFERSPR2b,A5
+	LEA	SPRIT0b+16,A6
+	JSR	IMPSPR2
+	LEA	DIRSPRITES2b,A0
+	JSR	CREASPRITES
+	SF	SprBufB
+\@x:
+	ENDM
+SprBufB:	DC.B	0
+		EVEN
+
+; (4.0) Power ON/Reset: empty both sprite overlay buffers. They were only
+; ever erased sprite by sprite (CLEARSPR2's lists), so the last game's
+; sprites stayed on screen in the next one (Space Manbow's in Galious).
+	CNOP	0,4
+ClrSprOv:
+	MOVEM.L	D0-D1/A0,-(SP)
+	LEA	SPRIT0+16,A0
+	BSR.S	ClrSprSet
+	LEA	SPRIT0b+16,A0
+	BSR.S	ClrSprSet
+	MOVE.W	#-1,BUFERSPR2-2
+	MOVE.W	#-1,BUFERSPR2b-2
+	SF	SprBufB
+	MOVEM.L	(SP)+,D0-D1/A0
+	RTS
+ClrSprSet:
+	MOVEQ	#8-1,D1			; 8 sprites: their 256 data lines.
+ClrSprS:
+	MOVE.W	#(8*256*2)/4-1,D0
+ClrSprL:
+	CLR.L	(A0)+
+	DBF	D0,ClrSprL
+	LEA	NEXSPR-(8*256*2)(A0),A0
+	DBF	D1,ClrSprS
+	RTS
+
 	CNOP	0,8
 SPRMODE5:
 	CMP.W	#3,DirPrefs+$16
@@ -11614,7 +11697,7 @@ Modo3fDat:DC.B	3
 	CNOP	0,8
 NoModo3fr:
 	TST.W	DirPrefs+$16
-	BEQ.S	SPR_ECS
+	BEQ	SPR_ECS
 SiModo3fr:
 	LEA	ContaSPR2(PC),A4
 	BTST	#0,(A4)
@@ -11690,15 +11773,7 @@ SISPRASC1f:
 	TST.B	COSPR2(A3)
 	BEQ.S	SPR2OFF1f
 
-	LEA	DIRSPRITES2,A0
-	JSR	CREASPRITES
-
-	LEA	BUFERSPR2-2,A0
-	MOVE.L	A0,NUMSPR2
-	JSR	CLEARSPR2
-	LEA	BUFERSPR2,A5
-	LEA	SPRIT0+16,A6
-	JSR	IMPSPR2
+	SPR1DBL	1f
 SPR2OFF1f:
 	RTS
 
@@ -11809,15 +11884,7 @@ SISPRASC1fb:
 	TST.B	COSPR2(A3)
 	BEQ.S	SPR2OFF1fb
 
-	LEA	DIRSPRITES2,A0
-	JSR	CREASPRITES
-
-	LEA	BUFERSPR2-2,A0
-	MOVE.L	A0,NUMSPR2
-	JSR	CLEARSPR2
-	LEA	BUFERSPR2,A5
-	LEA	SPRIT0+16,A6
-	JSR	IMPSPR2
+	SPR1DBL	1fb
 SPR2OFF1fb:
 	RTS
 
@@ -16359,7 +16426,7 @@ DskSwLd:
 	BCLR	#1,$BFE001		; (LED on)
 	BRA.S	DskSwFin
 DskSwOff:
-	BSET	#1,$BFE001		; (LED off)
+	FILTOFF		; (LED off)
 DskSwFin:
 
 	TST.L	KeyScrPtr		; Scripted test input (CLI key script).
@@ -19684,7 +19751,7 @@ rBUCOPYDS2:
 	MOVE.L	TIPOST+4,PagWrite+(3*4)(A3)
 
 	MOVEM.L	BUFER(A3),D0-D4/A0-A2
-	BSET	#1,$BFE001			; Filtro OFF
+	FILTOFF			; Filtro OFF
 	BCLR	#0,D3
 	SIINT
 	Otra2
@@ -19697,7 +19764,7 @@ rERDISCO:
 	MOVE.L	TIPOST+4,PagWrite+(3*4)(A3)
 
 	MOVEM.L	BUFER(A3),D0-D4/A0-A2
-	BSET	#1,$BFE001			; Filtro OFF
+	FILTOFF			; Filtro OFF
 	BSET	#0,D3
 	MOVE.B	#6,D7
 	SIINT
@@ -19713,7 +19780,7 @@ rGRABAR:
 	MOVE.L	TIPOST+4,PagWrite+(3*4)(A3)
 
 	MOVEM.L	BUFER(A3),D0-D4/A0-A2
-	BSET	#1,$BFE001			; Filtro OFF
+	FILTOFF			; Filtro OFF
 
 	TST.B	DirPrefs+$78
 	BEQ.S	rGraModNorm
@@ -19764,7 +19831,7 @@ rgDirtyA:
 rgDirtyX:
 
 	MOVEM.L	BUFER(A3),D0-D4/A0-A2
-	BSET	#1,$BFE001			; Filtro OFF
+	FILTOFF			; Filtro OFF
 	BCLR	#0,D3
 	SIINT
 	Otra2

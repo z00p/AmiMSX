@@ -34,6 +34,8 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - sprites are drawn in bands, each with its own R#23 (vertical scroll). Bands with sprites off (R#8 SPD) draw nothing, so Space Manbow's ship no longer lands on the ground row;
   - a new band starts at the line after a sprite register changes. Zanac EX's enemies no longer vanish near its status bar;
   - the EC bit.
+  - with sprites every frame, the sprite overlay (Amiga hardware sprites) alternates between two buffers: each frame's sprites are drawn into the one not on screen and shown from the next frame, with that frame's playfield. One buffer, cleared and redrawn while on screen, tore and jittered on fast machines (Space Manbow's ship on BigMig), and a horizontal adjust (R#18) change moved the sprites a frame early;
+  - Power ON and Reset empty the sprite overlay. The last game's sprites used to stay on screen in the next one.
 - **Line interrupts:** with IE1 off, the line-interrupt flag (S#1 FH) is set for the matching line only, as openMSX does. Fixes Zanac EX's title. VR is set in the VBlank lines.
 - **Mid-frame palettes:** MSX colour 0 with TP off shows the border colour on lines with palette changes, as it does elsewhere.
 - **SCREEN 2 and 4:** the R#3 and R#4 table masks apply per screen block.
@@ -64,6 +66,7 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 
 - **Per-game settings** (Cartridges > Slot 1 > Save game settings / Forget game settings): the sound chip, sprite refresh and the edge mask, saved next to the cartridge as `<cartridge>.prefs` and applied whenever that cartridge is inserted (menu or command line). A cartridge without one brings the global settings back, with the SCC sound chip for a Konami SCC cartridge (mapper SCC 1/2) when the global setting is PSG; Save Prefs always writes the global settings.
 - **Mask screen edges** (menu, after "VDP 'TR bit' always ready"): hides 8 dots at each side of the picture, where scrolling games redraw columns (Lilly's Saga). Off by default; it is stored in a block appended to the prefs file, so older prefs files load with it off.
+- **Audio filter** (menu, after Mask screen edges): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset (it has FM), off in the others; also saved per game.
 
 ## Defaults
 
@@ -77,7 +80,7 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 
 ## Workbench
 
-- **Presets:** three project icons, AmiMSX A1200, AmiMSX 030 and AmiMSX PiStorm, each with its own settings file.
+- **Presets:** three project icons, AmiMSX A1200, AmiMSX 030 and AmiMSX PiStorm, each with its own settings file. The PiStorm preset follows the game's display frequency ("From VDP": 60 Hz games at NTSC, full speed) and has the audio filter on; the A1200 and 030 presets stay PAL, without FM, to keep their speed.
 - **ToolType `PREFS=<file>`:** chooses the settings file. A relative name is taken from the icon's drawer. Save Prefs writes to the same file.
 
 ## Building and testing

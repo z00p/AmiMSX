@@ -50,32 +50,42 @@ def picture(path):
     return im.crop((l, t, im.width + r, im.height + b))
 
 
+PER_SHOT = False
+
+
 def run_title(r, exe, outdir):
-    """One WinUAE run per capture: a SNAP freeze perturbs the emulation after
-    it (an Amiga-side state dependency, open item), so each capture is the
-    first and only freeze of its run, from power on."""
+    """One WinUAE run per title, all its SNAPs in it (12 Oct 2026: 24 of 24
+    captures of 8 titles matched the one-run-per-capture baselines, and MSX
+    RAM/VRAM state dumps matched with and without an earlier freeze). With
+    --per-shot, one run per capture as before (a freeze once perturbed later
+    captures)."""
     shots = [s.strip() for s in r["shots"].split(",") if s.strip()]
     base_keys = os.path.join(BASE, "tests", "keys", r["keys"] + ".keys")
     cfg = "AmiMSX-" + r["config"] + ".uae"
     name = os.path.splitext(r["file"])[0]
     got, msgs = [], []
-    for s in shots:
-        keys = os.path.join(outdir, f"{r['id']}_{s}s.keys")
+    groups = [[s] for s in shots] if PER_SHOT else [shots]
+    for grp in groups:
+        keys = os.path.join(outdir, f"{r['id']}_{'+'.join(grp)}s.keys")
         with open(keys, "w", encoding="utf-8") as f:
             f.write(f"include {os.path.relpath(base_keys, outdir)}\n")
-            f.write(f"{s}s SNAP\n")
+            for s in grp:
+                f.write(f"{s}s SNAP\n")
+        last = max(float(s) for s in grp)
         t0 = datetime.datetime.now().timestamp()
         cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                os.path.join(BASE, "winuae", "batch_test.ps1"), "-Exe", exe, "-Roms", r["file"],
-               "-Keys", keys, "-Config", cfg, "-Shots", str(int(float(s)) + 5), "-SnapWait", str(int(float(s) * 3) + 90)]
+               "-Keys", keys, "-Config", cfg, "-Shots", str(int(last) + 5),
+               "-SnapWait", str(int(last * 3) + 90 * len(grp))]
         p = subprocess.run(cmd, capture_output=True, text=True)
         msgs.append(p.stdout.strip().splitlines()[0] if p.stdout.strip() else p.stderr.strip()[:200])
-        src = os.path.join(BASE, "build", "shots", f"{name}_{s}s.png")
-        if os.path.exists(src) and os.path.getmtime(src) > t0:
-            dst = os.path.join(outdir, r["id"], f"{s}s.png")
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.move(src, dst)
-            got.append(s)
+        for s in grp:
+            src = os.path.join(BASE, "build", "shots", f"{name}_{s}s.png")
+            if os.path.exists(src) and os.path.getmtime(src) > t0:
+                dst = os.path.join(outdir, r["id"], f"{s}s.png")
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.move(src, dst)
+                got.append(s)
     return got, "; ".join(msgs)
 
 
@@ -143,10 +153,14 @@ def main():
     ap.add_argument("--accept", action="store_true")
     ap.add_argument("--accept-run", default="")
     ap.add_argument("--ids", default="")
+    ap.add_argument("--per-shot", action="store_true",
+                    help="one WinUAE run per capture (the old, slower mode)")
     ap.add_argument("--calibrate", action="store_true",
                     help="run the tier twice: the first run becomes the baseline, captures that "
                          "differ between the two are marked unstable (reported as 'varies')")
     a = ap.parse_args()
+    global PER_SHOT
+    PER_SHOT = a.per_shot
     if a.accept_run:
         accept(os.path.join(REG, a.accept_run), set(a.ids.split(",")) if a.ids else None); return
     if not a.tier:

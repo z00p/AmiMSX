@@ -462,6 +462,9 @@ FILENOM:	DS.B	$208
 ; Speed counter dump: header (APRF, records, ring pointer, copper ints, int
 ; lines, CPU) then the record ring (see PerfFrame in the main source).
 PerfDump:
+	TST.B	PerfDone		; (4.0) Once: the first return to the
+	BNE	PerfDRet		; menu, however the run ended (Measure).
+	ST	PerfDone
 	MOVE.L	$4.W,A0
 	MOVE.B	$129(A0),PerfCPU	; ExecBase AttnFlags (low byte).
 	MOVE.B	EsUn060,PerfCPU+1
@@ -593,7 +596,10 @@ PerfDump:
 	ENDC
 	BSR	CLOSEFILE
 PerfDFin:
+PerfDRet:
 	RTS
+PerfDone:	DC.B	0
+		EVEN
 	IFD	PERFLOCAL		; (measurement builds: the current
 PerfName:	DC.B	"perf.bin",0		; directory, no AmiMSX: assign)
 	ELSE
@@ -2903,13 +2909,15 @@ GPFromPrefs:
 	MOVE.W	DirPrefs+$16,6(A1)
 	MOVE.B	DirPrefs+$6C,8(A1)
 	MOVE.B	PrefMask,9(A1)
-	CLR.W	10(A1)
+	MOVE.B	PrefFilter,10(A1)
+	CLR.B	11(A1)
 	RTS
 GPToPrefs:
 	MOVE.B	5(A1),DirPrefs+$1D
 	MOVE.W	6(A1),DirPrefs+$16
 	MOVE.B	8(A1),DirPrefs+$6C
 	MOVE.B	9(A1),PrefMask
+	MOVE.B	10(A1),PrefFilter
 	RTS
 
 ; Those settings from the GUI into DirPrefs (ACTUPREFS for just these: all
@@ -2923,6 +2931,10 @@ GPGUIToPrefs:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefMask
+	MOVE.L	#(4*$40)+13,D0		; Audio filter.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefFilter
 	RTS
 
 ; The GUI from DirPrefs for those settings (gadgets and menu checkmarks).
@@ -2947,6 +2959,14 @@ GPShowGUI:
 	BEQ.S	GPShow2
 	BSET	#0,$C(A0)
 GPShow2:
+	MOVE.L	#(4*$40)+13,D0		; Audio filter.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	PrefFilter
+	BEQ.S	GPShow3
+	BSET	#0,$C(A0)
+GPShow3:
 	RTS
 
 ; GPName = FILENOM + ".prefs".
@@ -6639,6 +6659,8 @@ PONPREFS:
 
 	MOVE.B	PrefMask,D0
 	BFINS	D0,MSX2NewMenu41b+10{7:1}	; Mask screen edges (4.0)
+	MOVE.B	PrefFilter,D0
+	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -6695,11 +6717,11 @@ PONPREFS2:
 ; 4 = sound chip (DirPrefs+$1D).
 KeyOptApply:
 	TST.L	KeyScrPtr
-	BEQ.S	KeyOptFin
+	BEQ	KeyOptFin
 	LEA	KeyScr,A0
 KeyOptBuc:
 	CMP.L	#-1,(A0)
-	BEQ.S	KeyOptFin
+	BEQ	KeyOptFin
 	CMP.B	#$FE,4(A0)
 	BNE.S	KeyOptNx
 	CMP.B	#1,5(A0)
@@ -6724,11 +6746,16 @@ KeyOpt5:
 	MOVE.B	7(A0),DirPrefs+$10
 KeyOpt6:
 	CMP.B	#6,5(A0)		; 6 = display frequency (DirPrefs+$11:
-	BNE.S	KeyOptNx		; 0 From VDP, 1 No Change, 2 NTSC, 3 PAL).
+	BNE.S	KeyOpt7			; 0 From VDP, 1 No Change, 2 NTSC, 3 PAL).
 	MOVE.B	7(A0),DirPrefs+$11
+KeyOpt7:
+	CMP.B	#7,5(A0)		; 7 = audio filter (PrefFilter).
+	BNE.S	KeyOptNx
+	TST.B	7(A0)
+	SNE	PrefFilter
 KeyOptNx:
 	ADDQ.W	#8,A0
-	BRA.S	KeyOptBuc
+	BRA	KeyOptBuc
 KeyOptFin:
 	RTS
 
@@ -6832,6 +6859,10 @@ ACTUPREFS:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefMask		; Mask screen edges (4.0).
+	MOVE.L	#(4*$40)+13,D0		; Sub-item 4: audio filter (4.0).
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefFilter
 ; -=-
 	MOVEQ	#15,D0			; Nº Línea.
 	MOVEQ	#1,D1			; Nº menu.
@@ -6972,7 +7003,9 @@ TABLAB4:
 ; 4.0 settings, after the original block: a prefs file from an older version
 ; is shorter, so these stay 0 (BUFPREFS starts cleared).
 PrefMask:	DC.B	0		; Mask screen edges: FFh = 8 dots each side.
-		DC.B	0,0,0		; (Reserved.)
+PrefFilter:	DC.B	0		; Audio filter (Amiga low-pass, the power
+					; LED bit): FFh = on while a game runs.
+		DC.B	0,0		; (Reserved.)
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 
@@ -7156,6 +7189,9 @@ SIREINTM:
 	MOVE.L	DIRFILEB,DIRVD1		; (4.0) drive B's virtual disk.
 	IFD	MENU
 	JSR	MSXEMUL			; A5=Dir Prefs.
+	ENDC
+	IFD	PERF
+	JSR	PerfDump		; (4.0) also after a Power ON run
 	ENDC
 	JSR	FlashSave		; (4.0) back in the menu: flash sectors
 	JSR	DiskBSave		; and drive B's image, if changed.

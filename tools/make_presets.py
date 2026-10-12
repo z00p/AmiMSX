@@ -23,12 +23,14 @@ SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Musi
 COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
                     # read report a collision (IVDP0Spr). Real collision detection always runs. Keep 0.
 # 4.0 block after the credits string: PrefMask (mask screen edges, FFh = 8 dots) at
-# the first byte, left at the binary's default (off).
+# the first byte, left at the binary's default (off), then PrefFilter.
+FILTER = -3         # byte (from the end): audio filter (Amiga low-pass, the power LED bit),
+                    # FFh = on while a game runs: less hiss from the 8-bit FM/PSG output.
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
     ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
-    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0)}),
+    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF)}),
 ]
 
 W, H = 46, 46
@@ -44,7 +46,7 @@ def default_prefs(binary):
     assert 0 < j - i < 0x1000
     end = j + 4
     end += (-(end - i)) % 4      # CNOP 0,4 (DIRPrefs is 8-aligned)
-    end += 4                     # 4.0 block: PrefMask + 3 reserved (FINPREFS)
+    end += 4                     # 4.0 block: PrefMask, PrefFilter + 2 reserved (FINPREFS)
     return bytearray(b[i:end])
 
 
