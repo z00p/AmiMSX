@@ -116,7 +116,7 @@ def main():
           f"{os.path.getsize(a.out)} bytes; by code: " + ", ".join(f"{k}: {v}" for k, v in sorted(by.items())))
     for f, t in extra:
         print(f"  local: {f} = {t}")
-    with open(os.path.splitext(a.out)[0] + "_types.txt", "w") as fh:
+    with open(os.path.join(BASE, "Docs", "romdb_types.txt"), "w") as fh:
         for i, t in enumerate(types):
             fh.write(f"{i}\t{t}\t{code_for(t)}\n")
 
