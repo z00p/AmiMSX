@@ -52,6 +52,8 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 ### Disks
 
 - **Disk images** are read completely. A short read used to leave the MSX booting a partly empty disk (some disk demos failed at random); a file that can't be read in full is now an error.
+- **Drive B virtual disk** (12 Oct): drive B can hold a disk image of its own (before, a virtual drive B shared drive A's image). Load it from the menu (MSX Virtual Drive > Load Disk File into drive B) or from the CLI (`AmiMSX <disk> B=<image>`). Plain 360/720 KB images; changes to drive B's image stay in memory.
+- **Disk swap** (12 Oct): Left Amiga swaps the disks in drives A and B during play, and the power LED blinks. For "insert disk 2" prompts and two-disk games.
 
 ## Options
 

@@ -104,12 +104,15 @@ function Start-Session($game, $menuOnly) {
     # Menu: the cartridge goes into Slot 1 (or the disk into drive A) and AmiMSX
     # stays in its menu (settings, Save game settings, then Power ON).
     if ($menuOnly) { $run += " MENU" }
+    # Drive B (disks): a second image as its own virtual disk; Left Amiga swaps A and B.
+    if ($dir -eq "Disks" -and $cbB.SelectedIndex -gt 0) { $run += " B=AmiMSX:Disks/$($cbB.SelectedItem)" }
   }
   $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', $run)
   [IO.File]::WriteAllText($seq, $s, $latin1)
   $cfg = if ($rbPi.Checked) { "$base\run\Tester-PiStorm.uae" } else { "$base\run\Tester-030.uae" }
   $script:mode = if ($rbPi.Checked) { "PiStorm-like (68040 JIT)" } else { "68030/50 cycle-exact" }
   $script:game = if (-not $game) { "(AmiMSX menu)" } elseif ($menuOnly) { "$game (in the menu)" } else { $game }
+  if ($game -match '\.dsk$' -and $cbB.SelectedIndex -gt 0) { $script:game += "  +  drive B: $($cbB.SelectedItem)" }
   $script:proc = Start-Process $winuae -ArgumentList "-f `"$cfg`"" -WorkingDirectory (Split-Path $winuae) -PassThru
   Set-Content $lock $script:proc.Id
   $script:t0 = Get-Date
@@ -276,17 +279,49 @@ $lv.Add_ColumnClick({ param($sender, $e)
   if ($k -eq $script:sortKey) { $script:sortAsc = -not $script:sortAsc } else { $script:sortKey = $k; $script:sortAsc = $true }
   Fill })
 $txtF.Add_TextChanged({ Fill })
+$lv.Add_SelectedIndexChanged({
+  $g = Selected
+  if ($g -and $g.Type -eq "Disk") {
+    $cbB.Enabled = $true
+    $sib = Sibling-Disk $g.File
+    $cbB.SelectedIndex = if ($sib) { $cbB.Items.IndexOf($sib) } else { 0 }
+  } else { $cbB.SelectedIndex = 0; $cbB.Enabled = $false }
+})
 function Selected { if ($lv.SelectedItems.Count) { return $lv.SelectedItems[0].Tag } }
 
 $bf = New-Object Windows.Forms.FlowLayoutPanel; $bf.AutoSize = $true; $bf.Dock = "Fill"
 function New-Btn($text) { $b = New-Object Windows.Forms.Button; $b.Text = $text; $b.AutoSize = $true; $b.Padding = "12,6,12,6"; $b.Margin = "3,6,9,3"; $b }
 $btnPlay = New-Btn "Play"; $btnMenu = New-Btn "Open in AmiMSX menu"; $btnRep = New-Btn "Report issue"; $btnStop = New-Btn "Stop"
 $btnRep.BackColor = [Drawing.Color]::FromArgb(255, 230, 200)
-$bf.Controls.AddRange(@($btnPlay, $btnMenu, $btnRep, $btnStop))
+$lblB = New-Object Windows.Forms.Label; $lblB.Text = "Drive B:"; $lblB.AutoSize = $true; $lblB.Margin = "18,14,3,3"
+$cbB = New-Object Windows.Forms.ComboBox; $cbB.DropDownStyle = "DropDownList"; $cbB.Width = [int](240 * $dpiScale); $cbB.Margin = "3,10,3,3"
+[void]$cbB.Items.Add("(empty)")
+foreach ($d in @($games | Where-Object { $_.Type -eq "Disk" } | Sort-Object File)) { [void]$cbB.Items.Add($d.File) }
+$cbB.SelectedIndex = 0; $cbB.Enabled = $false
+$bf.Controls.AddRange(@($btnPlay, $btnMenu, $btnRep, $btnStop, $lblB, $cbB))
+
+# The other disk of a two-disk game, by name: ...1/...2, ...a/...b, "disk 1"/"disk 2"
+# (either way round), so that drive B defaults to it.
+function Sibling-Disk($file) {
+  $stem = [IO.Path]::GetFileNameWithoutExtension($file); $ext = [IO.Path]::GetExtension($file)
+  $pairs = @(@('1', '2'), @('2', '1'), @('a', 'b'), @('b', 'a'), @('A', 'B'), @('B', 'A'))
+  foreach ($pr in $pairs) {
+    if ($stem.EndsWith($pr[0], [StringComparison]::Ordinal)) {
+      $cand = $stem.Substring(0, $stem.Length - 1) + $pr[1] + $ext
+      if ($cbB.Items.Contains($cand)) { return $cand }
+    }
+    $re = "(?i)((?:disk|disc)[ _-]?)" + [regex]::Escape($pr[0]) + "(?![0-9a-z])"
+    if ([regex]::IsMatch($stem, $re)) {
+      $cand = [regex]::Replace($stem, $re, '${1}' + $pr[1]) + $ext
+      if ($cbB.Items.Contains($cand)) { return $cand }
+    }
+  }
+  return $null
+}
 
 $lblStatus = New-Object Windows.Forms.Label; $lblStatus.AutoSize = $true; $lblStatus.Text = "Not running."; $lblStatus.Margin = "3,8,3,3"
 $lblHelp = New-Object Windows.Forms.Label; $lblHelp.AutoSize = $true; $lblHelp.ForeColor = [Drawing.Color]::DimGray; $lblHelp.Margin = "3,6,3,3"
-$lblHelp.Text = "Play (or double-click): boots straight into the game.   Open in AmiMSX menu: the game goes into Slot 1 (a disk into drive A) so you can change settings, or use Cartridges > Slot 1 > Save game settings, then Power ON.   Report issue grabs the WinUAE window at once, then asks what went wrong."
+$lblHelp.Text = "Play (or double-click): boots straight into the game.   Open in AmiMSX menu: the game goes into Slot 1 (a disk into drive A) so you can change settings, or use Cartridges > Slot 1 > Save game settings, then Power ON.   Report issue grabs the WinUAE window at once, then asks what went wrong.   Drive B (disks): a second disk image, filled in for two-disk games; in play, Left Amiga (WinUAE: the left Windows key) swaps the disks in A and B, and the power LED blinks."
 function Wrap-Labels { $w = [Math]::Max(300, $form.ClientSize.Width - 40)
   $lblHelp.MaximumSize = New-Object Drawing.Size $w, 0; $lblStatus.MaximumSize = New-Object Drawing.Size $w, 0 }
 $form.Add_Resize({ Wrap-Labels })

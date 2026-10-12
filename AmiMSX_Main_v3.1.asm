@@ -628,6 +628,24 @@ CALLCC:	MACRO
 	BSR	\1
 \@Salto:
 	ENDM
+
+; (4.0) Virtual disks: drive A uses DIRVD0, drive B DIRVD1 (D7 bit 0 = the
+; drive, as the disk BIOS calls get it in register A).
+VDPTR:	MACRO			; \1 = the drive's image (An)
+	MOVE.L	DIRVD0,\1
+	BTST	#0,D7
+	BEQ.S	\@A
+	MOVE.L	DIRVD1,\1
+\@A:
+	ENDM
+VDTST:	MACRO			; Z = no image in the drive
+	BTST	#0,D7
+	BNE.S	\@B
+	TST.L	DIRVD0
+	BRA.S	\@E
+\@B:	TST.L	DIRVD1
+\@E:
+	ENDM
 ; -------------------------------<=
 
 
@@ -706,6 +724,48 @@ AutoKeyCon:
 	BRA.S	AutoKeyBuc
 AutoKeyFin:
 	CLR.B	(A1)
+	LEA	DISKBNOM,A1		; (4.0) A third argument: B=<image>.
+AutoDkbSp:
+	SUBQ.L	#1,D0
+	BMI.S	AutoDkbFin
+	MOVE.B	(A0)+,D1
+	CMP.B	#' ',D1
+	BEQ.S	AutoDkbSp
+	MOVEQ	#' ',D2
+	CMP.B	#'"',D1
+	BNE.S	AutoDkbCon
+	MOVEQ	#'"',D2
+AutoDkbBuc:
+	SUBQ.L	#1,D0
+	BMI.S	AutoDkbFin
+	MOVE.B	(A0)+,D1
+AutoDkbCon:
+	CMP.B	D2,D1
+	BEQ.S	AutoDkbFin
+	CMP.B	#' ',D1
+	BCS.S	AutoDkbFin
+	MOVE.B	D1,(A1)+
+	BRA.S	AutoDkbBuc
+AutoDkbFin:
+	CLR.B	(A1)
+	CMP.W	#"B=",KEYNOM		; 'B=' as the second argument (no key
+	BNE.S	AutoDkbK		; script): it names drive B.
+	LEA	KEYNOM+2,A0
+	LEA	DISKBNOM,A1
+AutoDkbCp:
+	MOVE.B	(A0)+,(A1)+
+	BNE.S	AutoDkbCp
+	CLR.B	KEYNOM
+	BRA.S	AutoDkbX
+AutoDkbK:
+	CMP.W	#"B=",DISKBNOM		; (strip the 'B=')
+	BNE.S	AutoDkbX
+	LEA	DISKBNOM+2,A0
+	LEA	DISKBNOM,A1
+AutoDkbC2:
+	MOVE.B	(A0)+,(A1)+
+	BNE.S	AutoDkbC2
+AutoDkbX:
 	MOVE.L	(SP)+,A1
 	TST.B	FILENOM
 	SNE	AutoCart
@@ -16089,6 +16149,31 @@ Emula1Frame:
 	LEA	Regs(PC),A3
 	JSR	Act_Hardware
 
+	BTST	#0,KEY+14(A3)		; (4.0) Left Amiga (0 = pressed): swap the
+	BNE.S	DskSwUp			; virtual disks in drives A and B (once per
+	TST.B	DskSwHeld		; press); the power LED blinks.
+	BNE.S	DskSwLd
+	ST	DskSwHeld
+	TST.L	DIRVD1
+	BEQ.S	DskSwLd
+	MOVE.L	DIRVD0,DskSwT
+	MOVE.L	DIRVD1,DIRVD0
+	MOVE.L	DskSwT,DIRVD1
+	MOVE.B	#25,DskSwLed
+	BRA.S	DskSwLd
+DskSwUp:
+	SF	DskSwHeld
+DskSwLd:
+	TST.B	DskSwLed
+	BEQ.S	DskSwFin
+	SUBQ.B	#1,DskSwLed
+	BEQ.S	DskSwOff
+	BCLR	#1,$BFE001		; (LED on)
+	BRA.S	DskSwFin
+DskSwOff:
+	BSET	#1,$BFE001		; (LED off)
+DskSwFin:
+
 	TST.L	KeyScrPtr		; Scripted test input (CLI key script).
 	BEQ.S	NoKeyScr
 	JSR	KeyScrRun
@@ -19298,7 +19383,7 @@ ED11:				; DSKIO   $4010
 
 ; -(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)
 ; -(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)
-	TST.L	DIRVD0
+	VDTST
 	BNE.S	rSIDISCO
 	MOVE.B	#2,D7
 	BSET	#0,D3
@@ -19330,7 +19415,7 @@ rSIDISCO:
 	SUBQ.W	#1,D3
 	BMI	rERDISCO
 
-	MOVE.L	DIRVD0,A0
+	VDPTR	A0
 	MULU	#$200,D2
 	ADD.L	D2,A0
 
@@ -19402,7 +19487,7 @@ rGRABARCON:
 	SUBQ.W	#1,D3
 	BMI	rERDISCO
 
-	MOVE.L	DIRVD0,A0
+	VDPTR	A0
 	MULU	#$200,D2
 	ADD.L	D2,A0
 rgBUCOPYDS:
@@ -19632,7 +19717,7 @@ ED12:				; DSKCHG  $4013
 
 ; -(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)
 ; -(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)-(*)
-	TST.L	DIRVD0
+	VDTST
 	BNE.S	rSIDISCO2
 	MOVE.B	#2,D7
 	BSET	#0,D3
@@ -21962,6 +22047,11 @@ LEEJOY2D:	DC.B	0
 MVDPROT:	DC.B	0
 FILTRO:		DC.B	0
 DIRVD0:		DC.L	0
+DIRVD1:		DC.L	0		; (4.0) drive B's virtual disk
+DskSwHeld:	DC.B	0		; (4.0) Left Amiga held (swap once)
+DskSwLed:	DC.B	0		; (4.0) frames of LED after a swap
+	EVEN
+DskSwT:		DC.L	0
 DMACON:		DC.W	0
 INTENA:		DC.W	0
 INTENA2:	DC.W	0
@@ -22461,6 +22551,7 @@ KEYSCRMAX=256
 KeyScr:		DS.B	KEYSCRMAX*8
 		DC.L	-1		; (Guard.)
 KEYNOM:		DS.B	256		; CLI key script file name.
+DISKBNOM:	DS.B	256		; (4.0) CLI 'B=' disk image for drive B.
 		EVEN
 
 ; Display lines TSplit..191 (211 in 212-line mode) from the current tables (R#2, R#3/R#10, R#4,

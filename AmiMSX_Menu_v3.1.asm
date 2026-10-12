@@ -181,6 +181,14 @@ NOHAYASL:
 	CLR.L	BUCFILE
 	CLR.L	DIRFILE
 NOHAYMEM2:
+	MOVE.L	BUCFILEB,D0		; (4.0) drive B's virtual disk.
+	BEQ.S	NOHAYMEMB
+	MOVE.L	DIRFILEB,A1
+	MOVE.L	4.W,A6
+	JSR	-$D2(A6)
+	CLR.L	BUCFILEB
+	CLR.L	DIRFILEB
+NOHAYMEMB:
 
 	MOVEQ	#0,D0
 	JSR	LIBMEM
@@ -427,6 +435,8 @@ DegugDirFrom:	DC.L	0
 DegugDirTo:	DC.L	0
 DIRFILE:	DC.L	0
 BUCFILE:	DC.L	0
+DIRFILEB:	DC.L	0		; (4.0) drive B's virtual disk (CLI B=),
+BUCFILEB:	DC.L	0		; plain 360/720 Kb images only.
 BucFileCart:	DC.L	0
 DirKeyFile:	DC.L	0
 BucKeyFile:	DC.L	0
@@ -821,6 +831,7 @@ NoKeyScrL:				; (Option records: KeyOptApply, at GO.)
 	BEQ.S	NoAutoDisk
 	SF	AutoDisk
 	BSR	LOADVDAuto
+	JSR	LoadDiskB		; (4.0) B=<image>: drive B.
 	CMP.L	#"MENU",KEYNOM		; (4.0) 'AmiMSX <disk> MENU': the disk is in
 	BNE.S	AutoDskGo		; drive A, but stay in the menu (the PC
 	TST.B	KEYNOM+4		; tester's 'Open in AmiMSX menu').
@@ -3756,6 +3767,44 @@ xpkTags1:
 
 ; -----------------------------------
 	CNOP	0,4
+; (4.0) Load a disk image into drive B (its own virtual disk; Left Amiga
+; swaps A and B in play). Replaces the one there.
+LOADVDB:
+	TST.L	_ASLBase(PC)
+	BEQ	NeedASL
+	BSR	DISMOUSE
+	MOVE.L	REQBASE,A0
+	LEA	TAGSLoadMVD,A1
+	MOVE.L	_ASLBASE,A6
+	JSR	-$3C(A6)		; RequestFile.
+	MOVE.L	D0,-(SP)
+	BSR	ENAMOUSE
+	MOVE.L	(SP)+,D0
+	TST.L	D0
+	BEQ	SLCANCEL
+	MOVE.L	REQBASE,A2
+	LEA	DISKBNOM,A1
+	MOVE.W	#$100-1,D0
+	MOVE.L	8(A2),A0
+	TST.B	(A0)
+	BEQ.S	LdVBNm
+	BSR	COPYNOM
+	SUBQ	#1,A1
+	CMP.B	#":",-1(A1)
+	BEQ.S	LdVBNm
+	MOVE.B	#"/",(A1)+
+LdVBNm:	MOVE.W	#$100-1,D0
+	MOVE.L	4(A2),A0
+	BSR	COPYNOM
+	MOVE.L	BUCFILEB,D0		; The one before goes.
+	BEQ.S	LdVBNo
+	MOVE.L	DIRFILEB,A1
+	MOVE.L	4.W,A6
+	JSR	-$D2(A6)
+	CLR.L	BUCFILEB
+	CLR.L	DIRFILEB
+LdVBNo:	JMP	LoadDiskB
+
 LOADVD0:
 	TST.L	_ASLBase(PC)
 	BEQ	NeedASL
@@ -7068,6 +7117,7 @@ SIREINTM:
 
 	MOVE.L	DIRFILE,A0
 
+	MOVE.L	DIRFILEB,DIRVD1		; (4.0) drive B's virtual disk.
 	IFD	MENU
 	JSR	MSXEMUL			; A5=Dir Prefs.
 	ENDC
@@ -7737,6 +7787,8 @@ MMSXVD0:
 	DC.L	FORMAT1DD		; Format as 1DD
 	DC.L	CONTROLRET		; -----
 	DC.L	CLEARVD0		; Clear bufer
+	DC.L	CONTROLRET		; ----- (4.0)
+	DC.L	LOADVDB			; Load Disk File into drive B (4.0)
 
 SUBINSTALAR:
 	DC.L	BootTypeCheck		; Check
@@ -10014,6 +10066,53 @@ DirDOS:
 ; --------------------------------
 
 	CNOP	0,8
+; (4.0) 'AmiMSX <disk> B=<image>': the second image goes in drive B, as a
+; virtual disk (MVD) of its own; Left Amiga swaps A and B in play (Main,
+; Emula1Frame). Plain 360/720 Kb images only. Writes go to memory only:
+; drive B's image isn't saved back.
+	CNOP	0,4
+LoadDiskB:
+	TST.B	DISKBNOM
+	BEQ	LdDkBR
+	MOVE.L	#DISKBNOM,D1
+	JSR	LONGFILE
+	CMP.L	#720*1024,D0
+	BEQ.S	LdDkBS
+	CMP.L	#360*1024,D0
+	BNE	LdDkBR
+LdDkBS:	MOVE.L	D0,D7
+	MOVE.L	#DISKBNOM,D1		; Open first, then the memory.
+	MOVE.L	#$3ED,D2
+	JSR	OPENFILE
+	BEQ	LdDkBR
+	MOVE.L	D7,D0
+	ADD.L	#1024,D0		; (as drive A: a little spare)
+	MOVE.L	D0,BUCFILEB
+	MOVE.L	#$10000,D1
+	MOVE.L	4.W,A6
+	JSR	-$C6(A6)		; AllocMem
+	MOVE.L	D0,DIRFILEB
+	BEQ.S	LdDkBNo
+	MOVE.L	D0,D2
+	MOVE.L	D7,D3
+	JSR	READFILE
+	JSR	CLOSEFILE
+	MOVE.B	#5,DirPrefs+$19		; Drive B: MVD (and the gadget,
+	TST.L	MSX2WND			; so Power ON keeps it).
+	BEQ.S	LdDkBW
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	LEA	MSX2Gadgets+(GD_DRIVEB*4),A0
+	MOVE.L	MSX2WND,A1
+	MOVE.L	#$8008000F,D0
+	MOVEQ	#5,D1
+	JSR	CanviTags
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+LdDkBW:	RTS
+LdDkBNo:
+	CLR.L	BUCFILEB
+	JSR	CLOSEFILE
+LdDkBR:	RTS
+
 	CNOP	0,4
 	INCLUDE	"AmiMSX_RomDb_v4.asm"	; (4.0) ROM database (mapper by SHA-1).
 

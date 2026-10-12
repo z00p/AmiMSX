@@ -4750,6 +4750,19 @@ MSX2NewMenu64:
     DC.W    0
     DC.L    0,0
 
+MSX2NewMenu64a:                     ; (4.0) drive B
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+MSX2NewMenu64b:
+    DC.B    2,0
+    DC.L    MSX2MName64b
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
 MSX2NewMenu65:
     DC.B    1,0
     DC.L    MSX2MName65
@@ -5286,6 +5299,9 @@ MSX2MName62:
 
 MSX2MName64:
     DC.B    'Clear buffer (Eject)',0
+
+MSX2MName64b:
+    DC.B    'Load Disk File into drive B',0
 
 MSX2MName65:
     DC.B    'Cartridges  ',0
