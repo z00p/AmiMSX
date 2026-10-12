@@ -29,6 +29,7 @@ def main():
     ap.add_argument("bin")
     ap.add_argument("--wav")
     ap.add_argument("--n", type=int, default=227)
+    ap.add_argument("--voices", type=int, default=9)
     a = ap.parse_args()
     init, w, o, wp, op = parse(a.bin)
     # pointers are absolute; the buffers' sizes in use come from the data:
@@ -42,7 +43,7 @@ def main():
         writes.setdefault(f, []).append((r, v))
         nw += 1
     frames = len(o.rstrip(b"\0")) // a.n + 1
-    syn = fm.Synth(a.n)
+    syn = fm.Synth(a.n, a.voices)
     syn.regs = list(init)
     syn.pdirty = True
     bad, first = 0, None

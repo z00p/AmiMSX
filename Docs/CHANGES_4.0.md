@@ -47,12 +47,12 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - KonamiSCC bank registers are decoded as on the cartridge.
 - **8 KB ROMs** (12 Oct) load as one 16 KB page, the 8 KB mirrored (Sink King, Nohzdyve, Kralizec 8K Tetris, Battle Tetris).
 - **ROM database** (12 Oct): `AmiMSX4.romdb` gives the mapper by SHA-1 for 3,180 MegaROMs (from openMSX's software database, plus local extras). The order is: a saved mapper, then the database, then the file-name tag, then the guess. Each ROM is hashed once; the answer is cached in `AmiMSX4.romcache`. Uwol (ASCII8, guessed as Konami before) now plays.
-- **Flash Konami SCC cartridges** (12 Oct): 7FFFh bit 4 enables AMD flash commands (program, 64 KB sector erase) on ROMs over 512 KB. Pampas & Selene now plays. Saves stay in memory.
+- **Flash Konami SCC cartridges** (12 Oct): 7FFFh bit 4 enables AMD flash commands (program, 64 KB sector erase) on ROMs over 512 KB. Pampas & Selene now plays, and its saves are kept: the changed sectors go to `<cartridge>.flash` next to the ROM when you return to the menu, and are read back when the cartridge is inserted. The ROM file itself is never changed.
 
 ### Disks
 
 - **Disk images** are read completely. A short read used to leave the MSX booting a partly empty disk (some disk demos failed at random); a file that can't be read in full is now an error.
-- **Drive B virtual disk** (12 Oct): drive B can hold a disk image of its own (before, a virtual drive B shared drive A's image). Load it from the menu (MSX Virtual Drive > Load Disk File into drive B) or from the CLI (`AmiMSX <disk> B=<image>`). Plain 360/720 KB images; changes to drive B's image stay in memory.
+- **Drive B virtual disk** (12 Oct): drive B can hold a disk image of its own (before, a virtual drive B shared drive A's image). Load it from the menu (MSX Virtual Drive > Load Disk File into drive B) or from the CLI (`AmiMSX <disk> B=<image>`). Plain 360/720 KB images. What a game writes to drive B's disk is written back to its image file when you return to the menu, as a real disk keeps it (drive A keeps the MVD quit requester).
 - **Disk swap** (12 Oct): Left Amiga swaps the disks in drives A and B during play, and the power LED blinks. For "insert disk 2" prompts and two-disk games.
 
 ## Options

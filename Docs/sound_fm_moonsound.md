@@ -98,6 +98,12 @@ So the right notes, at the right times, with close to the right timbre. Listenin
 
 - **Listening:** `build/fm/lilly_amiga_fmx.wav` is what the Amiga played (from the check build); against openMSX it scores chroma 0.94 (the two runs' timing differs a little).
 
+## PSG+FM lite (12 Oct)
+
+Sound chip 4 ('FM lite' in the menu): the same FMX engine, but it mixes only the 4 loudest FM voices, chosen each frame by the last frame's gain (a key-on counts as loudest). About half the mixer's cost, meant for the A1200 and 68030 when someone wants FM there (their presets keep PSG). Lilly's Saga against openMSX: chroma 0.95 (all 9 voices: 0.96).
+
+Paula hardware voices were the other idea. They cost almost no CPU, but Paula has 4 channels and the PSG drives 3 of them directly from its register writes, so FM voices would have to take channels away from the PSG mid-game. The lite mix keeps the PSG whole.
+
 ## Next steps
 
 1. Run Lilly's Saga with the FM-PAC enabled in AmiMSX (sound chip 3 through a key-script option) to confirm the game finds MSX-Music, and see what v0.1 sounds like.

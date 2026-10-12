@@ -2854,6 +2854,7 @@ InsertSl1:
 	MOVE.L	BucCartAdd(PC),BucCartAddS1
 	MOVE.W	PagCart(PC),PagCartS1
 	MOVE.L	CheckId(PC),CheckIdS1
+	JSR	FlashLoad		; (4.0) a flash cartridge's saved sectors
 	TST.B	CartLoadOK		; The cartridge's own settings, if it
 	BEQ.S	InsSl1NoGP		; has any (GPLoad).
 	BSR	GPLoad
@@ -2982,7 +2983,7 @@ GPScc1:	LEA	GPSaved,A1
 	TST.B	DirPrefs+$1D
 	BEQ.S	GPScc3
 	CMP.B	#3,DirPrefs+$1D
-	BNE.S	GPScc2
+	BCS.S	GPScc2			; (3, 4: PSG+FM, lite)
 GPScc3:	MOVE.B	#1,DirPrefs+$1D
 GPScc2:	BRA	GPShowGUI
 GPNoScc:
@@ -6690,8 +6691,12 @@ KeyOpt3:
 	SNE	PrefMask
 KeyOpt4:
 	CMP.B	#4,5(A0)		; 4 = sound chip (DirPrefs+$1D: 0 PSG,
-	BNE.S	KeyOptNx		; 1 SCC, 2 SCC+).
+	BNE.S	KeyOpt5			; 1 SCC, 2 SCC+, 3 PSG+FM, 4 lite).
 	MOVE.B	7(A0),DirPrefs+$1D
+KeyOpt5:
+	CMP.B	#5,5(A0)		; 5 = machine (DirPrefs+$10: 0 MSX,
+	BNE.S	KeyOptNx		; 1 MSX2, 2 MSX2+).
+	MOVE.B	7(A0),DirPrefs+$10
 KeyOptNx:
 	ADDQ.W	#8,A0
 	BRA.S	KeyOptBuc
@@ -7121,6 +7126,8 @@ SIREINTM:
 	IFD	MENU
 	JSR	MSXEMUL			; A5=Dir Prefs.
 	ENDC
+	JSR	FlashSave		; (4.0) back in the menu: flash sectors
+	JSR	DiskBSave		; and drive B's image, if changed.
 
 	MOVE.L	D7,-(SP)
 	BSR	RefrescaReloj
@@ -7534,10 +7541,10 @@ AutoGoW2:
 AutoGoNow:
 	JSR	MSX_GO
 	IFD	TRACE
-	BSR	TraceDump		; Trap fired, or Ctrl+Alt: last 4096
+	JSR	TraceDump		; Trap fired, or Ctrl+Alt: last 4096
 	ENDC				; instructions before leaving.
 	IFD	PERF
-	BSR	PerfDump		; Frame timing windows.
+	JSR	PerfDump		; Frame timing windows.
 	ENDC
 BUCONTROL:
 	MOVE.L	(SP),A0
@@ -10097,6 +10104,8 @@ LdDkBS:	MOVE.L	D0,D7
 	MOVE.L	D7,D3
 	JSR	READFILE
 	JSR	CLOSEFILE
+	MOVE.L	D7,DskBSize		; (for DiskBSave)
+	SF	DskDirtyB
 	MOVE.B	#5,DirPrefs+$19		; Drive B: MVD (and the gadget,
 	TST.L	MSX2WND			; so Power ON keeps it).
 	BEQ.S	LdDkBW
@@ -10113,6 +10122,8 @@ LdDkBNo:
 	JSR	CLOSEFILE
 LdDkBR:	RTS
 
+	CNOP	0,4
+	INCLUDE	"AmiMSX_Saves_v4.asm"	; (4.0) flash and drive B saves.
 	CNOP	0,4
 	INCLUDE	"AmiMSX_RomDb_v4.asm"	; (4.0) ROM database (mapper by SHA-1).
 

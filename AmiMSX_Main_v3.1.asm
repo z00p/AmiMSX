@@ -631,6 +631,15 @@ CALLCC:	MACRO
 
 ; (4.0) Virtual disks: drive A uses DIRVD0, drive B DIRVD1 (D7 bit 0 = the
 ; drive, as the disk BIOS calls get it in register A).
+; (4.0) Flash: mark the 64 KB sector of bank \1 (Dn) as changed (FlSect,
+; FlDirty; saved by the menu, AmiMSX_Saves_v4.asm). Uses D3.
+FLMARK:	MACRO
+	MOVE.L	\1,D3
+	LSR.L	#3,D3
+	BFSET	FlSect{D3:1}
+	ST	FlDirty
+	ENDM
+
 VDPTR:	MACRO			; \1 = the drive's image (An)
 	MOVE.L	DIRVD0,\1
 	BTST	#0,D7
@@ -1000,9 +1009,14 @@ SiAGA:
 
 ; ---------------------------------------=> PSG Outs On/Off
 	MOVE.L	#OUTA1S,OUTS+($A1*4)
-	CMP.B	#3,D7			; (4.0) Sound chip 3: the PSG, plus
-	SEQ	FMXOn			; MSX-Music by FMX on channel 3.
+	SF	FMXOn			; (4.0) Sound chip 3: the PSG, plus
+	MOVE.W	#9,FMXMaxV		; MSX-Music by FMX on channel 3; 4: the
+	CMP.B	#3,D7			; same with the 4 loudest FM voices only
+	BEQ.S	SiFMX0			; ('PSG+FM lite', for A1200 / 68030).
+	CMP.B	#4,D7
 	BNE.S	NoFMX0
+	MOVE.W	#4,FMXMaxV
+SiFMX0:	ST	FMXOn
 	SF	D7
 NoFMX0:
 	MOVE.B	D7,SFXCHIP
@@ -8316,6 +8330,13 @@ FlashS3:
 	MOVE.W	FlPage,D4
 	MOVE.L	PagRead(A3,D4.W),A0
 	AND.B	D3,(A0,D1.L)
+	MOVE.L	D1,D4			; (the bank, for the save)
+	AND.L	#$E000,D4
+	ADD.L	A0,D4
+	SUB.L	MapROMBase1(A3),D4
+	DIVU.W	#$2080,D4
+	AND.L	#$FFFF,D4
+	FLMARK	D4
 	IFD	FLCOUNT
 	ADDQ.W	#1,FlDbg+6		; (programs)
 	ENDC
@@ -8341,6 +8362,7 @@ FlashS5:
 	SUB.L	MapROMBase1(A3),D4
 	DIVU.W	#$2080,D4
 	AND.L	#$F8,D4			; first bank of the sector
+	FLMARK	D4
 	MOVE.L	D4,D3
 	ADDQ.W	#8,D3
 	CMP.W	NumROM,D3
@@ -8367,6 +8389,9 @@ FlashX:
 
 FlSave:	DS.L	3
 FlPage:	DS.W	1
+FlSect:	DS.B	8			; changed 64 KB sectors (a bit each)
+FlDirty:	DC.B	0		; changed since the last save
+	EVEN
 FlDbg:	DS.W	6			; PERF: 7FFF writes, last, commands, programs, erases, mapper
 FlashOn:	DC.B	0		; flash writes enabled (7FFFh bit 4)
 FlState:	DC.B	0		; command state (0 idle .. 6)
@@ -19504,7 +19529,14 @@ rgBUCOPYDS2:
 	MOVE.L	TIPOST+0,PagWrite+(2*4)(A3)
 	MOVE.L	TIPOST+4,PagWrite+(3*4)(A3)
 
+	VDPTR	A1			; (4.0) Which image: drive B's own
+	CMPA.L	DIRFILEB,A1		; is saved on the way back to the
+	BNE.S	rgDirtyA		; menu (DiskBSave); drive A's is the
+	ST	DskDirtyB		; MVD (quit requester).
+	BRA.S	rgDirtyX
+rgDirtyA:
 	ST	MVDMODIFI			; MVD se ha modificado!
+rgDirtyX:
 
 	MOVEM.L	BUFER(A3),D0-D4/A0-A2
 	BSET	#1,$BFE001			; Filtro OFF
@@ -22052,6 +22084,8 @@ DskSwHeld:	DC.B	0		; (4.0) Left Amiga held (swap once)
 DskSwLed:	DC.B	0		; (4.0) frames of LED after a swap
 	EVEN
 DskSwT:		DC.L	0
+DskDirtyB:	DC.B	0		; (4.0) drive B's own image written
+	EVEN
 DMACON:		DC.W	0
 INTENA:		DC.W	0
 INTENA2:	DC.W	0
@@ -24084,6 +24118,9 @@ FMXN:		DS.W	1		; samples a frame (227 or 313)
 FMXPer:		DS.W	1		; Paula period (313 or 227)
 FMXQsz:		DS.W	4		; samples in each quarter frame
 FMXQ:		DS.W	1
+FMXMaxV:	DS.W	1		; voices mixed: 9, or 4 (lite)
+FMXSel:		DS.W	1		; this frame's voices (bit per channel)
+FMXSelG:	DS.W	9		; (FMXSelect)
 FMXInst:	DS.W	1
 FMXFn:		DS.W	1
 FMXBlk:		DS.W	1

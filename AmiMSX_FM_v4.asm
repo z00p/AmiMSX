@@ -171,6 +171,7 @@ FMXFrCl:
 	CLR.L	(A0)+
 	DBF	D0,FMXFrCl
 
+	BSR	FMXSelect		; FMXSel: the voices mixed this frame.
 	LEA	FMXCh,A2
 	MOVEQ	#0,D7			; D7 = channel (0-8)
 FMXChan:
@@ -263,6 +264,9 @@ FMXChG1:
 	CMP.W	#63,D5
 	BEQ	FMXChNx			; Silent before and now: skip.
 FMXChAc:
+	MOVE.W	FMXSel,D0		; Not among the loudest (lite): the
+	BTST	D7,D0			; envelope ran, but no mixing.
+	BEQ	FMXChNx
 	MOVE.B	2(A4),D1		; Modulator level -> table k.
 	BSR	FMXKsl
 	MOVEQ	#0,D0
@@ -360,6 +364,53 @@ FMXRcO:	ADDQ.W	#1,FMXFrN
 	ENDC
 	MOVEM.L	FMXSave,D0-D7/A0-A6
 	RTS
+
+; -------------------------------------> The voices to mix (FMXSel, bit per
+; channel). All of them, or (FMXMaxV < 9, 'PSG+FM lite') the FMXMaxV loudest
+; by last frame's gain index, a key-on this frame counting as loudest.
+; Uses D0-D4, A0, A1.
+	CNOP	0,8
+FMXSelect:
+	MOVE.W	#$1FF,FMXSel
+	CMP.W	#9,FMXMaxV
+	BCC.S	FMXSeR
+	LEA	FMXSelG,A0		; Each channel's rank value.
+	LEA	FMXCh,A1
+	LEA	FMXKeyEv,A2
+	MOVEQ	#9-1,D1
+FMXSe1:	MOVE.W	CH_GI(A1),D0
+	TST.B	(A2)+
+	BEQ.S	FMXSe2
+	MOVEQ	#-1,D0
+FMXSe2:	MOVE.W	D0,(A0)+
+	LEA	CH_SIZE(A1),A1
+	DBF	D1,FMXSe1
+	CLR.W	FMXSel
+	MOVE.W	FMXMaxV,D4		; Pick the lowest FMXMaxV times.
+	SUBQ.W	#1,D4
+FMXSe3:	LEA	FMXSelG,A0
+	MOVE.W	#$7FFF,D2		; best value
+	MOVEQ	#-1,D3			; best channel
+	MOVEQ	#0,D1
+FMXSe4:	MOVE.W	(A0)+,D0
+	CMP.W	D2,D0
+	BGE.S	FMXSe5
+	MOVE.W	D0,D2
+	MOVE.W	D1,D3
+FMXSe5:	ADDQ.W	#1,D1
+	CMP.W	#9,D1
+	BNE.S	FMXSe4
+	TST.W	D3
+	BMI.S	FMXSeR
+	CMP.W	#63,D2			; (silent ones aren't worth a slot)
+	BEQ.S	FMXSeR
+	MOVE.W	FMXSel,D0
+	BSET	D3,D0
+	MOVE.W	D0,FMXSel
+	LEA	FMXSelG,A0
+	MOVE.W	#$7FFF,(A0,D3.W*2)
+	DBF	D4,FMXSe3
+FMXSeR:	RTS
 
 ; -------------------------------------> Mix one voice (one table) in 4 quarters.
 ; A0 = table, A4 = gain index offsets (4 bytes), A2 = channel, D3.W/D6.B =

@@ -1725,6 +1725,7 @@ SoundLabels:
     DC.L    SoundLab1
     DC.L    SoundLab2
     DC.L    SoundLab3
+    DC.L    SoundLab4
     DC.L    0
 
 DISKverLabels:
@@ -1802,6 +1803,7 @@ SoundLab0:    DC.B    'PSG',0
 SoundLab1:    DC.B    'SCC',0
 SoundLab2:    DC.B    'SCC+',0
 SoundLab3:    DC.B    'PSG+FM',0          ; (4.0) MSX-Music (FMX)
+SoundLab4:    DC.B    'FM lite',0         ; (4.0) the same, 4 loudest FM voices
 
     CNOP    0,2
 

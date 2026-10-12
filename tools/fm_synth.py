@@ -227,8 +227,9 @@ class Slot:
 class Synth:
     """Integer model of the 68k FMX engine, step for step."""
 
-    def __init__(s, n_frame=227):
+    def __init__(s, n_frame=227, max_voices=9):
         s.n = n_frame
+        s.max_voices = max_voices
         s.period = MODES[n_frame]
         s.rate = PAULA_CLOCK / s.period
         s.K = step_k(s.period)
@@ -299,6 +300,18 @@ class Synth:
             s.tabs[0] = make_tables(s.regs[0:8])
             s.pdirty = False
         mix = [0] * s.n
+        # voices to mix: all, or (lite) the max_voices loudest by last frame's
+        # gain index, a key-on this frame first (as FMXSelect)
+        sel = set(range(9))
+        if s.max_voices < 9:
+            rank = [(-1 if s.keyev[i] else c["gi"]) for i, c in enumerate(s.ch)]
+            sel = set()
+            for _ in range(s.max_voices):
+                best = min(range(9), key=lambda i: (rank[i], i))
+                if rank[best] >= 63:
+                    break
+                sel.add(best)
+                rank[best] = 0x7FFF
         for n, c in enumerate(s.ch):
             key = s.regs[0x20 + n] & 0x10
             if s.keyev[n]:
@@ -324,6 +337,8 @@ class Synth:
                 g1 = min(63, ((c["car"].eg >> 8) + vol * 8 + s.ksl(n, cr)) >> 1)
             c["gi"] = g1
             if g0 == 63 and g1 == 63:
+                continue
+            if n not in sel:
                 continue
             k = s.modlv[min(127, (c["mod"].eg >> 8) + s.ksl(n, m))]
             tabs, g = s.tabs[inst]
@@ -373,7 +388,7 @@ def frames8(syn, k=1):
     return out
 
 
-def render(regs_path, out, n_frame=227, fps=50, frames=None):
+def render(regs_path, out, n_frame=227, fps=50, frames=None, max_voices=9):
     log = {}
     last = 0
     for line in open(regs_path):
@@ -382,7 +397,7 @@ def render(regs_path, out, n_frame=227, fps=50, frames=None):
             f = round(float(p[3]) * fps) if len(p) > 3 else int(p[0])   # 4th column: time (s)
             log.setdefault(f, []).append((int(p[1], 16), int(p[2], 16)))
             last = max(last, f)
-    syn = Synth(n_frame)
+    syn = Synth(n_frame, max_voices)
     out_s = []
     for f in range(frames or last + fps * 2):
         for r, v in log.get(f, []):
@@ -464,9 +479,10 @@ def main():
                     help="samples per frame: 227 (11.3 kHz) or 313 (15.6 kHz)")
     ap.add_argument("--fps", type=int, default=50)
     ap.add_argument("--frames", type=int)
+    ap.add_argument("--voices", type=int, default=9, help="voices mixed (4: 'PSG+FM lite')")
     a = ap.parse_args()
     if a.cmd == "render":
-        render(a.args[0], a.args[1], a.n, a.fps, a.frames)
+        render(a.args[0], a.args[1], a.n, a.fps, a.frames, a.voices)
     elif a.cmd == "demo":
         demo(a.args[0], a.n)
     else:
