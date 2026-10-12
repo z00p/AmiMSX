@@ -78,3 +78,7 @@ R2_io,R2_io.dsk,disk,set2,,autospace,030,"22,40,60",Y,disk: no openMSX scan (C-B
 027_Malaika,027_Malaika.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
 028_Aquattack,028_Aquattack.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S1 split:mode sprites:mode1
 030_DICEDTournament,030_DICEDTournament.rom,rom,core,Konami,play,030,"30,45,60",,,machine:MSX1 mapper:Konami mode:S2 sprites:mode1
+036_SinkKing,036_SinkKing.rom,rom,core,,play,030,"30,45,60",,8 KB ROM (mirrored to 16 KB at load),machine:MSX1 mapper:plain size:8K
+057_Nohzdyve,057_Nohzdyve.rom,rom,core,,play,030,"30,45,60",,8 KB ROM (mirrored to 16 KB at load),machine:MSX1 mapper:plain size:8K
+059_Kralizec8KTetris,059_Kralizec8KTetris.rom,rom,core,,play,030,"30,45,60",,8 KB ROM (mirrored to 16 KB at load),machine:MSX1 mapper:plain size:8K
+084_KralizecBattleTetris,084_KralizecBattleTetris.rom,rom,core,,play,030,"30,45,60",,8 KB ROM (mirrored to 16 KB at load),machine:MSX1 mapper:plain size:8K

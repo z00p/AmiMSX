@@ -150,6 +150,7 @@ NoHayKanji:
 	CLR.L	DirMapper
 	CLR.L	BucMapper
 NoHayMapper:
+	JSR	RomDbFree		; (4.0) ROM database and cache.
 ; <=-----------------------=>
 
 	TST.L	_ASLBASE
@@ -3266,7 +3267,20 @@ DesImpBuc:
 ; -=-=-
 NoCompri0:
 ; -=-=-
+	TST.B	Cart8K			; (4.0) 8 Kb file: mirror it to 16 Kb.
+	BEQ.S	NoCart8K
+	CMP.L	#$2000,BucFileCart
+	BNE.S	NoCart8K
+	MOVE.L	DirCart,A0
+	ADD.W	#$80,A0
+	LEA	$2000(A0),A1
+	MOVE.W	#($2000/4)-1,D0
+Cart8KBuc:
+	MOVE.L	(A0)+,(A1)+
+	DBF	D0,Cart8KBuc
+NoCart8K:
 	BSR	CalCheckCart		; Calcula Check-Sum
+	JSR	RomDbCheck		; (4.0) ROM database (mapper by SHA-1).
 ; -=-=-
 	MOVE.L	DirCart,A0		;;	Mirar ID
 	CMP.W	#"AB",$80(A0)
@@ -3368,6 +3382,17 @@ NoInsert:
 
 
 MiraMSXCartSize:
+	SF	Cart8K
+	CMP.L	#$2000,D0		; (4.0) 8-16 Kb: one 16 Kb page (an 8 Kb
+	BCS.S	NoMSXCartCon		; file is mirrored to fill it, as on
+	CMP.L	#$4000,D0		; the cartridge).
+	BCC.S	MiCaS16
+	ST	Cart8K
+	CLR.L	BucCartAdd
+	MOVEQ	#1,D0
+	MOVEQ	#-1,D1
+	RTS
+MiCaS16:
 	MOVE.L	D0,D1
 	AND.L	#$3FFF,D1
 	MOVE.L	D1,BucCartAdd
@@ -3443,9 +3468,18 @@ MiConMapper0:
 	MOVE.L	DirCart(PC),A0		; Linear 48/64Kb cart: Standard.
 	MiraLin	A0,BucCart,D0
 	BNE.S	MiStdMapper
-	BSR.S	MiConMapper		; Mapper saved for this cartridge?
+	BSR	MiConMapper		; Mapper saved for this cartridge?
 	TST.B	SiNewMapp(PC)
 	BEQ.S	MiConMapFin
+	TST.B	RomDbHit		; (4.0) No: the ROM database (found
+	BEQ.S	MiConNoDb		; at load, RomDbCheck)?
+	SF	RomDbHit
+	MOVEQ	#0,D0
+	MOVE.B	RomDbCode,D0
+	BNE.S	MiConMapFin
+	MOVE.W	#-1,D0			; (0: standard)
+	BRA.S	MiConMapFin
+MiConNoDb:
 	BSR	TagMapper		; No: a mapper tag in the file name?
 	BNE.S	MiConMapFin
 	BSR	GuessMapper		; No: guess it like openMSX does.
@@ -9973,4 +10007,7 @@ DirDOS:
 ; --------------------------------
 
 	CNOP	0,8
+	CNOP	0,4
+	INCLUDE	"AmiMSX_RomDb_v4.asm"	; (4.0) ROM database (mapper by SHA-1).
+
 MSXEMUL:

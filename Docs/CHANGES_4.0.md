@@ -45,6 +45,9 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - the mapper is guessed as openMSX does;
   - banks wrap at the ROM's size;
   - KonamiSCC bank registers are decoded as on the cartridge.
+- **8 KB ROMs** (12 Oct) load as one 16 KB page, the 8 KB mirrored (Sink King, Nohzdyve, Kralizec 8K Tetris, Battle Tetris).
+- **ROM database** (12 Oct): `AmiMSX4.romdb` gives the mapper by SHA-1 for 3,180 MegaROMs (from openMSX's software database, plus local extras). The order is: a saved mapper, then the database, then the file-name tag, then the guess. Each ROM is hashed once; the answer is cached in `AmiMSX4.romcache`. Uwol (ASCII8, guessed as Konami before) now plays.
+- **Flash Konami SCC cartridges** (12 Oct): 7FFFh bit 4 enables AMD flash commands (program, 64 KB sector erase) on ROMs over 512 KB. Pampas & Selene now plays. Saves stay in memory.
 
 ### Disks
 

@@ -4,6 +4,19 @@ What AmiMSX 4.0 can map today, what MSX software needs (openMSX's software datab
 
 Sources: `AmiMSX_Main_v3.1.asm`, `AmiMSX_Menu_v3.1.asm`, `AmiMSX2.mapper`, openMSX 21.0's `tools/openmsx/share/softwaredb.xml`, the ROMs in `run/Roms`, the MSX Top 100 on a local drive, and the maintainer's MSX/MSX2 sets on a local drive and a local drive. The ROMs were read with Python (SHA-1, AmiMSX's checksum, a port of GuessMapper); nothing was run in WinUAE.
 
+## Status (12 Oct, implemented)
+
+- **8 KB ROMs:** files of 8-16 KB load as one 16 KB page; an 8 KB file is mirrored. Tested: Sink King, Nohzdyve, Kralizec 8K Tetris and Battle Tetris play (030 config).
+- **ROM database:** `tools/make_romdb.py` writes `AmiMSX4.romdb`, about 25 KB: 3,180 entries keyed by the first 4 bytes of the SHA-1. Codes: 0 standard, 1 Konami, 2 ASCII8, 3 ASCII16, 4 Konami SCC (with its flash variants), $FE not emulated. Plain ROMs are left to the size rules. Local extras come from `tests/titles.csv` romtype or file-name tags: Pampas, DELTA, Neon Revenant MSX1/MSX2.
+- **On the Amiga** (`AmiMSX_RomDb_v4.asm`): at load, for MegaROMs without a saved mapper, it checks the cache (`AmiMSX4.romcache`: AmiMSX checksum + size -> answer). Otherwise it hashes the file (68k SHA-1), binary-searches the database and caches the answer.
+  - Order: saved mapper > database > file-name tag > guess.
+  - Checked: the 68k SHA-1 found Lilly's Saga (ASCII16) and Uwol (ASCII8). Uwol now plays; it was a blue screen with the guessed Konami mapper.
+- **Not done yet:**
+  - the "needs mapper X" message for $FE types (they fall back to the tag and the guess);
+  - the hints byte (SRAM, flash) isn't used yet;
+  - a timing of the SHA-1 on a real A1200.
+- **Keeping it current:** refresh from each monthly openMSX regular build (`Docs/release_4.0.md`, "Each release: refresh the ROM database").
+
 ## Summary
 
 - **Mappers:** AmiMSX has 6, plus Standard: Konami, Konami SCC (two decodes), ASCII8, ASCII16 and a 16 KB "Konami 1". Since 12 Oct, Konami SCC also has a flash mode for ROMs over 512 KB.
