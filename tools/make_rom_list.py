@@ -1,5 +1,5 @@
 """Write run/Roms/roms.csv (file, title, developer, year) for the AmiMSX Tester's
-game list: from the MSX top-list research (mister-curation top_MSX1.tsv), a
+game list (cartridges in run/Roms and disk images in run/Disks): from the MSX top-list research (mister-curation top_MSX1.tsv), a
 table for the commercial and test ROMs, and blanks for the rest. Rows already
 in roms.csv are kept as they are (hand edits win); new ROM files are added.
 Usage: python tools/make_rom_list.py"""
@@ -37,7 +37,15 @@ KNOWN = {   # file stem: (title, developer, year)
     "R2_NeonRevMSX2[ASCII8]": ("Neon Revenant (MSX2)", "", ""),
     "R2_Popolon": ("Popolon", "", ""),
     "R2_Unleashed": ("MSX Unleashed (demo)", "", ""),
+    # disk images (run/Disks)
+    "020_GradiusIIILegends": ("Gradius III Legends", "Imanok", "2001"),
+    "R2_akin1": ("Akin (disk 1)", "Parallax / UMAX (Sunrise)", "1995"),
+    "R2_akin2": ("Akin (disk 2)", "Parallax / UMAX (Sunrise)", "1995"),
+    "R2_bold": ("Bold (demo)", "", ""),
+    "R2_invasion": ("Invasion of the Big Pixels (demo)", "Noice", "2008"),
+    "R2_io": ("io (timing test)", "", ""),
 }
+DISKS = os.path.join(BASE, "run", "Disks")
 
 
 def norm(s):
@@ -55,6 +63,8 @@ def main():
             if len(r) > 3:
                 top[norm(r[1])] = (r[1], r[3], r[2])
     files = sorted(f for f in os.listdir(ROMS) if f.lower().endswith((".rom", ".mx1", ".mx2")))
+    if os.path.isdir(DISKS):
+        files += sorted(f for f in os.listdir(DISKS) if f.lower().endswith(".dsk"))
     added = 0
     for f in files:
         if f in rows:
@@ -67,6 +77,8 @@ def main():
         else:
             core = re.sub(r"^(\d+_|M_|R2_)", "", stem)
             core = re.sub(r"_(A8|A16|Kon|SCC)$|\[.*\]", "", core)
+            if f.lower().endswith(".dsk"):
+                core = re.sub(r"^\d+_", "", core)
             n, m = norm(core), None
             for k, v in top.items():
                 if len(n) >= 4 and (n == k or (len(n) >= 6 and (n in k or k in n))):

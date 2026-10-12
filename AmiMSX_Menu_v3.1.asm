@@ -821,6 +821,13 @@ NoKeyScrL:				; (Option records: KeyOptApply, at GO.)
 	BEQ.S	NoAutoDisk
 	SF	AutoDisk
 	BSR	LOADVDAuto
+	CMP.L	#"MENU",KEYNOM		; (4.0) 'AmiMSX <disk> MENU': the disk is in
+	BNE.S	AutoDskGo		; drive A, but stay in the menu (the PC
+	TST.B	KEYNOM+4		; tester's 'Open in AmiMSX menu').
+	BNE.S	AutoDskGo
+	CLR.B	KEYNOM
+	BRA.S	NoAutoDisk
+AutoDskGo:
 	ST	AutoGo
 NoAutoDisk:
 

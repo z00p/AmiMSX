@@ -101,9 +101,9 @@ function Start-Session($game, $menuOnly) {
   else {
     $dir = if ($game -match '\.dsk$') { "Disks" } else { "Roms" }
     $run = "Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$game`""
-    # Menu: the cartridge goes into Slot 1 and AmiMSX stays in its menu (settings,
-    # Save game settings, then Power ON). Disk images have no such option: they boot.
-    if ($menuOnly -and $dir -eq "Roms") { $run += " MENU" }
+    # Menu: the cartridge goes into Slot 1 (or the disk into drive A) and AmiMSX
+    # stays in its menu (settings, Save game settings, then Power ON).
+    if ($menuOnly) { $run += " MENU" }
   }
   $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', $run)
   [IO.File]::WriteAllText($seq, $s, $latin1)
@@ -235,34 +235,38 @@ $ff.Controls.AddRange(@($lblF, $txtF, $lblN))
 # Game list: click a column header to sort (again to reverse); blanks sort last.
 $lv = New-Object Windows.Forms.ListView; $lv.View = "Details"; $lv.FullRowSelect = $true; $lv.MultiSelect = $false
 $lv.HideSelection = $false; $lv.Dock = "Fill"; $lv.GridLines = $true
-foreach ($c in @(@("Game", 330), @("Developer", 250), @("Year", 70), @("File", 240))) { [void]$lv.Columns.Add($c[0], [int]($c[1] * $dpiScale)) }
+foreach ($c in @(@("Game", 330), @("Type", 60), @("Developer", 250), @("Year", 70), @("File", 240))) { [void]$lv.Columns.Add($c[0], [int]($c[1] * $dpiScale)) }
 
 $meta = @{}
 $csvPath = "$base\run\Roms\roms.csv"
 if (Test-Path $csvPath) { Import-Csv $csvPath | ForEach-Object { $meta[$_.file] = $_ } }
+# Cartridges (run\Roms) and disk images (run\Disks, booted from drive A); titles
+# for both from roms.csv (tools\make_rom_list.py).
 $games = @()
-Get-ChildItem "$base\run\Roms" -File | Where-Object { $_.Extension -match '^\.(rom|mx1|mx2)$' } | ForEach-Object {
-  $m = $meta[$_.Name]
-  $games += [pscustomobject]@{ File = $_.Name; Title = $(if ($m -and $m.title) { $m.title } else { $_.BaseName })
+$files = @(Get-ChildItem "$base\run\Roms" -File | Where-Object { $_.Extension -match '^\.(rom|mx1|mx2)$' }) +
+         @(Get-ChildItem "$base\run\Disks" -File -Filter *.dsk -ErrorAction SilentlyContinue)
+foreach ($f in $files) {
+  $m = $meta[$f.Name]
+  $games += [pscustomobject]@{ File = $f.Name; Title = $(if ($m -and $m.title) { $m.title } else { $f.BaseName })
+                               Type = $(if ($f.Extension -eq ".dsk") { "Disk" } else { "ROM" })
                                Developer = $(if ($m) { $m.developer } else { "" }); Year = $(if ($m) { $m.year } else { "" }) } }
-Get-ChildItem "$base\run\Disks" -File -Filter *.dsk -ErrorAction SilentlyContinue | ForEach-Object {
-  $games += [pscustomobject]@{ File = $_.Name; Title = "$($_.BaseName) (disk)"; Developer = ""; Year = "" } }
-$keys = @("Title", "Developer", "Year", "File"); $heads = @("Game", "Developer", "Year", "File")
+$keys = @("Title", "Type", "Developer", "Year", "File"); $heads = @("Game", "Type", "Developer", "Year", "File")
 $script:sortKey = "Title"; $script:sortAsc = $true
 function Fill {
   $q = $txtF.Text
-  $rows = @($games | Where-Object { -not $q -or "$($_.Title) $($_.Developer) $($_.Year) $($_.File)" -like "*$q*" })
+  $rows = @($games | Where-Object { -not $q -or "$($_.Title) $($_.Type) $($_.Developer) $($_.Year) $($_.File)" -like "*$q*" })
   $rows = @($rows | Sort-Object @{ Expression = { [string]::IsNullOrEmpty($_.($script:sortKey)) } },
                                 @{ Expression = { $_.($script:sortKey) }; Descending = (-not $script:sortAsc) },
                                 @{ Expression = { $_.Title } })
   $lv.BeginUpdate(); $lv.Items.Clear()
   foreach ($g in $rows) {
     $it = New-Object Windows.Forms.ListViewItem ([string]$g.Title)
+    [void]$it.SubItems.Add([string]$g.Type)
     [void]$it.SubItems.Add([string]$g.Developer); [void]$it.SubItems.Add([string]$g.Year); [void]$it.SubItems.Add([string]$g.File)
     $it.Tag = $g; [void]$lv.Items.Add($it)
   }
   $lv.EndUpdate()
-  for ($k = 0; $k -lt 4; $k++) {
+  for ($k = 0; $k -lt 5; $k++) {
     $lv.Columns[$k].Text = if ($keys[$k] -eq $script:sortKey) { $heads[$k] + $(if ($script:sortAsc) { "  ^" } else { "  v" }) } else { $heads[$k] }
   }
   $lblN.Text = "$($rows.Count) of $($games.Count) games"
@@ -282,7 +286,7 @@ $bf.Controls.AddRange(@($btnPlay, $btnMenu, $btnRep, $btnStop))
 
 $lblStatus = New-Object Windows.Forms.Label; $lblStatus.AutoSize = $true; $lblStatus.Text = "Not running."; $lblStatus.Margin = "3,8,3,3"
 $lblHelp = New-Object Windows.Forms.Label; $lblHelp.AutoSize = $true; $lblHelp.ForeColor = [Drawing.Color]::DimGray; $lblHelp.Margin = "3,6,3,3"
-$lblHelp.Text = "Play (or double-click): boots straight into the game.   Open in AmiMSX menu: the game goes into Slot 1 so you can change settings, or use Cartridges > Slot 1 > Save game settings, then Power ON.   Report issue grabs the WinUAE window at once, then asks what went wrong."
+$lblHelp.Text = "Play (or double-click): boots straight into the game.   Open in AmiMSX menu: the game goes into Slot 1 (a disk into drive A) so you can change settings, or use Cartridges > Slot 1 > Save game settings, then Power ON.   Report issue grabs the WinUAE window at once, then asks what went wrong."
 function Wrap-Labels { $w = [Math]::Max(300, $form.ClientSize.Width - 40)
   $lblHelp.MaximumSize = New-Object Drawing.Size $w, 0; $lblStatus.MaximumSize = New-Object Drawing.Size $w, 0 }
 $form.Add_Resize({ Wrap-Labels })
