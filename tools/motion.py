@@ -32,10 +32,20 @@ W, H = 256, 212
 
 
 def frames(d):
+    """The captures at one pixel per MSX dot: both emulators' captures show
+    an MSX dot as 2x2 pixels (WinUAE window, openMSX screenshot), so halve
+    them exactly; scaling to 256 wide mixed in borders and rounded steps."""
     out = []
     for f in sorted(glob.glob(os.path.join(d, "f*.png"))):
-        im = Image.open(f).convert("RGB").resize((W, H), Image.NEAREST)
-        out.append(np.asarray(im).astype(np.int16))
+        im = Image.open(f).convert("RGB")
+        im = im.resize((im.width // 2, im.height // 2), Image.NEAREST)
+        a = np.asarray(im).astype(np.int16)
+        # centre crop to 256x212 dots (the borders differ between emulators)
+        y0, x0 = max(0, (a.shape[0] - H) // 2), max(0, (a.shape[1] - W) // 2)
+        a = a[y0:y0 + H, x0:x0 + W]
+        if a.shape[0] < H or a.shape[1] < W:
+            a = np.pad(a, ((0, H - a.shape[0]), (0, W - a.shape[1]), (0, 0)))
+        out.append(a)
     return out
 
 

@@ -8,7 +8,8 @@ Text format, one action per line ('#' starts a comment):
 Times and lengths are MSX frames (50 Hz) or seconds with an 's' suffix,
 counted from power on. Hold defaults to 5 frames.
 SNAP [freeze] marks a snapshot (AmiMSX holds the frame with the power LED on;
-openMSX takes a screenshot there).
+openMSX takes a screenshot there). DUMP copies the MSX state at that frame
+(AmiMSX STATEDUMP builds, up to 4; written to perf.bin), without a freeze.
 Keys: SPACE LEFT RIGHT UP DOWN RETURN (ENTER) ESC TAB BS SELECT STOP HOME
 INS DEL SHIFT CTRL GRAPH CAPS CODE F1-F5, 0-9, A-Z, and - ^ \\ @ [ ; : ] , . /
 
@@ -34,6 +35,7 @@ for r, line in enumerate(ROWS):
         KEYS[k] = (r, 1 << b)
 KEYS["ENTER"] = KEYS["RETURN"]
 KEYS["SNAP"] = (0xFF, 0)          # snapshot marker (hold = freeze, Amiga frames)
+KEYS["DUMP"] = (0xFC, 0)          # state dump (STATEDUMP builds: RAM, VRAM, REGS into perf.bin)
 FPS = 50
 MAXREC = 256
 
@@ -58,7 +60,7 @@ def parse(path, seen=None):
             continue
         t = line.split()
         if t[0].lower() == "option":
-            opts = {"sprites": 1, "collisions": 2, "mask": 3, "sound": 4, "machine": 5}   # sprites <n>: sprite frames (1 = every frame); mask 1: edges; sound 0/1/2/3: PSG/SCC/SCC+/PSG+FM; machine 0/1/2: MSX/MSX2/MSX2+
+            opts = {"sprites": 1, "collisions": 2, "mask": 3, "sound": 4, "machine": 5, "freq": 6}   # sprites <n>: sprite frames (1 = every frame); mask 1: edges; sound 0/1/2/3: PSG/SCC/SCC+/PSG+FM; machine 0/1/2: MSX/MSX2/MSX2+; freq 0/1/2/3: From VDP/No Change/NTSC/PAL
             out.append((0, 0xFE, opts[t[1].lower()], int(t[2])))
             continue
         if t[0].lower() == "include":
@@ -113,7 +115,7 @@ def main():
         with open(a.tcl, "w", encoding="ascii") as f:
             f.write("set maxframeskip 0\n")
             for fr, row, mask, hold in recs:
-                if row == 0xFE:
+                if row in (0xFE, 0xFC):
                     continue
                 if row == 0xFF:
                     f.write(f'after time {fr / FPS:.3f} {{screenshot {{{a.shots_prefix}_{fr / FPS:g}s.png}}}}\n')

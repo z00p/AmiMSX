@@ -564,6 +564,19 @@ PerfDump:
 	MOVE.L	#DispLog,D2
 	MOVE.L	#4096,D3
 	BSR	WRITEFILE
+	MOVE.L	#DispLine,D2
+	MOVE.L	#4096,D3
+	BSR	WRITEFILE
+	IFD	STATEDUMP
+	MOVE.L	#StDumpN,D2		; (state dumps: count, then 4 slots)
+	MOVE.L	#4+4*STDSIZE,D3
+	BSR	WRITEFILE
+	ENDC
+	IFD	BANDCHK
+	MOVE.L	#BcBad,D2		; (band check: bad count, pointer, ring)
+	MOVE.L	#4096+8,D3
+	BSR	WRITEFILE
+	ENDC
 	IFD	FMXREC			; (FMX check build) start registers,
 	MOVE.L	#FMXRecInit,D2		; pointers, writes (frame.W, reg, value),
 	MOVE.L	#64,D3			; output bytes.
@@ -581,7 +594,11 @@ PerfDump:
 	BSR	CLOSEFILE
 PerfDFin:
 	RTS
+	IFD	PERFLOCAL		; (measurement builds: the current
+PerfName:	DC.B	"perf.bin",0		; directory, no AmiMSX: assign)
+	ELSE
 PerfName:	DC.B	"AmiMSX:perf.bin",0
+	ENDC
 		EVEN
 GfxCaAdr:	DC.L	GFXCA,GFXCA2
 	EVEN
@@ -6703,8 +6720,12 @@ KeyOpt4:
 	MOVE.B	7(A0),DirPrefs+$1D
 KeyOpt5:
 	CMP.B	#5,5(A0)		; 5 = machine (DirPrefs+$10: 0 MSX,
-	BNE.S	KeyOptNx		; 1 MSX2, 2 MSX2+).
+	BNE.S	KeyOpt6			; 1 MSX2, 2 MSX2+).
 	MOVE.B	7(A0),DirPrefs+$10
+KeyOpt6:
+	CMP.B	#6,5(A0)		; 6 = display frequency (DirPrefs+$11:
+	BNE.S	KeyOptNx		; 0 From VDP, 1 No Change, 2 NTSC, 3 PAL).
+	MOVE.B	7(A0),DirPrefs+$11
 KeyOptNx:
 	ADDQ.W	#8,A0
 	BRA.S	KeyOptBuc

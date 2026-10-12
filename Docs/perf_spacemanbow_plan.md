@@ -38,6 +38,30 @@ PERF builds now log display timing (`DispLog` in perf.bin: Amiga frames between 
 
 openMSX reference, gameplay at 30 s: the playfield moves 2 dots every 4 frames, and only some frames change. The MSX2 version updates at a reduced rate, so AmiMSX must match an uneven rhythm, not a smooth one.
 
+## Display frequency: 60 Hz against 50 Hz (12 Oct)
+
+Two 70 s PERF runs on the 060 config with the play keys. One used "From VDP" (the game asks for 60 Hz, so the Amiga shows NTSC), the other "No Change" (PAL 50 Hz). Logs: `build/perf/R2K_SpaceManbow_disp60_play_060.bin`, `..._disp50_play_060.bin`.
+
+| | 50 Hz (No Change) | 60 Hz (From VDP) |
+|---|---|---|
+| MSX frames per second (whole run) | 45.5 | 48.6 |
+| Share of real speed (60 Hz game) | 76% | 81% |
+| Gameplay part (frames 1500 on) | 74% | 77% |
+| MSX frames shown for 1 Amiga frame | 89-90% | 70-77% |
+| ... for 2 Amiga frames | 9-11% | 23-29% |
+
+- **60 Hz is a little faster.** It gains about 5 points of real speed, because AmiMSX is no longer capped at 50 MSX frames a second.
+- **It also judders more.** The emulator is below 60 fps more often, so frames are held for 2 refreshes more often (about 1 in 4, against 1 in 10 at 50 Hz).
+- **So:** "From VDP" stays the PiStorm-only default, where the CPU can get closer to a steady 60. A1200 and 030 stay on "No Change".
+
+## Mode-switch pauses (12 Oct)
+
+The display log shows five long holds in a 70 s run, at MSX frames 257, 717, 821, 2157 and 2842 (11-15 Amiga frames each, about 0.2-0.3 s). Each is a switch between SCREEN 5 and SCREEN 4 on a black screen.
+
+- **Frame 717 (SCREEN 5 to 4):** the bitplanes go back to VRAM. Band tracking converts only the 16-line bands VDP commands drew in, but here the intro had drawn in nearly all of them since the last switch at frame 278 (fills, copies into pages 1-3, the logo). So the full conversion is genuinely needed. An earlier build seemed to remove this pause, but that build had a bug that skipped bands (Bun-Ga-Rua's title showed it).
+- **The others (SCREEN 4 to 5):** VRAM to bitplanes (ActPlanos5).
+- **Next:** a faster conversion routine (table-driven planar/chunky transpose), or doing it in slices across frames while the screen is black.
+
 ## Questions the deep dive must answer
 
 1. **Where does the time go?** For each frame on a fast Amiga (WinUAE 68060 config, then PiStorm/BigMig), measure the Z80 core, the SCREEN 4 tile pass, the HUD split, sprite bands, the copper list build, sound, and waiting.

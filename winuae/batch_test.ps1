@@ -4,7 +4,8 @@
 param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
       [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "",
-      [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "")
+      [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "", [string]$ExtraArg = "")
+# -ExtraArg text: appended to AmiMSX's command line (e.g. "P=AmiMSX:Measure/Measure.prefs")
 # -NoRun: boot without the CLI start of AmiMSX (Workbench tests: a project in
 #   WBStartup starts it instead); the line is left commented out until the next run
 # -Keys file.keys: scripted MSX keyboard input in the emulator (tools\keyscript.py format),
@@ -110,6 +111,7 @@ foreach ($rom in $Roms) {
     $snaps = @(Get-Content $snapf | Where-Object { $_ })
   }
   if ($DiskB) { $keyArg += " B=AmiMSX:Disks/$DiskB" }   # -DiskB x.dsk: drive B's image (disk games)
+  if ($ExtraArg) { $keyArg += " `"$ExtraArg`"" }
   $pre = if ($NoRun) { "; " } else { "" }
   $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', "${pre}Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"$keyArg")
   [IO.File]::WriteAllText($seq, $s, $latin1)

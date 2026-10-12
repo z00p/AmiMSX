@@ -27,6 +27,9 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - register splits: when R#8, R#18 or R#23 change during the display, the largest region's values are used. Uridium 2's HUD no longer hides the sprites, and Nemesis 3's enemies show. A table split ends a region too (Space Manbow, Zanac EX);
   - display off and on during the frame (R#1 BL): those lines show the border colour. Lilly's Saga no longer shows a stray line above its HUD;
   - table splits in 212-line mode render to the last line (Space Manbow's ground).
+- **Speed in split-screen games:**
+  - a SCREEN 4 table split now redraws only the longs that changed (Space Manbow in play: 68060 61% to 86-90% of real speed, 68030 56% to 71-81%);
+  - leaving SCREEN 5 or 7 converts only the 16-line bands that VDP commands drew in since the last switch, not the whole bitmap.
 - **Sprite mode 2:**
   - sprites are drawn in bands, each with its own R#23 (vertical scroll). Bands with sprites off (R#8 SPD) draw nothing, so Space Manbow's ship no longer lands on the ground row;
   - a new band starts at the line after a sprite register changes. Zanac EX's enemies no longer vanish near its status bar;
@@ -83,10 +86,12 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 - **Test hooks:**
   - `AmiMSX <cartridge> [keyscript]` inserts a cartridge in Slot 1 and powers on;
   - `AmiMSX <cartridge> MENU` inserts it and stays in the menu (settings, then Power ON); the Slot 1 label shows the file's name;
-  - the key script drives the MSX keyboard and can freeze exact frames for capture.
+  - `P=<prefs file>` as the second or third argument loads (and saves) that prefs file, as an icon's PREFS ToolType does;
+  - the key script drives the MSX keyboard and can freeze exact frames for capture (SNAP), or copy the MSX state at a frame without freezing (DUMP, `STATEDUMP` builds).
 - **Debug builds:**
   - `TRACE` (instruction ring), `TRACELITE` (event ring only);
-  - `PERF` (frame timing and profile);
+  - `PERF` (frame timing and profile; `PERFLOCAL` writes perf.bin to the current directory, for the Measure scripts);
+  - `BANDCHK` (logs VDP commands and checks the SCREEN 5/7 band conversion);
   - `CORRCHK`, `HANGCHK` and `EXCCHK` (fault finding).
 - **Regression:** a tiered suite in WinUAE (smoke, feature, full), with captures compared pixel by pixel against accepted baselines.
 - **Cross-checks with openMSX:** consecutive-frame bursts from both emulators (`tools/burst.py`), VDP register and palette logs, palette probes, and an overnight batch (`tools/overnight.py`).

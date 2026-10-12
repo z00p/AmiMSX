@@ -59,6 +59,52 @@ MiraLin:	MACRO
 ; Scanline handlers may only change D1: the rest is the Z80 core's.
 ; TRACE builds: log a sprite-table event (8 bytes: frame.w, CurLine.w, tag.b,
 ; value.b, SprSplit.w). Only uses memory: safe in I/O and line handlers.
+	IFD	BANDCHK
+; BANDCHK (PERF builds, debug): log VDP commands and plane conversions
+; (BcRing, 256 x 16 bytes); \1 = type, \2 = byte, \3/\4/\5 = words.
+BCLOG:	MACRO
+	IFD	BCSTOP			; (freeze the log at MSX frame BCSTOP)
+	CMP.L	#BCSTOP,DispN
+	BCS.S	\@g
+	ST	BcFrz
+\@g:
+	ENDC
+	TST.B	BcFrz
+	BNE.S	\@x
+	MOVEM.L	D0/A0,BcSv
+	MOVE.L	BcPtr,D0
+	AND.W	#255,D0
+	LSL.W	#4,D0
+	LEA	BcRing,A0
+	ADDA.W	D0,A0
+	MOVE.W	DispN+2,(A0)+
+	MOVE.W	REGS+CurLine,(A0)+
+	MOVE.B	#\1,(A0)+
+	MOVE.B	\2,(A0)+
+	MOVE.W	\3,(A0)+
+	MOVE.W	\4,(A0)+
+	MOVE.W	\5,(A0)+
+	MOVE.L	MSXVideoMode+REGS,(A0)+
+	ADDQ.L	#1,BcPtr
+	MOVEM.L	BcSv,D0/A0
+\@x:
+	ENDM
+	ENDC
+
+	IFD	BANDCHK
+BCSUM:	MACRO
+	MOVEM.L	D0-D1/A0,BcSv2
+	MOVE.L	BcA4,A0
+	MOVEQ	#0,D0
+	MOVE.W	#511,D1
+\@l:	ADD.L	(A0)+,D0
+	ROL.L	#1,D0
+	DBF	D1,\@l
+	MOVE.L	D0,BcSum
+	MOVEM.L	BcSv2,D0-D1/A0
+	ENDM
+	ENDC
+
 	IFD	TRACE
 TRVLOG:	MACRO
 	MOVE.L	A0,TrvA0
@@ -375,7 +421,7 @@ MODESW:	MACRO
 	BNE.S	\@full
 	TST.B	M5Tracked		; Only if SCREEN 5 marked the SCREEN 4
 	BEQ.S	\@full			; cache all along (OUT98AT).
-	TST.B	Pl5Dirty
+	TST.B	CmdAny			; (4.0: any VDP command, as Pl5Dirty was)
 	BEQ.S	\@keep
 	BRA.S	\@full
 \@keep:
@@ -785,6 +831,22 @@ AutoDkbC2:
 	MOVE.B	(A0)+,(A1)+
 	BNE.S	AutoDkbC2
 AutoDkbX:
+	LEA	DISKBNOM,A0		; (4.0) 'P=<prefs file>' as the second or
+	CMP.W	#"P=",(A0)		; third argument: load (and save) that
+	BEQ.S	AutoPrfC		; file, as the icons' PREFS ToolType.
+	LEA	KEYNOM,A0
+	CMP.W	#"P=",(A0)
+	BNE.S	AutoPrfX
+AutoPrfC:
+	CLR.B	(A0)+			; (the argument is used up)
+	ADDQ.L	#1,A0
+	LEA	NomPrefs,A1
+	MOVE.W	#NOMPREFSLEN-2,D1
+AutoPrfB:
+	MOVE.B	(A0)+,(A1)+
+	DBEQ	D1,AutoPrfB
+	CLR.B	(A1)
+AutoPrfX:
 	MOVE.L	(SP)+,A1
 	TST.B	FILENOM
 	SNE	AutoCart
@@ -8402,11 +8464,6 @@ FlPage:	DS.W	1
 FlSect:	DS.B	8			; changed 64 KB sectors (a bit each)
 FlDirty:	DC.B	0		; changed since the last save
 	EVEN
-	IFD	PERF
-DispLast:	DC.L	0		; (4.0) display timing log
-DispN:		DC.L	0
-DispLog:	DS.B	4096
-	ENDC
 FlDbg:	DS.W	6			; PERF: 7FFF writes, last, commands, programs, erases, mapper
 FlashOn:	DC.B	0		; flash writes enabled (7FFFh bit 4)
 FlState:	DC.B	0		; command state (0 idle .. 6)
@@ -10323,6 +10380,9 @@ VDP12mT:
 	SWAP	D2
 	RTS
 VDP12:
+	IFD	BCR18
+	BCLOG	4,D2,CurLine(A3),DVDP2(A3),VDPAdjust(A3)
+	ENDC
 	RSPLITCHK	VDPAdjust
 	MOVE.B	D2,VDPAdjust(A3)
 
@@ -10802,16 +10862,48 @@ ModoChg7a0:
 	BNE.S	ModChg50Con
 	RTS
 ModChg50Con:
+	IFND	CMDKEEP
+	SF	CmdAny			; (4.0) cleared on leaving SCREEN 5, as
+	ENDC
 	TST.B	Pl5Dirty		; VRAM = planes unless a VDP command drew
 	BNE.S	ModChg5Go		; in them (OUT98A writes both).
 	RTS
 ModChg5Go:
+	IFD	BANDCHK
+	BCLOG	2,#0,Pl5Band,Pl5Band+2,Pl5Band+4
+	ENDC
 	SF	Pl5Dirty
 
 	NOINT
 	MOVEM.L	D0-D7/A0-A2/A4-A5,BUFER(A3)
 
+	CLR.W	Pl5BI			; (4.0) Only the bands commands drew in
+P5Band:	MOVEQ	#0,D0			; (Pl5Band, 16 MSX lines = 8 plane
+	MOVE.W	Pl5BI,D0		; lines each; a bit-field offset is
+	BFTST	Pl5Band{D0:1}		; the whole long.)
+	IFD	BANDCHK
+	SNE	BcMk
+	ELSE
+	BEQ	P5BandN
+	ENDC
 	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
+	MOVEQ	#0,D1
+	MOVE.W	D0,D1
+	MULU.W	#8*SIZEX,D1		; plane offset
+	ADDA.L	D1,A0
+	ADDA.L	D1,A1
+	ADDA.L	D1,A2
+	ADDA.L	D1,A5
+	MOVEQ	#0,D1
+	MOVE.W	D0,D1
+	MULU.W	#8*SIZEX*4,D1		; VRAM offset
+	ADDA.L	D1,A4
+	MOVE.L	#(8*SIZEX/2)-1,D7	; 8 plane lines of 32 words
+	IFD	BANDCHK
+	MOVE.L	A4,BcA4
+	BCSUM
+	MOVE.L	BcSum,BcSum0
+	ENDC
 
 P4_BUC:
 	MOVEQ	#4-1,D6
@@ -10866,6 +10958,30 @@ P4_BUC1:
 	ADDQ	#8,A4
 
 	DBF	D7,P4_BUC
+	IFD	BANDCHK
+	BCSUM
+	TST.B	BcMk
+	BNE	BcOk
+	MOVE.L	D0,BcSv+8
+	MOVE.L	BcSum,D0
+	CMP.L	BcSum0,D0
+	MOVEM.L	BcSv+8,D0		; (MOVEM keeps the flags)
+	BEQ	BcOk
+	ADDQ.L	#1,BcBad
+	BCLOG	3,Pl5BI+1,BcBad+2,BcSum0+2,BcSum+2
+	ADDQ.B	#1,BcFrzN		; (freeze after 16 bad bands)
+	CMP.B	#16,BcFrzN
+	BCS	BcOk
+	ST	BcFrz
+BcOk:
+	ENDC
+
+P5BandN:
+	ADDQ.W	#1,Pl5BI
+	CMP.W	#64,Pl5BI
+	BNE	P5Band
+	CLR.L	Pl5Band
+	CLR.L	Pl5Band+4
 
 	MOVEM.L	BUFER(A3),D0-D7/A0-A2/A4-A5
 	SIINT
@@ -10990,6 +11106,13 @@ ActPA6:		DC.L	0
 ActPRet:	DC.L	0
 V5All:		DC.B	$FF		; SCR0 planes: convert all of VRAM.
 Pl5Dirty:	DC.B	0		; SCR0 planes drawn by VDP commands.
+	EVEN
+Pl5Band:	DC.L	0,0		; (4.0) which 16-line bands (64)
+P5CmdM:		DC.L	0,0		; (4.0) the running command's bands
+CmdAny:		DC.B	0		; (4.0) a VDP command ran (any mode): the
+					; 5 -> 4 cache decision (was Pl5Dirty)
+	EVEN
+Pl5BI:		DC.W	0
 		EVEN
 
 ; <=---------------------------------------------------------=>
@@ -15872,6 +15995,9 @@ MiraInterBRet:
 	JMP	([JumpCurLine.W,PC,D1.W*4])
 
 MiraInter0:
+	IFD	BCR18
+	BCLOG	5,VDPAdjust(A3),MidAdj-1,DVDP2(A3),VDPLinY(A3)
+	ENDC
 	ADDQ.B	#1,RFrame		; (LD A,R)
 	SF	S5Valid			; 5th sprite flag: new frame.
 	CLR.W	S5Next
@@ -16196,6 +16322,12 @@ DispLg1:
 	AND.W	#4095,D1
 	LEA	DispLog,A0
 	MOVE.B	D0,(A0,D1.W)
+	MOVE.L	$DFF004,D0		; (and the beam line / 2 at that point)
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	LSR.W	#1,D0
+	LEA	DispLine,A0
+	MOVE.B	D0,(A0,D1.W)
 	ADDQ.L	#1,DispN
 	MOVEM.L	(SP)+,D0-D1/A0
 	ENDC
@@ -16233,6 +16365,11 @@ DskSwFin:
 	TST.L	KeyScrPtr		; Scripted test input (CLI key script).
 	BEQ.S	NoKeyScr
 	JSR	KeyScrRun
+	IFD	STATEDUMP
+	TST.B	DumpPend
+	BEQ.S	NoKeyScr
+	JSR	StDumpGo
+	ENDC
 NoKeyScr:
 
 	IFD	PERFSPACE
@@ -16424,7 +16561,7 @@ VDP2C:
 	IFD	TRACE
 	TRVLOG	$2C,D2			; (Trace: CPU colour bytes, LMMC/HMMC data.)
 	ENDC
-	ST	Pl5Dirty
+	ST	CmdAny			; (4.0) a command drew (any mode)
 	ST	SCRTDirty
 	MOVE.B	D2,DVDPCL(A3)
 	MOVE.B	DVDPREG(A3),D2
@@ -16457,7 +16594,10 @@ VDP2Enada:
 ; -=*=*=-
 	CNOP	0,8
 VDP2E:
-	ST	Pl5Dirty		; Commands draw in the planes only.
+	IFD	BANDCHK
+	BCLOG	1,D2,DVDPDY(A3),DVDPNY(A3),DVDPSY(A3)
+	ENDC
+	ST	CmdAny			; (4.0) a command drew (any mode)
 	ST	SCRTDirty
 	CMP.B	#$07,ScrModo(A3)
 	BNE.S	Torna8
@@ -16466,6 +16606,60 @@ Torna8:
 
 	IInsBuc
 	MOVEM.L	D0-D7/A0-A6,BUFER(A3)
+
+	CMP.L	#Modo5Dats,MSXVideoMode(A3)	; (4.0) Commands draw in the planes
+	BEQ.S	P5MkGo			; only (SCREEN 5/7). Mark the 16-line
+	CMP.L	#Modo7Dats,MSXVideoMode(A3)	; bands they draw in (Pl5Band), so
+	BNE	P5MkAll			; leaving the mode converts only those
+P5MkGo:
+	CLR.L	P5CmdM			; (this command's bands)
+	CLR.L	P5CmdM+4
+	MOVE.B	D2,D3			; back to VRAM (ModoChg5a0).
+	AND.W	#$F0,D3
+	CMP.B	#$40,D3			; POINT, SRCH, LMCM: read only.
+	BEQ	P5MkX
+	CMP.B	#$60,D3
+	BEQ	P5MkX
+	CMP.B	#$A0,D3
+	BEQ	P5MkX
+	CMP.B	#$80,D3			; PSET, LINE (and STOP): all bands.
+	BCC.S	P5MkBlk
+	TST.B	D3
+	BEQ	P5MkX
+P5MkAll:				; (Commands in other modes: all bands,
+	MOVEQ	#-1,D3			; as before 4.0.)
+	MOVE.L	D3,P5CmdM
+	MOVE.L	D3,P5CmdM+4
+	BRA.S	P5MkOr
+P5MkBlk:
+	MOVE.W	DVDPDY(A3),D3		; Block commands: DY .. DY+-(NY-1).
+	AND.W	#1023,D3
+	MOVE.W	DVDPNY(A3),D4
+	AND.W	#1023,D4
+	BNE.S	P5MkN
+	MOVE.W	#1024,D4
+P5MkN:	BTST	#3,DVDPARG(A3)		; DIY: upwards.
+	BEQ.S	P5MkDn
+	SUB.W	D4,D3
+	ADDQ.W	#1,D3
+	AND.W	#1023,D3
+P5MkDn:	MOVEQ	#0,D5			; First band, last band (wrapping).
+	MOVE.W	D3,D5			; (D5's high word must be 0: the
+	LSR.W	#4,D5			; bit-field offset is the whole long.)
+	ADD.W	D4,D3
+	SUBQ.W	#1,D3
+	LSR.W	#4,D3
+	SUB.W	D5,D3			; bands - 1
+P5MkB:	AND.W	#63,D5
+	BFSET	P5CmdM{D5:1}
+	ADDQ.W	#1,D5
+	DBF	D3,P5MkB
+P5MkOr:	MOVE.L	P5CmdM,D3
+	OR.L	D3,Pl5Band
+	MOVE.L	P5CmdM+4,D3
+	OR.L	D3,Pl5Band+4
+	ST	Pl5Dirty
+P5MkX:
 
 	MOVE.B	D2,DVDPREG(A3)
 	BCLR	#0,DVDPS2(A3)		; Ejecuci�n terminada.
@@ -22532,6 +22726,8 @@ KeyScrBuc:
 	BEQ.S	KeyScrSnap
 	CMP.B	#$FE,D1			; Row $FE: option (applied at load).
 	BEQ.S	KeyScrNx
+	CMP.B	#$FC,D1			; Row $FC: state dump (STATEDUMP).
+	BEQ.S	KeyScrDump
 	CMP.L	D0,D3			; Not yet.
 	BCS.S	KeyScrBuc
 	SUB.L	D0,D3			; Frames since the press...
@@ -22560,6 +22756,11 @@ KeyScrSnap:
 	CMP.L	D0,D3
 	BNE.S	KeyScrNx
 	MOVE.W	-2(A0),SnapPend		; Freeze after this frame's render.
+	BRA.S	KeyScrNx
+KeyScrDump:
+	CMP.L	D0,D3
+	BNE.S	KeyScrNx
+	ST	DumpPend		; Copy the state after the key script.
 	BRA.S	KeyScrNx
 ; SNAP freeze, after the render: hold the finished frame for SnapPend Amiga
 ; frames with the power LED on (CIA-A PRA bit 1 low), so the harness captures
@@ -22609,6 +22810,42 @@ KeySnapI:
 	RTS
 SnapPend:	DC.W	0
 SnapHold:	DC.W	0
+DumpPend:	DC.B	0
+		EVEN
+	IFD	STATEDUMP
+; STATEDUMP (PERF builds, debug): a key-script DUMP copies the MSX state into
+; StDump (up to 4: MSX frame, MSX RAM RAM00-$100.., VRAM, REGS-$400..+$800);
+; PerfDump writes StDumpN and StDump. To find where two runs diverge.
+STDSIZE=4+(8*($4000+$100))+(128*1024)+$C00
+StDumpGo:
+	SF	DumpPend
+	MOVEM.L	D0/A0-A1,StDSv
+	MOVE.L	StDumpN,D0
+	CMP.L	#4,D0
+	BCC.S	StDX
+	MULU.L	#STDSIZE,D0
+	LEA	StDump,A1
+	ADD.L	D0,A1
+	MOVE.L	KeyFrN,(A1)+
+	LEA	RAM00-$100,A0
+	MOVE.L	#(8*($4000+$100))/4-1,D0
+StDR:	MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	StDR
+	LEA	DIRVRAM,A0
+	MOVE.L	#(128*1024)/4-1,D0
+StDV:	MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	StDV
+	LEA	REGS-$400,A0
+	MOVE.L	#$C00/4-1,D0
+StDG:	MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	StDG
+	ADDQ.L	#1,StDumpN
+StDX:	MOVEM.L	StDSv,D0/A0-A1
+	RTS
+	ENDC
 
 KeyScrPtr:	DC.L	0		; Loaded script (Menu), 0: none.
 KeyFrN:		DC.L	0		; MSX frames since power on.
@@ -24231,3 +24468,32 @@ FMXRecOEnd:
 	CNOP	0,8
 HudLine:	DS.B	32*4
 HudShadow:	DS.B	(212*32*4)
+
+	IFD	PERF
+; --------------------------------
+	SECTION	DISPLOG,BSS		; (4.0) display timing log (PERF builds)
+; --------------------------------
+DispLast:	DS.L	1
+DispN:		DS.L	1
+DispLog:	DS.B	4096		; Amiga frames since the MSX frame before
+DispLine:	DS.B	4096		; beam line / 2 when each frame ended
+	IFD	STATEDUMP
+StDSv:		DS.L	3
+StDumpN:	DS.L	1
+StDump:		DS.B	4*STDSIZE
+	ENDC
+	IFD	BANDCHK
+BcSv:		DS.L	3
+BcSv2:		DS.L	3
+BcA4:		DS.L	1
+BcSum:		DS.L	1
+BcSum0:		DS.L	1
+BcBad:		DS.L	1
+BcPtr:		DS.L	1
+BcRing:		DS.B	4096
+BcMk:		DS.B	1
+BcFrz:		DS.B	1
+BcFrzN:		DS.B	1
+		DS.B	1
+	ENDC
+	ENDC
