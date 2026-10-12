@@ -5945,6 +5945,7 @@ LoadROMsRut:
 	BEQ	NoHayROMs
 ;	--------------
 	LEA	DIRPrefs,A5
+	CLAMPM
 	MOVEQ	#0,D0
 	MOVE.B	$10(A5),D0				; Tipo ROM.
 	CMP.B	ActuROM,D0
@@ -6489,6 +6490,7 @@ PONPREFS:
 	MOVE.W	#GD_ROM,D0
 	MOVE.L	#$8008000F,D1
 	MOVEQ	#0,D2
+	CLAMPM
 	MOVE.B	$10(A5),D2
 	BSR	ACTUTAGS
 
@@ -7022,6 +7024,7 @@ R_GOCONT:
 ;	--------------
 
 	LEA	DIRPrefs(PC),A5
+	CLAMPM
 	MOVE.B	$10(A5),D0				; Tipo ROM.
 	CMP.B	ActuROM,D0
 	BNE.S	NoEstaROM
@@ -7064,6 +7067,7 @@ YaEstaTodo:
 ;	--------------
 
 	LEA	DIRPrefs,A5
+	CLAMPM
 	MOVE.B	$10(A5),D2		; Tipo ROM.
 	LSL.L	#8,D2
 

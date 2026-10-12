@@ -1708,7 +1708,9 @@ INTERLabels:
 ROMLabels:
     DC.L    ROMLab0
     DC.L    ROMLab1
-    DC.L    ROMLab2
+    IFD     MSX2PLUS                ; (4.0) MSX2+ hidden until the V9958
+    DC.L    ROMLab2                 ; is emulated
+    ENDC
     DC.L    0
 
 RAMLabels:

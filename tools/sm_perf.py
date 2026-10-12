@@ -33,7 +33,7 @@ def main():
     exe = "AmiMSX_smperf"
     lst = os.path.join(BASE, "build", exe + ".lst")
     r = run([VASM, "-devpac", "-nocase", "-m68020", "-Fhunkexe", "-nosym", "-maxerrors=0",
-             "-DPERF=1", "-DPERFSUBS=1", f"-DPERFTICKS={a.secs * 50}", "-L", lst,
+             "-DPERF=1", "-DPERFSUBS=1", "-DMSX2PLUS=1", f"-DPERFTICKS={a.secs * 50}", "-L", lst,
              "-o", os.path.join("build", exe), "AmiMSX_Main_v3.1.asm"])
     if r.returncode:
         sys.exit("assembly failed:\n" + r.stdout[-2000:] + r.stderr[-2000:])

@@ -57,6 +57,8 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 
 ## Options
 
+- **MSX2+ off for now** (12 Oct): the menu offers MSX and MSX2 only, and an MSX2+ setting (old prefs, key scripts) runs as MSX2. AmiMSX reported a V9958 for MSX2+ but emulated none of it (R#25-27 scroll and mask, YJK modes), so games took their MSX2+ code path and half-worked. Builds with `-DMSX2PLUS=1` keep it, for development.
+
 - **Per-game settings** (Cartridges > Slot 1 > Save game settings / Forget game settings): the sound chip, sprite refresh and the edge mask, saved next to the cartridge as `<cartridge>.prefs` and applied whenever that cartridge is inserted (menu or command line). A cartridge without one brings the global settings back, with the SCC sound chip for a Konami SCC cartridge (mapper SCC 1/2) when the global setting is PSG; Save Prefs always writes the global settings.
 - **Mask screen edges** (menu, after "VDP 'TR bit' always ready"): hides 8 dots at each side of the picture, where scrolling games redraw columns (Lilly's Saga). Off by default; it is stored in a block appended to the prefs file, so older prefs files load with it off.
 

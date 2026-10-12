@@ -631,6 +631,16 @@ CALLCC:	MACRO
 
 ; (4.0) Virtual disks: drive A uses DIRVD0, drive B DIRVD1 (D7 bit 0 = the
 ; drive, as the disk BIOS calls get it in register A).
+; (4.0) MSX2+ machine setting off for now (A5 = DirPrefs): see CLAMPM uses.
+CLAMPM:	MACRO
+	IFND	MSX2PLUS		; (4.0) MSX2+ off until the V9958 is
+	CMP.B	#2,$10(A5)		; emulated (R#25-27, YJK): MSX2+ runs
+	BCS.S	\@NoP			; as MSX2. Build with -DMSX2PLUS=1 to
+	MOVE.B	#1,$10(A5)		; get it back.
+\@NoP:
+	ENDC
+	ENDM
+
 ; (4.0) Flash: mark the 64 KB sector of bank \1 (Dn) as changed (FlSect,
 ; FlDirty; saved by the menu, AmiMSX_Saves_v4.asm). Uses D3.
 FLMARK:	MACRO
