@@ -12,6 +12,32 @@ Space Manbow (Konami, 1989, MSX2, 1 MB Konami SCC) is much faster in 4.0 than in
 - **MSX2+ (openMSX, C-BIOS MSX2+, 11 Oct):** the game detects the V9958. It sets R#25 = 02h (mask the left 8 dots) and scrolls horizontally with R#27 (fine scroll, 0-7) from about 16 s. On MSX2 it has no hardware horizontal scroll and redraws the name table instead.
 - **AmiMSX has no V9958 support:** nothing handles R#25, R#26 or R#27. So on an MSX2+ BIOS, AmiMSX ignores the fine scroll, and the playfield moves in 8-dot steps.
 
+## First results (12 Oct)
+
+`tools/sm_perf.py`: a perf build with sub-timers and the PC profile, 60 s with the play keys, 68060 and 68030 configs, MSX2 and MSX2+.
+
+| Config | Speed in play (before) | After the HUDSplit4 change |
+|---|---|---|
+| 68060, MSX2 | 61% | 86-90% |
+| 68030, MSX2 | 56% | 71-81% |
+
+- **MSX2+ measured the same as MSX2.** With R#25-27 ignored, the 2+ path costs the same; MSX2+ is now off by default anyway.
+- **The cause:** in gameplay, 55% of the 060's time was in `HUDS4Col`, the inner loop of `HUDSplit4`. It draws everything below a SCREEN 4 table split, line by line, straight from VRAM. It was written for a HUD of a few lines, but Space Manbow's whole playfield (lines 81-211) is below its split. That was 131 lines × 32 tiles of single-byte writes to chip RAM every frame (about 16,800). The cached SCREEN 4 renderer, by contrast, took about 7 lines a frame.
+- **The change:** each line is built in fast RAM (`HudLine`) and compared with a fast copy of SCREENB (`HudShadow`; only HUDSplit4 writes SCREENB). Only changed longs go to chip RAM.
+- **What's left:** HUDS4Col (the tile lookups) is still the top routine at 28% of play samples, with the compare at about 13%. Next: skip lines whose VRAM inputs haven't changed (needs VRAM dirty tracking for the name, pattern and colour tables).
+
+## Motion (12 Oct)
+
+`tools/motion.py` compares consecutive-frame bursts (`tools/burst.py`) from both emulators:
+- the horizontal and vertical step per frame (profile matching);
+- repeated frames;
+- flicker;
+- a side-by-side GIF.
+
+PERF builds now log display timing (`DispLog` in perf.bin: Amiga frames between MSX frames, by MSX frame number). With `--perf/--start`, motion.py also builds `real_time.gif`, which holds each AmiMSX frame as long as the Amiga showed it, to see and measure the judder. `tools/sm_motion_run.py` runs the whole study.
+
+openMSX reference, gameplay at 30 s: the playfield moves 2 dots every 4 frames, and only some frames change. The MSX2 version updates at a reduced rate, so AmiMSX must match an uneven rhythm, not a smooth one.
+
 ## Questions the deep dive must answer
 
 1. **Where does the time go?** For each frame on a fast Amiga (WinUAE 68060 config, then PiStorm/BigMig), measure the Z80 core, the SCREEN 4 tile pass, the HUD split, sprite bands, the copper list build, sound, and waiting.
