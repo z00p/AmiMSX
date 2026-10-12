@@ -8402,6 +8402,11 @@ FlPage:	DS.W	1
 FlSect:	DS.B	8			; changed 64 KB sectors (a bit each)
 FlDirty:	DC.B	0		; changed since the last save
 	EVEN
+	IFD	PERF
+DispLast:	DC.L	0		; (4.0) display timing log
+DispN:		DC.L	0
+DispLog:	DS.B	4096
+	ENDC
 FlDbg:	DS.W	6			; PERF: 7FFF writes, last, commands, programs, erases, mapper
 FlashOn:	DC.B	0		; flash writes enabled (7FFFh bit 4)
 FlState:	DC.B	0		; command state (0 idle .. 6)
@@ -16178,6 +16183,22 @@ Emula1Frame:
 	JSR	PerfStamp		; B: waited for the Amiga frame.
 	MOVE.L	PerfNow,PerfB
 	ENDC
+	IFD	PERF			; (4.0) Display timing: Amiga frames
+	MOVEM.L	D0-D1/A0,-(SP)		; since the last MSX frame, by MSX frame
+	MOVE.L	PerfTick,D0		; (DispLog, perf.bin): 1 = smooth, 2+ =
+	SUB.L	DispLast,D0		; the frame before stayed on screen
+	ADD.L	D0,DispLast		; longer (judder).
+	CMP.L	#255,D0
+	BLS.S	DispLg1
+	MOVE.L	#255,D0
+DispLg1:
+	MOVE.L	DispN,D1
+	AND.W	#4095,D1
+	LEA	DispLog,A0
+	MOVE.B	D0,(A0,D1.W)
+	ADDQ.L	#1,DispN
+	MOVEM.L	(SP)+,D0-D1/A0
+	ENDC
 
 	JSR	ActCopperLine	; *Z0*
 
@@ -22603,6 +22624,11 @@ DISKBNOM:	DS.B	256		; (4.0) CLI 'B=' disk image for drive B.
 ; planes of 32 bytes, as SCREEN), line TSplit first. No cache: meant for a
 ; HUD of a few lines. TABLA7E gives the 4 plane bytes of a pattern/colour
 ; pair, plane 0 in the high byte (as TRASF).
+; (4.0) Space Manbow draws its whole playfield (lines 81-211) this way, which
+; cost over half the frame: 16,800 byte writes to chip RAM. Each line is now
+; built in fast RAM (HudLine), compared with a fast copy of SCREENB
+; (HudShadow: only this routine writes SCREENB) and only the changed longs
+; are written to chip RAM.
 	CNOP	0,4
 HUDSplit4:
 	MOVEM.L	D0-D7/A0-A6,-(SP)
@@ -22649,6 +22675,7 @@ HUDS4Lin:
 	LEA	DIRVRAM,A6
 	ADD.L	D3,A6
 	ADD.W	D0,A6
+	LEA	HudLine,A0		; (built in fast RAM)
 	MOVEQ	#32-1,D5
 HUDS4Col:
 	MOVEQ	#0,D1
@@ -22659,15 +22686,29 @@ HUDS4Col:
 	LSL.W	#8,D2
 	MOVE.B	(A6,D1.W),D2		; ...and colour byte.
 	MOVE.L	(A2,D2.L*4),D3
-	MOVE.B	D3,96(A1)		; Plane 3.
+	MOVE.B	D3,96(A0)		; Plane 3.
 	LSR.L	#8,D3
-	MOVE.B	D3,64(A1)		; Plane 2.
+	MOVE.B	D3,64(A0)		; Plane 2.
 	LSR.L	#8,D3
-	MOVE.B	D3,32(A1)		; Plane 1.
+	MOVE.B	D3,32(A0)		; Plane 1.
 	LSR.W	#8,D3
-	MOVE.B	D3,(A1)+		; Plane 0.
+	MOVE.B	D3,(A0)+		; Plane 0.
 	DBF	D5,HUDS4Col
-	ADD.W	#(32*4)-32,A1
+	LEA	HudLine,A0		; Changed longs only to chip RAM.
+	MOVE.L	A1,D1
+	SUB.L	#SCREENB,D1
+	LEA	HudShadow,A4
+	ADD.L	D1,A4
+	MOVEQ	#32-1,D5
+HUDS4Cmp:
+	MOVE.L	(A0)+,D3
+	CMP.L	(A4)+,D3
+	BEQ.S	HUDS4Same
+	MOVE.L	D3,-4(A4)
+	MOVE.L	D3,(A1)
+HUDS4Same:
+	ADDQ.L	#4,A1
+	DBF	D5,HUDS4Cmp
 	ADDQ.W	#1,D7
 	CMP.W	D6,D7
 	BCS	HUDS4Lin
@@ -24183,3 +24224,10 @@ FMXRecWEnd:
 FMXRecO:	DS.B	1048576
 FMXRecOEnd:
 	ENDC
+
+; --------------------------------
+	SECTION	HUDFAST,BSS		; (4.0) HUDSplit4: line build and SCREENB copy
+; --------------------------------
+	CNOP	0,8
+HudLine:	DS.B	32*4
+HudShadow:	DS.B	(212*32*4)

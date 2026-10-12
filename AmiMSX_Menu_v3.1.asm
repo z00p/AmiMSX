@@ -558,6 +558,12 @@ PerfDump:
 	MOVE.L	#FlDbg,D2
 	MOVE.L	#12,D3
 	BSR	WRITEFILE
+	MOVE.L	#DispN,D2		; (4.0) display timing: count, then the
+	MOVE.L	#4,D3			; ring (byte per MSX frame).
+	BSR	WRITEFILE
+	MOVE.L	#DispLog,D2
+	MOVE.L	#4096,D3
+	BSR	WRITEFILE
 	IFD	FMXREC			; (FMX check build) start registers,
 	MOVE.L	#FMXRecInit,D2		; pointers, writes (frame.W, reg, value),
 	MOVE.L	#64,D3			; output bytes.
