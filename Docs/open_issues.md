@@ -175,3 +175,10 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 - **After the fix:** all five disk demos match their baselines at every capture (10 Oct). The 4 Oct failures were never reproduced, so the short read is the likely cause, not a proven one.
 
 **Still varying: io (disk).** Its 60 s capture differs only in the phase of an animated element (a few frames). Likely cause: disk loading time. If AmiMSX's disk routines wait on real AmigaDOS reads while MSX frames keep counting, the load time varies with host disk speed and shifts everything after it. That also fits io's earlier variation at its 20 s logo transition. Low priority; marked unstable in the baseline.
+
+## DEVA: the hero's head is missing (14 Oct 2026)
+
+- **Seen:** a tester, in the WinUAE regression window. The robot hero shows body and legs but no head (helmet, face).
+- **Not a regression:** the baseline captures from before the 4.0 display work show the same headless hero, and build 8af1d95 matches them pixel for pixel.
+- **Reference:** openMSX on the real-ROM machine (AmiMSX_MSX2_Disk; the C-BIOS machines stop at "You need at least 128 Kb of mapped RAM") shows a dark helmet with a skin-coloured face on top of the body.
+- **To check:** whether the head is a separate sprite, which sprite mode the game uses (tests/titles.csv says MSX1, but the game wants 128 KB of mapper RAM), the sprites-per-line limit and its priority order, and colour mixing (the CC bit in sprite mode 2).
