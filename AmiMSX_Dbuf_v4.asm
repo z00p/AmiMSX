@@ -62,9 +62,19 @@ DbPost:
 	BEQ	DbPostX
 	MOVEM.L	D0-D3/A0-A1/A6,DbSv
 	TST.B	DbFirst
-	BEQ.S	DbPostSnap
-	SF	DbFirst			; Front: SCREEN/SCREENB (on screen now,
-	MOVE.B	#1,DbB			; from the templates). Back: index 1.
+	BEQ	DbPostSnap
+	SF	DbFirst			; This frame (drawn in SCREEN/SCREENB, the
+	CLR.B	DbB			; front) becomes snapshot 0 and is shown
+	BSR	DbSnap			; from the next frame start: the live
+	MOVE.L	DbMasB,$DFF080		; templates, which from now on hold the
+	MOVE.L	DbCopB,D1		; back buffer's pointers, are never on
+	MOVE.L	D1,NEXTCOPP		; screen (the next frame showed the back
+	TST.B	CopIntDone		; buffer, stale: Space Manbow's title
+	BEQ.S	DbPostF1		; logo over the first game frame).
+	MOVE.L	D1,$DFF084
+DbPostF1:
+	MOVE.W	FMXVbl,DbComV
+	MOVE.B	#1,DbB			; Back: index 1.
 	BSR	DbSetPtrs
 	MOVEQ	#-1,D0			; The whole screen to the back first.
 	MOVE.L	D0,DbRowsPrev
@@ -79,10 +89,22 @@ DbPostClr:
 	MOVE.L	MSFKey,DbTKey		; current, 1 gets a full copy.
 	ST	DbTD+1
 	BSR	DbSwapLines		; ActCopperLine: the back list from now on.
-	BRA.S	DbPostR
+	BRA	DbPostR
 DbPostSnap:
-	MOVE.L	CopperLineDos,D0	; ZALTO4: the per-line list built this
-	MOVE.W	D0,ZALTO4+6		; frame (swapped below).
+	BSR	DbSnap
+	MOVE.L	DbRowsCur,DbRowsPrev	; (rows the other buffer lacks)
+	BSR	DbSwapLines
+	ST	DbPend
+DbPostR:
+	MOVEM.L	DbSv,D0-D3/A0-A1/A6
+DbPostX:
+	RTS
+
+; Copy the copper templates to snapshot DbB (DbCopB, DbMasB), ZALTO4 to the
+; per-line list built this frame. Uses D0-D1/A0-A1.
+DbSnap:
+	MOVE.L	CopperLineDos,D0
+	MOVE.W	D0,ZALTO4+6
 	SWAP	D0
 	MOVE.W	D0,ZALTO4+2
 	MOVEQ	#0,D0
@@ -100,12 +122,6 @@ DbSnC:	MOVE.W	(A0)+,(A1)+
 	MOVE.W	#(DBMASLEN/2)-1,D1
 DbSnM:	MOVE.W	(A0)+,(A1)+
 	DBF	D1,DbSnM
-	MOVE.L	DbRowsCur,DbRowsPrev	; (rows the other buffer lacks)
-	BSR	DbSwapLines
-	ST	DbPend
-DbPostR:
-	MOVEM.L	DbSv,D0-D3/A0-A1/A6
-DbPostX:
 	RTS
 
 ; ActCopperLine runs before the render, so swap here, after DbPost read the

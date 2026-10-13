@@ -1573,6 +1573,7 @@ ESPBLI:	BTST	#$06,$02(A6)
 	MOVE.W	D7,$96(A6)
 	MOVE.L	VBRPun,A0
 	MOVE.L	$6C(A0),vBlank
+	MOVE.L	$70(A0),vAudio		; (4.0) level 4: FMXAud while FM plays
 	MOVE.L	$4.W,A5
 	MOVE.L	$9C(A5),A5
 	MOVE.L	$26(A5),WBCOPP
@@ -1928,6 +1929,7 @@ SALIR:
 	OR.W	D6,INTREQ
 	MOVE.L	VBRPun,A0
 	MOVE.L	vBlank,$6C(A0)
+	MOVE.L	vAudio,$70(A0)
 	CLR.W	$180(A6)
 	CLR.W	$100(A6)
 	MOVE.L	WBCOPP,$080(A6)
@@ -20419,6 +20421,7 @@ NOBORTEC:
 	OR.W	#$8000,INTREQ
 
 	MOVE.L	vBlank,([VBRPun],$6C.W)
+	MOVE.L	vAudio,([VBRPun],$70.W)	; (4.0) the OS's audio vector
 
 	MOVE.W	#$0020,$DFF09C
 ESPERAF:BTST	#$05,$DFF01F
@@ -22499,6 +22502,7 @@ INTENA2:	DC.W	0
 IntenaTr:	DC.W	0
 INTREQ:		DC.W	0
 vBlank:		DC.L	0
+vAudio:		DC.L	0
 WBCOPP:		DC.L	0
 	ENDC
 ActDosROM:	DC.L	0
@@ -24616,6 +24620,13 @@ FMXTabNew:	DS.L	1
 FMXN:		DS.W	1		; samples a frame (227 or 313)
 FMXPer:		DS.W	1		; Paula period (313 or 227)
 FMXQsz:		DS.W	4		; samples in each quarter frame
+FMXNnom:	DS.W	1		; nominal N (even) for the frame length
+FMXPlay:	DS.W	1		; ring block Paula plays
+FMXQueued:	DS.W	1		; ring block queued after it
+FMXWrite:	DS.W	1		; next ring block FMXFrame writes
+FMXLen:		DS.W	4		; samples in each ring block
+FMXUnder:	DS.W	1		; blocks repeated (emulation late)
+FMXOver:	DS.W	1		; frames dropped (ring full)
 FMXQ:		DS.W	1
 FMXMaxV:	DS.W	1		; voices mixed: 9, or 4 (lite)
 FMXSel:		DS.W	1		; this frame's voices (bit per channel)
