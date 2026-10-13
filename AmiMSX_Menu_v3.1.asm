@@ -570,6 +570,9 @@ PerfDump:
 	MOVE.L	#DispLine,D2
 	MOVE.L	#4096,D3
 	BSR	WRITEFILE
+	MOVE.L	#DbCommits,D2		; (4.0) double-buffered frames shown,
+	MOVE.L	#16,D3			; stops (option/split, renderer), starts
+	BSR	WRITEFILE
 	IFD	STATEDUMP
 	MOVE.L	#StDumpN,D2		; (state dumps: count, then 4 slots)
 	MOVE.L	#4+4*STDSIZE,D3
@@ -6661,6 +6664,8 @@ PONPREFS:
 	BFINS	D0,MSX2NewMenu41b+10{7:1}	; Mask screen edges (4.0)
 	MOVE.B	PrefFilter,D0
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
+	MOVE.B	PrefDbuf,D0
+	BFINS	D0,MSX2NewMenu41d+10{7:1}	; Smooth display (4.0)
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -6723,7 +6728,7 @@ KeyOptBuc:
 	CMP.L	#-1,(A0)
 	BEQ	KeyOptFin
 	CMP.B	#$FE,4(A0)
-	BNE.S	KeyOptNx
+	BNE	KeyOptNx
 	CMP.B	#1,5(A0)
 	BNE.S	KeyOpt2
 	MOVE.W	6(A0),DirPrefs+$16
@@ -6750,9 +6755,14 @@ KeyOpt6:
 	MOVE.B	7(A0),DirPrefs+$11
 KeyOpt7:
 	CMP.B	#7,5(A0)		; 7 = audio filter (PrefFilter).
-	BNE.S	KeyOptNx
+	BNE.S	KeyOpt8
 	TST.B	7(A0)
 	SNE	PrefFilter
+KeyOpt8:
+	CMP.B	#8,5(A0)		; 8 = smooth display (PrefDbuf).
+	BNE.S	KeyOptNx
+	TST.B	7(A0)
+	SNE	PrefDbuf
 KeyOptNx:
 	ADDQ.W	#8,A0
 	BRA	KeyOptBuc
@@ -6863,6 +6873,10 @@ ACTUPREFS:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefFilter
+	MOVE.L	#(5*$40)+13,D0		; Sub-item 5: smooth display (4.0).
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefDbuf
 ; -=-
 	MOVEQ	#15,D0			; Nº Línea.
 	MOVEQ	#1,D1			; Nº menu.
@@ -7005,7 +7019,9 @@ TABLAB4:
 PrefMask:	DC.B	0		; Mask screen edges: FFh = 8 dots each side.
 PrefFilter:	DC.B	0		; Audio filter (Amiga low-pass, the power
 					; LED bit): FFh = on while a game runs.
-		DC.B	0,0		; (Reserved.)
+PrefDbuf:	DC.B	0		; Smooth display: FFh = SCREEN 4 double-
+					; buffered (AmiMSX_Dbuf_v4.asm).
+		DC.B	0		; (Reserved.)
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 

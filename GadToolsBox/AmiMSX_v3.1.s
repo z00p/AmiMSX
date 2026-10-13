@@ -4608,6 +4608,13 @@ MSX2NewMenu41c:
     DC.W    $0009
     DC.L    0,0
 
+MSX2NewMenu41d:
+    DC.B    3,0
+    DC.L    MSX2MName41d
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
 MSX2NewMenu42:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
@@ -5231,6 +5238,9 @@ MSX2MName41b:
 
 MSX2MName41c:
     DC.B    'Audio filter (less hiss)',0
+
+MSX2MName41d:
+    DC.B    'Smooth display (fast CPUs)',0
 
 MSX2MName43:
     DC.B    'Disable Cheats',0

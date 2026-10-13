@@ -51,6 +51,7 @@ def picture(path):
 
 
 PER_SHOT = False
+OPTS = []              # --opt name=value: key-script options for every run
 
 
 def run_title(r, exe, outdir):
@@ -69,6 +70,8 @@ def run_title(r, exe, outdir):
         keys = os.path.join(outdir, f"{r['id']}_{'+'.join(grp)}s.keys")
         with open(keys, "w", encoding="utf-8") as f:
             f.write(f"include {os.path.relpath(base_keys, outdir)}\n")
+            for opt in OPTS:
+                f.write(f"option {opt}\n")
             for s in grp:
                 f.write(f"{s}s SNAP\n")
         last = max(float(s) for s in grp)
@@ -153,14 +156,17 @@ def main():
     ap.add_argument("--accept", action="store_true")
     ap.add_argument("--accept-run", default="")
     ap.add_argument("--ids", default="")
+    ap.add_argument("--opt", action="append", default=[],
+                    help="key-script option for every run, e.g. --opt dbuf=1 (see tools/keyscript.py)")
     ap.add_argument("--per-shot", action="store_true",
                     help="one WinUAE run per capture (the old, slower mode)")
     ap.add_argument("--calibrate", action="store_true",
                     help="run the tier twice: the first run becomes the baseline, captures that "
                          "differ between the two are marked unstable (reported as 'varies')")
     a = ap.parse_args()
-    global PER_SHOT
+    global PER_SHOT, OPTS
     PER_SHOT = a.per_shot
+    OPTS = [o.replace("=", " ") for o in a.opt]
     if a.accept_run:
         accept(os.path.join(REG, a.accept_run), set(a.ids.split(",")) if a.ids else None); return
     if not a.tier:

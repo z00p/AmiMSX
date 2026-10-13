@@ -109,6 +109,19 @@ BCSUM:	MACRO
 ; it as a disk light and turned the filter off; with the Audio filter option
 ; (PrefFilter) it stays on while a game runs (less hiss from the 8-bit FM
 ; and PSG output). FILTOFF: LED/filter off unless the option is on.
+; COPIATXT4/ACTUALIZA4: mark the tile row a blit at A4 writes to.
+DBROW:	MACRO
+	TST.B	DbOn
+	BEQ.S	\@x
+	MOVE.L	A4,D1
+	SUB.L	ScreenPtr,D1
+	LSR.L	#8,D1
+	LSR.L	#2,D1
+	AND.W	#31,D1
+	BFSET	DbRowsCur{D1:1}
+\@x:
+	ENDM
+
 FILTOFF:	MACRO
 	TST.B	PrefFilter
 	BNE.S	\@k
@@ -9985,6 +9998,8 @@ VDP8:
 	MOVE.B	D2,DVDP8(A3)
 	BTST	#1,D2
 	BEQ	VDP8CON
+	TST.B	DbOn			; (4.0) Double buffer: the render hides
+	BNE	VDP8CON2		; them, in the frame it draws.
 	CMP.W	#192,CurLine(A3)	; Sprites off during the display: left to
 	BCS	VDP8CON2		; the render (Act_Adjust, MIDSAMPLE's R#8).
 					; Hiding them here hid them for the whole
@@ -10021,6 +10036,8 @@ VDP8:
 	BRA	VDP8CON2
 VDP8CON:
 	MOVE.B	#$3,COSPR2(A3)
+	TST.B	DbOn			; (4.0) Double buffer: positions come
+	BNE	VDP8CON2		; with the frame (Act_Adjust), not here.
 
 	MOVE.B	MidAdj,D2		; Playfield R#18 (Lilly's Saga sets R#18
 					; just after re-enabling sprites).
@@ -11645,8 +11662,6 @@ SPR1DBL:	MACRO
 	JSR	IMPSPR2
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
-	LEA	DIRSPRITES2,A0
-	BSR	SprPtNow
 	ST	SprBufB
 	BRA.S	\@x
 \@b:	LEA	BUFERSPR2b-2,A0
@@ -11657,35 +11672,13 @@ SPR1DBL:	MACRO
 	JSR	IMPSPR2
 	LEA	DIRSPRITES2b,A0
 	JSR	CREASPRITES
-	LEA	DIRSPRITES2b,A0
-	BSR	SprPtNow
 	SF	SprBufB
 \@x:
 	ENDM
 SprBufB:	DC.B	0
 		EVEN
 
-; (4.0) The copper loads the sprite pointers at the top of each frame (line
-; 0), so a switch made after that shows a frame late. In the top vertical
-; blank (lines 1-20), before sprite DMA starts, set the hardware pointers
-; too: the new sprites then show this frame. A0 = DIRSPRITES2 or 2b.
-SprPtNow:
-	MOVE.L	$DFF004,D0
-	LSR.L	#8,D0
-	AND.W	#$1FF,D0
-	BEQ.S	SprPtX			; (line 0: the copper's moment)
-	CMP.W	#20,D0
-	BHI.S	SprPtX
-SprPtL:	TST.L	(A0)
-	BEQ.S	SprPtX
-	ADDQ.W	#4,A0			; (copper address)
-	MOVE.L	(A0)+,D0		; buffer
-	MOVE.L	(A0)+,D1		; sprite number
-	LSL.W	#2,D1
-	LEA	$DFF120,A1
-	MOVE.L	D0,(A1,D1.W)
-	BRA.S	SprPtL
-SprPtX:	RTS
+
 
 ; (4.0) Power ON/Reset: empty both sprite overlay buffers. They were only
 ; ever erased sprite by sprite (CLEARSPR2's lists), so the last game's
@@ -13213,7 +13206,7 @@ NoDesbPla4:
 
 
 	MULU	#(32*4),D0
-	ADD.L	#SCREEN,D0
+	ADD.L	DbScr,D0		; (4.0: the back buffer when double)
 	LEA	PLANO4+2,A0
 	MOVEQ	#(32),D1
 
@@ -14944,7 +14937,7 @@ COPIABUC1:
 	MOVE.W	#(32/4)-1,D4
 COPIABUC:
 	CMP.L	(A0)+,(A1)+
-	BEQ.S	NOCOPIA2
+	BEQ	NOCOPIA2
 
 	MOVE.L	-4(A0),D2
 	MOVE.L	D2,D6
@@ -14963,6 +14956,7 @@ ESPBLTP2:
 	BNE.S	ESPBLTP2
 	MOVEM.L	A2-A4,$4C-2(A6)
 	MOVE.W	D3,$58-2(A6)
+	DBROW				; (4.0) row drawn (double buffer)
 NOCOPIA22:
 	SWAP	D2
 	CMP.W	-2(A1),D2
@@ -14981,6 +14975,7 @@ ESPBLTP2B:
 	MOVEM.L	A2-A4,$4C-2(A6)
 	SUBQ	#2,A4
 	MOVE.W	D3,$58-2(A6)
+	DBROW				; (4.0) row drawn (double buffer)
 COPIADO2:
 	MOVE.L	D6,-4(A1)
 NOCOPIA2:
@@ -15026,6 +15021,10 @@ COPYBUF2:
 
 	MOVEQ	#(3)-1,D6
 ACTUALIZA4:
+	TST.B	DbOn			; (4.0) Full redraw: every row (double
+	BEQ.S	ACT4NoDb		; buffer).
+	MOVE.L	#-1,DbRowsCur
+ACT4NoDb:
 	MOVE.L	Txt2Ptr,A1		; Name shadow of the bank (RendTabCheck).
 	MOVE.L	ScreenPtr,A4		; Screen of the bank (RendTabCheck).
 	MOVE.L	GfxCaPtr,A5		; Cache bank in use (RendTabCheck).
@@ -16397,6 +16396,7 @@ BufBasura:	DS.L	20
 ; ---------------------------------=> Emulaci�n de 1 Frame.
 	CNOP	0,4
 Emula1Frame:
+	JSR	DbCommit		; (4.0) double buffer: show the last frame
 	IFD	PERF
 	JSR	PerfStamp		; A: Z80 frame done.
 	MOVE.L	PerfNow,PerfA
@@ -16532,7 +16532,7 @@ PerfDnFin:
 	ENDC
 
 	TST.W	Refresh(PC)
-	BNE.S	RefrCon
+	BNE	RefrCon
 	MOVE.W	DirPrefs+$14,Refresh
 
 	IFD	PERF
@@ -16546,6 +16546,13 @@ PerfDnFin:
 	ST	ACTODO(A3)
 	ST	ACTODOB(A3)
 RendSame:
+	TST.B	DbOn			; (4.0) Double buffer: SCREEN 4 only.
+	BEQ.S	RendDbOk
+	CMP.L	#PRINT4S,RVDP(A3)
+	BEQ.S	RendDbOk
+	ADDQ.L	#1,DbStopR		; (debug: stopped by another renderer)
+	JSR	DbStop
+RendDbOk:
 	JSR	([RVDP.W,A3])		; Emulaci�n del VDP.
 	TST.W	SnapPend		; Key-script SNAP: hold this frame.
 	BEQ.S	NoSnapDo
@@ -21801,7 +21808,7 @@ AcCoRutGBY4:
 	BCC.S	AcCoGBY4t
 	MOVE.W	D7,D1
 	MULU	#(32*4),D1
-	ADD.L	#SCREENT,D1
+	ADD.L	DbScrT,D1		; (4.0: the back one when double)
 	BRA.S	AcCoGBY4w
 AcCoGBY4t:
 	MOVE.W	TSplit,D1		; Below a table split: SCREENB,
@@ -21811,7 +21818,7 @@ AcCoGBY4t:
 	NEG.W	D1
 	ADD.W	D7,D1
 	MULU	#(32*4),D1
-	ADD.L	#SCREENB,D1
+	ADD.L	DbHudB,D1		; (4.0: the back HUD buffer when double)
 	BRA.S	AcCoGBY4w
 AcCoGBY4n:
 	MOVEQ	#0,D1
@@ -21819,7 +21826,7 @@ AcCoGBY4n:
 	ADD.B	D7,D1
 
 	MULU	#(32*4),D1
-	ADD.L	#SCREEN,D1
+	ADD.L	DbScr,D1		; (4.0: the back buffer when double)
 AcCoGBY4w:
 
 NexBpl4=(32)
@@ -22590,7 +22597,7 @@ RTCSet:	MOVE.L	PVDP3B(A3),(A0,D0.W)
 	MOVE.W	D0,BankAct
 	MOVE.L	#GFXCA,GfxCaPtr
 	MOVE.L	#TAB98,TabFlagPtr
-	MOVE.L	#SCREEN,ScreenPtr
+	MOVE.L	DbScr,ScreenPtr		; (4.0: the back buffer when double)
 	MOVE.L	#TXT2,Txt2Ptr
 	TST.W	D0
 	BEQ	RTCFin
@@ -22656,9 +22663,11 @@ Planos2Buc:
 	CNOP	0,4
 PRINT4S:
 	BSR	MSplitFill		; SCREEN 5 above a mode split.
+	JSR	DbPre			; (4.0) double buffer: start/stop, catch-up
 	TST.W	TSplit
 	BNE.S	PRINT4Sp
-	JMP	PRINT4
+	JSR	PRINT4
+	JMP	DbPost			; (4.0) snapshot for the next frame start
 PRINT4Sp:
 	LEA	REGS,A3
 	MOVE.B	DVDP2(A3),TB_DVDP2	; Keep the HUD set...
@@ -22691,6 +22700,7 @@ PRINT4Sp:
 	MOVE.L	TB_PVDP4,PVDP4(A3)
 	MOVE.L	TB_PVDP4B,PVDP4B(A3)
 	BSR	HUDSplit4
+	JSR	DbPost			; (4.0) snapshot for the next frame start
 	LEA	REGS,A3
 	RTS
 
@@ -22713,6 +22723,8 @@ MSplitFill:
 	MOVE.B	MS_DVDP2,D0
 	LSL.W	#8,D0
 	MOVE.B	MS_LinY,D0
+	TST.B	DbOn			; (4.0) Double buffer: per buffer.
+	BNE	MSFDb
 	TST.B	SCRTDirty		; SCREENT still valid: no copy (chip
 	BNE.S	MSFCopy			; to chip is slow).
 	CMP.L	MSFKey,D0
@@ -22720,6 +22732,7 @@ MSplitFill:
 MSFCopy:
 	SF	SCRTDirty
 	MOVE.L	D0,MSFKey
+MSFGo:
 	MOVEQ	#0,D0			; This page's VRAM range and blocks.
 	MOVE.B	MS_DVDP2,D0
 	AND.W	#$60,D0
@@ -22740,7 +22753,7 @@ MSFCopy:
 	LSL.W	#3,D0			; Page * 256 lines.
 	MOVEQ	#0,D6
 	MOVE.B	MS_LinY,D6
-	LEA	SCREENT,A1
+	MOVE.L	DbScrT,A1		; (4.0: the back one when double)
 	MOVE.W	MSplitL,D7
 	SUBQ.W	#1,D7
 	MOVEQ	#0,D5
@@ -22769,6 +22782,26 @@ MSFPla:
 MSFDone:
 	MOVEM.L	(SP)+,D0-D7/A0-A2
 MSFRet:	RTS
+; (4.0) Double buffer: each SCREENT buffer takes every change once (a write
+; to the page marks both), or a new key (split line, R#2, R#23).
+MSFDb:	TST.B	SCRTDirty
+	BEQ.S	MSFDb1
+	SF	SCRTDirty
+	ST	DbTD
+	ST	DbTD+1
+MSFDb1:	MOVEQ	#0,D1
+	MOVE.B	DbB,D1
+	LEA	DbTD,A0
+	TST.B	(A0,D1.W)
+	BNE.S	MSFDbC
+	LEA	DbTKey,A0
+	CMP.L	(A0,D1.W*4),D0
+	BEQ	MSFDone
+MSFDbC:	LEA	DbTD,A0
+	SF	(A0,D1.W)
+	LEA	DbTKey,A0
+	MOVE.L	D0,(A0,D1.W*4)
+	BRA	MSFGo
 
 MsNewW:		DC.W	0
 MSplitL:	DC.W	0		; First line in the new mode, 0: none.
@@ -22869,6 +22902,7 @@ KeyScrDump:
 ; frames with the power LED on (CIA-A PRA bit 1 low), so the harness captures
 ; exactly this MSX frame (it watches the LED in WinUAE's status bar).
 KeySnapDo:
+	JSR	DbCommit		; (4.0) the frame just drawn, if double
 	MOVEM.L	D0/D2,-(SP)
 	MOVE.B	$BFE001,-(SP)
 	BSET	#1,$BFE201		; (DDRA: LED bit an output.)
@@ -22959,6 +22993,8 @@ KEYNOM:		DS.B	256		; CLI key script file name.
 DISKBNOM:	DS.B	256		; (4.0) CLI 'B=' disk image for drive B.
 		EVEN
 
+	INCLUDE	"AmiMSX_Dbuf_v4.asm"	; (4.0) double-buffered SCREEN 4
+
 ; Display lines TSplit..191 (211 in 212-line mode) from the current tables (R#2, R#3/R#10, R#4,
 ; R#23), straight from VRAM into SCREENB (128 bytes a line, 4 interleaved
 ; planes of 32 bytes, as SCREEN), line TSplit first. No cache: meant for a
@@ -22973,7 +23009,7 @@ DISKBNOM:	DS.B	256		; (4.0) CLI 'B=' disk image for drive B.
 HUDSplit4:
 	MOVEM.L	D0-D7/A0-A6,-(SP)
 	LEA	REGS,A3
-	LEA	SCREENB,A1
+	MOVE.L	DbHudB,A1		; (4.0: the back HUD buffer when double)
 	LEA	TABLA7E,A2
 	MOVE.W	TSplit,D7		; Display line.
 	MOVE.W	#192,D6			; Last display line + 1: 212 with LN
@@ -23036,8 +23072,8 @@ HUDS4Col:
 	DBF	D5,HUDS4Col
 	LEA	HudLine,A0		; Changed longs only to chip RAM.
 	MOVE.L	A1,D1
-	SUB.L	#SCREENB,D1
-	LEA	HudShadow,A4
+	SUB.L	DbHudB,D1
+	MOVE.L	DbHudSh,A4		; (and its shadow)
 	ADD.L	D1,A4
 	MOVEQ	#32-1,D5
 HUDS4Cmp:
@@ -24564,6 +24600,33 @@ FMXRecWEnd:
 FMXRecO:	DS.B	1048576
 FMXRecOEnd:
 	ENDC
+
+; --------------------------------
+	SECTION	DBUFC,BSS_C		; (4.0) double-buffered SCREEN 4 (Dbuf)
+; --------------------------------
+	CNOP	0,8
+SCREEN4D:	DS.B	(32*32*8*4)
+	DS.B	12*8
+	CNOP	0,8
+SCREENB1:	DS.B	(212*32*4)
+	CNOP	0,8
+SCREENT1:	DS.B	(212*32*4)
+	CNOP	0,8
+DBCOP4LEN=((SALTO4+12-COPPER4)+1)&-2
+DBMASLEN=((ScrModeCopp+8-MASTERCOPPER)+1)&-2
+COPPER4D0:	DS.B	DBCOP4LEN
+	CNOP	0,8
+COPPER4D1:	DS.B	DBCOP4LEN
+	CNOP	0,8
+MASTERD0:	DS.B	DBMASLEN
+	CNOP	0,8
+MASTERD1:	DS.B	DBMASLEN
+
+; --------------------------------
+	SECTION	DBUFF,BSS
+; --------------------------------
+	CNOP	0,4
+HudShadow1:	DS.B	(212*32*4)
 
 ; --------------------------------
 	SECTION	HUDFAST,BSS		; (4.0) HUDSplit4: line build and SCREENB copy
