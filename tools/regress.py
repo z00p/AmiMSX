@@ -51,6 +51,7 @@ def picture(path):
 
 
 PER_SHOT = False
+CONFIG = ""             # --config: one WinUAE config for every title
 OPTS = []              # --opt name=value: key-script options for every run
 
 
@@ -62,7 +63,7 @@ def run_title(r, exe, outdir):
     captures)."""
     shots = [s.strip() for s in r["shots"].split(",") if s.strip()]
     base_keys = os.path.join(BASE, "tests", "keys", r["keys"] + ".keys")
-    cfg = "AmiMSX-" + r["config"] + ".uae"
+    cfg = "AmiMSX-" + (CONFIG or r["config"]) + ".uae"
     name = os.path.splitext(r["file"])[0]
     got, msgs = [], []
     groups = [[s] for s in shots] if PER_SHOT else [shots]
@@ -158,14 +159,17 @@ def main():
     ap.add_argument("--ids", default="")
     ap.add_argument("--opt", action="append", default=[],
                     help="key-script option for every run, e.g. --opt dbuf=1 (see tools/keyscript.py)")
+    ap.add_argument("--config", default="",
+                    help="WinUAE config for every title (030, 060, a1200...), not the title's own")
     ap.add_argument("--per-shot", action="store_true",
                     help="one WinUAE run per capture (the old, slower mode)")
     ap.add_argument("--calibrate", action="store_true",
                     help="run the tier twice: the first run becomes the baseline, captures that "
                          "differ between the two are marked unstable (reported as 'varies')")
     a = ap.parse_args()
-    global PER_SHOT, OPTS
+    global PER_SHOT, OPTS, CONFIG
     PER_SHOT = a.per_shot
+    CONFIG = a.config
     OPTS = [o.replace("=", " ") for o in a.opt]
     if a.accept_run:
         accept(os.path.join(REG, a.accept_run), set(a.ids.split(",")) if a.ids else None); return

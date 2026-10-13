@@ -1,6 +1,6 @@
 
 ;	Menu para MSX2 Emulator.
-;	Por: Juan Antonio Gómez
+;	Por: Juan Antonio Gï¿½mez
 
 ;    DC.L    $80000093,1			; En MSX2WIN
 ;    DC.L    $80080032,6,$00000000		; En MTags0
@@ -216,7 +216,7 @@ LiberaLib:MACRO
 	TST.L	A1
 	BEQ.S	\@LibLib
 	MOVE.L	$4.W,A6
-	JSR	-$19E(A6)	; Libera Librería.
+	JSR	-$19E(A6)	; Libera Librerï¿½a.
 \@LibLib:
 	ENDM
 
@@ -235,8 +235,8 @@ LibsError:
 	CNOP	0,4
 ACTUTAGS:			; A0=Dir TagListBase.
 	MOVE.L	A0,A1
-	TST.W	D0		; D0=Número de gadget.
-	BEQ.S	ACTAGCON	; D1=Número de Tag a modificar.
+	TST.W	D0		; D0=Nï¿½mero de gadget.
+	BEQ.S	ACTAGCON	; D1=Nï¿½mero de Tag a modificar.
 ACTUTAGSB:			; D2=Dato a modificar.
 	TST.L	(A0)+
 	DBNE	D0,ACTUTAGS
@@ -719,7 +719,7 @@ SIHAYASL:
 	BSR	CheckAGA
 
 ; ------------------------------------------
-	TST.B	LoROMBaDat(PC)		; ¿ROMs Base Leido Correctamente?
+	TST.B	LoROMBaDat(PC)		; ï¿½ROMs Base Leido Correctamente?
 	BNE.S	SiEstaData2
 	LEA	tErNoMSX2data,A0
 	BSR	ImpError
@@ -1203,8 +1203,8 @@ GOCONTOFF:
 ; -----------------------------------
 REINTMODE:
 	CLR.L	REINTMODETAGS+4
-	MOVEQ	#12,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#12,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BNE.S	REINTMOFF
 	MOVE.L	#1,REINTMODETAGS+4
@@ -1265,8 +1265,8 @@ EsDosRomC:
 	MOVE.L	D0,$0C(A1)
 	BSR	TxtPrint
 
-	MOVEQ	#(0*$40)+3,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVEQ	#(0*$40)+3,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
@@ -1282,8 +1282,8 @@ DiskROMVerOff:
 	MOVE.L	#MSX2IText9,$0C(A1)
 	BSR	TxtPrint
 
-	MOVEQ	#(0*$40)+3,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVEQ	#(0*$40)+3,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 
@@ -1404,11 +1404,11 @@ KeySigCero:
 	CNOP	0,4
 MenuPoke:
 	IFD	MENU
-	TST.B	GoDat(PC)		; ¿MSX Encendido?
+	TST.B	GoDat(PC)		; ï¿½MSX Encendido?
 	BEQ	ErPowerON
 	ENDC
 
-	TST.B	DisCheaDat(PC)		; ¿Modo Cheat activo?
+	TST.B	DisCheaDat(PC)		; ï¿½Modo Cheat activo?
 	BNE	ErCheatDisable
 
 	BSR	DISMOUSE
@@ -1734,7 +1734,7 @@ MenuDebug:
 	BEQ	ErPowerON
 	ENDC
 
-	TST.B	DisCheaDat(PC)		; ¿Modo Cheat activo?
+	TST.B	DisCheaDat(PC)		; ï¿½Modo Cheat activo?
 	BNE	ErCheatDisable
 
 	BSR	DISMOUSE
@@ -2327,8 +2327,8 @@ EsUnProtect:
 
 	SUBQ.L	#3,Debug+((8+5)*4)		; Registro PC.
 
-	MOVE.L	#(0*$40)+11,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(0*$40)+11,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)		; MVD: Write UnProtected
 
@@ -2426,13 +2426,13 @@ InitSaveTape:
 	CLR.W	SizeCaset
 	SF	ModoCaset
 
-	MOVEQ	#(0*$40)+0,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; Nº menu.
+	MOVEQ	#(0*$40)+0,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#4,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
-	MOVEQ	#(0*$40)+4,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; Nº menu.
+	MOVEQ	#(0*$40)+4,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#4,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 	RTS
@@ -2510,13 +2510,13 @@ LoadTape:
 	MOVE.W	BucCaset,SizeCaset
 	ST	ModoCaset
 
-	MOVEQ	#(0*$40)+0,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; Nº menu.
+	MOVEQ	#(0*$40)+0,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#4,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 
-	MOVEQ	#(0*$40)+4,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; Nº menu.
+	MOVEQ	#(0*$40)+4,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#4,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 	RTS
@@ -2618,8 +2618,8 @@ Sl1MapOp6:
 	MOVE.B	#$06,DirPrefs+$76
 	MOVEQ	#$40,D3
 Sl1MapRut:
-	MOVE.L	#(0*$40)+1,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVE.L	#(0*$40)+1,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	MOVEQ	#7-1,D4
 
 	BRA.S	PoneOptMenus
@@ -2655,8 +2655,8 @@ Sl2MapOp6:
 	MOVE.B	#$06,DirPrefs+$77
 	MOVEQ	#$40,D3
 Sl2MapRut:
-	MOVE.L	#(0*$40)+4,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVE.L	#(0*$40)+4,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	MOVEQ	#7-1,D4
 
 	NOP			; was: BRA.S	PoneOptMenus (zero-length short branch)
@@ -2668,9 +2668,9 @@ Sl2MapRut:
 
 PoneOptMenus:
 ;;	MOVEQ	#$40,D3			; D3 = Bits a 0 = OFF, bit a 1 = ON
-;;	MOVE.L	#(0*$40)+1,D0		; D0 = Nº Línea. (Sub-Item+Item)
-;;	MOVEQ	#3,D1			; D1 = Nº menu.
-;;	MOVEQ	#7-1,D4			; D4 = Nº de Líneas en Menú
+;;	MOVE.L	#(0*$40)+1,D0		; D0 = Nï¿½ Lï¿½nea. (Sub-Item+Item)
+;;	MOVEQ	#3,D1			; D1 = Nï¿½ menu.
+;;	MOVEQ	#7-1,D4			; D4 = Nï¿½ de Lï¿½neas en Menï¿½
 PoOpMeBuc:
 	MOVEM.L	D0-D4,-(SP)
 	BSR	COGECHECK
@@ -2700,8 +2700,8 @@ ForceNTSC:
 	MOVEQ	#$04,D3
 	MOVE.B	D3,DirPrefs+$7C
 SetScrExit:
-	MOVE.L	#(0*$40)+12,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(0*$40)+12,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	MOVEQ	#3-1,D4
 
 	BRA.S	PoneOptMenus
@@ -2726,7 +2726,7 @@ SaveMappID2:
 SaveMappID:
 	MOVE.L	DirPrefs+$8,MapperIDInit+$14	; Usuario Reg.
 
-	CMP.L	#($2080*5),BucCart	; ¿Es mayor de 40Kb?
+	CMP.L	#($2080*5),BucCart	; ï¿½Es mayor de 40Kb?
 	BCC.S	SaveMappIdRut
 	RTS
 
@@ -2752,7 +2752,7 @@ NoNewMappModi:
 SiNewMapp2:
 
 	LEA	tErNoMasMapper,A0
-	CMP.W	#-1,MapperIDInit+$10		; ¿Máximo de mappers?
+	CMP.W	#-1,MapperIDInit+$10		; ï¿½Mï¿½ximo de mappers?
 	BEQ	ImpError
 
 	MOVE.L	#AmiMSX2mapper,D1
@@ -2762,7 +2762,7 @@ SiNewMapp2:
 
 	TST.B	SiNewMapp(PC)
 	BEQ.S	NoNewMapp2
-	ADDQ.W	#1,MapperIdInit+$10		; Suma un Mapper más.
+	ADDQ.W	#1,MapperIdInit+$10		; Suma un Mapper mï¿½s.
 NoNewMapp2:
 	MOVE.L	#MapperIdInit,D2		; Graba Cabezera.
 	MOVE.L	#($18),D3
@@ -2803,8 +2803,8 @@ MapperNuevo:	DC.L	0
 
 	CNOP	0,8
 EjectSl1:
-	MOVEQ	#(1*$40)+0,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVEQ	#(1*$40)+0,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
@@ -2824,10 +2824,13 @@ EjectSl1:
 	CLR.W	PagCartS1
 	CLR.L	CheckIdS1
 	ST	Slot1Cart
+	TST.B	GPActive		; (4.0) The cartridge's own settings go
+	BEQ.S	Eject			; with it (Space Manbow's SCC stayed for
+	BSR	GPRestore		; a disk game loaded next: Bombaman).
 	BRA.S	Eject
 EjectSl2:
-	MOVEQ	#(1*$40)+3,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVEQ	#(1*$40)+3,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
@@ -3160,13 +3163,13 @@ InsertAuto:
 	TST.L	_xpkBase(PC)		; Mira si es un xpk.
 	BEQ.S	NoXpkFile
 
-	LEA	XpkFibBase,A0		; ¿Fichero xpk?
+	LEA	XpkFibBase,A0		; ï¿½Fichero xpk?
 	LEA	xpkTags0(PC),A1
 	MOVE.L	_xpkBase,A6
 	JSR	-54(A6)		; xpkOpen
 	BNE.S	NoXpkFile
 
-	MOVE.L	XpkFibBase,A0		; ¿Comprimido con xpk?
+	MOVE.L	XpkFibBase,A0		; ï¿½Comprimido con xpk?
 	CMP.L	#1,(A0)
 	BNE.S	NoXpkFile
 
@@ -3397,8 +3400,8 @@ ArrROMPagBuc2:
 					; Todo Correcto!
 
 	ST	CartLoadOK		; (Per-game settings: loaded.)
-	MOVE.L	DatItem,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; Nº menu.
+	MOVE.L	DatItem,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#3,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 
@@ -3462,12 +3465,12 @@ MiCaS16:
 	AND.L	#$3FFF,D1
 	MOVE.L	D1,BucCartAdd
 
-	CMP.L	#$4000,D0		; mira mínimo 16Kb
+	CMP.L	#$4000,D0		; mira mï¿½nimo 16Kb
 	BCS.S	NoMSXCartCon
 
 	LSR.L	#8,D0
 	LSR.L	#6,D0
-	CMP.L	#$100,D0			; mira máximo 4Mb (ASCII16: 256 x 16Kb)
+	CMP.L	#$100,D0			; mira mï¿½ximo 4Mb (ASCII16: 256 x 16Kb)
 	BGT.S	NoMSXCartCon
 	MOVEQ	#-1,D1
 	RTS
@@ -3523,7 +3526,7 @@ CaChCaBuc:
 	CNOP	0,8
 MiraCheckCart:
 
-	CMP.L	#($2080*5),BucCart	; ¿Es mayor de 40Kb?
+	CMP.L	#($2080*5),BucCart	; ï¿½Es mayor de 40Kb?
 	BCC.S	MiConMapper0
 MiStdMapper:
 	MOVE.W	#-1,D0			; Mapper Standard.
@@ -3798,10 +3801,10 @@ xpkTags1:
 
 ;	DC.L	$80005851,Nombre del Fichero a abrir.
 ;	DC.L	$80005852,FileHandle (retorno del dosOpen) lectura.
-;	DC.L	$80005853,Bloque de memoría donde leer.
+;	DC.L	$80005853,Bloque de memorï¿½a donde leer.
 ;	DC.L	$80005860,Nombre del Fichero a crear/reescribir.
 ;	DC.L	$80005861,FileHandle (retorno del dosOpen) escritura.
-;	DC.L	$80005862,Bloque de memoría donde escribir.
+;	DC.L	$80005862,Bloque de memorï¿½a donde escribir.
 ;	DC.L	$80005870,Size del bufer donde leer.
 ;	DC.L	$80005871,Size del bufer donde escribir.
 ;	DC.L	$80005877,=1 Soportar leer ficheros no xpkeados!
@@ -4941,7 +4944,7 @@ TAGS3:
 ;	DC.L	$80080005,Size X
 ;	DC.L	$80080006,Size Y
 ;	DC.L	$80080009,Directorio
-;	DC.L	$8008000A,PatrÓn
+;	DC.L	$8008000A,Patrï¿½n
 ;	DC.L	$80080012,Texto Ok
 ;	DC.L	$80080013,Texto Cancel
 ;	DC.L	$80080014,Patron On=1/Off=0
@@ -5018,7 +5021,7 @@ DirTape:DC.B	"Tape",0,0
 	CNOP	0,4
 tLOAD:	DC.B	"Load",0,0
 tSAVE:	DC.B	"Save",0,0
-tOK:	DC.B	"¡Ok!",0,0
+tOK:	DC.B	"ï¿½Ok!",0,0
 
 tMVDLoad:DC.B	"Load MSX Virtual Disk File.",0,0
 tMVDSave:DC.B	"Save MSX Virtual Disk File.",0,0
@@ -5482,7 +5485,7 @@ LODSIM:
 
 	CLR.L	BUCFILE
 	LEA	TLEEMEMORY,A0
-	BSR	ERRSALI2		; ¡Cuidado!
+	BSR	ERRSALI2		; ï¿½Cuidado!
 
 	MOVE.L	#TVD0BEM,A0
 	MOVE.L	#MSX2IText7,A1
@@ -5683,7 +5686,7 @@ SADIBUC:
 	JSR	-$1C8(A6)
 	MOVEM.L	(SP)+,D0-D5/A0
 	ADD.W	#(9*$200),A0
-	ADD.L	D5,D1			; Según 1DD o 2DD
+	ADD.L	D5,D1			; Segï¿½n 1DD o 2DD
 	DBF	D2,SADIBUC
 	ADDQ	#1,D3
 	DBF	D0,SADIBUC2
@@ -5980,7 +5983,7 @@ LoadROMs:
 
 	BSR	LoadROMsBase
 
-	TST.B	LoROMBaDat(PC)		; ¿ROMs Base Leido Correctamente?
+	TST.B	LoROMBaDat(PC)		; ï¿½ROMs Base Leido Correctamente?
 	BNE.S	LoadROMsRut
 	RTS
 
@@ -6088,9 +6091,9 @@ DesenCriptBuc:
 ; -----------------------------------
 	CNOP	0,4
 LoadKanji:
-	TST.B	DirPrefs+$7B(PC)	; ¿Usar Kanji ROM?
+	TST.B	DirPrefs+$7B(PC)	; ï¿½Usar Kanji ROM?
 	BEQ	AmiRET
-	TST.B	KanjiDat(PC)		; ¿Está ya residente?
+	TST.B	KanjiDat(PC)		; ï¿½Estï¿½ ya residente?
 	BNE	AmiRET
 
 
@@ -6146,7 +6149,7 @@ KanNoAmiData:
 ; -----------------------------------
 LoadMapperID:
 	CLR.L	MapperIDBuf+$08		; Borra lo de "mapp"
-	CLR.W	MapperIDInit+$10	; Borra Nº de mappers guardados.
+	CLR.W	MapperIDInit+$10	; Borra Nï¿½ de mappers guardados.
 
 	MOVE.L	BucMapper(PC),D0
 	BEQ.S	NoHayMapper2
@@ -6170,7 +6173,7 @@ NoHayMapper2:
 	BNE.S	MappOutOfMem
 
 	MOVEQ	#0,D0
-	MOVE.W	MapperIDBuf+$10,D0	; Nº de mappers guardados.
+	MOVE.W	MapperIDBuf+$10,D0	; Nï¿½ de mappers guardados.
 	LSL.L	#2,D0
 
 	MOVE.L	#$00010001,D1
@@ -6184,7 +6187,7 @@ NoHayMapper2:
 	MOVE.L	BucMapper,D3
 	BSR	ReadFile
 
-	MOVE.W	MapperIDBuf+$10,MapperIDInit+$10  ; Nº de mappers guardados.
+	MOVE.W	MapperIDBuf+$10,MapperIDInit+$10  ; Nï¿½ de mappers guardados.
 
 MappOutOfMem:
 	BSR	CloseFile
@@ -6484,46 +6487,46 @@ CHAPUZRut:
 ; -----------------------------------
 BootTypeCheck:
 	MOVE.B	#$01,DirPrefs+$6D
-	MOVE.L	#(0*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(0*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
-	MOVE.L	#(1*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(1*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(2*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(2*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	RTS
 BootType1DD:
 	MOVE.B	#$02,DirPrefs+$6D
-	MOVE.L	#(0*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(0*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(1*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(1*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
-	MOVE.L	#(2*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(2*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	RTS
 BootType2DD:
 	MOVE.B	#$04,DirPrefs+$6D
-	MOVE.L	#(0*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(0*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(1*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(1*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(2*$40)+7,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; Nº menu.
+	MOVE.L	#(2*$40)+7,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#2,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
 	RTS
@@ -6791,68 +6794,68 @@ ACTUPREFS:
 	MOVE.B	([MSX2Gadgets+(GD_CPUspd*4)],$57.w),$7E(A5)	; Emulation Speed.
 
 
-	MOVEQ	#0,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#0,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$13(A5)			; JoyStick 2 ON
 
-	MOVEQ	#1,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#1,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$6A(A5)			; Swap JoyPorts
 ; -=-
-	MOVEQ	#3,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#3,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$12(A5)			; Multi-Key ON
 
-	MOVEQ	#4,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#4,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$1E(A5)			; DEL como Pausa
 
-	MOVEQ	#5,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#5,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$62(A5)			; L.Shift as Space
 
-	MOVEQ	#6,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#6,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$63(A5)			; R.Shift as Space
 ; -=-
-	MOVE.L	#(0*$40)+8,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(0*$40)+8,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$7A(A5)			; Use Japanese ID
 
-	MOVE.L	#(0*$40)+9,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(0*$40)+9,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$7B(A5)			; Use Kanji ROM.
 ; -=-
-	MOVE.L	#(0*$40)+11,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(0*$40)+11,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$61(A5)			; Write Protected
 
-	MOVE.L	#(2*$40)+11,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(2*$40)+11,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$78(A5)			; Avisar al intentar Escribir.
 
-	MOVE.L	#(3*$40)+11,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(3*$40)+11,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$79(A5)			; Avisar al Salir si MVD modificado.
 ; -=-
-	MOVE.L	#(0*$40)+13,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(0*$40)+13,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$64(A5)			; Sprites Base 2
 
-	MOVE.L	#(1*$40)+13,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(1*$40)+13,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$6B(A5)			; 100% Refresh Screen
 
@@ -6860,8 +6863,8 @@ ACTUPREFS:
 					; menu item is gone in 4.0 (the real
 					; collision check always runs, and the
 					; old forced flag broke most games).
-	MOVE.L	#(2*$40)+13,D0		; Nº Línea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; Nº menu.
+	MOVE.L	#(2*$40)+13,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$6E(A5)			; VDP 'TR bit'
 
@@ -6878,28 +6881,28 @@ ACTUPREFS:
 	BSR	COGECHECK
 	SNE	PrefDbuf
 ; -=-
-	MOVEQ	#15,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#15,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$7D(A5)			; Disable Cheats
 
-	MOVEQ	#16,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#16,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$1F(A5)			; Ask for Reset
 
-	MOVEQ	#17,D0			; Nº Línea.
-	MOVEQ	#1,D1			; Nº menu.
+	MOVEQ	#17,D0			; Nï¿½ Lï¿½nea.
+	MOVEQ	#1,D1			; Nï¿½ menu.
 	BSR	COGECHECK
 	SNE	$6F(A5)			; Overwrite
 ; -=-
-;;	MOVE.L	#(3*$40)+0,D0		; Nº Línea. (Sub-Item+Item)
-;;	MOVEQ	#3,D1			; Nº menu.
+;;	MOVE.L	#(3*$40)+0,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+;;	MOVEQ	#3,D1			; Nï¿½ menu.
 ;;	BSR	COGECHECK
 ;;	SNE	$68(A5)			; ROM memory (Slot 1)
 ;;
-;;	MOVE.L	#(3*$40)+2,D0		; Nº Línea. (Sub-Item+Item)
-;;	MOVEQ	#3,D1			; Nº menu.
+;;	MOVE.L	#(3*$40)+2,D0		; Nï¿½ Lï¿½nea. (Sub-Item+Item)
+;;	MOVEQ	#3,D1			; Nï¿½ menu.
 ;;	BSR	COGECHECK
 ;;	SNE	$69(A5)			; ROM memory (Slot 2)
 ; -=-
@@ -6947,7 +6950,7 @@ DIRPrefs:
 	DC.L	Usuario*261	; Usuario Registrado Codificado #1.
 	DC.L	Usuario*173	; Usuario Registrado Codificado #2.
 	DC.B	1	; $10 - Tipo de ROM.
-	DC.B	1	; $11 - Modo de resolución. (Frecuencia)
+	DC.B	1	; $11 - Modo de resoluciï¿½n. (Frecuencia)
 	DC.B	0	; $12 - Multi-Key On.
 	DC.B	0	; $13 - Port 0 On.
 	DC.W	0	; $14 - Interrupciones.
@@ -7012,7 +7015,7 @@ TABLAB4:
 	DS.B	$100-4
 
 	CNOP	0,4
-	DC.B	" -*(  AmiMSX2 Emulator By:  Juan Antonio Gómez Gálvez  )*- "
+	DC.B	" -*(  AmiMSX2 Emulator By:  Juan Antonio Gï¿½mez Gï¿½lvez  )*- "
 	CNOP	0,4
 ; 4.0 settings, after the original block: a prefs file from an older version
 ; is shorter, so these stay 0 (BUFPREFS starts cleared).
@@ -7043,7 +7046,7 @@ REGOCANCEL:
 	CNOP	0,4
 MSX_CONT:
 	IFD	MENU
-	TST.B	GoDat(PC)		; ¿MSX Encendido?
+	TST.B	GoDat(PC)		; ï¿½MSX Encendido?
 	BEQ	ErPowerON
 	ENDC
 
@@ -7053,7 +7056,7 @@ MSX_CONT:
 
 MSX_Reset:
 	IFD	MENU
-	TST.B	GoDat(PC)		; ¿MSX Encendido?
+	TST.B	GoDat(PC)		; ï¿½MSX Encendido?
 	BEQ	ErPowerON
 	ENDC
 
@@ -7117,7 +7120,7 @@ NoEstaROM:
 YaEstaTodo:
 
 	LEA	tErNoMSX2data,A0
-	TST.B	LoROMBaDat(PC)		; ¿ROMs Base Leido Correctamente?
+	TST.B	LoROMBaDat(PC)		; ï¿½ROMs Base Leido Correctamente?
 	BEQ	ImpError
 
 ;	--------------
@@ -7222,7 +7225,7 @@ SIREINTM:
 ;  -------------------------
 
 ;  -------------------------
-	TST.B	ProtectDat(PC)		; Modo Avisar si está Write Protected.
+	TST.B	ProtectDat(PC)		; Modo Avisar si estï¿½ Write Protected.
 	BEQ.S	NoEsProtect
 	SF	ProtectDat
 	BSR	UnProtect
@@ -7239,9 +7242,9 @@ NoEsProtect:
 ;  -------------------------
 
 ;  -------------------------		; Mira Si el MVD se ha modificado.
-	TST.B	DirPrefs+$79		; ¿Activada la opción en menu?
+	TST.B	DirPrefs+$79		; ï¿½Activada la opciï¿½n en menu?
 	BEQ.S	NoMVDModificado
-	TST.B	MVDModifi(PC)		; ¿Se ha modificado el MVD?
+	TST.B	MVDModifi(PC)		; ï¿½Se ha modificado el MVD?
 	BEQ.S	NoMVDModificado
 	MOVE.L	D7,-(SP)
 	LEA	tErMVDModif,A0
@@ -7599,7 +7602,7 @@ BUF512:	DS.B	512
 ;	    A1 = SaltosGadgets.	; Para salir hacer:  ADD.L  #16+4,SP
 ;	-12(A1)= Window Handle.
 ;	 -8(A1)= Punteros Gadgets.
-;	 -4(A1)= Nº de Gadgets-1
+;	 -4(A1)= Nï¿½ de Gadgets-1
 CONTROL:
 	CLR.W	ControlKeys
 	MOVE.L	-8(A1),-(SP)
@@ -7658,16 +7661,16 @@ BUCONTROL:
 	CMP.W	#$200,D0	; CloseGadget.
 	BEQ	CONTROLNOGADS
 
-	CMP.W	#$100,D0	; ¿Es Menú?
+	CMP.W	#$100,D0	; ï¿½Es Menï¿½?
 	BEQ	ESMENU
 
-	CMP.W	#$010,D0	; ¿Es Slider?
+	CMP.W	#$010,D0	; ï¿½Es Slider?
 	BEQ	ESGADGET
 
-	CMP.W	#$040,D0	; ¿Es Gadget?
+	CMP.W	#$040,D0	; ï¿½Es Gadget?
 	BEQ.S	ESGADGET
 
-	CMP.W	#$400,D0	; ¿Es Teclado?
+	CMP.W	#$400,D0	; ï¿½Es Teclado?
 	BEQ.S	EsTeclado
 
 	BRA.S	BUCONTROL
@@ -8127,16 +8130,16 @@ LIBNOREQ:
 ;S404 data_decruncher v0.2
 ;(c) 1993 by Jouni 'Mr.Spiv' Korhonen (SWSW)
 ;-----------------------------------------------------------------------------
-; Arreglos y opción de A0=A1 por Juan Antonio Gómez (007!)
+; Arreglos y opciï¿½n de A0=A1 por Juan Antonio Gï¿½mez (007!)
 ;-----------------------------------------------------------------------------
 ;call with registers:
 ;                       ***   A0 = crunched data        ***
 ;			***   A1 = destination address  ***
 ;
-;  Para usar un solo bufer:  como mínimo  a1=a0+$10  (16 Bytes)  o  a1=a0
+;  Para usar un solo bufer:  como mï¿½nimo  a1=a0+$10  (16 Bytes)  o  a1=a0
 ;-----------------------------------------------------------------------------
 ;Uses d0-d7/a0-a6		$08(a0).l = Size fichero descomp.
-;				Fichero comprimido Máximo de 1024Kb.
+;				Fichero comprimido Mï¿½ximo de 1024Kb.
 
 		CNOP	0,4
 Stone_Depac:

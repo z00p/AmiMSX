@@ -11,8 +11,9 @@
 ; Mitsutaka Okazaki). The custom instrument (registers 00h-07h) is built
 ; here (FMXBuild) when a game changes it.
 ;
-; Paula output is locked to the PAL frame (313 lines x 227 colour clocks):
-; N = 227 samples a frame at period 313, or 313 at period 227 (FMXFast). The
+; Paula output is locked to the frame (313 lines x 227 colour clocks PAL):
+; N = 227 samples a frame at period 313, or 313 at period 227 (FMXFast);
+; a 60 Hz (NTSC) display has 262 lines and N follows (FMXSetN). The
 ; DMA loops over a 2N-byte buffer; FMXFrame (from Emula1Frame, just after the
 ; wait for the Amiga frame) fills the half that plays in the next frame.
 ;
@@ -109,7 +110,18 @@ FMXInCh:
 	MOVE.L	#FMXRecO,FMXRecOP
 FMXInRc:
 	ENDC
-	LEA	FMXQsz,A0		; Quarter lengths: N*(q+1)/4 - N*q/4.
+	BSR	FMXSetQ
+	LEA	FMXBuf,A0		; Silence in the DMA buffer.
+	MOVE.W	#(FMXBUFSZ/4)-1,D0
+FMXInB:	CLR.L	(A0)+
+	DBF	D0,FMXInB
+	MOVEM.L	FMXSave,D0-D7/A0-A6
+	RTS
+
+; -------------------------------------> Quarter lengths: N*(q+1)/4 - N*q/4.
+; Uses D1-D4, A0.
+FMXSetQ:
+	LEA	FMXQsz,A0
 	MOVEQ	#0,D2
 	MOVEQ	#1,D3
 FMXInQ:	MOVE.W	FMXN,D1
@@ -122,11 +134,51 @@ FMXInQ:	MOVE.W	FMXN,D1
 	ADDQ.W	#1,D3
 	CMP.W	#5,D3
 	BNE.S	FMXInQ
-	LEA	FMXBuf,A0		; Silence in the DMA buffer.
-	MOVE.W	#(FMXBUFSZ/4)-1,D0
-FMXInB:	CLR.L	(A0)+
-	DBF	D0,FMXInB
-	MOVEM.L	FMXSave,D0-D7/A0-A6
+	RTS
+
+; -------------------------------------> N from the frame length (at a resync).
+; The display runs PAL (313 lines) or, 'From VDP' with a 60 Hz game, NTSC
+; (262; BEAMCON0 PAL bit clear). N samples must last one frame, or the half
+; written each frame drifts into the half playing (a click every few frames:
+; Lilly's Saga at 60 Hz on BigMig). Period 227 is one sample a line, so N =
+; lines; at period 313, 227 (PAL) or 190 (NTSC, 4 colour clocks a frame
+; short: it drifts a sample in 78 frames, minutes before it is heard; the
+; A1200/030 presets keep PSG at 50 Hz). Measured: the highest line between
+; two wraps of the beam (up to two frames, at a resync only). Ends a few
+; lines into a frame. Uses D0-D4, A0.
+FMXSetN:
+	BSR.S	FMXVLin
+FMXSN1:	MOVE.W	D0,D1			; To the next wrap...
+	BSR.S	FMXVLin
+	CMP.W	D1,D0
+	BCC.S	FMXSN1
+	MOVEQ	#0,D2
+FMXSN2:	CMP.W	D2,D0			; ...then the highest line to the one
+	BLS.S	FMXSN3			; after.
+	MOVE.W	D0,D2
+FMXSN3:	MOVE.W	D0,D1
+	BSR.S	FMXVLin
+	CMP.W	D1,D0
+	BCC.S	FMXSN2
+FMXSN4:	BSR.S	FMXVLin			; (past line 4: the VBlank counted)
+	CMP.W	#4,D0
+	BCS.S	FMXSN4
+	MOVE.W	#313,D0			; PAL or NTSC.
+	CMP.W	#287,D2
+	BHI.S	FMXSN5
+	MOVE.W	#262,D0
+FMXSN5:	MOVE.W	D0,FMXLines
+	TST.B	FMXFast
+	BNE.S	FMXSN6
+	MULU.W	#227,D0			; Period 313: lines * 227 / 313.
+	ADD.L	#156,D0
+	DIVU.W	#313,D0
+FMXSN6:	MOVE.W	D0,FMXN
+	BRA	FMXSetQ
+FMXVLin:
+	MOVE.L	$DFF004,D0		; Beam line (V8-V0).
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
 	RTS
 
 ; -------------------------------------> Once a frame.
@@ -138,6 +190,7 @@ FMXFrame:
 
 	TST.B	FMXSync			; First frame: (re)start channel 3
 	BNE.S	FMXFrSy			; now, at the start of a frame, so
+	BSR	FMXSetN			; (N for this display's frame length)
 	MOVE.W	#$0008,$DFF096		; that half 0 plays in frames where
 	MOVE.L	#FMXBuf,$DFF0D0		; FMXVbl-FMXVbl0 is even.
 	MOVE.W	FMXN,$DFF0D4		; (2N bytes = N words)

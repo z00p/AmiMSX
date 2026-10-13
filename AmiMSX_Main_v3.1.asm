@@ -1343,6 +1343,7 @@ NoEsMMus:
 	BEQ.S	VD9CON0B
 	MOVE.W	#$20,D1
 VD9CON0B:MOVE.W	D1,$DFF1DC
+	MOVE.W	D1,FMXBeam		; (4.0) (DATOSINIT resyncs FMX)
 VD9CON1B:
 ; ---------------------------------------<=
 
@@ -2180,6 +2181,7 @@ HARDRESET:
 	MOVE.L	PILA,SP
 	MOVE.L	#COPPERN,NEXTCOPP
 	MOVE.L	#COPPERN,$DFF084
+	JSR	DbReset			; (4.0) No smooth-display state left.
 	LEA	REGS,A3
 
 	LEA	AMITECLAS,A0
@@ -2244,6 +2246,7 @@ MSXRESET:
 	MOVE.L	PILA,SP
 	MOVE.L	#COPPERN,NEXTCOPP
 	MOVE.L	#COPPERN,$DFF084
+	JSR	DbReset			; (4.0) No smooth-display state left.
 	LEA	REGS,A3
 
 	LEA	AMITECLAS,A0
@@ -10162,6 +10165,10 @@ VD9Con3:
 	BEQ.S	VD9CON0
 	MOVE.W	#$20,D1
 VD9CON0:MOVE.W	D1,$DFF1DC
+	CMP.W	FMXBeam,D1		; (4.0) 50/60 Hz changed: FMX measures
+	BEQ.S	VD9CON1			; the frame again (FMXSetN).
+	MOVE.W	D1,FMXBeam
+	SF	FMXSync
 VD9CON1:
 ; ---
 	SWAP	D2
@@ -11660,6 +11667,7 @@ SPR_ECS:
 ; frame's playfield. One buffer, cleared and redrawn while on screen, tore
 ; and jittered (Space Manbow's ship on BigMig).
 SPR1DBL:	MACRO
+	JSR	SprWaitSw		; (the buffer may still be on screen)
 	TST.B	SprBufB
 	BNE.S	\@b
 	LEA	BUFERSPR2-2,A0
@@ -11671,6 +11679,7 @@ SPR1DBL:	MACRO
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
 	ST	SprBufB
+	MOVE.W	FMXVbl,SprSwV
 	BRA.S	\@x
 \@b:	LEA	BUFERSPR2b-2,A0
 	MOVE.L	A0,NUMSPR2
@@ -11681,10 +11690,49 @@ SPR1DBL:	MACRO
 	LEA	DIRSPRITES2b,A0
 	JSR	CREASPRITES
 	SF	SprBufB
+	MOVE.W	FMXVbl,SprSwV
 \@x:
 	ENDM
 SprBufB:	DC.B	0
 		EVEN
+SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
+					; buffer just drawn.
+
+; (4.0) The buffer about to be cleared and drawn was on screen until the
+; frame start after the last switch: when the emulation runs late (two
+; renders in one Amiga frame: BigMig now and then, the 030 often) wait for
+; that frame start, or the sprites are torn (half of Lilly's Saga's hero
+; missing for a frame). In Workbench mode (disk access) the VBlank counter
+; stops: no wait.
+	CNOP	0,4
+SprWaitSw:
+	MOVE.L	A0,-(SP)
+	LEA	SprSwV,A0
+	BSR.S	VblWaitSince
+	MOVE.L	(SP)+,A0
+	RTS
+; Wait until FMXVbl (VBlank interrupts) differs from the word at A0, or the
+; beam has wrapped once (a guard). Keeps every register.
+VblWaitSince:
+	MOVEM.L	D0-D1,-(SP)
+	TST.B	INTWB
+	BNE.S	VblWsX
+	MOVE.W	(A0),D0
+	CMP.W	FMXVbl,D0
+	BNE.S	VblWsX
+	MOVE.L	$DFF004,D1
+	LSR.L	#8,D1
+	AND.W	#$1FF,D1
+VblWsL:	CMP.W	FMXVbl,D0
+	BNE.S	VblWsX
+	MOVE.W	D1,-(SP)
+	MOVE.L	$DFF004,D1
+	LSR.L	#8,D1
+	AND.W	#$1FF,D1
+	CMP.W	(SP)+,D1
+	BCC.S	VblWsL
+VblWsX:	MOVEM.L	(SP)+,D0-D1
+	RTS
 
 
 
@@ -24574,6 +24622,8 @@ FMXFb:		DS.W	1
 FMXAttM:	DS.W	1
 FMXVbl:		DS.W	1		; vertical blanks (Inter)
 FMXVbl0:	DS.W	1
+FMXLines:	DS.W	1		; frame length at the last resync (313/262)
+FMXBeam:	DS.W	1		; BEAMCON0 last written by R#9 (60/50 Hz)
 FMXOn:		DS.B	1		; sound chip 3
 FMXFast:	DS.B	1		; 313 samples a frame
 FMXVolOK:	DS.B	1

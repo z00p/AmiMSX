@@ -48,7 +48,9 @@ DbPreOff:
 DbPreOn:
 	TST.B	DbFirst
 	BNE.S	DbPreX
-	BSR	DbCatch
+	LEA	DbComV,A0		; The back buffers were on screen until
+	JSR	VblWaitSince		; the frame start after the last commit
+	BSR	DbCatch			; (running late: wait for it).
 DbPreX:
 	MOVEM.L	DbSv,D0-D3/A0-A1/A6
 	RTS
@@ -141,7 +143,8 @@ DbComL:	MOVE.L	$DFF004,D0
 	MOVE.L	D1,$DFF084		; COP2LC (the master's jump at $1A)
 	MOVE.L	D1,NEXTCOPP		; (VDP_Emul sets it again at $FC)
 	SF	DbPend
-	ADDQ.L	#1,DbCommits		; (perf.bin: frames shown this way)
+	MOVE.W	FMXVbl,DbComV		; (DbPre: the old front is free after
+	ADDQ.L	#1,DbCommits		; the next VBlank)		; (perf.bin: frames shown this way)
 	BCHG	#0,DbB			; The buffer just shown is the front:
 	BSR	DbSetPtrs		; draw the next frame in the other.
 	MOVEM.L	DbSv2,D0-D1/A6
@@ -211,13 +214,18 @@ DbCaX:	MOVE.L	DbScr,ScreenPtr		; (RendTabCheck sets it again)
 ; Back to the single display (another screen mode, a mode split, or the
 ; option off): the copper templates again, list 0, a full redraw.
 DbStop:
+	MOVE.L	#MASTERCOPPER,$DFF080
+	MOVE.L	#COPPER4,$DFF084
+	MOVE.L	#COPPER4,NEXTCOPP
+; The same without the copper registers: emulation start (Power ON, Reset,
+; back from the menu), whose code sets them. The last game's state (DbOn,
+; a pending snapshot) made the first DbCommit show its lists, half rebuilt
+; for the new game (BigMig: Space Manbow blank after Lilly's Saga, lost sync).
+DbReset:
 	MOVEM.L	D0/A3,-(SP)
 	SF	DbOn
 	SF	DbFirst
 	SF	DbPend
-	MOVE.L	#MASTERCOPPER,$DFF080
-	MOVE.L	#COPPER4,$DFF084
-	MOVE.L	#COPPER4,NEXTCOPP
 	CMP.L	#CopperLine0,CopperLineDos
 	BEQ.S	DbStL0
 	BSR	DbSwapLines
@@ -263,6 +271,8 @@ DbStopP:	DC.L	0
 DbStopR:	DC.L	0
 DbStarts:	DC.L	0
 DbSv:		DS.L	7
+DbComV:		DC.W	-1		; FMXVbl at the last commit.
+		EVEN
 DbSv2:		DS.L	3
 DbOn:		DC.B	0
 DbFirst:	DC.B	0
