@@ -35,6 +35,7 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - a new band starts at the line after a sprite register changes. Zanac EX's enemies no longer vanish near its status bar;
   - the EC bit.
   - with sprites every frame, the sprite overlay (Amiga hardware sprites) alternates between two buffers: each frame's sprites are drawn into the one not on screen and shown from the next frame, with that frame's playfield. One buffer, cleared and redrawn while on screen, tore and jittered on fast machines (Space Manbow's ship on BigMig), and a horizontal adjust (R#18) change moved the sprites a frame early;
+  - in SCREEN 4 the sprites are drawn before the tiles, and a sprite buffer ready in the top vertical blank is shown in that same frame (the hardware pointers are set as well as the copper's), so sprites and playfield change together. On BigMig the tile pass ends well into the next frame, and the main character of a scrolling game (Lilly's Saga, Bomberman) jittered against the scenery;
   - Power ON and Reset empty the sprite overlay. The last game's sprites used to stay on screen in the next one.
 - **Line interrupts:** with IE1 off, the line-interrupt flag (S#1 FH) is set for the matching line only, as openMSX does. Fixes Zanac EX's title. VR is set in the VBlank lines.
 - **Mid-frame palettes:** MSX colour 0 with TP off shows the border colour on lines with palette changes, as it does elsewhere.

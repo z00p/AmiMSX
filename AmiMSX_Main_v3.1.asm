@@ -11643,6 +11643,8 @@ SPR1DBL:	MACRO
 	JSR	IMPSPR2
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
+	LEA	DIRSPRITES2,A0
+	BSR	SprPtNow
 	ST	SprBufB
 	BRA.S	\@x
 \@b:	LEA	BUFERSPR2b-2,A0
@@ -11653,11 +11655,35 @@ SPR1DBL:	MACRO
 	JSR	IMPSPR2
 	LEA	DIRSPRITES2b,A0
 	JSR	CREASPRITES
+	LEA	DIRSPRITES2b,A0
+	BSR	SprPtNow
 	SF	SprBufB
 \@x:
 	ENDM
 SprBufB:	DC.B	0
 		EVEN
+
+; (4.0) The copper loads the sprite pointers at the top of each frame (line
+; 0), so a switch made after that shows a frame late. In the top vertical
+; blank (lines 1-20), before sprite DMA starts, set the hardware pointers
+; too: the new sprites then show this frame. A0 = DIRSPRITES2 or 2b.
+SprPtNow:
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	BEQ.S	SprPtX			; (line 0: the copper's moment)
+	CMP.W	#20,D0
+	BHI.S	SprPtX
+SprPtL:	TST.L	(A0)
+	BEQ.S	SprPtX
+	ADDQ.W	#4,A0			; (copper address)
+	MOVE.L	(A0)+,D0		; buffer
+	MOVE.L	(A0)+,D1		; sprite number
+	LSL.W	#2,D1
+	LEA	$DFF120,A1
+	MOVE.L	D0,(A1,D1.W)
+	BRA.S	SprPtL
+SprPtX:	RTS
 
 ; (4.0) Power ON/Reset: empty both sprite overlay buffers. They were only
 ; ever erased sprite by sprite (CLEARSPR2's lists), so the last game's
@@ -11771,7 +11797,7 @@ SISPRASC1f:
 
 	LEA	REGS(PC),A3
 	TST.B	COSPR2(A3)
-	BEQ.S	SPR2OFF1f
+	BEQ	SPR2OFF1f
 
 	SPR1DBL	1f
 SPR2OFF1f:
@@ -11882,7 +11908,7 @@ SISPRASC1fb:
 
 	LEA	REGS(PC),A3
 	TST.B	COSPR2(A3)
-	BEQ.S	SPR2OFF1fb
+	BEQ	SPR2OFF1fb
 
 	SPR1DBL	1fb
 SPR2OFF1fb:
@@ -13213,6 +13239,11 @@ NoDesbPla4:
 	MOVE.W	#($100),SumaVRAM
 ; (Shared pattern/colour blocks: see TBloque.)
 NoEsTruco2:
+	BSR	SPRMODE6		; (4.0) Sprites first, then the tiles:
+					; the sprite buffer switch then makes
+					; the frame the playfield shows in
+					; (BigMig: the tile pass ends well into
+					; the next frame).
 	PERFMARK
 
 	LEA	REGS(PC),A3
@@ -13235,7 +13266,7 @@ NoEsTruco2:
 	BSR	TRANSBLT4	; Actualiza Gfx y colores de Caracteres.
 
 	PERFSUB	5			; 5: SCREEN 4 tiles (partial)
-	BRA	SPRMODE6		; (No BSR: one call level here.)
+	RTS
 ; -=-=-
 	CNOP	0,8
 ACTUTODO4:
@@ -13248,7 +13279,6 @@ ACTUTODO4:
 	BSR	ACTUALIZA4	; Actualiza pantalla al 100%
 
 	PERFSUB	6			; 6: SCREEN 4 full redraw
-	BRA	SPRMODE6
 	RTS
 
 ************************************************************
