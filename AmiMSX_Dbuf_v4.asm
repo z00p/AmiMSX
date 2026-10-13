@@ -133,15 +133,13 @@ DbCommit:
 	LEA	$DFF002,A6
 DbComB:	BTST	#$E,(A6)
 	BNE.S	DbComB
-DbComL:	MOVE.L	$DFF004,D0
-	LSR.L	#8,D0
-	AND.W	#$1FF,D0
-	CMP.W	#$1C,D0
-	BLS.S	DbComL
 	MOVE.L	DbMasB,$DFF080		; COP1LC: from the next frame start
-	MOVE.L	DbCopB,D1
-	MOVE.L	D1,$DFF084		; COP2LC (the master's jump at $1A)
-	MOVE.L	D1,NEXTCOPP		; (VDP_Emul sets it again at $FC)
+	MOVE.L	DbCopB,D1		; COP2LC (the master's jump at $1A):
+	MOVE.L	D1,NEXTCOPP		; VDP_Emul loads it at $FC. Not here
+	TST.B	CopIntDone		; while the copper runs: every per-line
+	BEQ.S	DbComC			; entry jumps through COP2LC, and a
+	MOVE.L	D1,$DFF084		; write between its load and the strobe
+DbComC:					; sent it into the new list mid-frame.
 	SF	DbPend
 	MOVE.W	FMXVbl,DbComV		; (DbPre: the old front is free after
 	ADDQ.L	#1,DbCommits		; the next VBlank)		; (perf.bin: frames shown this way)
@@ -150,6 +148,31 @@ DbComL:	MOVE.L	$DFF004,D0
 	MOVEM.L	DbSv2,D0-D1/A6
 DbComX:
 	RTS
+
+; Before ActCopperLine rebuilds CopperLineDos: until the frame start after
+; the last commit, that list is the one the screen shows. Running late
+; (Wait60fps returns at once), it was rebuilt mid-display and lines took
+; stale or half-written routines (palette events skipped: Space Manbow's
+; space blue for a frame). Safe once the beam is past its end ($FC) or a
+; VBlank has come. Keeps every register.
+DbLineSafe:
+	TST.B	DbOn
+	BEQ.S	DbLSX
+	TST.B	DbFirst
+	BNE.S	DbLSX
+	MOVEM.L	D0-D1,-(SP)
+	MOVE.W	DbComV,D1
+DbLSL:	CMP.W	FMXVbl,D1
+	BNE.S	DbLSY
+	TST.B	INTWB
+	BNE.S	DbLSY
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#$FC,D0
+	BCS.S	DbLSL
+DbLSY:	MOVEM.L	(SP)+,D0-D1
+DbLSX:	RTS
 
 ; DbB -> DbScr/DbFront, the HUD buffer and its shadow (the back ones).
 DbSetPtrs:
@@ -215,8 +238,10 @@ DbCaX:	MOVE.L	DbScr,ScreenPtr		; (RendTabCheck sets it again)
 ; option off): the copper templates again, list 0, a full redraw.
 DbStop:
 	MOVE.L	#MASTERCOPPER,$DFF080
-	MOVE.L	#COPPER4,$DFF084
 	MOVE.L	#COPPER4,NEXTCOPP
+	TST.B	CopIntDone		; (COP2LC: only with the copper idle,
+	BEQ.S	DbReset			; as in DbCommit)
+	MOVE.L	#COPPER4,$DFF084
 ; The same without the copper registers: emulation start (Power ON, Reset,
 ; back from the menu), whose code sets them. The last game's state (DbOn,
 ; a pending snapshot) made the first DbCommit show its lists, half rebuilt
@@ -272,6 +297,7 @@ DbStopR:	DC.L	0
 DbStarts:	DC.L	0
 DbSv:		DS.L	7
 DbComV:		DC.W	-1		; FMXVbl at the last commit.
+CopIntDone:	DC.B	0		; $FC copper interrupt seen this frame.
 		EVEN
 DbSv2:		DS.L	3
 DbOn:		DC.B	0

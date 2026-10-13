@@ -7733,6 +7733,8 @@ OUT9Ab:
 	MOVE.W	D1,(COLORSPR2+2-$400.L,D2.W*4)
 	TST.B	PalSplitSeen		; Mid-frame palettes: the copper loads
 	BNE.S	OU9ANoHW1		; the colours where they belong.
+	TST.B	DbOn			; (4.0) Smooth display: the master
+	BNE.S	OU9ANoHW1		; snapshot brings them with its frame.
 	MOVE.W	D1,($DFF1A0-$200.L,D2.W*2)
 OU9ANoHW1:
 ; -=-
@@ -7750,6 +7752,8 @@ OU9ANoHW1:
 OU9ANoCero:
 	EOR.B	D0,D2
 	TST.B	PalSplitSeen
+	BNE.S	OU9ANoHW2
+	TST.B	DbOn
 	BNE.S	OU9ANoHW2
 	MOVE.W	D1,($DFF180-$200.L,D2.W*2)
 OU9ANoHW2:
@@ -14716,6 +14720,9 @@ TRASF:	MACRO
 TRANSBLT:
 	MOVE.W	#((32*8*3)/4)-1,D0
 TRANSBLT4:			; D0 = characters/4 - 1: 3 or 4 blocks of 256.
+	BTST	#6,$DFF002		; (4.0) The last COPIATXT4 blit may still
+TRB4Wt:	BTST	#6,$DFF002		; read GFXCA, which this rewrites (fast
+	BNE.S	TRB4Wt			; CPUs: glyphs mixed old/new).
 	LEA	REGS(PC),A3
 	ADDQ.W	#1,D0
 	LSR.W	#6,D0
@@ -16493,6 +16500,7 @@ DispLg1:
 	MOVEM.L	(SP)+,D0-D1/A0
 	ENDC
 
+	JSR	DbLineSafe		; (4.0) not the copper list on screen
 	JSR	ActCopperLine	; *Z0*
 
 	LEA	Regs(PC),A3
@@ -17996,6 +18004,7 @@ HangDone:
 	BEQ	VDP_Emul
 	MOVE.W	#$0020,$DFF09C
 	ADDQ.W	#1,FMXVbl		; (4.0) FMX: Amiga frames.
+	SF	CopIntDone		; (4.0) a new frame: the copper runs
 	IFD	PERF
 	ADDQ.L	#1,PerfTick		; VBlank (line 0): speed counter clock.
 	MOVE.L	D0,-(SP)
@@ -18050,6 +18059,7 @@ PerfPCc:	MOVE.L	A0,PerfPCPtr
 
 
 	MOVE.L	NextCopp,$dff084
+	ST	CopIntDone		; (4.0) the copper is done with this frame
 
 
 	LEA	Regs,A3

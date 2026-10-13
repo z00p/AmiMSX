@@ -103,6 +103,8 @@ FMXInCh:
 	CLR.B	(A0)
 	ST	FMXPDirty
 	SF	FMXSync
+	MOVE.W	#-1,FMXBeam		; (no R#9 50/60 Hz seen yet: the first one
+					; resyncs; 0 is NTSC, which the BIOS sets)
 	IFD	FMXREC
 	TST.L	FMXRecWP		; (check build: first start only)
 	BNE.S	FMXInRc
