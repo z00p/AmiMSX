@@ -13188,7 +13188,13 @@ ActuTodo3:
 
 	CNOP	0,8
 PRINT4:
+	TST.B	DbOn			; (4.0) Double buffer: VDP_Emul's COP2LC
+	BEQ.S	P4NxCop			; at $FC stays the shown snapshot (the
+	TST.B	DbFirst			; live COPPER4 is being rebuilt; a frame
+	BEQ.S	P4NxKeep		; that overran showed it half drawn).
+P4NxCop:
 	MOVE.L	#COPPER4,NEXTCOPP
+P4NxKeep:
 
 ; -=-=-
 	BSR	Act_Adjust
