@@ -30,6 +30,7 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 - **Speed in split-screen games:**
   - a SCREEN 4 table split now redraws only the longs that changed (Space Manbow in play: 68060 61% to 86-90% of real speed, 68030 56% to 71-81%);
   - leaving SCREEN 5 or 7 converts only the 16-line bands that VDP commands drew in since the last switch, not the whole bitmap.
+  - the conversions between VRAM and the SCREEN 5/7 bitplanes use lookup tables (4 lookups per 8 pixels instead of 32 bit shifts). Space Manbow's pauses when it switches between SCREEN 4 and 5 are about a third to a half shorter (A1200: 29-38 refreshes over the switch down to 18-27).
 - **Sprite mode 2:**
   - sprites are drawn in bands, each with its own R#23 (vertical scroll). Bands with sprites off (R#8 SPD) draw nothing, so Space Manbow's ship no longer lands on the ground row;
   - a new band starts at the line after a sprite register changes. Zanac EX's enemies no longer vanish near its status bar;

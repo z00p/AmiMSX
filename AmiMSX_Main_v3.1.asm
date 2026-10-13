@@ -10949,57 +10949,46 @@ P5Band:	MOVEQ	#0,D0			; (Pl5Band, 16 MSX lines = 8 plane
 	MOVE.L	BcSum,BcSum0
 	ENDC
 
-P4_BUC:
-	MOVEQ	#4-1,D6
-	MOVE.W	(A0)+,D0
+P4_BUC:					; (4.0) Table-driven (P2CTab): 4 lookups
+	MOVE.W	(A0)+,D0		; per 8 pixels, not 32 bit shifts.
 	MOVE.W	(A1)+,D1
 	MOVE.W	(A2)+,D2
 	MOVE.W	(A5)+,D3
-P4_BUC0:
-	ADD.W	D3,D3
-	ADDX.L	D4,D4		; Colores impares
-	ADD.W	D2,D2
-	ADDX.L	D4,D4
-	ADD.W	D1,D1
-	ADDX.L	D4,D4
-	ADD.W	D0,D0
-	ADDX.L	D4,D4
-
-	ADD.W	D3,D3
-	ADDX.L	D4,D4		; Colores pares.
-	ADD.W	D2,D2
-	ADDX.L	D4,D4
-	ADD.W	D1,D1
-	ADDX.L	D4,D4
-	ADD.W	D0,D0
-	ADDX.L	D4,D4
-
-	DBF	D6,P4_BUC0
-
-	MOVEQ	#4-1,D6
-P4_BUC1:
-	ADD.W	D3,D3
-	ADDX.L	D5,D5		; Colores impares
-	ADD.W	D2,D2
-	ADDX.L	D5,D5
-	ADD.W	D1,D1
-	ADDX.L	D5,D5
-	ADD.W	D0,D0
-	ADDX.L	D5,D5
-
-	ADD.W	D3,D3
-	ADDX.L	D5,D5		; Colores pares.
-	ADD.W	D2,D2
-	ADDX.L	D5,D5
-	ADD.W	D1,D1
-	ADDX.L	D5,D5
-	ADD.W	D0,D0
-	ADDX.L	D5,D5
-
-	DBF	D6,P4_BUC1
-
-	MOVEM.L	D4-D5,(A4)
-	ADDQ	#8,A4
+	MOVE.W	D0,D6			; Pixels 0-7: the planes' high bytes.
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D4
+	MOVE.W	D1,D6
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	ADD.L	D5,D5
+	OR.L	D5,D4
+	MOVE.W	D2,D6
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#2,D5
+	OR.L	D5,D4
+	MOVE.W	D3,D6
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#3,D5
+	OR.L	D5,D4
+	MOVE.L	D4,(A4)+
+	MOVEQ	#0,D6			; Pixels 8-15: the low bytes.
+	MOVE.B	D0,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D4
+	MOVE.B	D1,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	ADD.L	D5,D5
+	OR.L	D5,D4
+	MOVE.B	D2,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#2,D5
+	OR.L	D5,D4
+	MOVE.B	D3,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#3,D5
+	OR.L	D5,D4
+	MOVE.L	D4,(A4)+
 
 	DBF	D7,P4_BUC
 	IFD	BANDCHK
@@ -11088,56 +11077,58 @@ ActPlaClr:
 	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
 	MOVE.L	#ActPlaFin,ActPRet
 
-PU4_BUC:
-	MOVEQ	#4-1,D6
-	MOVEM.L	(A4)+,D4-D5
-PU4_BUC0:
-	ADD.L	D4,D4		; Colores impares
-	ADDX.B	D3,D3
-	ADD.L	D4,D4
-	ADDX.B	D2,D2
-	ADD.L	D4,D4
-	ADDX.B	D1,D1
-	ADD.L	D4,D4
-	ADDX.B	D0,D0
-
-	ADD.L	D4,D4		; Colores pares.
-	ADDX.B	D3,D3
-	ADD.L	D4,D4
-	ADDX.B	D2,D2
-	ADD.L	D4,D4
-	ADDX.B	D1,D1
-	ADD.L	D4,D4
-	ADDX.B	D0,D0
-
-	DBF	D6,PU4_BUC0
-
-	MOVEQ	#4-1,D6
-PU4_BUC1:
-	ADD.L	D5,D5		; Colores impares
-	ADDX.W	D3,D3
+PU4_BUC:				; (4.0) Table-driven (C2PTab): 4 lookups
+	MOVEQ	#0,D6			; per 8 pixels, not 32 bit shifts.
+	MOVE.B	(A4)+,D6		; Pixels 0-7 (VRAM bytes 0-3) -> D4,
+	MOVE.L	(C2PTab,PC,D6.W*4),D4	; plane p in byte p (bits 8p+7..8p).
+	LSL.L	#6,D4
+	MOVE.B	(A4)+,D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D5
+	LSL.L	#4,D5
+	OR.L	D5,D4
+	MOVE.B	(A4)+,D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D5
 	ADD.L	D5,D5
-	ADDX.W	D2,D2
 	ADD.L	D5,D5
-	ADDX.W	D1,D1
-	ADD.L	D5,D5
-	ADDX.W	D0,D0
-
-	ADD.L	D5,D5		; Colores pares.
-	ADDX.W	D3,D3
-	ADD.L	D5,D5
-	ADDX.W	D2,D2
-	ADD.L	D5,D5
-	ADDX.W	D1,D1
-	ADD.L	D5,D5
-	ADDX.W	D0,D0
-
-	DBF	D6,PU4_BUC1
-
+	OR.L	D5,D4
+	MOVE.B	(A4)+,D6
+	OR.L	(C2PTab,PC,D6.W*4),D4
+	MOVE.B	(A4)+,D6		; Pixels 8-15 (bytes 4-7) -> D5.
+	MOVE.L	(C2PTab,PC,D6.W*4),D5
+	LSL.L	#6,D5
+	MOVE.B	(A4)+,D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D3
+	LSL.L	#4,D3
+	OR.L	D3,D5
+	MOVE.B	(A4)+,D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D3
+	ADD.L	D3,D3
+	ADD.L	D3,D3
+	OR.L	D3,D5
+	MOVE.B	(A4)+,D6
+	OR.L	(C2PTab,PC,D6.W*4),D5
+	MOVE.W	D4,D0			; Plane words: pixels 0-7 high byte,
+	LSL.W	#8,D0			; 8-15 low byte.
+	MOVE.B	D5,D0
 	MOVE.W	D0,(A0)+
-	MOVE.W	D1,(A1)+
-	MOVE.W	D2,(A2)+
-	MOVE.W	D3,(A5)+
+	LSR.L	#8,D4
+	LSR.L	#8,D5
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A1)+
+	LSR.L	#8,D4
+	LSR.L	#8,D5
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A2)+
+	LSR.L	#8,D4
+	LSR.L	#8,D5
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A5)+
 	DBF	D7,PU4_BUC
 	JMP	([ActPRet.L])		; (No BSR here: one call level.)
 ActPlaFin:
@@ -11148,6 +11139,23 @@ ActPlaFin:
 	RTS
 ActPA6:		DC.L	0
 ActPRet:	DC.L	0
+; (4.0) SCREEN 5/7 plane conversion tables. P2CTab: a plane byte (8
+; pixels, bit 7 first) -> bit 0 of each pixel's nibble in a VRAM long (pixel
+; i at bits 31-4i..28-4i); shifted by the plane number. C2PTab: a VRAM byte
+; (2 pixels) -> per plane p, its 2 bits (left pixel first) at bits 8p+1..8p.
+	CNOP	0,4
+P2CTab:
+P2CB	SET	0
+	REPT	256
+	DC.L	(((P2CB>>7)&1)<<28)|(((P2CB>>6)&1)<<24)|(((P2CB>>5)&1)<<20)|(((P2CB>>4)&1)<<16)|(((P2CB>>3)&1)<<12)|(((P2CB>>2)&1)<<8)|(((P2CB>>1)&1)<<4)|(P2CB&1)
+P2CB	SET	P2CB+1
+	ENDR
+C2PTab:
+C2PV	SET	0
+	REPT	256
+	DC.L	((((C2PV>>4)&1)<<1)|(C2PV&1))|(((((C2PV>>5)&1)<<1)|((C2PV>>1)&1))<<8)|(((((C2PV>>6)&1)<<1)|((C2PV>>2)&1))<<16)|(((((C2PV>>7)&1)<<1)|((C2PV>>3)&1))<<24)
+C2PV	SET	C2PV+1
+	ENDR
 V5All:		DC.B	$FF		; SCR0 planes: convert all of VRAM.
 Pl5Dirty:	DC.B	0		; SCR0 planes drawn by VDP commands.
 	EVEN
