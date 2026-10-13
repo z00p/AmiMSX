@@ -237,6 +237,8 @@ DbCaBl:	MOVE.W	D1,D3			; ...rows D2..D1-1.
 	ADD.L	D2,A0
 	MOVE.L	DbScr,A1
 	ADD.L	D2,A1
+	BTST	#$E,(A6)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 DbCaW1:	BTST	#$E,(A6)
 	BNE.S	DbCaW1
 	MOVE.L	A0,$50-2(A6)		; BLTAPT
@@ -254,10 +256,8 @@ DbCaX:	MOVE.L	DbScr,ScreenPtr		; (RendTabCheck sets it again)
 ; option off): the copper templates again, list 0, a full redraw.
 DbStop:
 	MOVE.L	#MASTERCOPPER,$DFF080
-	MOVE.L	#COPPER4,NEXTCOPP
-	TST.B	CopIntDone		; (COP2LC: only with the copper idle,
-	BEQ.S	DbReset			; as in DbCommit)
-	MOVE.L	#COPPER4,$DFF084
+	MOVE.L	#COPPER4,NEXTCOPP	; (the new renderer sets its own; COP2LC
+	ST	DbStopCop		; after it, in VDPFrame)
 ; The same without the copper registers: emulation start (Power ON, Reset,
 ; back from the menu), whose code sets them. The last game's state (DbOn,
 ; a pending snapshot) made the first DbCommit show its lists, half rebuilt
@@ -314,6 +314,7 @@ DbStarts:	DC.L	0
 DbSv:		DS.L	7
 DbComV:		DC.W	-1		; FMXVbl at the last commit.
 CopIntDone:	DC.B	0		; $FC copper interrupt seen this frame.
+DbStopCop:	DC.B	0		; DbStop ran: COP2LC after the render.
 		EVEN
 DbSv2:		DS.L	3
 DbOn:		DC.B	0

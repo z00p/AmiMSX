@@ -255,7 +255,12 @@ TSPLITCHK:	MACRO
 	CMP.W	#191,D1
 	BCC	\@n
 	ADDQ.W	#1,D1
-	MOVE.W	D1,TSplit
+	MOVE.W	MSplitL,TsMsNx		; (4.0) Right after a mode split (the
+	ADDQ.W	#1,TsMsNx		; game's writes straddled a line): the
+	CMP.W	TsMsNx,D1		; same line, or the line between showed
+	BNE.S	\@t			; the tile screen with the HUD's tables
+	MOVE.W	MSplitL,D1		; (Space Manbow: a garbage line).
+\@t:	MOVE.W	D1,TSplit
 	SEGEND				; (The playfield may be below it.)
 	OR.B	#$01,(TabRasCMDS.L,D1.W)
 	IFD	TRACE
@@ -7733,12 +7738,9 @@ OUT9Ab:
 	MOVE.W	D1,(MSX2Pal-$200.L,D2.W*2)
 ; -=-
 	MOVE.W	D1,(COLORSPR2+2-$400.L,D2.W*4)
-	TST.B	PalSplitSeen		; Mid-frame palettes: the copper loads
-	BNE.S	OU9ANoHW1		; the colours where they belong.
-	TST.B	DbOn			; (4.0) Smooth display: the master
-	BNE.S	OU9ANoHW1		; snapshot brings them with its frame.
-	MOVE.W	D1,($DFF1A0-$200.L,D2.W*2)
-OU9ANoHW1:
+; (4.0) Not to the hardware: the master copper list loads COLORMSX2 and
+; COLORSPR2 every frame, so the colours change at a frame start, not half
+; way down the frame the Amiga is showing (fades on fast machines).
 ; -=-
 	SWAP	D0
 	MOVE.B	MCAGA+10,D0
@@ -7753,12 +7755,6 @@ OU9ANoHW1:
 	BRA.S	OU9ACap
 OU9ANoCero:
 	EOR.B	D0,D2
-	TST.B	PalSplitSeen
-	BNE.S	OU9ANoHW2
-	TST.B	DbOn
-	BNE.S	OU9ANoHW2
-	MOVE.W	D1,($DFF180-$200.L,D2.W*2)
-OU9ANoHW2:
 	MOVE.W	D1,(COLORMSX2+2-$400.L,D2.W*4)
 	SWAP	D0
 ; -=-
@@ -11683,6 +11679,7 @@ SPR1DBL:	MACRO
 	LEA	SPRIT0+16,A6
 	JSR	IMPSPR2
 	LEA	DIRSPRITES2,A0
+	JSR	SprBeamOK
 	JSR	CREASPRITES
 	ST	SprBufB
 	MOVE.W	FMXVbl,SprSwV
@@ -11694,6 +11691,7 @@ SPR1DBL:	MACRO
 	LEA	SPRIT0b+16,A6
 	JSR	IMPSPR2
 	LEA	DIRSPRITES2b,A0
+	JSR	SprBeamOK
 	JSR	CREASPRITES
 	SF	SprBufB
 	MOVE.W	FMXVbl,SprSwV
@@ -11701,6 +11699,7 @@ SPR1DBL:	MACRO
 	ENDM
 SprBufB:	DC.B	0
 		EVEN
+TsMsNx:		DC.W	0		; (TSPLITCHK scratch)
 SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
 					; buffer just drawn.
 
@@ -11717,6 +11716,23 @@ SprWaitSw:
 	BSR.S	VblWaitSince
 	MOVE.L	(SP)+,A0
 	RTS
+; (4.0) CREASPRITES writes the sprite pointers of the master copper list a
+; word at a time; the copper loads them at the start of line 0. Not while the
+; beam is in lines 0-1: a pointer half from each buffer showed one column of
+; a character from the other buffer (the last pose) or garbage (BigMig, 60
+; Hz, where the sprite pass lands near line 0 every frame). Keeps registers.
+SprBeamOK:
+	MOVE.L	D0,-(SP)
+	TST.B	INTWB
+	BNE.S	SprBOX
+SprBOL:	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#1,D0
+	BLS.S	SprBOL
+SprBOX:	MOVE.L	(SP)+,D0
+	RTS
+
 ; Wait until FMXVbl (VBlank interrupts) differs from the word at A0, or the
 ; beam has wrapped once (a guard). Keeps every register.
 VblWaitSince:
@@ -14293,6 +14309,8 @@ COPIABUCZ:
 	LSR.W	#8,D2
 	LSL.W	#3,D2
 	LEA	(A5,D2.W*8),A3
+	BTST	D7,(A6)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 ESPBLTP2Z:
 	BTST	D7,(A6)
 	BNE.S	ESPBLTP2Z
@@ -14310,6 +14328,8 @@ NOCOPIA22Z:
 	LSL.W	#3,D2
 	LEA	(A5,D2.W*8),A3
 	ADDQ	#2,A4
+	BTST	D7,(A6)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 ESPBLTP2BZ:
 	BTST	D7,(A6)
 	BNE.S	ESPBLTP2BZ
@@ -15022,6 +15042,8 @@ COPIABUC:
 	LSR.W	#8,D2
 	LSL.W	#3,D2
 	LEA	(A5,D2.W*8),A3
+	BTST	#$E,(A6)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 ESPBLTP2:
 	BTST	#$E,(A6)
 	BNE.S	ESPBLTP2
@@ -15040,6 +15062,8 @@ NOCOPIA22:
 	LSL.W	#3,D2
 	LEA	(A5,D2.W*8),A3
 	ADDQ	#2,A4
+	BTST	#$E,(A6)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 ESPBLTP2B:
 	BTST	#$E,(A6)
 	BNE.S	ESPBLTP2B
@@ -15129,6 +15153,8 @@ COPIABUCBZ:
 	LSR.W	#8,D2
 	LSL.W	#3,D2
 	LEA	(A5,D2.W*8),A3
+	BTST	D7,(A6)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 ESPBLTPBZ:
 	BTST	D7,(A6)
 	BNE.S	ESPBLTPBZ
@@ -16626,6 +16652,13 @@ RendSame:
 	JSR	DbStop
 RendDbOk:
 	JSR	([RVDP.W,A3])		; Emulaci�n del VDP.
+	TST.B	DbStopCop		; (4.0) Smooth display stopped this frame
+	BEQ.S	RendNoSt		; after the $FC interrupt: the new mode's
+	SF	DbStopCop		; list now, not the live COPPER4 template
+	TST.B	CopIntDone		; (back buffer's pointers) for a frame.
+	BEQ.S	RendNoSt
+	MOVE.L	NEXTCOPP,$DFF084
+RendNoSt:
 	TST.W	SnapPend		; Key-script SNAP: hold this frame.
 	BEQ.S	NoSnapDo
 	JSR	KeySnapDo
@@ -17634,6 +17667,8 @@ TIMPSH:
 	SUBQ.W	#1,D7			; Then OR in every colour plane.
 TIMPOR:
 	ADD.L	$16(A4),A6
+	BTST	#$E,(A2)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 TIMPB:
 	BTST	#$E,(A2)
 	BNE.S	TIMPB
@@ -17714,6 +17749,8 @@ V2EBUCLE:
 
 	ADD.L	$16(A4),A0		; Suma Size de 1 plano
 	ADD.L	$16(A4),A1		; Suma Size de 1 plano
+	BTST	#$E,(A2)		; (4.0) a dummy read: BBUSY may show a
+				; cycle after BLTSIZE (fast CPUs)
 ESPBLTMQB:BTST	#$E,(A2)
 	BNE.S	ESPBLTMQB
 
@@ -22738,8 +22775,10 @@ Planos2Buc:
 ; RendTabCheck stay on it), then HUDSplit4 draws the lines below the split.
 	CNOP	0,4
 PRINT4S:
-	BSR	MSplitFill		; SCREEN 5 above a mode split.
 	JSR	DbPre			; (4.0) double buffer: start/stop, catch-up
+	BSR	MSplitFill		; SCREEN 5 above a mode split (after
+					; DbPre's wait: the back SCREENT may be
+					; on screen until then).
 	TST.W	TSplit
 	BNE.S	PRINT4Sp
 	JSR	PRINT4
