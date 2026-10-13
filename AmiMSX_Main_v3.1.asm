@@ -9487,10 +9487,11 @@ OUTS:
 
 	CNOP	0,8
 ; Mask screen edges (PrefMask): the display window is 8 dots wider than the
-; 256 picture dots (3 left, 5 right, measured in WinUAE), so hiding 8 dots
-; each side moves its edges in by these.
-EDGEL=11
-EDGER=13
+; 256 picture dots (3 left, 5 right, measured in WinUAE), so hiding 7 dots
+; each side moves its edges in by these (8 was a touch much on a real A1200;
+; the scroll columns Lilly's Saga redraws are 7 dots at most past R#18).
+EDGEL=10
+EDGER=12
 Act_Adjust:
 	IFD	TRACE
 	TRVLOG	$FD,MidAdj
@@ -24663,7 +24664,7 @@ FMXNnom:	DS.W	1		; nominal N (even) for the frame length
 FMXPlay:	DS.W	1		; ring block Paula plays
 FMXQueued:	DS.W	1		; ring block queued after it
 FMXWrite:	DS.W	1		; next ring block FMXFrame writes
-FMXLen:		DS.W	4		; samples in each ring block
+FMXLen:		DS.W	8		; samples in each ring block
 FMXUnder:	DS.W	1		; blocks repeated (emulation late)
 FMXOver:	DS.W	1		; frames dropped (ring full)
 FMXQ:		DS.W	1

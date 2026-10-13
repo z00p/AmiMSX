@@ -5234,7 +5234,7 @@ MSX2MName41:
     DC.B    'VDP ''TR bit'' always ready',0
 
 MSX2MName41b:
-    DC.B    'Mask screen edges (8 dots)',0
+    DC.B    'Mask screen edges (7 dots)',0
 
 MSX2MName41c:
     DC.B    'Audio filter (less hiss)',0

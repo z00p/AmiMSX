@@ -44,7 +44,7 @@ ST_OFF=4
 
 FMX_CLIPC=1152		; centre of the 8-bit output table
 FMXRBSZ=320		; one ring block (up to 318 samples)
-FMXBUFSZ=4*FMXRBSZ	; DMA ring: 4 blocks (FMXAud)
+FMXBUFSZ=8*FMXRBSZ	; DMA ring: 8 blocks (FMXAud)
 
 ; -------------------------------------> Reset (emulation start).
 	CNOP	0,8
@@ -200,7 +200,7 @@ FMXAud:
 	MOVE.W	FMXQueued,D0
 	MOVE.W	D0,FMXPlay
 	ADDQ.W	#1,D0
-	AND.W	#3,D0
+	AND.W	#7,D0
 	CMP.W	FMXWrite,D0
 	BNE.S	FMXAuQ
 	MOVE.W	FMXPlay,D0		; Underrun: the same block again.
@@ -266,16 +266,15 @@ FMXRcI:	MOVE.L	(A0)+,(A1)+
 FMXFrSy:
 	MOVE.W	FMXWrite,D0		; This frame's N from the ring's fill:
 	SUB.W	FMXQueued,D0		; blocks written and not yet handed to
-	SUBQ.W	#1,D0			; Paula. None: 2 samples more, two or
-	AND.W	#3,D0			; more: 2 fewer. The emulation's frame
-	MOVE.W	FMXNnom,D1		; rate and Paula's clock then agree on
-	TST.W	D0			; average, whatever the display (50 Hz,
-	BNE.S	FMXFrN1			; 60 Hz with 227/228-clock lines, late
-	ADDQ.W	#2,D1			; frames). Pitch is the step per sample:
-	BRA.S	FMXFrN3			; unchanged.
-FMXFrN1:CMP.W	#2,D0
-	BCS.S	FMXFrN3
-	SUBQ.W	#2,D1
+	SUBQ.W	#1,D0			; Paula. Fewer than 2: 2 samples more,
+	AND.W	#7,D0			; more than 2: 2 fewer. The emulation's
+	MOVE.W	FMXNnom,D1		; frame rate and Paula's clock then agree
+	CMP.W	#2,D0			; on average, whatever the display (50
+	BEQ.S	FMXFrN3			; Hz, 60 Hz with 227/228-clock lines),
+	BHI.S	FMXFrN1			; with 2 frames in hand for late ones
+	ADDQ.W	#2,D1			; (BigMig, PiStorm). Pitch is the step
+	BRA.S	FMXFrN3			; per sample: unchanged.
+FMXFrN1:SUBQ.W	#2,D1
 FMXFrN3:CMP.W	FMXN,D1
 	BEQ.S	FMXFrN4
 	MOVE.W	D1,FMXN
@@ -472,7 +471,7 @@ FMXOuL:	MOVE.W	(A0)+,D0
 	DBF	D1,FMXOuL
 	MOVE.W	FMXN,(FMXLen,D2.W*2)	; (length first: FMXAud reads it once
 	ADDQ.W	#1,D2			; FMXWrite has moved on)
-	AND.W	#3,D2
+	AND.W	#7,D2
 	MOVE.W	D2,FMXWrite
 	BRA.S	FMXOuDone
 FMXOuFull:
