@@ -469,7 +469,9 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.0  (11.10.2026)",0,0
+	DC.B	"$VER:AmiMSX Emulator v4.0  ("
+	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
+	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
 
 
@@ -18248,8 +18250,10 @@ TRETARDOB:
 	BEQ.S	TRETARDOB
 	DBF	D2,TRETARDO
 	AND.B	#$BF,$BFEE01		; CIAA Libre
-	TST.L	KeyScrPtr		; Scripted test run: only the key script
-	BNE.S	MTESAL			; types (handshake done, matrix untouched).
+	IFND	PERFLOCAL		; (Measure builds: the keyboard stays
+	TST.L	KeyScrPtr		; live, Help included.) Scripted test
+	BNE.S	MTESAL			; run: only the key script types
+	ENDC				; (handshake done, matrix untouched).
 	ADDQ.W	#1,D2
 	NOT.B	D0
 	LSR.B	#$01,D0
@@ -18321,11 +18325,13 @@ Conta2Fin:
 	CNOP	0,8
 TesteaJoyRut:
 	LEA	REGS,A3
+	IFND	PERFLOCAL		; (Measure builds: the joystick stays live.)
 	TST.L	KeyScrPtr		; Scripted test run: no host joystick or
 	BEQ.S	TJoyHost		; mouse (moving the mouse over WinUAE
 	ST	DATOJOY1(A3)		; read as MSX joystick 2).
 	ST	DATOJOY2(A3)
 	RTS
+	ENDC
 TJoyHost:
 
 	IFEQ	Key_ON

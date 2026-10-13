@@ -1966,7 +1966,9 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.0  (Pro)',0
+    DC.B    'AmiMSX Emulator v4.0  (Pro)  '
+    INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
+    DC.B    0
     CNOP    0,2
 
 MSX2STitle:

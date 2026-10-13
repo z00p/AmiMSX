@@ -4,7 +4,10 @@
 param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX",
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
       [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "",
-      [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "", [string]$ExtraArg = "")
+      [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "", [string]$ExtraArg = "",
+      [string]$RtBurst = "")
+# -RtBurst t:n : at t s, grab n frames back to back while the game runs (no freeze;
+#   use a warp=false config, e.g. AmiMSX-060rt.uae) into build\rt\<rom>\NNN.png
 # -ExtraArg text: appended to AmiMSX's command line (e.g. "P=AmiMSX:Measure/Measure.prefs")
 # -NoRun: boot without the CLI start of AmiMSX (Workbench tests: a project in
 #   WBStartup starts it instead); the line is left commented out until the next run
@@ -158,10 +161,21 @@ foreach ($rom in $Roms) {
     }
     "$name : $got of $($snaps.Count) snaps"
   }
+  if ($RtBurst) {
+    $rt, $rn = $RtBurst -split ":"
+    $events += [pscustomobject]@{ t = [double]$rt; kind = "rt"; n = [int]$rn }
+  }
   foreach ($e in ($events | Sort-Object t)) {
     $wait = $e.t - ((Get-Date) - $t0).TotalSeconds
     if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
     if ($e.kind -eq "shot") { Capture $hwnd (Join-Path $out "${name}_$($e.t)s.png") }
+    elseif ($e.kind -eq "rt") {
+      $rd = Join-Path $base "build\rt\$name"; New-Item -ItemType Directory -Force $rd | Out-Null
+      Get-ChildItem $rd -Filter *.png -ErrorAction SilentlyContinue | Remove-Item
+      $tr = Get-Date
+      for ($k = 0; $k -lt $e.n; $k++) { [void][WU]::Grab($hwnd, (Join-Path $rd ("{0:000}.png" -f $k)), 3000) }
+      "$name : $($e.n) real-time grabs in $([int]((Get-Date) - $tr).TotalMilliseconds) ms"
+    }
     elseif ($e.kind -eq "down" -or $e.kind -eq "up") {
       if ([WU]::GetForegroundWindow() -eq $hwnd) {
         $fl = 0x8 -bor $e.key[2]; if ($e.kind -eq "up") { $fl = $fl -bor 0x2 }   # scancode (+extended) (+keyup)

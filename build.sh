@@ -7,6 +7,8 @@ cd "$(dirname "$0")" && mkdir -p build
 if grep -nE "^[^;]*B[A-Z]{1,3}(\.[SBWL])?[[:space:]]+\*[+-]" AmiMSX_Main_v3.1.asm AmiMSX_Menu_v3.1.asm; then
   echo "error: branch to *+n/*-n above: use a label"; exit 1
 fi
+# Build reference for the menu title and $VER: date, commit, '+' if changed.
+sh tools/buildid.sh
 ./tools/vasmm68k_mot.exe -devpac -nocase -m68020 -Fhunkexe -nosym -maxerrors=0 \
   -o build/AmiMSX AmiMSX_Main_v3.1.asm > build/build.log 2>&1
 rc=$?

@@ -7193,6 +7193,9 @@ SIREINTM:
 	IFD	PERF
 	JSR	PerfDump		; (4.0) also after a Power ON run
 	ENDC
+	CLR.L	KeyScrPtr		; (4.0) A key script drives one run:
+					; later games get the keyboard and
+					; joystick back (Measure on BigMig).
 	JSR	FlashSave		; (4.0) back in the menu: flash sectors
 	JSR	DiskBSave		; and drive B's image, if changed.
 
