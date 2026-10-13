@@ -20641,6 +20641,12 @@ IN90C:
 ;	- Emulaci�n del PSG v2.0 -	Base por Sergi Mart�nez.
 ;	 ------------------------	Actualizaci�n por Juan Antonio G�mez.
 
+; (4.0) PSG volume 0-15 -> Paula volume: 3 dB a step from 30 at 15, as the
+; YM2149 (measured in openMSX: -3.0 dB a step). It was 2 x volume (linear),
+; so quiet notes, fades and echoes were far too loud.
+PSGVolTab:	DC.B	0,1,1,1,1,1,1,2,3,4,5,8,11,15,21,30
+		EVEN
+
 FREC:	MACRO
 	MOVE.W	PSG+\1(A3),D1
 	ROR.W	#8,D1
@@ -20662,7 +20668,7 @@ CANAL:	MACRO
 	MOVE.B	OndaVol+1(PC),D1
 	LSR.B	#1,D1
 \@ESOND:AND.W	#$000F,D1
-	LSL.B	#1,D1
+	MOVE.B	(PSGVolTab.L,D1.W),D1	; (4.0: 3 dB a step, not linear)
 \@NOVOL:MOVE.W	D1,\2
 	ENDM
 
@@ -20677,7 +20683,7 @@ VOLUM:	MACRO
 	BTST	#\1,D2
 	BNE.S	\@NOSA
 	AND.W	#$000F,D1
-	LSL.B	#1,D1
+	MOVE.B	(PSGVolTab.L,D1.W),D1	; (4.0: 3 dB a step, not linear)
 	MOVE.W	D1,\2
 \@NOSA:	BTST	#\1+3,D2
 	BEQ.S	HAYRUID
@@ -20715,7 +20721,7 @@ SOUND7:
 	CANAL	1,$DFF0B8
 	CANAL	2,$DFF0C8
 	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
-	BNE.S	NOSOU6
+	BNE	NOSOU6
 
 	MOVE.B	PSG+7(A3),D2
 	MOVE.B	D2,D1

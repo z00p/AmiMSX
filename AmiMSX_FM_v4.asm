@@ -54,10 +54,14 @@ FMXInit:
 	MOVE.W	#227,FMXN		; Paula mode: 227 samples/frame at
 	MOVE.W	#313,FMXPer		; period 313, or 313 at period 227.
 	MOVE.L	#FMX_K227,FMXK
-	MOVE.L	$4.W,A0			; 68040/68060 (also PiStorm, BigMig):
-	MOVE.W	$128(A0),D0		; 15.6 kHz.
-	AND.W	#$88,D0
-	SNE	FMXFast
+	MOVE.L	$4.W,A0			; 68040/68060 (PiStorm's Emu68 says so)
+	MOVE.W	$128(A0),D0		; or 'Smooth display (fast CPUs)' on (the
+	AND.W	#$88,D0			; PiStorm preset; a BigMig's TG68K core
+	SNE	FMXFast			; reports a 68020): 15.6 kHz.
+	TST.B	PrefDbuf
+	BEQ.S	FMXInFs
+	ST	FMXFast
+FMXInFs:
 	TST.B	FMXFast
 	BEQ.S	FMXIn227
 	MOVE.W	#313,FMXN
