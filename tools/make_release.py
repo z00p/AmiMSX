@@ -52,22 +52,49 @@ def amiga_text(src, dst):
     open(dst, "wb").write(t.encode("latin-1"))
 
 
+FONT35 = {'M': '10001/11011/10101/10001/10001', 'S': '011100010001110', 'X': '101101010101101',
+          'D': '110101101101110', 'O': '010101101101010', 'C': '011100100100011'}
+
+
+def text35(d, x, y, t, col):
+    for ch in t:
+        g = FONT35[ch]
+        rows = g.split('/') if '/' in g else [g[k:k + 3] for k in range(0, 15, 3)]
+        for ry, row in enumerate(rows):
+            for rx, bit in enumerate(row):
+                if bit == '1':
+                    d.point((x + rx, y + ry), fill=col)
+        x += len(rows[0]) + 1
+
+
 def draw_drawer(label=None):
-    """A drawer (filing cabinet) in the presets' style, optional label plate."""
-    from PIL import Image, ImageDraw, ImageFont
+    """An Amiga-style drawer (our own drawing, in the spirit of the Workbench
+    drawers): blue cabinet, rounded top with a lighter dithered lid, white
+    handle at the bottom, optional label plate."""
+    from PIL import Image, ImageDraw
     W, H = mp.W, mp.H
     im = Image.new("RGB", (W, H), (255, 0, 255))
     d = ImageDraw.Draw(im)
-    blue, light, dark = (80, 120, 190), (150, 180, 230), (30, 50, 100)
-    d.polygon([(4, 12), (12, 4), (43, 4), (35, 12)], fill=light)          # top
-    d.polygon([(35, 12), (43, 4), (43, 33), (35, 41)], fill=dark)        # side
-    d.rectangle([4, 12, 35, 41], fill=blue)                              # front
-    d.line([4, 12, 35, 12], fill=(200, 215, 245)); d.line([4, 12, 4, 41], fill=(200, 215, 245))
-    d.rectangle([12, 24, 27, 28], fill=(225, 225, 225), outline=(20, 20, 20))   # handle
+    blk, blue, lite, dark, white = (0, 0, 0), (68, 104, 180), (110, 146, 214), (34, 54, 112), (255, 255, 255)
+    x0, x1, y0, y1 = 5, 40, 9, 37
+    d.rectangle([x0 + 1, y0 + 1, x1 + 1, y1 + 1], fill=blk)                 # shadow
+    d.rectangle([x0, y0 + 3, x1, y1], fill=blue, outline=blk)               # body
+    d.rectangle([x0 + 3, y0, x1 - 3, y0 + 3], fill=lite, outline=blk)       # rounded lid
+    d.point((x0 + 2, y0 + 1), fill=blk); d.point((x1 - 2, y0 + 1), fill=blk)
+    d.line([x0 + 1, y0 + 3, x0 + 2, y0 + 2], fill=blk); d.line([x1 - 1, y0 + 3, x1 - 2, y0 + 2], fill=blk)
+    for y in range(y0 + 4, y0 + 9):                                          # lid dither
+        for x in range(x0 + 1, x1):
+            if (x + y) % 2 == 0:
+                d.point((x, y), fill=lite)
+    d.line([x0 + 1, y0 + 9, x1 - 1, y0 + 9], fill=dark)                      # lid edge
+    d.line([x1 - 1, y0 + 4, x1 - 1, y1 - 1], fill=dark)
+    d.rounded_rectangle([14, y1 - 5, 31, y1 + 1], radius=3, fill=white, outline=blk)   # handle
+    d.line([16, y1 - 2, 29, y1 - 2], fill=(170, 170, 170))
     if label:
-        font = ImageFont.load_default()
-        d.rectangle([6, 14, 33, 23], fill=(235, 235, 235))
-        d.text((9, 14), label, font=font, fill=(20, 20, 20))
+        w = sum((5 if c == 'M' else 3) + 1 for c in label) - 1 + 4
+        lx = (x0 + x1 - w) // 2 + 1
+        d.rectangle([lx, 22, lx + w - 1, 30], fill=white, outline=blk)
+        text35(d, lx + 2, 24, label, (40, 70, 160))
     return im
 
 
@@ -97,8 +124,7 @@ def main():
                        cwd=tmp, check=True)
         shutil.copy(os.path.join(tmp, "AmiMSX", "Docs", "AmiMSX.guide.info"), os.path.join(d, "AmiMSX.guide.info"))
         shutil.rmtree(tmp)
-    im = mp.draw("4.0", (40, 70, 160))
-    open(os.path.join(d, "AmiMSX.info"), "wb").write(tool_icon(im))
+    shutil.copy(os.path.join(BASE, "Pics", "AmiMSX.info"), os.path.join(d, "AmiMSX.info"))   # the 3.x tool icon
     open(os.path.join(out, "AmiMSX.info"), "wb").write(drawer_icon(draw_drawer("MSX")))
     open(os.path.join(d, "Docs.info"), "wb").write(drawer_icon(draw_drawer(), 300, 120))
     for root, _, files in os.walk(out):
