@@ -2343,6 +2343,8 @@ ABOUT:
 	BSR	DISMOUSE
 	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
 	JSR	OPENABOUTWINDOW
+	TST.L	D0			; (4.0) Window not open: no gadgets.
+	BNE.S	ABOUTNoW
 	LEA	AboutGadgets+(GD_Aboutmore*4),A0	; (4.0, as v3.2) 'More'
 	MOVE.L	AboutWnd,A1		; (the old contact addresses) disabled.
 	MOVE.L	#$8003000E,D0		; GA_Disabled
@@ -2351,6 +2353,7 @@ ABOUT:
 	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
 	LEA	ABOUTPUNTS,A1
 	BSR	CONTROL
+ABOUTNoW:
 	JSR	CLOSEABOUTWINDOW
 	BSR	ENAMOUSE
 	RTS

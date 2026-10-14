@@ -1256,14 +1256,8 @@ NoROMPatSub:
 ; -------------------------------------------
 
 ; -------------------------------------------
-	CMP.B	#2,DirPrefs+$10		; �MSX2+ ROM?
-	BNE.S	No2PlusID
-	BCLR	#7,DirROM+$2B		; (4.0) MSX2+ (Japanese BIOS, 60 Hz):
-	TST.B	DirPrefs+$7A		; 50 Hz unless 'Use Japanese ID', as the
-	BNE.S	SiJapanID		; MSX1/MSX2 patches give (A1200/030 at
-	BSET	#7,DirROM+$2B		; 'No Change' run 50 MSX frames, not 60).
-	BRA.S	SiJapanID
-No2PlusID:
+; (4.0) The MSX2+ BIOS gets the same patch as the MSX2 one: 50 Hz, and
+; the Japanese or international ID bytes by 'Use Japanese ID'.
 	LEA	DirROM+$2B,A0		; Parche Japanese ID.
 	MOVE.W	#$9000,(A0)
 	TST.B	DirPrefs+$7A		; Use Japanese ID.
