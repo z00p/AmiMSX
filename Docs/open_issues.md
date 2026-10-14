@@ -176,6 +176,26 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 
 **Still varying: io (disk).** Its 60 s capture differs only in the phase of an animated element (a few frames). Likely cause: disk loading time. If AmiMSX's disk routines wait on real AmigaDOS reads while MSX frames keep counting, the load time varies with host disk speed and shifts everything after it. That also fits io's earlier variation at its 20 s logo transition. Low priority; marked unstable in the baseline.
 
+## Lilly's Saga: occasional music slow-down with Smooth display (open, 14 Oct 2026)
+
+- **Seen:** PiStorm A1200, PiStorm preset (60 Hz, Smooth display). The picture and sound are good, but the music slows now and then.
+- **Analysis (Fable, openMSX profile; build/lilly_slow/):**
+  - **The game's load:** it rewrites the whole name table each frame and flips pages, with a HUD table split at line 174.
+  - **Seam frames:** walking, every 4th frame the column shift changes 171-186 tile pairs. Each pair is one blitter copy, about 110-120 lines on the blitter.
+  - **The next frame:** DbCatch copies 18-22 changed rows, about 130 lines.
+  - **Result:** those two frames land at 200-250 of the 252 lines available, so some are late.
+  - **Why one late frame costs a whole Amiga frame:** the commit only takes effect at the next VBlank, and DbPre waits for it before drawing. The game's VBlank music driver then ticks once in two Amiga frames, which is the tempo drop. DbLineSafe and a third per-line list wouldn't change this.
+- **Fixes (exact emulation):**
+  1. **Skip-commit catch-up:** when a frame overran, keep drawing the next MSX frame into the same back buffer and commit that one. The display drops a frame instead of repeating one, and the emulation holds 60 fps.
+  2. **Make seam frames fit:** do the DbCatch copy and the tile path with the CPU from fast-RAM shadows on 040/060/PiStorm, and overlap CPU-only work with DbCatch.
+  3. **Room loads:** a long-write pattern-cache layout.
+- **Quick check on hardware:** play the same stretch with Smooth display off. If the music no longer slows, the commit wait is confirmed and fix 1 is the one to do.
+- **Diagnostics for the Measure build:**
+  - late-frame count;
+  - lines waited in DbPre and DbLineSafe;
+  - maximum frame length;
+  - DbCatch rows and tile blits per window.
+
 ## Manbow 2 (001_Manbow2): corrupt intro screens, ship jumps back (open, 14 Oct 2026)
 
 - **Seen:** on the PiStorm A1200 (release candidate 188a9a0, PiStorm preset). The intro screens are drawn corrupted: the title logo shows as scattered dots and broken lines instead of solid artwork (photo 14 Oct). In play (SCREEN 5-style scrolling cave, HUD on top) the ship moves normally but now and then jumps back 3-4 dots while it moves.
