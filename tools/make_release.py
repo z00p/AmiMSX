@@ -68,33 +68,43 @@ def text35(d, x, y, t, col):
 
 
 def draw_drawer(label=None):
-    """An Amiga-style drawer (our own drawing, in the spirit of the Workbench
-    drawers): blue cabinet, rounded top with a lighter dithered lid, white
-    handle at the bottom, optional label plate."""
+    """An Amiga-style drawer, our own drawing in the shape of the Workbench
+    3.x drawers: a lid that slopes out to the front panel, both dithered blue,
+    a white handle near the bottom, a dark outline and drop shadow; optional
+    label plate on the lid."""
     from PIL import Image, ImageDraw
     W, H = mp.W, mp.H
     im = Image.new("RGB", (W, H), (255, 0, 255))
     d = ImageDraw.Draw(im)
-    blk, blue, lite, dark, white = (0, 0, 0), (68, 104, 180), (110, 146, 214), (34, 54, 112), (255, 255, 255)
-    x0, x1, y0, y1 = 5, 40, 9, 37
-    d.rectangle([x0 + 1, y0 + 1, x1 + 1, y1 + 1], fill=blk)                 # shadow
-    d.rectangle([x0, y0 + 3, x1, y1], fill=blue, outline=blk)               # body
-    d.rectangle([x0 + 3, y0, x1 - 3, y0 + 3], fill=lite, outline=blk)       # rounded lid
-    d.point((x0 + 2, y0 + 1), fill=blk); d.point((x1 - 2, y0 + 1), fill=blk)
-    d.line([x0 + 1, y0 + 3, x0 + 2, y0 + 2], fill=blk); d.line([x1 - 1, y0 + 3, x1 - 2, y0 + 2], fill=blk)
-    for y in range(y0 + 4, y0 + 9):                                          # lid dither
-        for x in range(x0 + 1, x1):
+    out, base, lite, dark, shade = (24, 32, 56), (66, 106, 172), (104, 144, 206), (40, 66, 124), (60, 60, 70)
+    top, mid, bot = 11, 25, 39
+    def lid_x(y):                       # lid sides slope from x 10..36 to 6..40
+        t = (y - top) / (mid - top)
+        return round(10 - 4 * t), round(36 + 4 * t)
+    for y in range(top, mid):           # lid
+        a, b = lid_x(y)
+        for x in range(a, b + 1):
+            d.point((x, y), fill=lite if (x + y) % 2 == 0 and y < mid - 3 else base)
+        d.point((a, y), fill=out); d.point((b, y), fill=out)
+        d.point((b + 1, y + 1), fill=shade)
+    d.line([12, top, 34, top], fill=out)
+    d.point((11, top + 1), fill=out); d.point((35, top + 1), fill=out)
+    d.line([7, mid - 1, 39, mid - 1], fill=(150, 180, 226))               # lid's front edge
+    d.rectangle([6, mid, 40, bot], fill=base, outline=out)                # front panel
+    for y in range(mid + 1, mid + 5):
+        for x in range(7, 40):
             if (x + y) % 2 == 0:
                 d.point((x, y), fill=lite)
-    d.line([x0 + 1, y0 + 9, x1 - 1, y0 + 9], fill=dark)                      # lid edge
-    d.line([x1 - 1, y0 + 4, x1 - 1, y1 - 1], fill=dark)
-    d.rounded_rectangle([14, y1 - 5, 31, y1 + 1], radius=3, fill=white, outline=blk)   # handle
-    d.line([16, y1 - 2, 29, y1 - 2], fill=(170, 170, 170))
+    d.line([39, mid + 1, 39, bot - 1], fill=dark)
+    d.line([7, bot - 1, 39, bot - 1], fill=dark)
+    d.line([41, mid + 1, 41, bot + 1], fill=shade); d.line([7, bot + 1, 41, bot + 1], fill=shade)
+    d.rounded_rectangle([15, bot - 7, 31, bot - 3], radius=2, fill=(240, 240, 240), outline=out)   # handle
+    d.line([17, bot - 4, 29, bot - 4], fill=(150, 150, 160))
     if label:
         w = sum((5 if c == 'M' else 3) + 1 for c in label) - 1 + 4
-        lx = (x0 + x1 - w) // 2 + 1
-        d.rectangle([lx, 22, lx + w - 1, 30], fill=white, outline=blk)
-        text35(d, lx + 2, 24, label, (40, 70, 160))
+        lx = (6 + 40 - w) // 2 + 1
+        d.rectangle([lx, mid - 9, lx + w - 1, mid - 1], fill=(255, 255, 255), outline=out)
+        text35(d, lx + 2, mid - 7, label, (40, 70, 160))
     return im
 
 
