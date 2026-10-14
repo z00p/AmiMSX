@@ -75,6 +75,8 @@ See Docs/CHANGES_4.0.md for the full list.
 Known limits
 ------------
 - Smooth display covers SCREEN 4 only; other modes run as before.
+- Smooth display switches itself off in games that play MSX-Music
+  (FM), so their music keeps its tempo.
 - MSX2+: fine scroll and the left mask only. No coarse scroll (R#26),
   two-page scroll (SP2) or YJK modes (SCREEN 10-12) yet, and no fine
   scroll in SCREEN 2 (Salamander Enhanced).

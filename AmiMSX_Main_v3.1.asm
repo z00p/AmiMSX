@@ -2201,6 +2201,7 @@ HARDRESET:
 	MOVE.L	#COPPERN,NEXTCOPP
 	MOVE.L	#COPPERN,$DFF084
 	JSR	DbReset			; (4.0) No smooth-display state left.
+	SF	FmUsed			; (4.0) MSX-Music not used yet.
 	SF	MaskAuto		; (4.0) Auto mask: a new game.
 	CLR.B	MaskCnt
 	LEA	REGS,A3
@@ -2268,6 +2269,7 @@ MSXRESET:
 	MOVE.L	#COPPERN,NEXTCOPP
 	MOVE.L	#COPPERN,$DFF084
 	JSR	DbReset			; (4.0) No smooth-display state left.
+	SF	FmUsed			; (4.0) MSX-Music not used yet.
 	SF	MaskAuto		; (4.0) Auto mask: a new game.
 	CLR.B	MaskCnt
 	LEA	REGS,A3
@@ -7960,6 +7962,9 @@ OUT7C:
 
 OUT7D:
 ;;	MOVE.W	#-1,$DFF180
+	ST	FmUsed			; (4.0) The game plays MSX-Music: Smooth
+					; display off (its late frames slowed
+					; the music: Lilly's Saga, Bombaman).
 	IFD	PERF
 	ADDQ.L	#1,Opll7DCnt		; (perf.bin: OPLL data writes)
 	ENDC
@@ -11760,6 +11765,7 @@ MaskAuto:	DC.B	0		; the game scrolls by R#18
 MaskCnt:	DC.B	0		; R#18 changes in this window
 MaskWin:	DC.B	49		; frames left in the window
 MaskLast:	DC.B	0		; R#18 at the last frame start
+FmUsed:		DC.B	0		; MSX-Music written since Power ON/Reset
 		EVEN
 SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
 					; buffer just drawn.
@@ -11772,6 +11778,8 @@ SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
 ; stops: no wait.
 	CNOP	0,4
 SprWaitSw:
+	TST.B	FmUsed			; (Not with MSX-Music: Smooth display off.)
+	BNE.S	SprWsX
 	TST.B	PrefDbuf		; (4.0) Only with 'Smooth display (fast
 	BEQ.S	SprWsX			; CPUs)': on the 030 preset the wait cost
 					; the late frames their catch-up time.)

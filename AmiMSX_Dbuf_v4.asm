@@ -33,6 +33,10 @@ DbPre:
 	MOVEM.L	D0-D3/A0-A1/A6,DbSv
 	TST.B	PrefDbuf
 	BEQ.S	DbPreOff
+	TST.B	FmUsed			; A game playing MSX-Music: off (a late
+	BNE.S	DbPreOff		; frame cost a whole Amiga frame and the
+					; music slowed; without it, a late frame
+					; is made up at once).
 	TST.B	DbOn
 	BNE.S	DbPreOn
 	ADDQ.L	#1,DbStarts

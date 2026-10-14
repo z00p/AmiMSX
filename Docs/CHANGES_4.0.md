@@ -83,7 +83,7 @@ AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 - **Power ON and Reset** empty the sprite overlay. The last game's sprites used to stay on screen in the next one.
 - **Palette changes** reach the screen at a frame start, through the copper, so a frame is never split between two palettes.
 - **Blitter waits** read the busy flag once before the loop, as it may show a cycle late on fast CPUs. Lilly's Saga's transparent glyphs were drawn as solid blocks.
-- **Smooth display** (see Options), with fixes for fast CPUs:
+- **Smooth display** (see Options), with fixes for fast CPUs: It switches itself off in a game that plays MSX-Music (FM) until the next Power ON or Reset: a late frame costs a whole Amiga frame with it, and the music slowed (Lilly's Saga, Bombaman); without it a late frame is made up at once.
   - a frame that overruns keeps the last complete frame on screen (it showed a half-drawn one);
   - the copper list is never switched while the copper runs, and per-line lists are not rebuilt while on screen;
   - the first frame starts from a snapshot (Space Manbow's title logo showed over the first game frame on BigMig);
