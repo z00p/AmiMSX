@@ -2,6 +2,8 @@
 
 AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft), made with his permission. It is built from his v3.1 source, with parts of his later v3.2/v3.5 source. The aim of this version is accuracy first. The low-spec target is a 68030 at 50 MHz with fast RAM; PiStorm (Emu68), BigMig and other fast CPUs have speed to spare and get the costlier features (FM sound, 60 Hz, smooth display).
 
+4.0 is released as a beta. Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+
 ## Emulation
 
 ### Z80

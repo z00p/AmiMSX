@@ -4,7 +4,7 @@
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                            AmiMSX Emulator v4.0
+                          AmiMSX Emulator v4.0 beta
                           ( 14.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -32,6 +32,9 @@
         AmiMSX 4.0 is a community update, made with the author's
                               permission.
 
+      This is a beta: please report problems as issues on GitHub:
+                  https://github.com/z00p/AmiMSX/issues
+
 @endnode
 
 
@@ -43,6 +46,10 @@
     AmiMSX 4.0 is a community update of AmiMSX, made with the permission
 of Juan Antonio Gómez Gálvez.  It is built from his v3.1 source, with
 parts of his later v3.2/v3.5 source.  Accuracy comes first.
+
+    4.0 is a beta.  Please report any game that misbehaves as an issue
+on GitHub, with the game, the AmiMSX settings and your machine:
+https://github.com/z00p/AmiMSX/issues
 
     - Z80:  POP/RET through ROM, RLD/RRD on ROM, NEG/CPL flags, M1 wait
       states, LD A,R from emulated time.

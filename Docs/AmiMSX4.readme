@@ -1,4 +1,4 @@
-Short:        MSX/MSX2/MSX2+ emulator, accuracy update
+Short:        MSX/MSX2/MSX2+ emulator, 4.0 beta
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
@@ -16,6 +16,14 @@ games that broke or glitched in 3.x now run as on a real MSX.
 
 As before, AmiMSX takes over the machine while the MSX runs and drives the
 custom chips directly. HELP returns to the menu.
+
+Beta
+----
+4.0 is a beta. It runs a large test set well, but some games still have
+problems (see Known limits). Please report anything you find as an issue
+on GitHub, with the game, the AmiMSX settings and your machine (CPU,
+accelerator or emulator), so it can be triaged for the next update:
+https://github.com/z00p/AmiMSX/issues
 
 Requirements
 ------------
@@ -97,8 +105,9 @@ Known limits
   second button may not reach the MSX (Gradius 2 power-up select).
   Left Amiga (port 2) or Right Amiga (port 1) also press MSX fire
   button 2; in Gradius 2 the M or N key works too.
-- Gradius III Legends: it writes to its disk, so leave the MVD drive
-  unprotected. Display problems in play are still being looked at.
+- Gradius III Legends: it writes to its disk, so unprotect the MVD
+  drive. In play the scenery appears behind the ship (left) instead of
+  scrolling in from the right.
 
 Credits
 -------
@@ -111,4 +120,4 @@ Testing references: openMSX.
 Source
 ------
 The 68k assembler source (vasm), tools and test suite:
-<source URL>
+https://github.com/z00p/AmiMSX
