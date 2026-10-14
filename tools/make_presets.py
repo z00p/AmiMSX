@@ -18,6 +18,8 @@ SPRITES = 0x16      # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 
 FREQ = 0x11         # byte: display frequency: 0 From VDP (follow R#9: 60 Hz games get an NTSC
                     # display, at full speed), 1 No Change (stay PAL), 2 NTSC, 3 PAL. From VDP
                     # costs 20% more emulation per second for 60 Hz games: PiStorm only.
+JAPAN = 0x7A        # byte: Use Japanese ID (60 Hz): FFh = Japanese BIOS ID, 60 Hz boot (the machines
+                    # most games were written for). PiStorm only: 20% more emulation per second.
 SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Music by FMX; Konami SCC
                     # ROMs still get the SCC). FM is on only where there's CPU to spare.
 COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
@@ -31,7 +33,7 @@ FILTER = -3         # byte (from the end): audio filter (Amiga low-pass, the pow
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
     ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
-    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF)}),
+    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF)}),
 ]
 
 W, H = 46, 46
