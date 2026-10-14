@@ -183,10 +183,15 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 - **Already tried:** BBUSY dummy reads before every blitter wait (8af1d95).
 - **To check:** the command engine's blitter path for transparent copies on fast CPUs: the mask chain in TIMPES, the BLTxPT/BLTCON set-up between planes, and whether something writes the same chip RAM during a running blit (the SCREEN 5 band conversion, CPU fallback paths). Run tools/make_cmd_test.py's ROM on the PiStorm and compare with WinUAE.
 
+## Lotus F3: the car jitters while moving (open, 14 Oct 2026)
+
+- **Seen:** PiStorm A1200, release candidate (video 14 Oct). The player's car jitters while it moves.
+- **To check:** compare against openMSX with tools/burst.py, logging the car's sprite X/Y per frame and the road's split registers. It may be the same root as Bombaman's ghosting or Manbow 2's ship jumping back (a sprite shown at a stale position for a frame).
+
 ## CD32-style pad: direction and fire not together (open, 14 Oct 2026)
 
 - **Seen:** PiStorm A1200 with a KTRL CD32 pad in the joystick port. In Pampas & Selene you can't move left or right and jump at the same time. It wasn't noticed on BigMig (different controller set-up).
-- **To check:** AmiMSX's joystick read (LEEJOY, TesteaJoyRut). It reads port 2 through JOY1DAT and the fire button through CIA-A $BFE001 bit 7, plus POTGO for the second button. A CD32 pad answers the CD32 protocol (button shift register clocked through POTGO/CIA). If AmiMSX writes POTGO ($DFF034 = $FF00) every read, the pad may switch modes and drop either the direction or the button. Also check which MSX key or trigger Pampas & Selene uses to jump: trigger A, trigger B or the space key.
+- **To check:** AmiMSX's joystick read (LEEJOY, TesteaJoyRut). It reads port 2 through JOY1DAT and the fire button through CIA-A $BFE001 bit 7, plus POTGO for the second button. A CD32 pad answers the CD32 protocol (button shift register clocked through POTGO/CIA). If AmiMSX writes POTGO ($DFF034 = $FF00) every read, the pad may switch modes and drop either the direction or the button. Also check which MSX key or trigger Pampas & Selene uses to jump: trigger A, trigger B, the space key or Up (then it is about diagonals, not buttons), and whether a plain Amiga joystick behaves the same. Note: $FF00 in POTGO drives pins 5 and 9 high, which is the state that keeps a CD32 pad in plain joystick mode, so the POTGO theory is weak; change the read only with a pad to test against.
 
 ## Lilly's Saga: occasional music slow-down with Smooth display (open, 14 Oct 2026)
 
