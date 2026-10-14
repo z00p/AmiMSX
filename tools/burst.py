@@ -23,6 +23,7 @@ from regress import picture  # noqa: E402
 
 OMSX = os.path.join(BASE, "tools", "openmsx", "openmsx.exe")
 FPS = 50
+MACHINE = "C-BIOS_MSX2_EU"   # --machine: openMSX machine (e.g. C-BIOS_MSX2+_EU)
 
 
 def row(rid):
@@ -96,7 +97,7 @@ def omsx(r, times, n, out):
         s += f"after time {t:g} {{::burst {{{d}}}}}\n"
     s += "set throttle off\n"
     open(tcl, "w").write(s)
-    cmd = [OMSX, "-machine", "C-BIOS_MSX2_EU"]
+    cmd = [OMSX, "-machine", MACHINE]
     if r["kind"] == "dsk":
         cmd += ["-diska", os.path.join(BASE, "run", "Disks", r["file"])]
     else:
@@ -155,7 +156,10 @@ def main():
     ap.add_argument("--no-omsx", action="store_true")
     ap.add_argument("--no-amimsx", action="store_true")
     ap.add_argument("--keys", help="key script in tests/keys instead of the title's (e.g. none)")
+    ap.add_argument("--machine", default="C-BIOS_MSX2_EU", help="openMSX machine (C-BIOS_MSX2+_EU for MSX2+ titles)")
     a = ap.parse_args()
+    global MACHINE
+    MACHINE = a.machine
     r = row(a.id)
     if a.keys:
         r = dict(r, keys=a.keys)

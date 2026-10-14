@@ -25,6 +25,9 @@ VPeriodPAL=313
 VPeriodNTSC=262
 
 ColorDebug=1
+	IFND	MSX2PLUS		; (4.0) MSX2+ machine: V9958 R#25/R#27 (fine
+MSX2PLUS=1			; scroll, mask). The symbol only has to exist
+	ENDC			; (CLAMPM, the menu's machine labels).
 
 ; Linear 48/64Kb cartridges (common in modern homebrew): no mapper, the ROM
 ; maps straight from &H0000, so the "AB" header is at file offset &H4000.
@@ -1254,7 +1257,13 @@ NoROMPatSub:
 
 ; -------------------------------------------
 	CMP.B	#2,DirPrefs+$10		; �MSX2+ ROM?
-	BEQ.S	SiJapanID
+	BNE.S	No2PlusID
+	BCLR	#7,DirROM+$2B		; (4.0) MSX2+ (Japanese BIOS, 60 Hz):
+	TST.B	DirPrefs+$7A		; 50 Hz unless 'Use Japanese ID', as the
+	BNE.S	SiJapanID		; MSX1/MSX2 patches give (A1200/030 at
+	BSET	#7,DirROM+$2B		; 'No Change' run 50 MSX frames, not 60).
+	BRA.S	SiJapanID
+No2PlusID:
 	LEA	DirROM+$2B,A0		; Parche Japanese ID.
 	MOVE.W	#$9000,(A0)
 	TST.B	DirPrefs+$7A		; Use Japanese ID.
@@ -2460,9 +2469,14 @@ FLAGSBUC:
 
 
 ; ------------------------------------=>
+	SF	V9958On			; (4.0) V9958 registers (MSX2+)
+	CLR.B	V9R25
+	CLR.B	V9R26
+	CLR.B	V9R27
 	BCLR	#2,DVDPS1(A3)			; Desactivaci�n modo MSX2+
 	CMP.B	#2,DirPrefs+$10
 	BLT.S	NOES2Plus
+	ST	V9958On
 	BSET	#2,DVDPS1(A3)			; Activaci�n modo MSX2+
 NOES2Plus:
 ; ------------------------------------<=
@@ -7870,9 +7884,9 @@ VDPPUNT:
 	DC.L	ARET
 	DC.L	VDP17
 	DC.L	ARET		; 18
-	DC.L	ARET
-	DC.L	ARET
-	DC.L	ARET
+	DC.L	VDPR25		; 19: R#25 (V9958: MSK)
+	DC.L	VDPR26		; 1A: R#26 (V9958: coarse scroll, kept)
+	DC.L	VDPR27		; 1B: R#27 (V9958: fine scroll)
 	DC.L	ARET
 	DC.L	ARET
 	DC.L	ARET
@@ -10353,6 +10367,38 @@ VDP7BUC:
 
 ARET:	SWAP	D2
 	RTS
+
+; (4.0) V9958 (MSX2+ machine only, V9958On; on an MSX2 these registers
+; don't exist and stay ignored). R#25 bit 1 (MSK) masks the left 8 dots,
+; R#27 (0-7) shifts the picture right without moving the sprites or the
+; window: both per display line, through the R#18 copper event (bit 1,
+; AcCoRutAdjust), which now carries R#18, R#27 and R#25 in TabRasDATA+3,
+; +5, +6. R#26 (coarse scroll, SP2) is kept but not shown yet (phase 2).
+VDPR25:	TST.B	V9958On
+	BEQ.S	ARET
+	MOVE.B	D2,V9R25
+	BRA.S	VDPR9Ev
+VDPR26:	MOVE.B	D2,V9R26
+	SWAP	D2
+	RTS
+VDPR27:	TST.B	V9958On
+	BEQ.S	ARET
+	AND.B	#7,D2
+	MOVE.B	D2,V9R27
+VDPR9Ev:
+	MOVE.W	CurLine(A3),D1
+	ADDQ.W	#1,D1
+	OR.B	#$02,(TabRasCMDS.L,D1.W)
+	MOVE.B	VDPAdjust(A3),(TabRasDATA+3.L,D1.W*8)
+	MOVE.B	V9R27,(TabRasDATA+5.L,D1.W*8)
+	MOVE.B	V9R25,(TabRasDATA+6.L,D1.W*8)
+	SWAP	D2
+	RTS
+V9958On:	DC.B	0
+V9R25:		DC.B	0
+V9R26:		DC.B	0
+V9R27:		DC.B	0
+		EVEN
 COL00:	DC.L	MSX2Pal
 COL01:	DC.L	MSX2Pal
 	CNOP	0,8
@@ -10443,6 +10489,8 @@ VDP12:
 	ADDQ.W	#1,D1
 	OR.B	#$02,(TabRasCMDS,D1.W)		; Act. Adjust X
 	MOVE.B	D2,(TabRasDATA+3,D1.W*8)	; VDP ($12)
+	MOVE.B	V9R27,(TabRasDATA+5.L,D1.W*8)	; (4.0) and the V9958's
+	MOVE.B	V9R25,(TabRasDATA+6.L,D1.W*8)	; R#27/R#25 (0 on MSX2)
 
 	SWAP	D2
 	RTS
@@ -16206,6 +16254,8 @@ MiraInter0:
 
 	MOVE.B	DVDP2(A3),TabRasDATA+1	 ; VDP (2)
 	MOVE.B	VDPAdjust(A3),TabRasDATA+3 ; VDP ($12)
+	MOVE.B	V9R27,TabRasDATA+5	 ; (4.0) V9958 R#27, R#25
+	MOVE.B	V9R25,TabRasDATA+6
 	MOVE.B	VDPLinY(A3),TabRasDATA+4 ; VDP ($17)
 	OR.B	#$03,TabRasCMDS		 ; Adjust + Scroll Y
 
@@ -21648,10 +21698,45 @@ AcCoRutAdjust:
 	MOVE.B	3(A0),D1		; VDP ($12)
 	AND.W	#$000F,D1
 	MOVE.W	#$0102,(A3)+
-	MOVE.W	(AdjustBuf.W,PC,D1.W*4),(A3)+
+	MOVEQ	#7,D4			; (4.0) V9958 R#27 shifts the picture
+	AND.B	5(A0),D4		; right (openMSX): D lores dots after
+	BNE.S	ACAdj27			; the window start = 32 + R#18 shift +
+	MOVE.W	(AdjustBuf.W,PC,D1.W*4),(A3)+	; R#27 (AdjustBuf: R#27 = 0).
+	BRA.S	ACAdjW
+ACAdj27:
+	MOVEM.L	D2/D5,-(SP)
+	MOVE.W	D1,D5			; R#18 low nibble: 0 = 0, 1-7 = -1..-7,
+	BEQ.S	ACAdjS0			; 8-15 = +8..+1.
+	CMP.W	#8,D5
+	BCC.S	ACAdjSP
+	NEG.W	D5
+	BRA.S	ACAdjS0
+ACAdjSP:NEG.W	D5
+	ADD.W	#16,D5
+ACAdjS0:ADD.W	#32,D5
+	ADD.W	D4,D5			; D (25-47)
+	MOVE.W	D5,D2			; BPLCON1, both playfields: bits 0-3 of D
+	AND.W	#15,D2			; in PFxH2-5, bit 4 in PFxH6, bit 5 in
+	MOVE.W	D2,D4			; PFxH7.
+	LSL.W	#4,D4
+	OR.W	D2,D4
+	BTST	#4,D5
+	BEQ.S	ACAdjB6
+	OR.W	#$4400,D4
+ACAdjB6:BTST	#5,D5
+	BEQ.S	ACAdjB7
+	OR.W	#$8800,D4
+ACAdjB7:MOVE.W	D4,(A3)+
+	MOVEM.L	(SP)+,D2/D5
+ACAdjW:
 
 	MOVE.W	VERPAN+2,D4
 	MOVE.B	(AdjustBuf+2.w,PC,D1.W*4),D4
+	BTST	#1,6(A0)		; (4.0) R#25 MSK: the left 8 dots are
+	BEQ.S	ACAdjM0			; border (where R#27 brings in what the
+	ADD.B	#3+8,D4			; Amiga fetched before the line).
+	BRA.S	ACAdjM1
+ACAdjM0:
 	TST.B	PrefMask		; (Mask screen edges, as Act_Adjust.)
 	BEQ.S	ACAdjM1
 	ADD.B	#EDGEL,D4
