@@ -227,7 +227,7 @@ This file is a saved-mapper database keyed by that checksum, and it already ship
 - **The shipped entries:**
   - by mapper: 15 ASCII 1, 6 Konami 2, 6 ASCII 2, 6 SCC 1, 5 SCC 2, 1 Konami 1;
   - 26 match ROMs in the maintainer's No-Intro sets, and all 26 agree with openMSX. Three SRAM games are saved with their nearest bank type: Game Master II as Konami 2, Xanadu as ASCII 1, Royal Blood as ASCII 1;
-  - the copy in a local drive is identical.
+  - the copy on the maintainer's Amiga share is identical.
 - **Limit:** with 3 bits there is room for only 2 more mappers.
 
 ### Collisions

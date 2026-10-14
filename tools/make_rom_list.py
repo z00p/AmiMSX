@@ -1,5 +1,5 @@
 """Write run/Roms/roms.csv (file, title, developer, year) for the AmiMSX Tester's
-game list (cartridges in run/Roms and disk images in run/Disks): from the MSX top-list research (mister-curation top_MSX1.tsv), a
+game list (cartridges in run/Roms and disk images in run/Disks): from an MSX top-list (top_MSX1.tsv: $AMIMSX_TOPLIST or run/), a
 table for the commercial and test ROMs, and blanks for the rest. Rows already
 in roms.csv are kept as they are (hand edits win); new ROM files are added.
 Usage: python tools/make_rom_list.py"""
@@ -8,7 +8,7 @@ import csv, os, re
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROMS = os.path.join(BASE, "run", "Roms")
 OUT = os.path.join(ROMS, "roms.csv")
-TOP = r"top_MSX1.tsv"
+TOP = os.environ.get("AMIMSX_TOPLIST", os.path.join(BASE, "run", "top_MSX1.tsv"))
 
 KNOWN = {   # file stem: (title, developer, year)
     "R2K_Galious": ("The Maze of Galious", "Konami", "1987"),
