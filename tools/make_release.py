@@ -6,7 +6,7 @@ Output: <out>/AmiMSX/ (the drawer) + <out>/AmiMSX.info (its icon) and
 <out>/AmiMSX4.readme. Icons: the presets' (make_presets.py), a tool icon for
 AmiMSX and a drawer icon drawn the same way; the guide and keyboard picture
 keep the icons of the original 3.1 package (AmiMSX_asm.lha)."""
-import os, shutil, struct, subprocess, sys
+import os, re, shutil, struct, subprocess, sys, textwrap
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import make_presets as mp
 
@@ -37,7 +37,7 @@ def drawer_icon(im, w=420, h=200):
     return head + dd + mp.planar(im) + dd2 + mp.glow(im)
 
 
-def amiga_text(src, dst):
+def amiga_text(src, dst, wrap=0):
     """Copy a text file for the Amiga: LF line ends, Latin-1 (UTF-8 sources
     are converted; typographic quotes and dashes become ASCII)."""
     d = open(src, "rb").read()
@@ -49,6 +49,13 @@ def amiga_text(src, dst):
                  "—": "-", "…": "...", "→": "->", " ": " "}.items():
         t = t.replace(a, b)
     t = t.replace("\r\n", "\n").replace("\r", "\n")
+    if wrap:   # long Markdown lines, wrapped with the list indent kept
+        out = []
+        for line in t.split("\n"):
+            ind = " " * len(re.match(r"\s*(?:[-*] |\d+\. )?", line).group(0))
+            out += textwrap.wrap(line, wrap, subsequent_indent=ind, break_long_words=False,
+                                 break_on_hyphens=False) or [""]
+        t = "\n".join(out)
     open(dst, "wb").write(t.encode("latin-1"))
 
 
@@ -121,7 +128,7 @@ def main():
     for f in ("AmiMSX2.data", "AmiMSX2.mapper", "AmiMSX4.romdb"):
         shutil.copy(os.path.join(BASE, f), os.path.join(d, f))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX.guide"), os.path.join(d, "AmiMSX.guide"))
-    amiga_text(os.path.join(BASE, "Docs", "CHANGES_4.0.md"), os.path.join(d, "Docs", "CHANGES_4.0.txt"))
+    amiga_text(os.path.join(BASE, "Docs", "CHANGES_4.0.md"), os.path.join(d, "Docs", "CHANGES_4.0.txt"), wrap=76)
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(d, "AmiMSX4.readme"))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(out, "AmiMSX4.readme"))
     amiga_text(os.path.join(BASE, "Docs", "LICENSE.emu2413"), os.path.join(d, "Docs", "LICENSE.emu2413"))
