@@ -11777,11 +11777,14 @@ SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
 ; stops: no wait.
 	CNOP	0,4
 SprWaitSw:
+	TST.B	PrefDbuf		; (4.0) Only with 'Smooth display (fast
+	BEQ.S	SprWsX			; CPUs)': on the 030 preset the wait cost
+					; the late frames their catch-up time.)
 	MOVE.L	A0,-(SP)
 	LEA	SprSwV,A0
 	BSR.S	VblWaitSince
 	MOVE.L	(SP)+,A0
-	RTS
+SprWsX:	RTS
 ; (4.0) CREASPRITES writes the sprite pointers of the master copper list a
 ; word at a time; the copper loads them at the start of line 0. Not while the
 ; beam is in lines 0-1: a pointer half from each buffer showed one column of
