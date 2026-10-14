@@ -2343,6 +2343,12 @@ ABOUT:
 	BSR	DISMOUSE
 	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
 	JSR	OPENABOUTWINDOW
+	LEA	AboutGadgets+(GD_Aboutmore*4),A0	; (4.0, as v3.2) 'More'
+	MOVE.L	AboutWnd,A1		; (the old contact addresses) disabled.
+	MOVE.L	#$8003000E,D0		; GA_Disabled
+	MOVEQ	#1,D1
+	BSR	CanviTags
+	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
 	LEA	ABOUTPUNTS,A1
 	BSR	CONTROL
 	JSR	CLOSEABOUTWINDOW
@@ -6408,8 +6414,10 @@ OPENFILE:
 CLOSEFILE:
 	MOVE.L	_DOSBASE,A6
 	MOVE.L	DISBASE,D1
+	BEQ.S	CLOSEFNo		; (4.0, as v3.2: no file open, no Close)
 	JSR	-36(A6)			; CLOSE
 	CLR.L	DISBASE
+CLOSEFNo:
 	RTS
 WRITEFILE:
 	MOVE.L	_DOSBASE,A6
@@ -7797,7 +7805,7 @@ PUNTEROSMENU:
 
 MPROJECT:
 	DC.L	ABOUT			; About
-	DC.L	ShowInfo		; Register
+	DC.L	CONTROLRET		; Register (4.0, as v3.2: freeware, nothing)
 	DC.L	CONTROLRET		; -----
 ;;	DC.L	CONTROLRET		; Load Freezed
 ;;	DC.L	CONTROLRET		; Save Freezed
@@ -8941,7 +8949,7 @@ UnProtectPunts:
 	DC.L	ABOUTGADGETS
 	DC.L	ABOUT_CNT-1
 ABOUTPUNTS:
-	DC.L	GD_ABOUTMORE,ADDRESS
+	DC.L	GD_ABOUTMORE,CONTROLRET	; (4.0, as v3.2: no Address window)
 	DC.L	GD_ABOUTEXIT,CONTROLSALIR
 	DC.L	0,0
 

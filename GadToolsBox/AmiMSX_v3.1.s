@@ -1972,7 +1972,7 @@ MSX2WTitle:
     CNOP    0,2
 
 MSX2STitle:
-    DC.B    'AmiMSX Emulator.  1994/2000 © RED Soft',0
+    DC.B    'AmiMSX Emulator.  1994-2000/2009/2021 © GUS Entertainment',0
     CNOP    0,2
 
 InfoWindowTags:
@@ -4249,7 +4249,7 @@ AboutIText1:
     DC.B    '(October 11th, 2026)',0
 
 AboutIText2:
-    DC.B    'Main Program & Emulation Systems:',0
+    DC.B    'Full Program & Emulation Systems:',0
 
 AboutIText3:
     DC.B    'Juan Antonio Gómez Gálvez',0
@@ -4273,7 +4273,7 @@ AboutIText9:
     DC.B    'Special thanks for support to:',0
 
 AboutIText10:
-    DC.B    'The MATRA Corporation',0
+    DC.B    'Zener and Sandman',0
 
     CNOP    0,2
 

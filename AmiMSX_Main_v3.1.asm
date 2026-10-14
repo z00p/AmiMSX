@@ -2458,7 +2458,6 @@ FLAGSBUC:
 	MOVE.B	SCRFRECD,SCRFREC(A3)
 	MOVE.W	VELOCID,Relen(A3)
 
-	MOVE.B	DirPrefs+$67,Contador2(A3)
 
 ; ------------------------------------=>
 	BCLR	#2,DVDPS1(A3)			; Desactivaci�n modo MSX2+
@@ -18142,14 +18141,8 @@ fps60NoDes:
 	CNOP	0,8
 Mira_Teclas:
 
-; ----------------------------=> Contador 2.
-	TST.B	Contador2(A3)
-	BNE.S	ModoAntiCrak
-
-	ADDQ	#4,SP			; Perteneca a la rutina.
-
-ModoAntiCrak:
-; ----------------------------<=
+; (4.0, as v3.2: the Contador2 anti-crack stack trick is gone. This
+; routine is not called.)
 
 	BTST	#2,KEY+14(A3)		; Help
 	BNE	NOSALIR
@@ -18429,16 +18422,8 @@ TesteaJoy:
 	MOVE.B	DATOJOY2(A3),DATOJOY1(A3)
 	MOVE.B	D1,DATOJOY2(A3)
 TesteaJoyRet:
-; -------------------------------------> Contador de tiempo 2.
-	LEA	DirPrefs+$7F-$5216,A0
-	MOVEQ	#0,D1
-	MOVE.B	$5216(A0),D1
-	LSR.B	#5,D1
-	ADD.W	D1,Contador1(A3)
-	BCC.S	Conta2Fin
-	MOVE.L	$1C3*8(A3),$1CD*8(A3)
-Conta2Fin:
-; -------------------------------------<
+; (4.0, as Juan's v3.2) The v3.1 anti-crack counter is gone: with prefs
+; byte $7F >= $20 it overflowed and copied the JP nn handler over CALL nn.
 	RTS
 
 	CNOP	0,8

@@ -71,6 +71,14 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 - **Smooth display** (menu, after Audio filter; on in the PiStorm preset): SCREEN 4 is double-buffered. Each frame is drawn off screen (tiles, HUD and mode-split strips, plane pointers, R#18/R#23, palette and sprite pointers) and shown complete at a frame start. On a fast Amiga the render still takes longer than the vertical blank (BigMig: 120-140 lines), so before, the tiles changed during the frame while the scroll registers and sprites changed at the next one, and the scenery jumped against the hero in scrolling games (Lilly's Saga, Space Manbow). It needs about 90 KB more chip RAM and some blitter time to keep the hidden buffer up to date, so it is off in the A1200 and 030 presets, whose display path is unchanged. Other screen modes run as before for now.
 - **Audio filter** (menu, after Mask screen edges): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset (it has FM), off in the others; also saved per game.
 
+## From Juan's v3.2/v3.5 source (October 2026)
+
+Juan sent his latest source (AmiMSX v3.2, with a v3.5 GUI from 2021). It has no emulation changes; these parts of it are in 4.0:
+
+- **Freeware:** Project > Register does nothing, and About's "More" button (the old postal and web addresses) is disabled. The screen title reads "1994-2000/2009/2021 © GUS Entertainment", and the About box thanks Zener and Sandman, as in his v3.5.
+- **No anti-crack counter:** v3.1 counted joystick polls and, with prefs byte $7F at $20 or more, silently turned the Z80's CALL nn into JP nn. Removed, as in v3.2.
+- **Closing files:** no Close() call when no file is open.
+
 ## Defaults
 
 - **Sprites every frame**, as on an MSX (the setting is still in the menu; the A1200 preset uses every 2nd frame).
