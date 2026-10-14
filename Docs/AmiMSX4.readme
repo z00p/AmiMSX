@@ -85,6 +85,8 @@ Known limits
 - Barbarian: the sky is lighter than on an MSX.
 - Bombaman: moving characters look ghosted on fast machines (seen on
   PiStorm and BigMig), though each frame is correct.
+- Manbow 2: the intro screens are drawn corrupted, and in play the
+  ship jumps back 3-4 dots now and then while it moves.
 
 Credits
 -------

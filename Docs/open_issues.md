@@ -176,6 +176,12 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 
 **Still varying: io (disk).** Its 60 s capture differs only in the phase of an animated element (a few frames). Likely cause: disk loading time. If AmiMSX's disk routines wait on real AmigaDOS reads while MSX frames keep counting, the load time varies with host disk speed and shifts everything after it. That also fits io's earlier variation at its 20 s logo transition. Low priority; marked unstable in the baseline.
 
+## Manbow 2 (001_Manbow2): corrupt intro screens, ship jumps back (open, 14 Oct 2026)
+
+- **Seen:** on the PiStorm A1200 (release candidate 188a9a0, PiStorm preset). The intro screens are drawn corrupted: the title logo shows as scattered dots and broken lines instead of solid artwork (photo 14 Oct). In play (SCREEN 5-style scrolling cave, HUD on top) the ship moves normally but now and then jumps back 3-4 dots while it moves.
+- **Not MSX2+:** the V9958 scans show Manbow 2 never touches R#25-27 or the YJK modes; it is a plain MSX2 game.
+- **To do (post-release):** compare the intro against openMSX frame by frame (tools/burst.py) for the screen mode, VDP commands (the logo is probably drawn or revealed with LMMM/LMMC/HMMV or a dissolve) and the page/R#2 flips; for the ship, log the sprite X per frame against openMSX: a jump back of 3-4 dots suggests a stale sprite attribute (the mode-2 band snapshot or the double-buffered overlay showing the previous frame's position), an R#18 adjust applied to sprites, or the scroll compensation the game does.
+
 ## Bombaman: sprite ghosting on fast machines (open, 14 Oct 2026)
 
 - **Seen:** on BigMig and the PiStorm A1200 (PiStorm preset and others), at 50 and 60 Hz. Moving characters look doubled or see-through to the eye. The RetroTink 4K genlocks to the Amiga's rate, so it isn't frame-rate conversion.
