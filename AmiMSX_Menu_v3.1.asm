@@ -702,6 +702,8 @@ PROGRAMA:
 	BSR	LoadMapperId
 
 	JSR	SETUPSCREEN
+	TST.L	D0			; (4.0) No screen (low chip RAM): out.
+	BNE	QUITAR
 
 	TST.L	_ASLBASE
 	BNE.S	SIHAYASL
@@ -779,6 +781,8 @@ NoShowMatra:
 
 	MOVEM.L	MCEROS,D0-D7/A0-A6
 	JSR	OPENMSX2WINDOW
+	TST.L	D0			; (4.0) No main window: out.
+	BNE	MSX2WFail
 
 	IFND	MENU
 	IFEQ	Usuario
@@ -880,7 +884,7 @@ BUCLEMENU:
 	LEA	DIRPrefs,A5
 	MOVEQ	#0,D0
 	MOVE.B	$1C(A5),D0
-	BSR	COGEMEM
+	JSR	COGEMEM
 ; --------------------------
 
 	LEA	MSX2PUNTS,A1
@@ -914,6 +918,25 @@ NoChangeCon:
 	JSR	CLOSEDOWNSCREEN
 	MOVEQ	#0,D0
 	RTS
+; (4.0) OpenMSX2Window failed: its menus and gadgets may exist without
+; the window (CloseMSX2Window would ClearMenuStrip a NULL window).
+MSX2WFail:
+	TST.L	MSX2Wnd
+	BEQ.S	MSX2WF1
+	JSR	CLOSEMSX2WINDOW
+	BRA	QUITAR
+MSX2WF1:MOVE.L	_GadToolsBase,A6
+	MOVE.L	MSX2Menus,D0
+	BEQ.S	MSX2WF2
+	MOVE.L	D0,A0
+	JSR	-54(A6)			; FreeMenus
+	CLR.L	MSX2Menus
+MSX2WF2:MOVE.L	MSX2GList,D0
+	BEQ	QUITAR
+	MOVE.L	D0,A0
+	JSR	-36(A6)			; FreeGadgets
+	CLR.L	MSX2GList
+	BRA	QUITAR
 ; ---
 QUITMVD:
 	BSR	DISMOUSE
@@ -8995,7 +9018,7 @@ ADDRESSPUNTS:
 	DC.L	MC68020GADGETS
 	DC.L	MC68020_CNT-1
 MC68020PUNTS:
-	DC.L	GD_MContinue,CONTROLSALIR
+	DC.L	GD_MContinue,MC68020SALIR	; (4.0) no 68020: no Continue
 	DC.L	GD_MexitWB,MC68020SALIR
 	DC.L	0,0
 

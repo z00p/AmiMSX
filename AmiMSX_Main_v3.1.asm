@@ -1580,6 +1580,10 @@ EXCON:
 	MOVE.W	#$8400,$96(A6)
 ESPBLI:	BTST	#$06,$02(A6)
 	BNE.S	ESPBLI
+	MOVE.L	D0,-(SP)		; (4.0) An OS blit that ended during the
+	MOVE.W	$1E(A6),D0		; wait raised BLIT after the INTREQ copy:
+	OR.W	D0,INTREQ		; keep it, or the OS waits for it
+	MOVE.L	(SP)+,D0		; forever after the exit.
 	MOVE.W	D7,$96(A6)
 	MOVE.L	VBRPun,A0
 	MOVE.L	$6C(A0),vBlank
@@ -20495,6 +20499,8 @@ WBON:
 NOBORTEC:
 	MOVE.W	$DFF01C,INTENA2
 	OR.W	#$8000,INTENA2
+	AND.W	#$FBFF,INTENA2		; (4.0) not AUD3: the OS's level-4 vector
+					; is back; FMXFrame re-arms it after.
 	MOVE.W	#$7FFF,$DFF09A
 	OR.W	#$8000,DMACON
 	MOVE.W	DMACON,D1
@@ -22342,10 +22348,14 @@ INBUCT2:
 	MOVE.L	IOREQ,A1
 	MOVE.W	#$A,$1C(A1)
 	JSR	-$1C8(A6)
+	MOVE.L	IOREQ,A1		; (4.0) input.device was never closed.
+	JSR	-$1C2(A6)		; CloseDevice
 	MOVE.L	IOREQ,A0
 	JSR	-$294(A6)
+	CLR.L	IOREQ
 	MOVE.L	MSGPORT,A0
 	JSR	-$2A0(A6)
+	CLR.L	MSGPORT
 	MOVEQ	#0,D0
 INRETS:	RTS
 
@@ -22364,7 +22374,18 @@ INCONT:
 	RTS
 
 	CNOP	0,8
-CERROR:	MOVEQ	#-1,D0
+CERROR:	MOVE.L	4.W,A6			; (4.0) Undo what was made: no device
+	MOVE.L	IOREQ,D0		; open here (OpenDevice failed or not
+	BEQ.S	CERR1			; reached).
+	MOVE.L	D0,A0
+	JSR	-$294(A6)		; DeleteIORequest
+	CLR.L	IOREQ
+CERR1:	MOVE.L	MSGPORT,D0
+	BEQ.S	CERR2
+	MOVE.L	D0,A0
+	JSR	-$2A0(A6)		; DeleteMsgPort
+	CLR.L	MSGPORT
+CERR2:	MOVEQ	#-1,D0
 	RTS
 
 	CNOP	0,8
