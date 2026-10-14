@@ -135,8 +135,8 @@ def main():
         shutil.copy(os.path.join(tmp, "AmiMSX", "Docs", "AmiMSX.guide.info"), os.path.join(d, "AmiMSX.guide.info"))
         shutil.rmtree(tmp)
     shutil.copy(os.path.join(BASE, "Pics", "AmiMSX.info"), os.path.join(d, "AmiMSX.info"))   # the 3.x tool icon
-    open(os.path.join(out, "AmiMSX.info"), "wb").write(drawer_icon(draw_drawer("MSX")))
-    open(os.path.join(d, "Docs.info"), "wb").write(drawer_icon(draw_drawer(), 300, 120))
+    shutil.copy(os.path.join(BASE, "Pics", "Drawer_AmiMSX.info"), os.path.join(out, "AmiMSX.info"))   # OS 3.2 drawer, MSX emblem
+    shutil.copy(os.path.join(BASE, "Pics", "Drawer_Docs.info"), os.path.join(d, "Docs.info"))         # OS 3.2 drawer
     for root, _, files in os.walk(out):
         for f in sorted(files):
             p = os.path.join(root, f)
