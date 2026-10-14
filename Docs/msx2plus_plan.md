@@ -31,7 +31,7 @@ Research of 14 Oct 2026: which games use V9958 features, measured in openMSX on 
    - New register handlers modelled on VDP12 (R#18). They set TabRasCMDS bit 1 and store into TabRasDATA, and AcCoRutAdjust emits BPLCON1 and DIWSTRT (+8 for MSK). R#27 does not move sprites.
    - Installed only on the MSX2+ machine, so MSX2 games are unchanged.
    - SCREEN 2 gets the CopperLine jump that modes 4-8 have (Salamander).
-   - The MSX2+ setting is back in the menu, with the ID patch: 50 Hz unless "Use Japanese ID".
+   - The MSX2+ setting is back in the menu, with the same ID patch as the MSX1/MSX2: international ID and 50 Hz, or Japanese ID and 60 Hz with "Use Japanese ID (60 Hz)".
    - The right edge shows over-fetch garbage until phase 2, so mask the right 8 dots while MSK is on. "Mask screen edges" already covers it.
    - Covers Space Manbow, Nemesis 3 Enh, Salamander Enh, Chikubi Ninja and Pro Yakyuu. CPU cost: a few copper words.
 2. **True wrap, R#26 coarse scroll and SP2:**

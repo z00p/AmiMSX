@@ -1256,10 +1256,12 @@ NoROMPatSub:
 ; -------------------------------------------
 
 ; -------------------------------------------
-; (4.0) The MSX2+ BIOS gets the same patch as the MSX2 one: 50 Hz, and
-; the Japanese or international ID bytes by 'Use Japanese ID'.
+; (4.0) All three BIOSes (MSX1, MSX2, MSX2+) get the same patch. 'Use
+; Japanese ID': Japanese ID bytes and 60 Hz, the machines most games were
+; written for (v3.1 kept 50 Hz); otherwise international ID and 50 Hz, a
+; European machine.
 	LEA	DirROM+$2B,A0		; Parche Japanese ID.
-	MOVE.W	#$9000,(A0)
+	MOVE.W	#$1000,(A0)		; ($2B bit 7 clear: 60 Hz)
 	TST.B	DirPrefs+$7A		; Use Japanese ID.
 	BNE.S	SiJapanId
 	MOVE.W	#$9111,(A0)	; MSX1

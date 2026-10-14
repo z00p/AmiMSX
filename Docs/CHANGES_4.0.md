@@ -71,6 +71,8 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
 - **Smooth display** (menu, after Audio filter; on in the PiStorm preset): SCREEN 4 is double-buffered. Each frame is drawn off screen (tiles, HUD and mode-split strips, plane pointers, R#18/R#23, palette and sprite pointers) and shown complete at a frame start. On a fast Amiga the render still takes longer than the vertical blank (BigMig: 120-140 lines), so before, the tiles changed during the frame while the scroll registers and sprites changed at the next one, and the scenery jumped against the hero in scrolling games (Lilly's Saga, Space Manbow). It needs about 90 KB more chip RAM and some blitter time to keep the hidden buffer up to date, so it is off in the A1200 and 030 presets, whose display path is unchanged. Other screen modes run as before for now.
 - **Audio filter** (menu, after Mask screen edges): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset (it has FM), off in the others; also saved per game.
 
+- **Use Japanese ID (60 Hz)** (menu): the BIOS reports a Japanese machine and starts at 60 Hz, the machines most games were written for; with Frequence "From VDP" the display follows. Off: an international machine at 50 Hz. It applies to all three machines; in v3.1 it changed only the ID bytes and kept 50 Hz.
+
 ## From Juan's v3.2/v3.5 source (October 2026)
 
 Juan sent his latest source (AmiMSX v3.2, with a v3.5 GUI from 2021). It has no emulation changes; these parts of it are in 4.0:

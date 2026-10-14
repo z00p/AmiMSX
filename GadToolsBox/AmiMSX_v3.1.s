@@ -5193,7 +5193,7 @@ MSX2MName23:
     DC.B    'Right Shift as Space',0
 
 MSX2MName25:
-    DC.B    'Use Japanese ID',0
+    DC.B    'Use Japanese ID (60 Hz)',0
 
 MSX2MName26:
     DC.B    'Use Kanji ROM',0
