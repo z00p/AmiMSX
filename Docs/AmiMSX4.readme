@@ -87,6 +87,11 @@ Known limits
   PiStorm and BigMig), though each frame is correct.
 - Manbow 2: the intro screens are drawn corrupted, and in play the
   ship jumps back 3-4 dots now and then while it moves.
+- Lilly's Saga: on fast machines the save-slot menu text can be drawn
+  as solid blocks (seen with Smooth display off).
+- CD32-style pads (e.g. KTRL CD32): a direction and the fire button
+  can't be held together in some games (Pampas & Selene); a plain
+  joystick works.
 
 Credits
 -------

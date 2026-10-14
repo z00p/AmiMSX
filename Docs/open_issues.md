@@ -176,6 +176,18 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 
 **Still varying: io (disk).** Its 60 s capture differs only in the phase of an animated element (a few frames). Likely cause: disk loading time. If AmiMSX's disk routines wait on real AmigaDOS reads while MSX frames keep counting, the load time varies with host disk speed and shifts everything after it. That also fits io's earlier variation at its 20 s logo transition. Low priority; marked unstable in the baseline.
 
+## Lilly's Saga: save-slot menu text as solid blocks, Smooth display off (open, 14 Oct 2026)
+
+- **Seen:** PiStorm A1200, release candidate 188a9a0, Lilly's Saga reloaded with Smooth display off. The SELECT SLOT boxes show '(LOCKED)' and 'NEW!' with letters drawn as solid blocks. The same symptom was seen on BigMig before 76a3bed. With Smooth display on, the PiStorm shows the menu correctly.
+- **What draws it:** the glyphs are drawn once with VDP commands (LMMM with TIMP and TXOR, page 3 to page 2) in SCREEN 5, not with the SCREEN 4 tile cache (Fable, openMSX log).
+- **Already tried:** BBUSY dummy reads before every blitter wait (8af1d95).
+- **To check:** the command engine's blitter path for transparent copies on fast CPUs: the mask chain in TIMPES, the BLTxPT/BLTCON set-up between planes, and whether something writes the same chip RAM during a running blit (the SCREEN 5 band conversion, CPU fallback paths). Run tools/make_cmd_test.py's ROM on the PiStorm and compare with WinUAE.
+
+## CD32-style pad: direction and fire not together (open, 14 Oct 2026)
+
+- **Seen:** PiStorm A1200 with a KTRL CD32 pad in the joystick port. In Pampas & Selene you can't move left or right and jump at the same time. It wasn't noticed on BigMig (different controller set-up).
+- **To check:** AmiMSX's joystick read (LEEJOY, TesteaJoyRut). It reads port 2 through JOY1DAT and the fire button through CIA-A $BFE001 bit 7, plus POTGO for the second button. A CD32 pad answers the CD32 protocol (button shift register clocked through POTGO/CIA). If AmiMSX writes POTGO ($DFF034 = $FF00) every read, the pad may switch modes and drop either the direction or the button. Also check which MSX key or trigger Pampas & Selene uses to jump: trigger A, trigger B or the space key.
+
 ## Lilly's Saga: occasional music slow-down with Smooth display (open, 14 Oct 2026)
 
 - **Seen:** PiStorm A1200, PiStorm preset (60 Hz, Smooth display). The picture and sound are good, but the music slows now and then.
