@@ -10490,12 +10490,6 @@ VDP12:
 	BCLOG	4,D2,CurLine(A3),DVDP2(A3),VDPAdjust(A3)
 	ENDC
 	RSPLITCHK	VDPAdjust
-	CMP.B	VDPAdjust(A3),D2	; (4.0) Auto mask: count R#18 changes
-	BEQ.S	VDP12Same		; (software horizontal scroll).
-	ADDQ.B	#1,MaskCnt
-	BCC.S	VDP12Same
-	ST	MaskCnt
-VDP12Same:
 	MOVE.B	D2,VDPAdjust(A3)
 
 	MOVE.W	CurLine(A3),D1
@@ -11765,6 +11759,7 @@ MaskNow:	DC.B	0		; (4.0) edges masked this frame
 MaskAuto:	DC.B	0		; the game scrolls by R#18
 MaskCnt:	DC.B	0		; R#18 changes in this window
 MaskWin:	DC.B	49		; frames left in the window
+MaskLast:	DC.B	0		; R#18 at the last frame start
 		EVEN
 SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
 					; buffer just drawn.
@@ -22718,7 +22713,17 @@ MiraInterBSplit:			; (Before CurLine moves on: the band
 ; Line 0: new frame for the sprite snapshots, then MiraInter0.
 	CNOP	0,4
 MiraInter0S:
-	SUBQ.B	#1,MaskWin		; (4.0) Auto mask: 3 or more R#18 changes
+	MOVE.B	MidAdj,D1		; (4.0) Auto mask: the playfield's R#18
+	CMP.B	MaskLast,D1		; (MIDSAMPLE, last frame) against the
+	BEQ.S	MaskSame		; frame before: a split that sets and
+	MOVE.B	D1,MaskLast		; restores R#18 every frame is not a
+					; scroll (Galious Enh); the playfield
+					; under a still HUD is (Space Manbow).
+	ADDQ.B	#1,MaskCnt
+	BCC.S	MaskSame
+	ST	MaskCnt
+MaskSame:
+	SUBQ.B	#1,MaskWin		; 3 or more frame-to-frame R#18 changes
 	BCC.S	MaskWOk			; in 50 frames = a game that scrolls
 	MOVE.B	#49,MaskWin		; sideways by R#18 and redraws edge
 	CMP.B	#3,MaskCnt		; columns: mask from then on (until Power

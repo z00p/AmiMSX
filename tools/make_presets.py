@@ -31,7 +31,6 @@ FILTER = -3         # byte (from the end): audio filter (Amiga low-pass, the pow
                     # FFh = on while a game runs: less hiss from the 8-bit FM/PSG output.
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
-    ("AmiMSX A1200",   "1200", (220, 120, 30), {SPRITES: (">H", 2), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
     ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
     ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF)}),
 ]
