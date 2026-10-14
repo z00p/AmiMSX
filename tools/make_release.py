@@ -52,6 +52,25 @@ def amiga_text(src, dst):
     open(dst, "wb").write(t.encode("latin-1"))
 
 
+def draw_drawer(label=None):
+    """A drawer (filing cabinet) in the presets' style, optional label plate."""
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = mp.W, mp.H
+    im = Image.new("RGB", (W, H), (255, 0, 255))
+    d = ImageDraw.Draw(im)
+    blue, light, dark = (80, 120, 190), (150, 180, 230), (30, 50, 100)
+    d.polygon([(4, 12), (12, 4), (43, 4), (35, 12)], fill=light)          # top
+    d.polygon([(35, 12), (43, 4), (43, 33), (35, 41)], fill=dark)        # side
+    d.rectangle([4, 12, 35, 41], fill=blue)                              # front
+    d.line([4, 12, 35, 12], fill=(200, 215, 245)); d.line([4, 12, 4, 41], fill=(200, 215, 245))
+    d.rectangle([12, 24, 27, 28], fill=(225, 225, 225), outline=(20, 20, 20))   # handle
+    if label:
+        font = ImageFont.load_default()
+        d.rectangle([6, 14, 33, 23], fill=(235, 235, 235))
+        d.text((9, 14), label, font=font, fill=(20, 20, 20))
+    return im
+
+
 def main():
     binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, "build", "AmiMSX")
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(BASE, "release", "AmiMSX4")
@@ -80,8 +99,8 @@ def main():
         shutil.rmtree(tmp)
     im = mp.draw("4.0", (40, 70, 160))
     open(os.path.join(d, "AmiMSX.info"), "wb").write(tool_icon(im))
-    open(os.path.join(out, "AmiMSX.info"), "wb").write(drawer_icon(mp.draw("MSX", (40, 70, 160))))
-    open(os.path.join(d, "Docs.info"), "wb").write(drawer_icon(mp.draw("Doc", (90, 90, 90)), 300, 120))
+    open(os.path.join(out, "AmiMSX.info"), "wb").write(drawer_icon(draw_drawer("MSX")))
+    open(os.path.join(d, "Docs.info"), "wb").write(drawer_icon(draw_drawer(), 300, 120))
     for root, _, files in os.walk(out):
         for f in sorted(files):
             p = os.path.join(root, f)
