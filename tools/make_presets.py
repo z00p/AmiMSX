@@ -22,7 +22,7 @@ SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Musi
                     # ROMs still get the SCC). FM is on only where there's CPU to spare.
 COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
                     # read report a collision (IVDP0Spr). Real collision detection always runs. Keep 0.
-# 4.0 block after the credits string: PrefMask (mask screen edges, FFh = 8 dots) at
+# 4.0 block after the credits string: PrefMask (mask screen edges always, FFh) at
 # the first byte, left at the binary's default (off), then PrefFilter.
 DBUF = -2           # byte (from the end): smooth display (SCREEN 4 double-buffered, fast CPUs)
 FILTER = -3         # byte (from the end): audio filter (Amiga low-pass, the power LED bit),

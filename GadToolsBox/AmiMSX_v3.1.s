@@ -4615,6 +4615,13 @@ MSX2NewMenu41d:
     DC.W    $0009
     DC.L    0,0
 
+MSX2NewMenu41e:                     ; (4.0) sub-item 6
+    DC.B    3,0
+    DC.L    MSX2MName41e
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
 MSX2NewMenu42:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
@@ -5234,13 +5241,16 @@ MSX2MName41:
     DC.B    'VDP ''TR bit'' always ready',0
 
 MSX2MName41b:
-    DC.B    'Mask screen edges (7 dots)',0
+    DC.B    'Mask screen edges (always)',0
 
 MSX2MName41c:
     DC.B    'Audio filter (less hiss)',0
 
 MSX2MName41d:
     DC.B    'Smooth display (fast CPUs)',0
+
+MSX2MName41e:
+    DC.B    'Auto mask (scrolling games)',0
 
 MSX2MName43:
     DC.B    'Disable Cheats',0

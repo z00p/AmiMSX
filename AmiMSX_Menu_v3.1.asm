@@ -2925,7 +2925,7 @@ GPFromPrefs:
 	MOVE.B	DirPrefs+$6C,8(A1)
 	MOVE.B	PrefMask,9(A1)
 	MOVE.B	PrefFilter,10(A1)
-	CLR.B	11(A1)
+	MOVE.B	PrefMaskNoAuto,11(A1)	; (0 in older files: auto mask on)
 	RTS
 GPToPrefs:
 	MOVE.B	5(A1),DirPrefs+$1D
@@ -2933,6 +2933,7 @@ GPToPrefs:
 	MOVE.B	8(A1),DirPrefs+$6C
 	MOVE.B	9(A1),PrefMask
 	MOVE.B	10(A1),PrefFilter
+	MOVE.B	11(A1),PrefMaskNoAuto
 	RTS
 
 ; Those settings from the GUI into DirPrefs (ACTUPREFS for just these: all
@@ -2950,6 +2951,10 @@ GPGUIToPrefs:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefFilter
+	MOVE.L	#(6*$40)+13,D0		; Auto mask (ticked = 0).
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SEQ	PrefMaskNoAuto
 	RTS
 
 ; The GUI from DirPrefs for those settings (gadgets and menu checkmarks).
@@ -2982,6 +2987,14 @@ GPShow2:
 	BEQ.S	GPShow3
 	BSET	#0,$C(A0)
 GPShow3:
+	MOVE.L	#(6*$40)+13,D0		; Auto mask (ticked when 0).
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	PrefMaskNoAuto
+	BNE.S	GPShow4
+	BSET	#0,$C(A0)
+GPShow4:
 	RTS
 
 ; GPName = FILENOM + ".prefs".
@@ -6680,6 +6693,9 @@ PONPREFS:
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
 	MOVE.B	PrefDbuf,D0
 	BFINS	D0,MSX2NewMenu41d+10{7:1}	; Smooth display (4.0)
+	MOVE.B	PrefMaskNoAuto,D0
+	NOT.B	D0
+	BFINS	D0,MSX2NewMenu41e+10{7:1}	; Auto mask (4.0)
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -6891,6 +6907,10 @@ ACTUPREFS:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefDbuf
+	MOVE.L	#(6*$40)+13,D0		; Sub-item 6: auto mask (4.0; ticked =
+	MOVEQ	#1,D1			; PrefMaskNoAuto 0).
+	BSR	COGECHECK
+	SEQ	PrefMaskNoAuto
 ; -=-
 	MOVEQ	#15,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
@@ -7035,7 +7055,9 @@ PrefFilter:	DC.B	0		; Audio filter (Amiga low-pass, the power
 					; LED bit): FFh = on while a game runs.
 PrefDbuf:	DC.B	0		; Smooth display: FFh = SCREEN 4 double-
 					; buffered (AmiMSX_Dbuf_v4.asm).
-		DC.B	0		; (Reserved.)
+PrefMaskNoAuto:	DC.B	0		; Auto mask off (FFh). 0 = the edges are
+					; masked once a game scrolls with R#18
+					; (MaskAuto), the default.
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 

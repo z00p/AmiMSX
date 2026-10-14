@@ -2192,6 +2192,8 @@ HARDRESET:
 	MOVE.L	#COPPERN,NEXTCOPP
 	MOVE.L	#COPPERN,$DFF084
 	JSR	DbReset			; (4.0) No smooth-display state left.
+	SF	MaskAuto		; (4.0) Auto mask: a new game.
+	CLR.B	MaskCnt
 	LEA	REGS,A3
 
 	LEA	AMITECLAS,A0
@@ -2257,6 +2259,8 @@ MSXRESET:
 	MOVE.L	#COPPERN,NEXTCOPP
 	MOVE.L	#COPPERN,$DFF084
 	JSR	DbReset			; (4.0) No smooth-display state left.
+	SF	MaskAuto		; (4.0) Auto mask: a new game.
+	CLR.B	MaskCnt
 	LEA	REGS,A3
 
 	LEA	AMITECLAS,A0
@@ -9511,7 +9515,7 @@ Act_Adjust:
 	MOVE.W	(AdjustBuf,D2.W*4),AdjustX+10
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+3
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+7
-	TST.B	PrefMask		; Mask screen edges (menu): the window 8
+	TST.B	MaskNow		; Mask screen edges (menu): the window 8
 	BEQ.S	ActAdjNoMask		; dots narrower each side, where games
 	ADD.B	#EDGEL,VERPAN+3		; redraw columns while they scroll
 	SUB.B	#EDGER,VERPAN+7		; (Lilly's Saga).
@@ -10477,6 +10481,12 @@ VDP12:
 	BCLOG	4,D2,CurLine(A3),DVDP2(A3),VDPAdjust(A3)
 	ENDC
 	RSPLITCHK	VDPAdjust
+	CMP.B	VDPAdjust(A3),D2	; (4.0) Auto mask: count R#18 changes
+	BEQ.S	VDP12Same		; (software horizontal scroll).
+	ADDQ.B	#1,MaskCnt
+	BCC.S	VDP12Same
+	ST	MaskCnt
+VDP12Same:
 	MOVE.B	D2,VDPAdjust(A3)
 
 	MOVE.W	CurLine(A3),D1
@@ -11742,6 +11752,11 @@ SPR1DBL:	MACRO
 SprBufB:	DC.B	0
 		EVEN
 TsMsNx:		DC.W	0		; (TSPLITCHK scratch)
+MaskNow:	DC.B	0		; (4.0) edges masked this frame
+MaskAuto:	DC.B	0		; the game scrolls by R#18
+MaskCnt:	DC.B	0		; R#18 changes in this window
+MaskWin:	DC.B	49		; frames left in the window
+		EVEN
 SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
 					; buffer just drawn.
 
@@ -21731,7 +21746,7 @@ ACAdjW:
 	ADD.B	#3+8,D4			; Amiga fetched before the line).
 	BRA.S	ACAdjM1
 ACAdjM0:
-	TST.B	PrefMask		; (Mask screen edges, as Act_Adjust.)
+	TST.B	MaskNow		; (Mask screen edges, as Act_Adjust.)
 	BEQ.S	ACAdjM1
 	ADD.B	#EDGEL,D4
 ACAdjM1:
@@ -21740,7 +21755,7 @@ ACAdjM1:
 
 	MOVE.W	VERPAN+6,D4
 	MOVE.B	(AdjustBuf+2.w,PC,D1.W*4),D4
-	TST.B	PrefMask
+	TST.B	MaskNow
 	BEQ.S	ACAdjM2
 	SUB.B	#EDGER,D4
 ACAdjM2:
@@ -22674,6 +22689,22 @@ MiraInterBSplit:			; (Before CurLine moves on: the band
 ; Line 0: new frame for the sprite snapshots, then MiraInter0.
 	CNOP	0,4
 MiraInter0S:
+	SUBQ.B	#1,MaskWin		; (4.0) Auto mask: 3 or more R#18 changes
+	BCC.S	MaskWOk			; in 50 frames = a game that scrolls
+	MOVE.B	#49,MaskWin		; sideways by R#18 and redraws edge
+	CMP.B	#3,MaskCnt		; columns: mask from then on (until Power
+	BCS.S	MaskWClr		; ON/Reset), as a TV's overscan hid them.
+	ST	MaskAuto
+MaskWClr:
+	CLR.B	MaskCnt
+MaskWOk:
+	MOVE.B	PrefMask,MaskNow	; Mask screen edges (always), or
+	TST.B	PrefMaskNoAuto		; automatic.
+	BNE.S	MaskNOk
+	TST.B	MaskAuto
+	BEQ.S	MaskNOk
+	ST	MaskNow
+MaskNOk:
 	CLR.W	TSplit			; Table split: new frame.
 	CLR.W	SegStart		; Register split segments too.
 	CLR.W	SegBest
@@ -22681,7 +22712,7 @@ MiraInter0S:
 	CLR.W	MSplitL			; Mode split too (regime: MSplitSeen).
 	MOVE.B	#$A1,Ver2+3		; SCREEN 1-3 window: masked edges or not.
 	MOVE.B	#$A1,Ver2+7
-	TST.B	PrefMask
+	TST.B	MaskNow
 	BEQ.S	FrMaskNo
 	MOVE.B	#$A1+EDGEL,Ver2+3
 	MOVE.B	#$A1-EDGER,Ver2+7
