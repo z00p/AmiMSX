@@ -37,6 +37,21 @@ def drawer_icon(im, w=420, h=200):
     return head + dd + mp.planar(im) + dd2 + mp.glow(im)
 
 
+def amiga_text(src, dst):
+    """Copy a text file for the Amiga: LF line ends, Latin-1 (UTF-8 sources
+    are converted; typographic quotes and dashes become ASCII)."""
+    d = open(src, "rb").read()
+    try:
+        t = d.decode("utf-8")
+    except UnicodeDecodeError:
+        t = d.decode("latin-1")
+    for a, b in {"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-",
+                 "—": "-", "…": "...", "→": "->", " ": " "}.items():
+        t = t.replace(a, b)
+    t = t.replace("\r\n", "\n").replace("\r", "\n")
+    open(dst, "wb").write(t.encode("latin-1"))
+
+
 def main():
     binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, "build", "AmiMSX")
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(BASE, "release", "AmiMSX4")
@@ -49,10 +64,10 @@ def main():
     shutil.copy(binary, os.path.join(d, "AmiMSX"))
     for f in ("AmiMSX2.data", "AmiMSX2.mapper", "AmiMSX4.romdb"):
         shutil.copy(os.path.join(BASE, f), os.path.join(d, f))
-    shutil.copy(os.path.join(BASE, "Docs", "AmiMSX.guide"), os.path.join(d, "AmiMSX.guide"))
-    shutil.copy(os.path.join(BASE, "Docs", "CHANGES_4.0.md"), os.path.join(d, "Docs", "CHANGES_4.0.txt"))
-    shutil.copy(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(d, "AmiMSX4.readme"))
-    shutil.copy(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(out, "AmiMSX4.readme"))
+    amiga_text(os.path.join(BASE, "Docs", "AmiMSX.guide"), os.path.join(d, "AmiMSX.guide"))
+    amiga_text(os.path.join(BASE, "Docs", "CHANGES_4.0.md"), os.path.join(d, "Docs", "CHANGES_4.0.txt"))
+    amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(d, "AmiMSX4.readme"))
+    amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(out, "AmiMSX4.readme"))
     shutil.copy(os.path.join(BASE, "Pics", "Keyboard.Iff"), os.path.join(d, "Docs", "Keyboard.Iff"))
     shutil.copy(os.path.join(BASE, "Pics", "Keyboard.Iff.info"), os.path.join(d, "Docs", "Keyboard.Iff.info"))
     lhasa = os.environ.get("LHASA")

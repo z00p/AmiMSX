@@ -2,10 +2,10 @@
 # copies release\AmiMSX4 to run\Release (AmiMSX:Release), boots the test
 # Workbench (030 config) with the boot line replaced by the lha command, and
 # waits for AmiMSX:Release/done. Output: release\AmiMSX4.lha
-param([string]$Config = "AmiMSX-030.uae", [int]$MaxWait = 240)
+param([string]$Config = "AmiMSX-030.uae", [int]$MaxWait = 240, [string]$Src = "release\RC")
 $ErrorActionPreference = "Stop"
 $base = Split-Path -Parent $PSScriptRoot
-$src = Join-Path $base "release\AmiMSX4"
+$src = Join-Path $base $Src
 $rel = Join-Path $base "run\Release"
 if (Test-Path $rel) { Remove-Item -Recurse -Force $rel }
 New-Item -ItemType Directory $rel | Out-Null
