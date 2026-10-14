@@ -137,6 +137,10 @@ def main():
     shutil.copy(os.path.join(BASE, "Pics", "AmiMSX.info"), os.path.join(d, "AmiMSX.info"))   # the 3.x tool icon
     shutil.copy(os.path.join(BASE, "Pics", "Drawer_AmiMSX.info"), os.path.join(out, "AmiMSX.info"))   # OS 3.2 drawer, MSX emblem
     shutil.copy(os.path.join(BASE, "Pics", "Drawer_Docs.info"), os.path.join(d, "Docs.info"))         # OS 3.2 drawer
+    mvd = os.path.join(BASE, "release", "assets", "mvd_files")   # the MVD disks of the 3.x package
+    if os.path.isdir(mvd):                                        # (not in git: release/ is ignored)
+        shutil.copytree(mvd, os.path.join(d, "MVD_Files"))
+        shutil.copy(os.path.join(BASE, "Pics", "Drawer_Docs.info"), os.path.join(d, "MVD_Files.info"))
     for root, _, files in os.walk(out):
         for f in sorted(files):
             p = os.path.join(root, f)

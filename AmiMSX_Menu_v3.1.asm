@@ -7062,11 +7062,11 @@ TABLAB4:
 	DC.B	"MVD_Files"	; $080
 	DS.B	$100-9
 
-	DC.B	"Cartridges"	; $180
-	DS.B	$100-10
+	DS.B	$100		; $180 (4.0: empty = the program's drawer,
+				; where the ROMs usually are; the release
+				; has no Cartridges drawer)
 
-	DC.B	"Tape"		; $280
-	DS.B	$100-4
+	DS.B	$100		; $280 (4.0: empty, as $180)
 
 	CNOP	0,4
 	DC.B	" -*(  AmiMSX2 Emulator By:  Juan Antonio G�mez G�lvez  )*- "
