@@ -176,6 +176,13 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 
 **Still varying: io (disk).** Its 60 s capture differs only in the phase of an animated element (a few frames). Likely cause: disk loading time. If AmiMSX's disk routines wait on real AmigaDOS reads while MSX frames keep counting, the load time varies with host disk speed and shifts everything after it. That also fits io's earlier variation at its 20 s logo transition. Low priority; marked unstable in the baseline.
 
+## Bombaman: sprite ghosting on fast machines (open, 14 Oct 2026)
+
+- **Seen:** on BigMig and the PiStorm A1200 (PiStorm preset and others), at 50 and 60 Hz. Moving characters look doubled or see-through to the eye. The RetroTink 4K genlocks to the Amiga's rate, so it isn't frame-rate conversion.
+- **Slow-motion video (240 fps camera):** each captured frame shows one sharp character, and the movement looks normal frame by frame. The pose changes every 1-2 display frames; openMSX holds idle poses about 20 frames, but the tester may have been steering.
+- **Checked:** openMSX with the real MSX2 ROMs shows the same walk animation (the head bob is the game's own). Fixed in 4.0 without curing it: sprite pointers not rewritten while the copper loads them (SprBeamOK), the sprite-buffer switch wait, palette changes at frame starts.
+- **To do (post-release):** a Fable review of the sprite path in SCREEN 5 without smooth display (SPR1DBL, CREASPRITES, DIRSPRIT in MASTERCOPPER, the sprite overlay buffers), what an eye integrates that a camera doesn't (a sprite shown in two positions within one displayed frame, e.g. a mid-frame pointer or position change, or the overlay showing the previous buffer for part of the frame), and a diagnostic for BigMig/PiStorm.
+
 ## DEVA: the hero's head is missing (14 Oct 2026)
 
 - **Seen:** a tester, in the WinUAE regression window. The robot hero shows body and legs but no head (helmet, face).
