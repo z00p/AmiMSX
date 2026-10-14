@@ -1,20 +1,23 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 3.1 (25.9.00)
+@version $VER: AmiMSX.guide 4.0 (14.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                            AmiMSX Emulator v3.1
-                           ( 25.9.00 - Freeware )
+                            AmiMSX Emulator v4.0
+                          ( 14.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 
-                  1994/2000 By: Juan Antonio Gómez Gálvez
+            1994-2000/2009/2021 By: Juan Antonio Gómez Gálvez
+                      GUS Entertainment / RED Soft
 
+                             @{"New in 4.0      " link Nuevo40}
                              @{"Note from author" link Autor}
 
                              @{"Introduction    " link Introduccio}
                              @{"Requirements    " link Requeriments}
+                             @{"Presets         " link Presets}
                              @{"Instructions    " link Instruccions}
 
                              @{"MSX  Emulation  " link Emulacio}
@@ -26,9 +29,88 @@
                              @{"Greetings       " link Agraiments}
 
 
-                        e-mail:  joanant@arrakis.es
+        AmiMSX 4.0 is a community update, made with the author's
+                              permission.
 
-                       Web:  www.arrakis.es/~joanant
+@endnode
+
+
+@node Nuevo40 "AmiMSX Emulator."
+
+@{fg highlight}    New in 4.0:
+@{fg text}    -----------
+
+    AmiMSX 4.0 is a community update of AmiMSX, made with the permission
+of Juan Antonio Gómez Gálvez.  It is built from his v3.1 source, with
+parts of his later v3.2/v3.5 source.  Accuracy comes first.
+
+    - Z80:  POP/RET through ROM, RLD/RRD on ROM, NEG/CPL flags, M1 wait
+      states, LD A,R from emulated time.
+
+    - VDP:  sprite collisions, the 5th sprite flag, sprite mode 2 bands,
+      mid-frame splits, transparent copies, LMMC.
+
+    - MSX2+:  the machine is back, with the V9958 fine scroll (R#27) and
+      left mask (R#25).  (See @{"MSX2 Display Emulation" link Dibuixos}.)
+
+    - Sound:  MSX-Music (FM) on Amiga channel 3, PSG volume in 3 dB
+      steps.  (See @{"MSX2 Sound Emulation" link Soroll}.)
+
+    - Display:  double-buffered sprites, Smooth display for fast CPUs,
+      automatic edge mask for games that scroll sideways.
+
+    - Options:  Use Japanese ID (60 Hz), Mask screen edges, Auto mask,
+      Audio filter, Smooth display.  (See @{"Options Menu" link MenuOpt}.)
+
+    - Cartridges:  mapper from a ROM database, 8Kb, 48/64Kb and 4Mb
+      ROMs, flash Konami SCC cartridges with saves, per-game settings.
+      (See @{"Cartridges Menu" link MenuCar}.)
+
+    - Disks:  drive B with its own disk image, disk swap with Left Amiga.
+      (See @{"MSX Virtual Drive Menu" link MenuMVD}.)
+
+    - Two @{"presets" link Presets}: one for a 68030, one for PiStorm and
+      other fast CPUs.
+
+    The full list is in CHANGES_4.0.md.
+
+
+@{fg highlight}    Credits for 4.0:
+@{fg text}    ----------------
+
+    AmiMSX:    Juan Antonio Gómez Gálvez, GUS Entertainment / RED Soft
+    Graphics:  Multivac
+    Thanks:    Zener and Sandman
+
+@endnode
+
+
+@node Presets "AmiMSX Emulator."
+
+@{fg highlight}    Presets:
+@{fg text}    --------
+
+    Start AmiMSX from one of the two preset icons.  Each one has its own
+settings file, and Save Prefs writes to the preset you started.
+
+@{fg highlight}    <*> AmiMSX 030:
+@{fg text}    ---------------
+
+    The low-spec target:  an A1200 or similar with a 68030 at 50Mhz and
+Fast memory.  PSG, PAL, sprites every frame.
+
+@{fg highlight}    <*> AmiMSX PiStorm:
+@{fg text}    -------------------
+
+    PiStorm (Emu68), BigMig and other fast CPUs.  PSG+FM, Frequence
+[From VDP] (60 Hz games in NTSC, at full speed), Use Japanese ID (60 Hz),
+Audio filter and Smooth display.
+
+@{fg highlight}    <*> ToolType PREFS=<file>:
+@{fg text}    --------------------------
+
+    Chooses the settings file.  A relative name is taken from the icon's
+drawer.  Without it, AmiMSX uses S:MSX2emulator.prefs.
 
 @endnode
 
@@ -98,8 +180,9 @@ THIS SOFTWARE...
 @{fg highlight}    <*>  Minimal Requirements:
 @{fg text}    --------------------------
 
-    - AMIGA computer with AGA chipset
-    - MC68020+
+    - AMIGA computer with AGA chipset  (On ECS AmiMSX warns first.)
+    - MC68030+
+    - AmigaOS 3.0+
     - DEVS:mfm.device           (For DiskDrives emulation)
     - DEVS:statram.device       (For RAMSX: drive emulation)
     - LIBS:stc020.library v3.0+
@@ -107,11 +190,16 @@ THIS SOFTWARE...
     - 3MB of memory (1Mb Chip)
     - PAL, NTSC or compatible monitor.
 
-@{fg highlight}    <*>  Extra requirements for real MSX2 emulation:
-@{fg text}    ------------------------------------------------
+@{fg highlight}    <*>  Recommended:
+@{fg text}    -----------------
 
-    - MC68020 at 28Mz or faster Processor
-    - 2Mb of 32-bit Fast memory
+    - MC68030 at 50Mz with 32-bit Fast memory  (the "AmiMSX 030" preset)
+
+    - PiStorm (Emu68), BigMig or another fast CPU for MSX-Music (FM),
+      60 Hz games at full speed and Smooth display  (the "AmiMSX PiStorm"
+      preset)
+
+    A stock 68020 A1200 runs AmiMSX, but slowly.  (See @{"Presets" link Presets}.)
 
 @endnode
 
@@ -145,7 +233,7 @@ THIS SOFTWARE...
 @{fg highlight}    <*> About:
 @{fg text}    ----------
 
-    Information about the author and addresses.
+    Information about the author and credits.
 
 @{fg highlight}    <*> Menu Screen:
 @{fg text}    ----------------
@@ -165,7 +253,8 @@ THIS SOFTWARE...
 @{fg highlight}    <*> Save Prefs:
 @{fg text}    ---------------
 
-    Save preferences and MSX2 clock battery in S:MSX2emulator.prefs
+    Save preferences and MSX2 clock battery in S:MSX2emulator.prefs, or in
+the file named by the icon's PREFS ToolType.  (See @{"Presets" link Presets}.)
 
 @{fg highlight}    <*> Quit:
 @{fg text}    ---------
@@ -227,10 +316,13 @@ Space and Down key bug.)
 when you click on Power ON.
 
 
-@{fg highlight}    <*> Japanese ID:
-@{fg text}    ----------------
+@{fg highlight}    <*> Use Japanese ID (60 Hz):
+@{fg text}    ----------------------------
 
-    Emulates a MSX ROM bios Japanese.
+    The BIOS reports a Japanese machine and starts at 60 Hz, as the
+machines most games were written for.  With Frequence [From VDP] the
+display follows.  Off:  an international machine at 50 Hz.  It applies to
+MSX, MSX2 and MSX2+.
 
 
 @{fg highlight}    <*> Kanji ROM:
@@ -257,6 +349,29 @@ harddisk.
 
     Force to set screen mode to PAL, NTSC, or no change.
 
+
+@{fg highlight}    <*> Internal Emulation (4.0 options):
+@{fg text}    -------------------------------------
+
+    - Mask screen edges (always):  Hides 7 dots at each side of the
+picture, where games that scroll sideways redraw columns.  (A TV's
+overscan hid them on a real MSX.)
+
+    - Audio filter (less hiss):  Keeps the Amiga's low-pass filter on while
+a game runs, for less hiss from the FM and PSG sound.  The power LED stays
+lit.
+
+    - Smooth display (fast CPUs):  SCREEN 4 is double-buffered, so each
+frame is shown complete.  Needs a fast CPU and about 90Kb more Chip
+memory.  Other screen modes are not changed.
+
+    - Auto mask (scrolling games):  On by default.  Masks the edges once a
+game scrolls sideways with R#18, until Power ON or Reset.  Other games keep
+the full picture.
+
+    The edge mask and the audio filter are kept in the per-game settings
+too.  (See @{"Cartridges Menu" link MenuCar}.)
+
 @endnode
 
 @node MenuMVD "AmiMSX Emulator."
@@ -278,6 +393,14 @@ Amiga files on your hard Disk, CD-ROM, etc...
 @{fg text}    ------------------------
 
     To Load/Save MVD files.
+
+@{fg highlight}    <*> Load Disk File into drive B:
+@{fg text}    --------------------------------
+
+    Loads a 360/720Kb disk image into drive B, which becomes a second
+virtual drive.  What a game writes to it goes back to the file when you
+return to the menu.  During play, Left Amiga swaps the disks in drives A
+and B.
 
 @{fg highlight}    <*> Load/Save MSX Disk:
 @{fg text}    -----------------------
@@ -326,6 +449,14 @@ to explain!!!
     - Save Mapper ID:  Saves Mapper type for current Cartridge.  When you
 insert this cartridge again, your mapper will be set correctly.
 
+    - Save game settings (Slot 1):  Saves the sound chip, sprite refresh,
+edge mask and audio filter next to the cartridge, as <cartridge>.prefs.
+They are used whenever this cartridge is inserted.  Without them, a Konami
+SCC cartridge gets the SCC sound chip.
+
+    - Forget game settings (Slot 1):  Deletes that file and brings back
+the global settings.
+
 
 @{fg highlight}    Mapper:
 @{fg text}    -------
@@ -334,6 +465,11 @@ insert this cartridge again, your mapper will be set correctly.
 
     There are six types of mappers emulated in AmiMSX.  You need find the
 correct mapper for a Cartridge testing every one.
+
+    4.0:  most MegaROMs get their mapper without testing.  A saved Mapper
+ID comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
+mapper tag in the file name, then a guess.  The answers are kept in
+AmiMSX4.romcache, so each ROM is checked once.
 
 
 @{fg highlight}    Slot 3:
@@ -391,6 +527,9 @@ Disk Basic ROM will not be emulated.
 
     - MSX2: Emulation of MSX2 ROM.
 
+    - MSX2+: Emulation of MSX2+ ROM.  (V9958: fine scroll and left mask
+only.)
+
 @{fg highlight}    <*>  RAM:
 @{fg text}    ---------
 
@@ -404,6 +543,10 @@ Disk Basic ROM will not be emulated.
     - SCC:  Emulation of Konami's SCC.
 
     - SCC+: Emulation of Konami's SCC+.
+
+    - PSG+FM: PSG and MSX-Music (FM).  Needs a fast CPU.
+
+    - FM lite: The same, mixing only the 4 loudest FM voices.
 
 
 @{fg highlight}    Video Options:
@@ -432,7 +575,7 @@ Disk Basic ROM will not be emulated.
 
     - OFF: No sprite emulation.
 
-    - 1fr: Refresh at 1 frame. (100%)
+    - 1fr: Refresh at 1 frame. (100%)  (Default, as a real MSX.)
 
     - 2fr: Refresh at 2 frames.  (50%)
 
@@ -641,12 +784,15 @@ the emulator.
 
     * Sprites:
         - Expanded Sprites
-        - Sprites Collisions
 
     * MSX-Video:
         - XOR mode emulated as NOT
         - Line logical operators
         - Color search
+
+    * MSX2+ (V9958):
+        - Only fine scroll (R#27) and the left mask (R#25) are emulated.
+          No coarse scroll (R#26), SP2 or YJK modes yet.
 
 @endnode
 
@@ -655,7 +801,7 @@ the emulator.
 @{fg highlight}    <*>  PSG  (Sound Chip):   Emulated at 99%.   
 @{fg text}    -----------------------
 
-    It works correctly.
+    It works correctly.  Volume in 3 dB steps, as the YM2149.  (4.0)
 
 
 @{fg highlight}    <*>  SCC  (Sound Custom Chip):   Emulated at 98%.   
@@ -670,6 +816,15 @@ channels, channel 5 will not be emulated.
 @{fg text}    --------------------------------
 
     Emulation is equal to SCC.
+
+@{fg highlight}    <*>  MSX-Music  (FM, YM2413):   New in 4.0.
+@{fg text}    -----------------------------
+
+    Sound chip PSG+FM:  the 9 FM voices are made from wavetables and
+mixed into Amiga channel 3.  The PSG keeps channels 0-2.  FM lite mixes
+only the 4 loudest voices, for less CPU time.  Both need a fast CPU.
+
+    Konami SCC cartridges still get the SCC.
 
 @endnode
 
@@ -735,6 +890,9 @@ disabled.
 
 
     Note:  Ñ or ñ is a Spanish letter.
+
+    Note:  When drive B holds a disk image, Left Amiga also swaps the
+disks in drives A and B.  (4.0)
 
 @endnode
 
@@ -950,11 +1108,12 @@ Note: Test included in 'MVD files/Speed Test.MVD'
 
                       <=----------------------------=>
 
-    * To contact the author write to:
+    * AmiMSX 4.0:
 
-                Juan Antonio Gómez  <joanant@arrakis.es>
+          Juan Antonio Gómez Gálvez, GUS Entertainment / RED Soft
 
-                          www.arrakis.es/~joanant
+                          Graphics:  Multivac
+                          Thanks:    Zener and Sandman
 
 @endnode
 

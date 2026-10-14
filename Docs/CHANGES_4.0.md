@@ -1,8 +1,6 @@
-# AmiMSX 4.0: changes since 3.1 (draft)
+# AmiMSX 4.0: changes since 3.1
 
-Draft for the release notes and the Aminet readme. Nothing is published until the author agrees (see `release_4.0.md`).
-
-AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED Soft). The aim of this version is accuracy first: a fast 68030 or 68040 is the baseline, and PiStorm (Emu68) systems have speed to spare.
+AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft), made with his permission. It is built from his v3.1 source, with parts of his later v3.2/v3.5 source. The aim of this version is accuracy first. The low-spec target is a 68030 at 50 MHz with fast RAM; PiStorm (Emu68), BigMig and other fast CPUs have speed to spare and get the costlier features (FM sound, 60 Hz, smooth display).
 
 ## Emulation
 
@@ -26,24 +24,39 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - mid-frame palette changes;
   - register splits: when R#8, R#18 or R#23 change during the display, the largest region's values are used. Uridium 2's HUD no longer hides the sprites, and Nemesis 3's enemies show. A table split ends a region too (Space Manbow, Zanac EX);
   - display off and on during the frame (R#1 BL): those lines show the border colour. Lilly's Saga no longer shows a stray line above its HUD;
-  - table splits in 212-line mode render to the last line (Space Manbow's ground).
+  - table splits in 212-line mode render to the last line (Space Manbow's ground);
+  - a table split on the line right after a mode split (the game's register writes straddled a line) moves to the mode split's line. Space Manbow at 60 Hz showed one garbage line at the edge of its HUD.
 - **Speed in split-screen games:**
   - a SCREEN 4 table split now redraws only the longs that changed (Space Manbow in play: 68060 61% to 86-90% of real speed, 68030 56% to 71-81%);
-  - leaving SCREEN 5 or 7 converts only the 16-line bands that VDP commands drew in since the last switch, not the whole bitmap.
-  - the conversions between VRAM and the SCREEN 5/7 bitplanes use lookup tables (4 lookups per 8 pixels instead of 32 bit shifts). Space Manbow's pauses when it switches between SCREEN 4 and 5 are about a third to a half shorter (A1200: 29-38 refreshes over the switch down to 18-27).
+  - leaving SCREEN 5 or 7 converts only the 16-line bands that VDP commands drew in since the last switch, not the whole bitmap;
+  - the conversions between VRAM and the SCREEN 5/7 bitplanes use lookup tables (4 lookups per 8 pixels instead of 32 bit shifts). Space Manbow's pauses when it switches between SCREEN 4 and 5 are about a third to a half shorter.
 - **Sprite mode 2:**
   - sprites are drawn in bands, each with its own R#23 (vertical scroll). Bands with sprites off (R#8 SPD) draw nothing, so Space Manbow's ship no longer lands on the ground row;
   - a new band starts at the line after a sprite register changes. Zanac EX's enemies no longer vanish near its status bar;
   - the EC bit.
-  - with sprites every frame, the sprite overlay (Amiga hardware sprites) alternates between two buffers: each frame's sprites are drawn into the one not on screen and shown from the next frame, with that frame's playfield. One buffer, cleared and redrawn while on screen, tore and jittered on fast machines (Space Manbow's ship on BigMig), and a horizontal adjust (R#18) change moved the sprites a frame early;
-  - in SCREEN 4 the sprites are drawn before the tiles, and a sprite buffer ready in the top vertical blank is shown in that same frame (the hardware pointers are set as well as the copper's), so sprites and playfield change together. On BigMig the tile pass ends well into the next frame, and the main character of a scrolling game (Lilly's Saga, Bomberman) jittered against the scenery;
-  - Power ON and Reset empty the sprite overlay. The last game's sprites used to stay on screen in the next one.
 - **Line interrupts:** with IE1 off, the line-interrupt flag (S#1 FH) is set for the matching line only, as openMSX does. Fixes Zanac EX's title. VR is set in the VBlank lines.
 - **Mid-frame palettes:** MSX colour 0 with TP off shows the border colour on lines with palette changes, as it does elsewhere.
 - **SCREEN 2 and 4:** the R#3 and R#4 table masks apply per screen block.
 - **VDP commands:**
   - transparent copies (LMMM with TIMP, TAND, TOR, TXOR and TNOT) work;
   - LMMC no longer corrupts R#4.
+
+### MSX2+ (V9958, phase 1)
+
+- **The MSX2+ machine is back** in the ROM choices. Before, AmiMSX reported a V9958 for MSX2+ but emulated none of it, so games took their MSX2+ code path and half-worked.
+- **R#27 fine horizontal scroll** (0-7 dots; sprites don't move) and **R#25 MSK** (the left 8 dots show the border colour) are emulated per display line. Space Manbow scrolls in 2-dot steps under a still score panel, as in openMSX; Nemesis 3 Enhanced, Chikubi Ninja and Pro Yakyuu Family Stadium use them too.
+- **MSX2+ only:** both work on the MSX2+ machine alone. On MSX2 the registers are ignored as before, so MSX2 games are unchanged.
+- **BIOS:** the MSX2+ BIOS gets the same ID patch as MSX and MSX2 (see Use Japanese ID).
+- **Not yet:** R#26 coarse scroll and SP2 (two-page scroll), R#27 in SCREEN 2 (Salamander Enhanced) and the YJK modes (SCREEN 10-12). See `msx2plus_plan.md`.
+
+### Sound
+
+- **MSX-Music (FM):** the new sound chip "PSG+FM" emulates the YM2413 (FMX). Its 9 voices are built from per-instrument wavetables (the custom instrument is rebuilt on the 68k) and mixed into Paula channel 3; the PSG keeps channels 0-2. Games find MSX-Music through its signature in slot 0-2. The output matches a Python model, checked against openMSX, sample for sample. Cost in Lilly's Saga: about 6% of a frame on a 68060, 8% on a 68030.
+- **FM lite:** a second choice that mixes only the 4 loudest voices (key-ons first). Lilly's Saga on the 030: 16 lines a frame instead of 24.
+- **FM output:** Paula's AUD3 interrupt takes the next block from a ring of 8, which the emulation keeps two frames ahead. A late frame or two no longer runs the ring dry, and at 60 Hz (263-line frames) playback no longer drifts into the block being written. Both crackled.
+- **Sample rate:** 15.6 kHz on a 68040/060, or with Smooth display on (fast CPUs that report a 68020/030); about 11 kHz otherwise.
+- **PSG volume:** 3 dB a step, as the YM2149 (it was linear). Quiet notes, fades and echoes were far too loud (volume 7: -6.6 dB instead of -24 dB). The FM/PSG balance is within 1.4 dB of openMSX.
+- **Audio filter:** see Options.
 
 ### Cartridges
 
@@ -52,28 +65,41 @@ AmiMSX 4.0 is based on the AmiMSX 3.1 source by Juan Antonio Gómez Gálvez (RED
   - the mapper is guessed as openMSX does;
   - banks wrap at the ROM's size;
   - KonamiSCC bank registers are decoded as on the cartridge.
-- **8 KB ROMs** (12 Oct) load as one 16 KB page, the 8 KB mirrored (Sink King, Nohzdyve, Kralizec 8K Tetris, Battle Tetris).
-- **ROM database** (12 Oct): `AmiMSX4.romdb` gives the mapper by SHA-1 for 3,180 MegaROMs (from openMSX's software database, plus local extras). The order is: a saved mapper, then the database, then the file-name tag, then the guess. Each ROM is hashed once; the answer is cached in `AmiMSX4.romcache`. Uwol (ASCII8, guessed as Konami before) now plays.
-- **Flash Konami SCC cartridges** (12 Oct): 7FFFh bit 4 enables AMD flash commands (program, 64 KB sector erase) on ROMs over 512 KB. Pampas & Selene now plays, and its saves are kept: the changed sectors go to `<cartridge>.flash` next to the ROM when you return to the menu, and are read back when the cartridge is inserted. The ROM file itself is never changed.
+- **8 KB ROMs** load as one 16 KB page, the 8 KB mirrored (Sink King, Nohzdyve, Kralizec 8K Tetris, Battle Tetris).
+- **ROM database:** `AmiMSX4.romdb` gives the mapper by SHA-1 for 3,180 MegaROMs (from openMSX's software database, plus local extras). The order is: a saved mapper, then the database, then the file-name tag, then the guess. Each ROM is hashed once; the answer is cached in `AmiMSX4.romcache`. Uwol (ASCII8, guessed as Konami before) now plays.
+- **Flash Konami SCC cartridges:** 7FFFh bit 4 enables AMD flash commands (program, 64 KB sector erase) on ROMs over 512 KB. Pampas & Selene now plays, and its saves are kept: the changed sectors go to `<cartridge>.flash` next to the ROM when you return to the menu, and are read back when the cartridge is inserted. The ROM file itself is never changed.
 
 ### Disks
 
 - **Disk images** are read completely. A short read used to leave the MSX booting a partly empty disk (some disk demos failed at random); a file that can't be read in full is now an error.
-- **Drive B virtual disk** (12 Oct): drive B can hold a disk image of its own (before, a virtual drive B shared drive A's image). Load it from the menu (MSX Virtual Drive > Load Disk File into drive B) or from the CLI (`AmiMSX <disk> B=<image>`). Plain 360/720 KB images. What a game writes to drive B's disk is written back to its image file when you return to the menu, as a real disk keeps it (drive A keeps the MVD quit requester).
-- **Disk swap** (12 Oct): Left Amiga swaps the disks in drives A and B during play, and the power LED blinks. For "insert disk 2" prompts and two-disk games.
+- **Drive B virtual disk:** drive B can hold a disk image of its own (before, a virtual drive B shared drive A's image). Load it from the menu (MSX Virtual Drive > Load Disk File into drive B) or from the CLI (`AmiMSX <disk> B=<image>`). Plain 360/720 KB images. What a game writes to drive B's disk is written back to its image file when you return to the menu, as a real disk keeps it (drive A keeps the MVD quit requester).
+- **Disk swap:** Left Amiga swaps the disks in drives A and B during play, and the power LED blinks. For "insert disk 2" prompts and two-disk games.
+
+## Display
+
+- **Sprite overlay double-buffered:** with sprites every frame, the overlay (Amiga hardware sprites) alternates between two buffers: each frame's sprites are drawn into the one not on screen and shown from the next frame, with that frame's playfield. One buffer, cleared and redrawn while on screen, tore and jittered on fast machines (Space Manbow's ship on BigMig), and a horizontal adjust (R#18) change moved the sprites a frame early.
+- **SCREEN 4 sprites** are drawn before the tiles, so sprites and playfield change together. On BigMig the tile pass ends well into the next frame, and the main character of a scrolling game (Lilly's Saga, Bomberman) jittered against the scenery.
+- **Torn sprites:** sprite pointers are not changed while the copper loads them (a column of the last pose or garbage on BigMig). With Smooth display on, the next sprite buffer is not drawn until the last switch has reached the screen (Lilly's Saga's hero was half drawn); the 030 skips that wait and keeps its speed.
+- **Power ON and Reset** empty the sprite overlay. The last game's sprites used to stay on screen in the next one.
+- **Palette changes** reach the screen at a frame start, through the copper, so a frame is never split between two palettes.
+- **Blitter waits** read the busy flag once before the loop, as it may show a cycle late on fast CPUs. Lilly's Saga's transparent glyphs were drawn as solid blocks.
+- **Smooth display** (see Options), with fixes for fast CPUs:
+  - a frame that overruns keeps the last complete frame on screen (it showed a half-drawn one);
+  - the copper list is never switched while the copper runs, and per-line lists are not rebuilt while on screen;
+  - the first frame starts from a snapshot (Space Manbow's title logo showed over the first game frame on BigMig);
+  - its state is cleared at Power ON and Reset, and a SCREEN 4 to 5 switch no longer shows one garbled frame.
 
 ## Options
 
-- **MSX2+ off for now** (12 Oct): the menu offers MSX and MSX2 only, and an MSX2+ setting (old prefs, key scripts) runs as MSX2. AmiMSX reported a V9958 for MSX2+ but emulated none of it (R#25-27 scroll and mask, YJK modes), so games took their MSX2+ code path and half-worked. Builds with `-DMSX2PLUS=1` keep it, for development.
+- **ROM:** MSX, MSX2 and MSX2+ (see MSX2+ above).
+- **Sound:** PSG, SCC, SCC+, PSG+FM and FM lite (see Sound above).
+- **Per-game settings** (Cartridges > Slot 1 > Save game settings / Forget game settings): the sound chip, sprite refresh, the edge mask and the audio filter, saved next to the cartridge as `<cartridge>.prefs` and applied whenever that cartridge is inserted (menu or command line). A cartridge without one brings the global settings back, with the SCC sound chip for a Konami SCC cartridge (mapper SCC 1/2) when the global setting is PSG or PSG+FM. Ejecting the cartridge restores the global settings too. Save Prefs always writes the global settings.
+- **Mask screen edges** (Options > Internal Emulation: "Mask screen edges (always)" and "Auto mask (scrolling games)"): hides 7 dots at each side of the picture, where games that scroll sideways in software redraw columns; a TV's overscan hid them on a real MSX. Auto, the default, masks once the playfield's R#18 changes from frame to frame three or more times within a second, and keeps the mask until Power ON or Reset; other games keep the full picture. A split that sets and restores R#18 within each frame (Galious Enhanced) is not a scroll and isn't masked. Both are stored in the prefs and in the per-game settings, so a game can be forced on or off.
+- **Audio filter** (Options > Internal Emulation): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset; also saved per game.
+- **Smooth display** (Options > Internal Emulation, "Smooth display (fast CPUs)"; on in the PiStorm preset): SCREEN 4 is double-buffered. Each frame is drawn off screen (tiles, HUD and mode-split strips, plane pointers, R#18/R#23, palette and sprite pointers) and shown complete at a frame start. On a fast Amiga the render still takes longer than the vertical blank (BigMig: 120-140 lines), so before, the tiles changed during the frame while the scroll registers and sprites changed at the next one, and the scenery jumped against the hero in scrolling games (Lilly's Saga, Space Manbow). It needs about 90 KB more chip RAM and some blitter time to keep the hidden buffer up to date, so it is off in the 030 preset, whose display path is unchanged. Other screen modes run as before.
+- **Use Japanese ID (60 Hz)** (Options): the BIOS reports a Japanese machine and starts at 60 Hz, the machines most games were written for; with Frequence "From VDP" the display follows. Off: an international machine at 50 Hz. It applies to MSX, MSX2 and MSX2+; in v3.1 it changed only the ID bytes and kept 50 Hz. On in the PiStorm preset.
 
-- **Per-game settings** (Cartridges > Slot 1 > Save game settings / Forget game settings): the sound chip, sprite refresh and the edge mask, saved next to the cartridge as `<cartridge>.prefs` and applied whenever that cartridge is inserted (menu or command line). A cartridge without one brings the global settings back, with the SCC sound chip for a Konami SCC cartridge (mapper SCC 1/2) when the global setting is PSG; Save Prefs always writes the global settings.
-- **Mask screen edges** (menu: "Mask screen edges (always)" and "Auto mask (scrolling games)"): hides 7 dots at each side of the picture (8 until 14 Oct 2026), where games that scroll sideways in software redraw columns; a TV's overscan hid them on a real MSX. Auto, the default, masks once a game changes R#18 three or more times within a second, and keeps the mask until Power ON or Reset; other games keep the full picture. Both are stored in the prefs and in the per-game settings, so a game can be forced on or off.
-- **Smooth display** (menu, after Audio filter; on in the PiStorm preset): SCREEN 4 is double-buffered. Each frame is drawn off screen (tiles, HUD and mode-split strips, plane pointers, R#18/R#23, palette and sprite pointers) and shown complete at a frame start. On a fast Amiga the render still takes longer than the vertical blank (BigMig: 120-140 lines), so before, the tiles changed during the frame while the scroll registers and sprites changed at the next one, and the scenery jumped against the hero in scrolling games (Lilly's Saga, Space Manbow). It needs about 90 KB more chip RAM and some blitter time to keep the hidden buffer up to date, so it is off in the A1200 and 030 presets, whose display path is unchanged. Other screen modes run as before for now.
-- **Audio filter** (menu, after Mask screen edges): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset (it has FM), off in the others; also saved per game.
-
-- **Use Japanese ID (60 Hz)** (menu): the BIOS reports a Japanese machine and starts at 60 Hz, the machines most games were written for; with Frequence "From VDP" the display follows. Off: an international machine at 50 Hz. It applies to all three machines; in v3.1 it changed only the ID bytes and kept 50 Hz.
-
-## From Juan's v3.2/v3.5 source (October 2026)
+## From Juan's v3.2/v3.5 source
 
 Juan sent his latest source (AmiMSX v3.2, with a v3.5 GUI from 2021). It has no emulation changes; these parts of it are in 4.0:
 
@@ -81,24 +107,37 @@ Juan sent his latest source (AmiMSX v3.2, with a v3.5 GUI from 2021). It has no 
 - **No anti-crack counter:** v3.1 counted joystick polls and, with prefs byte $7F at $20 or more, silently turned the Z80's CALL nn into JP nn. Removed, as in v3.2.
 - **Closing files:** no Close() call when no file is open.
 
+## Robustness
+
+- **Clean exits:** if the menu screen or main window can't open (low chip RAM), AmiMSX quits cleanly instead of crashing. On a machine without a 68020, "Continue" in the requester quits (it carried on and crashed).
+- **input.device** is closed at exit, and a start-up that fails half way frees what it opened (the exit used a device that was never opened).
+- **Workbench mode:** the audio interrupt (AUD3, used by the FM output) goes back to the OS while you are in Workbench mode and is taken again afterwards; the OS vector is saved and restored.
+- **Blitter:** an OS blit that ends while AmiMSX takes over the blitter keeps its interrupt request.
+- **About:** no gadget call when the About window failed to open.
+
 ## Defaults
 
-- **Sprites every frame**, as on an MSX (the setting is still in the menu; the A1200 preset uses every 2nd frame).
+- **Sprites every frame**, as on an MSX (the setting is still in the main window).
+- **Mask screen edges:** Auto.
 - **The Matra splash** is off (build with `-DSPLASH=1` to show it).
 
 ## System ROMs
 
-- **C-BIOS:** 4.0 ships with C-BIOS 0.29 as its `AmiMSX2.data`, a free BIOS (BSD-style licence) that runs cartridges.
-- **Disks and BASIC:** C-BIOS has neither, so they need the original `AmiMSX2.data` from the AmiMSX 3.2 package on Aminet (`misc/emu/AmiMSX`).
+- **AmiMSX2.data:** 4.0 ships the original data file (MSX, MSX2 and MSX2+ system ROMs, disk ROM and Kanji), as the earlier AmiMSX packages on Aminet did. Disks and MSX-BASIC work as before.
+- **C-BIOS:** `tools/make_cbios_data.py` builds a data file from C-BIOS, a free BIOS that runs cartridges only (no BASIC, no disk ROM). AmiMSX recognises it and skips its SUB-ROM patches.
 
 ## Workbench
 
-- **Presets:** three project icons, AmiMSX A1200, AmiMSX 030 and AmiMSX PiStorm, each with its own settings file. The PiStorm preset follows the game's display frequency ("From VDP": 60 Hz games at NTSC, full speed) and has the audio filter on; the A1200 and 030 presets stay PAL, without FM, to keep their speed.
+- **Presets:** two project icons, each with its own settings file:
+  - **AmiMSX 030:** the low-spec target, an A1200 or similar with a 68030 at 50 MHz and fast RAM. PSG, PAL, sprites every frame.
+  - **AmiMSX PiStorm:** PiStorm (Emu68), BigMig and other fast CPUs. PSG+FM, Frequence "From VDP" (60 Hz games at NTSC, full speed), Use Japanese ID (60 Hz), Audio filter and Smooth display.
+- **No 68020 preset:** the A1200 preset of the test builds is gone. A stock 68020 A1200 is not a target; AmiMSX runs on it, but slowly.
 - **ToolType `PREFS=<file>`:** chooses the settings file. A relative name is taken from the icon's drawer. Save Prefs writes to the same file.
 
 ## Building and testing
 
 - **Assembler:** vasm 2.0f replaces Devpac III. `build.sh` refuses branches to `*+n`, after one crashed builds once the code moved.
+- **Version:** "AmiMSX Emulator v4.0" in the menu title, `$VER`, About box and start-up banner, followed by a build reference (date and commit, from `tools/buildid.sh`).
 - **Test hooks:**
   - `AmiMSX <cartridge> [keyscript]` inserts a cartridge in Slot 1 and powers on;
   - `AmiMSX <cartridge> MENU` inserts it and stays in the menu (settings, then Power ON); the Slot 1 label shows the file's name;
@@ -108,7 +147,7 @@ Juan sent his latest source (AmiMSX v3.2, with a v3.5 GUI from 2021). It has no 
   - `TRACE` (instruction ring), `TRACELITE` (event ring only);
   - `PERF` (frame timing and profile; `PERFLOCAL` writes perf.bin to the current directory, for the Measure scripts);
   - `BANDCHK` (logs VDP commands and checks the SCREEN 5/7 band conversion);
-  - `CORRCHK`, `HANGCHK` and `EXCCHK` (fault finding).
+  - `CORRCHK`, `HANGCHK` and `EXCCHK` (fault finding; `EXCCHK` restores the exception vectors on every exit).
 - **Regression:** a tiered suite in WinUAE (smoke, feature, full), with captures compared pixel by pixel against accepted baselines.
-- **Cross-checks with openMSX:** consecutive-frame bursts from both emulators (`tools/burst.py`), VDP register and palette logs, palette probes, and an overnight batch (`tools/overnight.py`).
+- **Cross-checks with openMSX:** consecutive-frame bursts from both emulators (`tools/burst.py`, with `--machine` for the MSX2+), VDP register and palette logs, palette probes, and an overnight batch (`tools/overnight.py`).
 - **Tester:** `winuae/AmiMSX-Tester.ps1`, a Windows launcher for playing in WinUAE (68030 or PiStorm-like speed) with one-click issue reports.

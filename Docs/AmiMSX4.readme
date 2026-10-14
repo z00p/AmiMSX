@@ -1,57 +1,98 @@
 Short:        MSX/MSX2/MSX2+ emulator, accuracy update
-Author:       Juan Antonio Gomez Galvez (RED Soft); 4.0 changes: <uploader>
-Uploader:     <uploader> (<email>)
+Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
+Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
 Version:      4.0
-Replaces:     -
 Architecture: m68k-amigaos >= 3.0.0
-Requires:     68030 or better (68020 runs with the A1200 preset), AGA or ECS
+Requires:     68030 or better, AGA
 Distribution: Aminet
-Kurz:         MSX/MSX2/MSX2+ Emulator, Genauigkeits-Update
+Kurz:         MSX-Emulator (MSX2/2+), mehr Genauigkeit
 
-DRAFT - not for upload until the original author agrees to the release,
-its name and its licence (see Docs/release_4.0.md).
+AmiMSX 4.0 is a community update of AmiMSX, the MSX, MSX2 and MSX2+
+emulator by Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft),
+released with his permission. It is built from his v3.1 source, with parts
+of his later v3.2/v3.5 source. This version puts accuracy first: many
+games that broke or glitched in 3.x now run as on a real MSX.
 
-AmiMSX 4.0 is an update of AmiMSX 3.1 by Juan Antonio Gomez Galvez
-(RED Soft), built from the 3.1 source released on Aminet
-(misc/emu/AmiMSX_asm). This version puts accuracy first: a fast 68030 or
-68040 is the baseline, and PiStorm (Emu68) systems have speed to spare.
+As before, AmiMSX takes over the machine while the MSX runs and drives the
+custom chips directly. HELP returns to the menu.
 
-What's new
-----------
-- Sprite collisions (S#0), the 5th sprite flag and mid-frame splits
-  (sprite tables, SCREEN 4 tables, SCREEN 5/4 modes, palettes, R#8/R#18/R#23).
-- Z80 fixes: POP/RET through ROM, NEG/CPL flags, M1 wait states, LD A,R.
-- VDP command fixes: transparent copies, LMMC.
-- 48/64 KB linear ROMs, 4 MB ROMs, openMSX-style mapper guessing.
-- Three Workbench presets (A1200, 030, PiStorm) using the new
-  PREFS=<file> ToolType.
-- Ships with C-BIOS 0.29 as AmiMSX2.data. See below for disks and BASIC.
-
-See CHANGES_4.0 for the full list.
-
-System ROMs
------------
-The included AmiMSX2.data holds C-BIOS (http://cbios.sourceforge.net), a
-free MSX BIOS that runs cartridges. It has no MSX-BASIC and no disk ROM.
-For disk images (MVD) and BASIC, copy AmiMSX2.data from the AmiMSX 3.2
-package (Aminet misc/emu/AmiMSX) over the included one.
+Requirements
+------------
+- AmigaOS 3.0 or later.
+- A 68030 or better. The low-spec target is an A1200 or similar with a
+  68030 at 50 MHz and fast RAM. A stock 68020 A1200 runs it, but slowly.
+- AGA. On ECS AmiMSX warns that it needs AGA and can carry on, with
+  limits, as 3.x did.
+- The libraries and devices listed in AmiMSX.guide (as for 3.1).
+- PiStorm (Emu68), BigMig or another fast CPU for MSX-Music (FM), 60 Hz
+  games at full speed and Smooth display.
 
 Installation
 ------------
-Copy the AmiMSX drawer anywhere. Start one of the preset icons:
-  AmiMSX A1200    68020/14 MHz: sprites every 2nd frame
-  AmiMSX 030      68030/50 MHz: sprites every frame
-  AmiMSX PiStorm  Emu68: everything at full accuracy
-Each preset keeps its own settings file. Save Prefs in the menu writes to
-the preset you started.
+Copy the AmiMSX drawer anywhere and start one of the preset icons:
+
+  AmiMSX 030      68030/50 with fast RAM: PSG, PAL, sprites every frame
+  AmiMSX PiStorm  PiStorm, BigMig and other fast CPUs: PSG+FM, display
+                  frequency from the VDP, Japanese ID (60 Hz), audio
+                  filter, smooth display
+
+Each preset keeps its own settings file (ToolType PREFS=<file>), and Save
+Prefs in the menu writes to the preset you started.
+
+AmiMSX4.romcache is created next to the program on first use: each
+MegaROM is hashed once and its mapper looked up in AmiMSX4.romdb. Leave
+the drawer writable.
+
+The included AmiMSX2.data is the original one (MSX, MSX2 and MSX2+ system
+ROMs, disk ROM and Kanji), as in the earlier AmiMSX packages, so disk
+images and MSX-BASIC work.
+
+What's new
+----------
+- Z80: POP/RET through ROM, RLD/RRD on ROM, NEG/CPL flags, M1 wait
+  states, LD A,R from emulated time.
+- VDP: sprite collisions, the 5th sprite flag, sprite mode 2 bands and
+  mid-frame splits (sprite tables, SCREEN 4 tables, SCREEN 5/4 modes,
+  palettes, R#8/R#18/R#23, display off), transparent copies, LMMC.
+- MSX2+: the machine is back, with V9958 fine scroll (R#27) and the left
+  mask (R#25) per line (Space Manbow, Nemesis 3 Enhanced, Chikubi Ninja).
+- Sound: MSX-Music (FM) on Paula channel 3 ("PSG+FM", or "FM lite" with
+  the 4 loudest voices); PSG volume in 3 dB steps as the YM2149.
+- Display: double-buffered sprites, Smooth display (SCREEN 4) for fast
+  CPUs, automatic edge mask for games that scroll sideways.
+- Options: Use Japanese ID (60 Hz), Audio filter, Mask screen edges
+  (always or auto), per-game settings next to each cartridge.
+- Cartridges: ROM database (mapper by SHA-1), 8 KB, 48/64 KB and 4 MB
+  ROMs, flash Konami SCC cartridges with saves (Pampas & Selene).
+- Disks: drive B with its own image (written back), disk swap with Left
+  Amiga.
+- Freeware texts and no anti-crack counter, from Juan's v3.2/v3.5.
+- Cleaner exits when a screen, window or device can't be opened.
+
+See Docs/CHANGES_4.0.md for the full list.
+
+Known limits
+------------
+- Smooth display covers SCREEN 4 only; other modes run as before.
+- MSX2+: fine scroll and the left mask only. No coarse scroll (R#26),
+  two-page scroll (SP2) or YJK modes (SCREEN 10-12) yet, and no fine
+  scroll in SCREEN 2 (Salamander Enhanced).
+- Jailbreak: scenery rows flash at the top of the playfield (bitmap
+  splits are timed from the Amiga beam).
+- Head over Heels Remake: letters missing from the menu text.
+- Nemesis 2: stray cyan dots on the star field.
+- Barbarian: the sky is lighter than on an MSX.
 
 Credits
 -------
-AmiMSX: Juan Antonio Gomez Galvez, RED Soft (1994-2000).
-C-BIOS: the C-BIOS team (BSD-style licence, see C-BIOS.txt).
+AmiMSX: Juan Antonio Gomez Galvez, GUS Entertainment / RED Soft
+        (1994-2000/2009/2021).
+Graphics: Multivac.
+Thanks: Zener and Sandman.
 Testing references: openMSX.
 
-Licence
--------
-<to be agreed with the author>
+Source
+------
+The 68k assembler source (vasm), tools and test suite:
+<source URL>
