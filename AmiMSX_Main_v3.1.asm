@@ -1924,6 +1924,9 @@ TrvEnd:
 ; ---------------------------------------=> Retorna Amiga Hardware para Amiga.
 	CNOP	0,8
 SALIR:
+	IFD	EXCCHK			; (4.0) Debug builds: the exception
+	JSR	ExcRestore		; vectors back on every exit.
+	ENDC
 	MOVEM.L	D0-D7/A0-A7,DEBUG
 	MOVE.L	PILA,SP
 	IFEQ	TOTAL
