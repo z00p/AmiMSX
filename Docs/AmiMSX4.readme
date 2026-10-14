@@ -93,8 +93,12 @@ Known limits
   as solid blocks (seen with Smooth display off).
 - Lotus F3: the car jitters while it moves (seen on PiStorm).
 - CD32-style pads (e.g. KTRL CD32): a direction and the fire button
-  can't be held together in some games (Pampas & Selene); a plain
-  joystick works.
+  can't be held together in some games (Pampas & Selene), and the
+  second button may not reach the MSX (Gradius 2 power-up select).
+  Left Amiga (port 2) or Right Amiga (port 1) also press MSX fire
+  button 2; in Gradius 2 the M or N key works too.
+- Gradius III Legends: it writes to its disk, so leave the MVD drive
+  unprotected. Display problems in play are still being looked at.
 
 Credits
 -------

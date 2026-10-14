@@ -98,7 +98,7 @@ def omsx(r, times, n, out):
     s += "set throttle off\n"
     open(tcl, "w").write(s)
     cmd = [OMSX, "-machine", MACHINE]
-    if r["kind"] == "dsk":
+    if r["kind"] in ("dsk", "disk"):
         cmd += ["-diska", os.path.join(BASE, "run", "Disks", r["file"])]
     else:
         cmd += ["-cart", os.path.join(BASE, "run", "Roms", r["file"])]

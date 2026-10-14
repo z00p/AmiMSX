@@ -232,3 +232,16 @@ The opening transceiver call waits for trigger B: M (or N) advances it. RETURN, 
 - **Not a regression:** the baseline captures from before the 4.0 display work show the same headless hero, and build 8af1d95 matches them pixel for pixel.
 - **Reference:** openMSX on the real-ROM machine (AmiMSX_MSX2_Disk; the C-BIOS machines stop at "You need at least 128 Kb of mapped RAM") shows a dark helmet with a skin-coloured face on top of the body.
 - **To check:** whether the head is a separate sprite, which sprite mode the game uses (tests/titles.csv says MSX1, but the game wants 128 KB of mapper RAM), the sprites-per-line limit and its priority order, and colour mixing (the CC bit in sprite mode 2).
+
+## Gradius III Legends: disk write and display (open, 14 Oct 2026)
+
+- **Seen:** a tester on real hardware. "Disk write protected" at start: the game writes to its disk, and the MVD drive defaults to write-protected ($61=$FF). Unprotecting the drive cures it.
+- **Also seen (video, 4.5 s):** the game runs in SCREEN 5 (openMSX scan: S5 1298 of 1736 frames, 30 bitmap VDP commands). Ship, enemies, bullets and scenery draw. Then the scenery breaks up into horizontal lines, row by row, and vanishes, leaving the star field. Then the screen goes blank and "STAGE 01 / REST 00" appears. The video doesn't show whether the line break-up is the game's own wipe (e.g. a line-by-line HMMV/LMMV clear) or a missing VDP command.
+- **To do (post-release):** get the tester's list of what is wrong. Reproduce the same moment in openMSX on AmiMSX_MSX2_Disk with tools/burst.py (disk titles now run there; the C-BIOS machines have no disk ROM) and compare frame by frame. Log VDP commands (tools/omsx_cmdlog.tcl) across the transition. Also consider whether presets should default to an unprotected MVD drive.
+
+## Second fire button not seen with a CD32-style pad (open, 14 Oct 2026)
+
+- **Seen:** a tester, KTRL CD32 pad, Gradius 2 (grad2tr): the second button doesn't select the power-up.
+- **Checked (game side):** Gradius 2's input routine (ROM $5D40) writes PSG R#15=$8F (joystick port 1), reads R#14 for the stick and both triggers (AND $3F), then ORs in $20 (trigger B) when M or N is pressed (SNSMAT row 4, bits 2-3). So power-up select is MSX trigger B, or the M/N keys.
+- **Checked (AmiMSX side):** TesteaJoyRut maps Amiga port 2 to MSX joystick 1. Trigger B is set from POTINP DATRY (pin 9) or DATRX (pin 5) after writing POTGO=$FF00, or from Left Amiga. INA2 and SOUND15 return DATOJOY1 for R#15 bit 6 = 0. This is the usual Amiga second-button read, so the emulator path looks right.
+- **To check:** whether Left Amiga or M selects the power-up for the tester (this splits pad from emulator). Whether the KTRL's blue button shows on pin 9 in plain joystick mode in other two-button Amiga games. Whether a fast CPU needs a longer gap between the POTGO write and the POTINP read (one NOP now). Whether anything else (input.device via potgo.resource) rewrites POTGO while AmiMSX runs. Same pad as the Pampas & Selene report above.
