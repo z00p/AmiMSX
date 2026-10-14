@@ -54,7 +54,7 @@ Options 2 and 3 can share the register handling (ports 7Ch/7Dh, the channel stat
 
 A Python model of the wavetable approach, written the way the 68k code will work:
 
-- **Tables:** each instrument becomes 8 one-cycle tables of 256 signed bytes, one per modulator level. Each is the carrier's steady-state output, made with the chip's own log-sine/exp method (feedback and half-sine waveforms included). Built-in instrument data from emu2413 (MIT, by Mitsutaka Okazaki; reference copy in `emu2413`, v1.6.4). 15 built-in instruments × 8 × 256 = 30 KB; the custom instrument's 2 KB are rebuilt when a game writes registers 00h-07h.
+- **Tables:** each instrument becomes 8 one-cycle tables of 256 signed bytes, one per modulator level. Each is the carrier's steady-state output, made with the chip's own log-sine/exp method (feedback and half-sine waveforms included). Built-in instrument data from emu2413 (MIT, by Mitsutaka Okazaki; v1.6.4; licence in `Docs/LICENSE.emu2413`). 15 built-in instruments × 8 × 256 = 30 KB; the custom instrument's 2 KB are rebuilt when a game writes registers 00h-07h.
 - **Envelopes:** once a frame, from the chip's rate rules (key scaling included): decay/release as a per-rate step per frame, attack as a per-rate curve.
 - **Voices:** a 32-bit phase accumulator per voice; the gain (carrier envelope + volume + key-scale level) picks one of 64 steps of 0.75 dB. The gain moves in 4 steps across a frame, and a change of modulator level cross-fades over the frame, both against clicks.
 - **Not modelled:** the AM/PM LFOs (tremolo/vibrato flags), rhythm mode, the modulator's envelope within a frame.

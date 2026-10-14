@@ -124,6 +124,7 @@ def main():
     amiga_text(os.path.join(BASE, "Docs", "CHANGES_4.0.md"), os.path.join(d, "Docs", "CHANGES_4.0.txt"))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(d, "AmiMSX4.readme"))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(out, "AmiMSX4.readme"))
+    amiga_text(os.path.join(BASE, "Docs", "LICENSE.emu2413"), os.path.join(d, "Docs", "LICENSE.emu2413"))
     shutil.copy(os.path.join(BASE, "Pics", "Keyboard.Iff"), os.path.join(d, "Docs", "Keyboard.Iff"))
     shutil.copy(os.path.join(BASE, "Pics", "Keyboard.Iff.info"), os.path.join(d, "Docs", "Keyboard.Iff.info"))
     lhasa = os.environ.get("LHASA")

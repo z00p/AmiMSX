@@ -79,7 +79,7 @@ https://github.com/z00p/AmiMSX/issues
     - Two @{"presets" link Presets}: one for a 68030, one for PiStorm and
       other fast CPUs.
 
-    The full list is in CHANGES_4.0.md.
+    The full list is in Docs/CHANGES_4.0.txt.
 
 
 @{fg highlight}    Credits for 4.0:
@@ -242,7 +242,7 @@ THIS SOFTWARE...
 
     Information about the author and credits.
 
-@{fg highlight}    <*> Menu Screen:
+@{fg highlight}    <*> Screen mode:
 @{fg text}    ----------------
 
     Set menu screen in PAL or NTSC.
@@ -316,7 +316,7 @@ Space and Down key bug.)
     To exit pause press DEL key again.
 
 
-@{fg highlight}    <*> Ask for Power ON:
+@{fg highlight}    <*> Ask for Reset:
 @{fg text}    ---------------------
 
     If this menu is enabled the emulation will ask for a confirmation
@@ -396,7 +396,7 @@ Amiga files on your hard Disk, CD-ROM, etc...
 
     Note:  MVD files are MSX Disk Images.  (#?.dsk)
 
-@{fg highlight}    <*> Load/Save Disk File:
+@{fg highlight}    <*> Load Disk File / Save Disk File:
 @{fg text}    ------------------------
 
     To Load/Save MVD files.
@@ -429,7 +429,7 @@ and B.
 
     Create a buffer (MVD:) of a 1DD/2DD MSX disk.
 
-@{fg highlight}    <*> Clear Buffer:
+@{fg highlight}    <*> Clear buffer (Eject):
 @{fg text}    -----------------
 
     Clear MVD: buffer  (as an Eject disk of MVD: drive)
@@ -1069,6 +1069,11 @@ Note: Test included in 'MVD files/Speed Test.MVD'
  Sex Bomb Bunny          © Matra Corporation
 
  Ark-A-Noah              © Matra Corporation
+
+ YM2413 instrument data  © Mitsutaka Okazaki      (emu2413, MIT licence)
+                           See Docs/LICENSE.emu2413.
+
+ AmiMSX4.romdb           Built from the openMSX software database.
 
 @endnode
 

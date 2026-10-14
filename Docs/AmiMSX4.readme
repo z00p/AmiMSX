@@ -78,7 +78,7 @@ What's new
 - Freeware texts and no anti-crack counter, from Juan's v3.2/v3.5.
 - Cleaner exits when a screen, window or device can't be opened.
 
-See Docs/CHANGES_4.0.md for the full list.
+See Docs/CHANGES_4.0.txt for the full list.
 
 Known limits
 ------------
@@ -116,6 +116,9 @@ AmiMSX: Juan Antonio Gomez Galvez, GUS Entertainment / RED Soft
 Graphics: Multivac.
 Thanks: Zener and Sandman.
 Testing references: openMSX.
+YM2413 instrument data: emu2413 (c) Mitsutaka Okazaki, MIT licence
+  (Docs/LICENSE.emu2413).
+AmiMSX4.romdb: built from the openMSX software database.
 
 Source
 ------

@@ -1,3 +1,9 @@
+---
+name: Game problem
+about: A game doesn't start, looks wrong, sounds wrong or plays wrongly
+labels: compatibility
+---
+
 ## Game
 
 - Name and version (publisher, year, any "enhanced" or translated release):
@@ -30,4 +36,3 @@
 
 AmiMSX, and openMSX at the same moment if you can.
 
-/label ~compatibility ~needs-info

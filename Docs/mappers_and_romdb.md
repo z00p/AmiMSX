@@ -2,7 +2,7 @@
 
 What AmiMSX 4.0 can map today, what MSX software needs (openMSX's software database), how the maintainer's sets fare, and a plan for picking the mapper and settings from a database.
 
-Sources: `AmiMSX_Main_v3.1.asm`, `AmiMSX_Menu_v3.1.asm`, `AmiMSX2.mapper`, openMSX 21.0's `tools/openmsx/share/softwaredb.xml`, the ROMs in `run/Roms`, the MSX Top 100 on a local drive, and the maintainer's MSX/MSX2 sets on a local drive and a local drive. The ROMs were read with Python (SHA-1, AmiMSX's checksum, a port of GuessMapper); nothing was run in WinUAE.
+Sources: `AmiMSX_Main_v3.1.asm`, `AmiMSX_Menu_v3.1.asm`, `AmiMSX2.mapper`, openMSX 21.0's `tools/openmsx/share/softwaredb.xml`, the ROMs in `run/Roms`, an MSX Top 100 list, and the maintainer's local MSX/MSX2 sets. The ROMs were read with Python (SHA-1, AmiMSX's checksum, a port of GuessMapper); nothing was run in WinUAE.
 
 ## Status (12 Oct, implemented)
 
@@ -15,7 +15,7 @@ Sources: `AmiMSX_Main_v3.1.asm`, `AmiMSX_Menu_v3.1.asm`, `AmiMSX2.mapper`, openM
   - the "needs mapper X" message for $FE types (they fall back to the tag and the guess);
   - the hints byte (SRAM, flash) isn't used yet;
   - a timing of the SHA-1 on a real A1200.
-- **Keeping it current:** refresh from each monthly openMSX regular build (`Docs/release_4.0.md`, "Each release: refresh the ROM database").
+- **Keeping it current:** refresh from each monthly openMSX regular build (each release: refresh the ROM database).
 
 ## Summary
 

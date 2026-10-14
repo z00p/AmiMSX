@@ -1,3 +1,9 @@
+---
+name: Bug
+about: AmiMSX itself: menu, prefs, crashes, Workbench start
+labels: bug
+---
+
 ## What happened
 
 Steps to reproduce:
@@ -20,4 +26,3 @@ What happened instead (error text, guru number, a freeze, wrong settings...):
 - Version and preset:
 - Prefs file used (`S:AmiMSX2.prefs`, or the preset's `PREFS=` file):
 
-/label ~needs-info

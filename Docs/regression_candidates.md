@@ -4,7 +4,7 @@
 
 ## Summary
 
-This list proposes software for a second AmiMSX regression set. Each entry is chosen for the MSX hardware behaviour it stresses. The 34 ROMs already in the regression set are not repeated as new finds; they only appear where they help a comparison. Cross-reference used: `top_MSX1.tsv` (the maintainer's MSX Top 100). Titles marked **(have)** are already in the maintainer's collection.
+This list proposes software for a second AmiMSX regression set. Each entry is chosen for the MSX hardware behaviour it stresses. The 34 ROMs already in the regression set are not repeated as new finds; they only appear where they help a comparison. Cross-reference used: the maintainer's MSX Top 100 list. Titles marked **(have)** are already in the maintainer's collection.
 
 Main findings:
 
@@ -111,7 +111,7 @@ Other titles on msx.org's hard-to-emulate list whose details I did not verify: 2
 | Game | Plain version | Enhanced version(s) | What differs | Avail. | Source |
 |---|---|---|---|---|---|
 | **Neon Revenant** | MSX1 edition: 512 KiB ASCII8, PSG, 32K RAM / 16K VRAM | MSX2 edition (512 KiB ASCII8, PSG). Turbo R edition (512 KiB, MSX-MUSIC + PSG). V9990 edition (1 MiB, turbo R + GFX9000). V9968 "HC" edition (2 MiB). | Same pseudo-3D rail shooter with chipset-specific backgrounds. **Best free MSX1-vs-MSX2 pair**: identical mapper, so differences isolate the VDP. Final release 20 Sep 2026; licence "unspecified", ROMs freely downloadable from GitHub releases. | FREE | [GitHub](https://github.com/kanon-ai/NEON_REVENANT), [Indie Retro News](https://www.indieretronews.com/2026/09/neon-revenant-in-dev-native-msx-pseudo.html) |
-| **Monster Hunter** (have) | 128 KB with a plain Konami mapper: PSG | Same ROM with **KonamiSCC mapper**: SCC music | SCC only appears when the mapper is set to KonamiSCC, so it tests mapper selection and the SCC path with one file. The maintainer's mapper guess currently says Konami (no SCC). | FREE (MSXdev'06 winner) | [msx.org](https://www.msx.org/news/software/en/msxdev06-10-monster-hunter), [msxdev'06](https://www.msxdev.org/msxdev-archive/msxdev06/) |
+| **Monster Hunter** (have) | 128 KB with a plain Konami mapper: PSG | Same ROM with **KonamiSCC mapper**: SCC music | SCC only appears when the mapper is set to KonamiSCC, so it tests mapper selection and the SCC path with one file. The mapper guess currently says Konami (no SCC). | FREE (MSXdev'06 winner) | [msx.org](https://www.msx.org/news/software/en/msxdev06-10-monster-hunter), [msxdev'06](https://www.msxdev.org/msxdev-archive/msxdev06/) |
 | **Chikubi Ninja** (already tested) | MSX2: smooth scroll via **set-adjust (R#18)** | MSX2+ / turbo R: **hardware scroll (R#26/27)** | Run the existing test ROM explicitly as MSX2 to pin the R#18 path. | FREE | [msx.org](https://www.msx.org/news/challenges/en/MSXdev25-21-ChikubiNinja) |
 | **Uridium** (MSXdev14) vs **Uridium 2** (both already tested) | MSX1 version | MSX2 "demake" with multidirectional 256-colour scroll, SCC | Already covered. Mentioned as the existing reference pair. | FREE | (existing set) |
 | **Maiden's Extreme Fist** (have) | MSXdev24 ROM, SCC | Cartridge/SD edition with **SCC and Yamanooto stereo** soundtracks, save/load and bug fixes | Sound-device variants. Only the MSXdev ROM is free. | FREE / COMM | [generation-msx](https://www.generation-msx.nl/software/retromixis-games/maidens-extreme-fist-bun-ga-rua/release/8564) |
