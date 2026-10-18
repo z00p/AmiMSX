@@ -1,8 +1,9 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.0 beta
+Short:        MSX/MSX2/MSX2+ emulator, 4.1 beta
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.0
+Version:      4.1
+Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
 Distribution: Aminet
@@ -80,14 +81,46 @@ What's new
 
 See Docs/CHANGES_4.0.txt for the full list.
 
+New in 4.1
+----------
+- MSX2+: coarse scroll (R#26) and two-page scroll (SP2) in SCREEN 5
+  and the tile modes (Gradius III Legends: set ROM to MSX2+).
+- Mode splits: SCREEN 8 over SCREEN 5 (Manbow 2's title screen).
+- Manbow 2: the ship no longer jumps back while it moves.
+- Smooth display drops a late frame instead of repeating one, so the
+  music keeps its tempo.
+- Z80: BIT, IN, RLD/RRD, CPI/CPD, DAA flags; RETI; IM 0; interrupt and
+  instruction timings.
+- MVD drives are write-enabled by default, so disk games can save.
+- A display bug that could blank a whole frame is fixed.
+
+Games it runs well
+------------------
+Tested on a PiStorm A1200 and in the regression suite (WinUAE):
+- Homebrew: Manbow 2, Lilly's Saga, Chikubi Ninja, Delta, Neon
+  Revenant, BUN-GA-RUA (Maiden's Extreme Fist), Pampas & Selene,
+  Uridium (MSXdev'14), Night Knight, Nogalious, Sword of IANNA,
+  Westen House, The Cure, Caos Begins, Uwol, Bit Logic, Mutants from
+  the Deep, Shoulder Blade OVERDRIVE, Gradius III Legends (MSX2+).
+- Enhanced classics (community patches of Konami games; bring your
+  own original): Space Manbow (smooth on MSX2, superb on MSX2+),
+  Nemesis 3 Enhanced, Salamander Enhanced, Usas Enhanced, Zanac Ex
+  Enhanced, Gradius 2 with the SCC/enhancement patches.
+- Disks: Ark-A-Noah and Sex Bomb Bunny (in MVD_Files), disk-based
+  homebrew such as Gradius III Legends.
+Free homebrew: file-hunter.com and msx.org list most of these.
+
 Known limits
 ------------
 - Smooth display covers SCREEN 4 only; other modes run as before.
 - Smooth display switches itself off in games that play MSX-Music
   (FM), so their music keeps its tempo.
-- MSX2+: fine scroll and the left mask only. No coarse scroll (R#26),
-  two-page scroll (SP2) or YJK modes (SCREEN 10-12) yet, and no fine
-  scroll in SCREEN 2 (Salamander Enhanced).
+- MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games misbehave
+  with ROM set to MSX2+ (Pampas & Selene's sprite walking left); run
+  MSX2 games as MSX2.
+- Gradius III Legends (MSX2+): scenery can also appear at the left
+  edge, with a jump in the scroll; on the power meter screen the old
+  selection box isn't erased.
 - Jailbreak: scenery rows flash at the top of the playfield (bitmap
   splits are timed from the Amiga beam).
 - Head over Heels Remake: letters missing from the menu text.
@@ -95,19 +128,17 @@ Known limits
 - Barbarian: the sky is lighter than on an MSX.
 - Bombaman: moving characters look ghosted on fast machines (seen on
   PiStorm and BigMig), though each frame is correct.
-- Manbow 2: the intro screens are drawn corrupted, and in play the
-  ship jumps back 3-4 dots now and then while it moves.
+- Manbow 2: a stray line at the top left of the title screen.
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
 - Lotus F3: the car jitters while it moves (seen on PiStorm).
-- CD32-style pads (e.g. KTRL CD32): a direction and the fire button
-  can't be held together in some games (Pampas & Selene), and the
-  second button may not reach the MSX (Gradius 2 power-up select).
-  Left Amiga (port 2) or Right Amiga (port 1) also press MSX fire
-  button 2; in Gradius 2 the M or N key works too.
-- Gradius III Legends: it writes to its disk, so unprotect the MVD
-  drive. In play the scenery appears behind the ship (left) instead of
-  scrolling in from the right.
+- CD32 pads: read as plain two-button joysticks (red = fire 1, blue =
+  fire 2). A CD32 mode is planned as a menu option. Left Amiga (port 2)
+  or Right Amiga (port 1) also press MSX fire button 2.
+- Bit Logic: the hero on the intro screen is drawn split in two.
+- Rarely, a game doesn't start on the first Power ON after the
+  cartridge was changed (a black screen): press Power ON again.
+
 
 Credits
 -------

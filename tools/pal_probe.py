@@ -15,7 +15,7 @@ COPPLINE = 0x10
 # perf.bin tail, from the end (AmiMSX_Menu PerfDump): SCCalls, KeyFrN, RAM E000
 # and C000, TAB98B, TAB98, GfxCaAdr, GfxCaPtr, cache, SCREEN, the two copper
 # pointers, copper routines, copper line slots, PalDbg block, TSplit, MSX2Pal.
-TAIL = [("dbcommits", 16), ("displine", 4096), ("displog", 4096), ("dispn", 4), ("flash", 12), ("opllcnt", 4), ("opll", 0x44), ("SCCalls", 4), ("KeyFrN", 4), ("ramE", 0x2000), ("ramC", 0x2000), ("tab98b", 0x4000),
+TAIL = [("acl", 8), ("dbcommits", 16), ("displine", 4096), ("displog", 4096), ("dispn", 4), ("flash", 12), ("opllcnt", 4), ("opll", 0x44), ("SCCalls", 4), ("KeyFrN", 4), ("ramE", 0x2000), ("ramC", 0x2000), ("tab98b", 0x4000),
         ("tab98", 0x4000), ("gfxcaadr", 8), ("gfxcaptr", 4), ("cache", 0x10000), ("screen", 0x8000),
         ("copopsptr", 4), ("coplnptr", 4), ("copops", 4096), ("coplines", 212 * COPPLINE),
         ("paldbg", 2 + 6 + PALEVMAX * 2 + 32 * PALEVMAX + 32), ("tsplit", 2), ("msx2pal", 32)]

@@ -38,6 +38,7 @@ Research of 14 Oct 2026: which games use V9958 features, measured in openMSX on 
    - SCREEN 4 plane rows go from 32 to 40 bytes, with bytes 32-39 a copy of columns 0-7. Every 32*4 constant changes, including Dbuf, HUDSplit4 and MSplitFill.
    - SP2 needs the second page alongside.
    - For grad2tr (Gradius 2), and completeness.
+   - Design and first step (R#26 in SCREEN 5, 32-bit fetch): `msx2plus_phase2.md`.
 3. **Only if a game needs it:**
    - YJK SCREEN 10-12, on the PiStorm preset: a table lookup on top of the SCREEN 8 path.
    - CMD-bit commands in tile modes.

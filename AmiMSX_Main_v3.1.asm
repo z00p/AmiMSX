@@ -378,6 +378,10 @@ BANDSHOT:	MACRO
 	MOVE.B	VDPLinY(A3),(A1,D0.W)	; each line (Space Manbow: C0h over its
 	LEA	BandR8,A1		; status bar, 24h below), and R#8: SPD
 	MOVE.B	DVDP8(A3),(A1,D0.W)	; (sprites off) over that status bar.
+	BTST	#1,DVDP8(A3)		; (4.0) A band with sprites on: the
+	BNE.S	\@so			; overlay is drawn whatever the longest
+	ST	BandSprOn		; segment's R#8 says (SPRMODE5/6).
+\@so:
 	ADDQ.W	#1,BandN
 	MOVEM.L	SnapSave,D0/A0-A1
 \@x:
@@ -425,6 +429,7 @@ MODESW:	MACRO
 	MOVE.W	D1,MsNewW
 	MOVE.B	ScrModo(A3),MsOld
 	MOVE.B	D1,ScrModo(A3)
+	SF	V9Scr5			; (4.0) Set again by ModoGfx5.
 	MOVE.W	CurLine(A3),D1
 	BEQ.S	\@ns
 	CMP.W	#191,D1
@@ -437,7 +442,20 @@ MODESW:	MACRO
 	MOVE.B	MsOld,MSplitTop
 	MOVE.B	DVDP2(A3),MS_DVDP2
 	MOVE.B	VDPLinY(A3),MS_LinY
-	MOVE.B	#3,MSplitSeen
+	MOVE.B	MsOld,D1		; (4.0) SCREEN 5 <-> 8: a bitmap pair, the
+	AND.B	#$0B,D1			; top page keeps its own planes (BMSPrep,
+	CMP.B	#3,D1			; Docs/bitmap_mode_split.md).
+	BNE.S	\@np
+	MOVE.B	MsOld,D1
+	EOR.B	#4,D1
+	CMP.B	MsNewW+1,D1
+	BNE.S	\@np
+	CMP.W	#$01FC,MCAGA		; AGA only: BMSPrep bails on ECS (review R2).
+	BNE.S	\@np
+	ST	BMSPair
+	BRA.S	\@pd
+\@np:	SF	BMSPair
+\@pd:	MOVE.B	#3,MSplitSeen
 \@ns:
 	TST.B	MSplitSeen
 	BEQ.S	\@full
@@ -490,7 +508,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.0  ("
+	DC.B	"$VER:AmiMSX Emulator v4.1  ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -527,6 +545,10 @@ InitSistema:
 
 ; -------------------------------=> Inicializa datos en CopperLine.
 CoppLineSize=$10
+; (4.0) Bitmap-pair mode split (Docs/bitmap_mode_split.md): the page
+; shown above the split, converted on its own into SCREENP: 8 planes
+; (4 for SCREEN 5) of 256 lines of 32 bytes.
+BMSPAGE=8192
 	CNOP	0,8
 CreaCoppLine:
 	MOVE.L	#$2AC1FFFE,D1		; Wait Y and X lines.
@@ -624,6 +646,13 @@ ArrScr8PalBuc3:
 	MOVE.W	D2,(A1,D1.W)
 	DBF	D3,ArrScr8PalBuc3
 
+	LEA	Scr8Pal,A0		; (4.0) The same palette in COPPER8P (the
+	LEA	Scr8PalP,A1		; SCREEN 5 over SCREEN 8 pair split).
+	MOVE.W	#(8*33)-1,D0
+ArrScr8PalP:
+	MOVE.L	(A0)+,(A1)+
+	DBF	D0,ArrScr8PalP
+
 	RTS
 
 	CNOP	0,8
@@ -701,6 +730,34 @@ CALLCS:	MACRO
 	BCC.S	\@Salto
 	BSR	\1
 \@Salto:
+	ENDM
+
+; (4.0) PLROWOFF Dn: Dn.L = VRAM line (0-1023) -> the byte offset of its
+; first copy in a SCREEN 5 plane, by PlMode (AmiMSX_V9958_v4.asm): 0: 32-byte
+; rows; 1: 64; 2: 128-byte page-pair rows ((page>>1)*256 + line, +32 for an
+; odd page). No stack and no other register: it runs in the VDP command
+; engine and the plane conversions, where A7 is the Z80 core's Restas table.
+PLROWOFF:	MACRO
+	CMP.B	#1,PlMode
+	BEQ.S	\@w
+	BCS.S	\@n
+	BCLR	#8,\1
+	BEQ.S	\@e
+	BCLR	#9,\1
+	BEQ.S	\@o0
+	BSET	#8,\1
+\@o0:	LSL.L	#7,\1
+	ADD.W	#32,\1
+	BRA.S	\@x
+\@e:	BCLR	#9,\1
+	BEQ.S	\@e0
+	BSET	#8,\1
+\@e0:	LSL.L	#7,\1
+	BRA.S	\@x
+\@w:	LSL.L	#6,\1
+	BRA.S	\@x
+\@n:	LSL.L	#5,\1
+\@x:
 	ENDM
 
 CALLCC:	MACRO
@@ -1044,9 +1101,6 @@ ModSC9Buc:
 ; =--------------------------------=> Copper 5
 ;	ADDQ.W	#8,COPPER5+14
 ;	ADDQ.W	#8,COPPER5+18
-	ADDQ.B	#8,ModC50+1
-	ADDQ.W	#8,ModC51+2
-	MOVE.W	#$4E71,ModC52
 	LEA	TabCop5+6,A0
 	MOVE.W	#(212+1)-1,D0
 ModSC5Buc:
@@ -1056,12 +1110,7 @@ ModSC5Buc:
 	DBF	D0,ModSC5Buc
 ; =--------------------------------=> Copper 6
 	MOVE.L	#PRINT6ecs,TabScr+($04*8)
-	ADDQ.B	#8,ModC60+1
-	ADDQ.W	#8,ModC61+2
 ; =--------------------------------=> Copper 7
-	ADDQ.B	#8,ModC70+1
-	ADDQ.W	#8,ModC71+2
-	MOVE.W	#$4E71,ModC72
 ; =--------------------------------=> Copper 8
 	MOVE.L	#PRINT8ecs,TabScr+($07*8)
 	MOVE.L	#VDP17,M8Chap+2
@@ -2253,7 +2302,7 @@ BUCAR:	CLR.L	(A0)+
 	DBF	D0,BUCAR
 
 	LEA	SCR0,A0
-	MOVE.W	#($20000/8)-1,D0
+	MOVE.W	#($40000/8)-1,D0
 BUCARG:	CLR.L	(A0)+
 	CLR.L	(A0)+
 	DBF	D0,BUCARG
@@ -2482,6 +2531,7 @@ FLAGSBUC:
 	CLR.B	V9R25
 	CLR.B	V9R26
 	CLR.B	V9R27
+	SF	V9Scr5
 	BCLR	#2,DVDPS1(A3)			; Desactivaci�n modo MSX2+
 	CMP.B	#2,DirPrefs+$10
 	BLT.S	NOES2Plus
@@ -2930,6 +2980,7 @@ BUCLE:
 	CNOP	0,8
 	DC.B	"RAFY"
 NOCO:
+	SUBQ.W	#4,(A3)			; (4.0) the prefix is a 4-cycle NOP (was 0)
 	MOVE.B	-1(A5),D2
 	JMP	([A3,D2.W*8])
 
@@ -3222,6 +3273,34 @@ OtraP:	MACRO
 	Otra	\1
 	ENDM
 
+OtraDAA:MACRO				; (4.0) DAA: C from ABCD/SBCD, S Z and
+	MOVE.W	CCR,D3			; P/V (parity) from the result. ABCD
+	AND.B	#$01,D3			; leaves N and V undefined on a 68020+.
+	OR.B	Flags_PAR(A3,D7.W*4),D3
+	Otra	\1
+	ENDM
+
+; (4.0) BIT n,r: Z and P/V from the bit (P/V = Z on a Z80), S clear; BIT 7:
+; S = the bit. Only Z was set. H (set) and N (clear) are not modelled.
+OtraB:	MACRO
+	BEQ.S	\@
+	AND.B	#$F1,D3			; bit set: S Z P/V clear
+	Otra	\1
+\@:	AND.B	#$F1,D3
+	OR.B	#$06,D3			; bit clear: Z and P/V set
+	Otra	\1
+	ENDM
+
+OtraB7:	MACRO
+	BEQ.S	\@
+	AND.B	#$F1,D3
+	OR.B	#$08,D3			; bit 7 set: S set, Z P/V clear
+	Otra	\1
+\@:	AND.B	#$F1,D3
+	OR.B	#$06,D3
+	Otra	\1
+	ENDM
+
 OtraV:	MACRO
 	BNE.S	\@
 	AND.B	#$FD,D3
@@ -3295,6 +3374,12 @@ PonCCR:	MACRO
 	ENDC
 	IFC	"P","\1"
 	OtraP	\2		; Guarda flag P y dem�s.
+	ENDC
+	IFC	"B","\1"
+	OtraB	\2		; BIT n, n < 7.
+	ENDC
+	IFC	"B7","\1"
+	OtraB7	\2		; BIT 7.
 	ENDC
 	ENDM
 
@@ -4399,14 +4484,14 @@ MINC:	MACRO
 	MOVE.B	D5,D2
 	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	MOVE.B	D3,D2
+	AND.W	#$FF,D1			; (4.0) S Z from the byte and P/V = its
+	MOVE.B	Flags_PAR(A3,D1.W*4),D3	; parity (was V = 0); C unchanged.
 	IFC	"1","\2"
 	LSL.W	#8,D1
-	MOVE.W	CCR,D3
 	MOVE.B	\1,D1
 	MOVE.W	D1,\1
 	ELSEIF
 	MOVE.B	D1,\1
-	MOVE.W	CCR,D3
 	ENDC
 	BFINS	D2,D3{31:1}
 	Otra	\3
@@ -5007,14 +5092,14 @@ MInsCB:	MACRO
 \5\2IY:	MIns	\1,A1,#\2,9\4,\3,N,20+\6
 	ENDM
 
-	MInsCB	BTST,0,Z,Y,BIT,0	; CB  4 0xxx
-	MInsCB	BTST,1,Z,Y,BIT,0	; CB  4 1xxx
-	MInsCB	BTST,2,Z,Y,BIT,0	; CB  5 0xxx
-	MInsCB	BTST,3,Z,Y,BIT,0	; CB  5 1xxx
-	MInsCB	BTST,4,Z,Y,BIT,0	; CB  6 0xxx
-	MInsCB	BTST,5,Z,Y,BIT,0	; CB  6 1xxx
-	MInsCB	BTST,6,Z,Y,BIT,0	; CB  7 0xxx
-	MInsCB	BTST,7,Z,Y,BIT,0	; CB  7 1xxx
+	MInsCB	BTST,0,B,Y,BIT,0	; CB  4 0xxx
+	MInsCB	BTST,1,B,Y,BIT,0	; CB  4 1xxx
+	MInsCB	BTST,2,B,Y,BIT,0	; CB  5 0xxx
+	MInsCB	BTST,3,B,Y,BIT,0	; CB  5 1xxx
+	MInsCB	BTST,4,B,Y,BIT,0	; CB  6 0xxx
+	MInsCB	BTST,5,B,Y,BIT,0	; CB  6 1xxx
+	MInsCB	BTST,6,B,Y,BIT,0	; CB  7 0xxx
+	MInsCB	BTST,7,B7,Y,BIT,0	; CB  7 1xxx
 
 	MInsCB	BCLR,0,N,I,RES,3	; CB  8 0xxx
 	MInsCB	BCLR,1,N,I,RES,3	; CB  8 1xxx
@@ -5067,7 +5152,7 @@ CONTD:
 SUMA:
 	MOVE.W	#04,CCR
 	ABCD.B	D2,D7
-	OtraT	4
+	OtraDAA
 RESTA:
 	MOVE.W	D3,CCR
 	BCS.S	SUMA
@@ -5078,7 +5163,7 @@ RESTAB:
 	MOVE.B	D1,D7
 	MOVE.W	#04,CCR
 	SBCD.B	D2,D7
-	OtraT	4
+	OtraDAA
 MIRAC:
 	MOVE.W	D3,CCR
 	BCC	CONTD
@@ -5087,7 +5172,7 @@ MIRAC:
 	SF	D7
 	MOVE.W	#04,CCR
 	SBCD.B	D2,D7
-	OtraT	4
+	OtraDAA
 
 SCF:	BSET	#0,D3
 	Otra	4
@@ -5152,7 +5237,7 @@ EXSPHL:	MOVE.W	(A6),D1
 	EXG.L	D4,D1
 	ROR.W	#8,D1
 	MOVE.W	D1,(A6)
-	Otra	4
+	Otra	19			; (4.0) was 4
 EXDEHL:	EXG.L	D6,D4
 	Otra	4
 EXSPMIX:MOVE.W	(A6),D1
@@ -5234,8 +5319,8 @@ RETPE:	MRETC	VS,11,5
 RETN:	;MOVE.B	IFF0(A3),IFF(A3)
 	MRET	14
 
-RETI:	ST	IFF(A3)
-	MRET	14
+RETI:	MRET	14			; (4.0) a Z80's RETI leaves IFF alone
+					; (it set IFF: interrupts came back on).
 
 
 RST0:	MRST	$00,11
@@ -5289,6 +5374,14 @@ OUTNA:	MOVE.B	(A5)+,D2
 
 IM0:	MOVE.B	#$7F,ModoInt(A3)
 	Otra	8
+; (4.0) OUT (C),0 (ED 71, undocumented): a Z80 outputs 0.
+OUTC0:	MOVE.B	D5,D2
+	MOVEQ	#0,D1
+	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
+	Otra	12
+	CNOP	0,4
+; (4.0) The undefined ED opcodes are 8-cycle NOPs (NADA cost nothing).
+EDNOP:	Otra	8
 IM1:	SF	ModoInt(A3)
 	Otra	8
 IM2:	ST	ModoInt(A3)
@@ -5307,7 +5400,7 @@ INCHX:
 	BFINS	D2,D3{31:1}
 	ROR.W	#8,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 INCLX:
 	MOVE.W	A0,D1
 	MOVE.B	D3,D2
@@ -5315,7 +5408,7 @@ INCLX:
 	MOVE.W	CCR,D3
 	BFINS	D2,D3{31:1}
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 DECHX:
 	MOVE.W	A0,D1
 	ROR.W	#8,D1
@@ -5325,7 +5418,7 @@ DECHX:
 	BFINS	D2,D3{31:1}
 	ROR.W	#8,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 DECLX:
 	MOVE.W	A0,D1
 	MOVE.B	D3,D2
@@ -5333,121 +5426,121 @@ DECLX:
 	MOVE.W	CCR,D3
 	BFINS	D2,D3{31:1}
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXN:
 	MOVE.W	A0,D1
 	LSL.W	#8,D1
 	MOVE.B	(A5)+,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	11
 LDLXN:
 	MOVE.W	A0,D1
 	MOVE.B	(A5)+,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	11
 LDAHX:
 	MOVE.W	A0,D7
 	LSR.W	#8,D7
-	Otra	9
+	Otra	8
 LDALX:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D7
-	Otra	9
+	Otra	8
 LDLHX:
 	MOVE.W	A0,D1
 	LSR.W	#8,D1
 	MOVE.B	D1,D4
-	Otra	9
+	Otra	8
 LDLLX:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D4
-	Otra	9
+	Otra	8
 LDCHX:
 	MOVE.W	A0,D1
 	LSR.W	#8,D1
 	MOVE.B	D1,D5
-	Otra	9
+	Otra	8
 LDCLX:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D5
-	Otra	9
+	Otra	8
 LDEHX:
 	MOVE.W	A0,D1
 	LSR.W	#8,D1
 	MOVE.B	D1,D6
-	Otra	9
+	Otra	8
 LDELX:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D6
-	Otra	9
+	Otra	8
 LDHHX:
 	MOVE.W	A0,D1
 	MOVE.B	D4,D1
 	MOVE.W	D1,D4
-	Otra	9
+	Otra	8
 LDHLX:
 	MOVE.W	A0,D1
 	LSL.W	#8,D1
 	MOVE.B	D4,D1
 	MOVE.W	D1,D4
-	Otra	9
+	Otra	8
 LDBHX:
 	MOVE.W	A0,D1
 	MOVE.B	D5,D1
 	MOVE.W	D1,D5
-	Otra	9
+	Otra	8
 LDBLX:
 	MOVE.W	A0,D1
 	LSL.W	#8,D1
 	MOVE.B	D5,D1
 	MOVE.W	D1,D5
-	Otra	9
+	Otra	8
 LDDHX:
 	MOVE.W	A0,D1
 	MOVE.B	D6,D1
 	MOVE.W	D1,D6
-	Otra	9
+	Otra	8
 LDDLX:
 	MOVE.W	A0,D1
 	LSL.W	#8,D1
 	MOVE.B	D6,D1
 	MOVE.W	D1,D6
-	Otra	9
+	Otra	8
 LDLXA:
 	MOVE.W	A0,D1
 	MOVE.B	D7,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDLXC:
 	MOVE.W	A0,D1
 	MOVE.B	D5,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDLXE:
 	MOVE.W	A0,D1
 	MOVE.B	D6,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDLXL:
 	MOVE.W	A0,D1
 	MOVE.B	D4,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDLXB:
 	MOVE.W	A0,D1
 	ROR.W	#8,D5
 	MOVE.B	D5,D1
 	ROR.W	#8,D5
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDLXD:
 	MOVE.W	A0,D1
 	ROR.W	#8,D6
 	MOVE.B	D6,D1
 	ROR.W	#8,D6
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDLXH:
 	MOVE.W	A0,D1
 	LSR.W	#8,D1
@@ -5455,89 +5548,89 @@ LDLXH:
 	LSL.W	#8,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXL:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D2
 	LSL.W	#8,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXA:
 	MOVE.W	A0,D1
 	ROR.W	#8,D1
 	MOVE.B	D7,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXC:
 	MOVE.W	A0,D1
 	ROR.W	#8,D1
 	MOVE.B	D5,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXE:
 	MOVE.W	A0,D1
 	ROR.W	#8,D1
 	MOVE.B	D6,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXB:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D2
 	MOVE.W	D5,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXD:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D2
 	MOVE.W	D6,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 LDHXH:
 	MOVE.W	A0,D1
 	MOVE.B	D1,D2
 	MOVE.W	D4,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A0
-	Otra	9
+	Otra	8
 
 ADCAHX:	PARDAAS
-	MIns	ADDX.B,D7,A0,1,T,X,4
+	MIns	ADDX.B,D7,A0,1,T,X,8
 ADDAHX:	PARDAAS
-	MIns	ADD.B,D7,A0,1,T,N,4
+	MIns	ADD.B,D7,A0,1,T,N,8
 SBCHX:	PARDAAR
-	MIns	SUBX.B,D7,A0,1,T,X,4
+	MIns	SUBX.B,D7,A0,1,T,X,8
 SUBHX:	PARDAAR
-	MIns	SUB.B,D7,A0,1,T,N,4
+	MIns	SUB.B,D7,A0,1,T,N,8
 ADCALX:	PARDAAS
 	MOVE.W	A0,D1
-	MIns	ADDX.B,D7,D1,0,T,X,4
+	MIns	ADDX.B,D7,D1,0,T,X,8
 ADDALX:	PARDAAS
 	MOVE.W	A0,D1
-	MIns	ADD.B,D7,D1,0,T,N,4
+	MIns	ADD.B,D7,D1,0,T,N,8
 SBCLX:	PARDAAR
 	MOVE.W	A0,D1
-	MIns	SUBX.B,D7,D1,0,T,X,4
+	MIns	SUBX.B,D7,D1,0,T,X,8
 SUBLX:	PARDAAR
 	MOVE.W	A0,D1
-	MIns	SUB.B,D7,D1,0,T,N,4
-ANDHX:	MIns	AND.B,D7,A0,1,P,N,4
+	MIns	SUB.B,D7,D1,0,T,N,8
+ANDHX:	MIns	AND.B,D7,A0,1,P,N,8
 ANDLX:	MOVE.W	A0,D1
-	MIns	AND.B,D7,D1,0,P,N,4
-ORHX:	MIns	OR.B,D7,A0,1,P,N,4
+	MIns	AND.B,D7,D1,0,P,N,8
+ORHX:	MIns	OR.B,D7,A0,1,P,N,8
 ORLX:	MOVE.W	A0,D1
-	MIns	OR.B,D7,D1,0,P,N,4
-XORHX:	MIns	EOR.B,D7,A0,1,P,N,4
+	MIns	OR.B,D7,D1,0,P,N,8
+XORHX:	MIns	EOR.B,D7,A0,1,P,N,8
 XORLX:	MOVE.W	A0,D1
-	MIns	EOR.B,D7,D1,0,P,N,4
-CPHX:	MIns	CMP.B,D7,A0,1,T,N,4
+	MIns	EOR.B,D7,D1,0,P,N,8
+CPHX:	MIns	CMP.B,D7,A0,1,T,N,8
 CPLX:	MOVE.W	A0,D1
-	MIns	CMP.B,D7,D1,0,T,N,4
+	MIns	CMP.B,D7,D1,0,T,N,8
 
 
 INCHY:
@@ -5549,7 +5642,7 @@ INCHY:
 	BFINS	D2,D3{31:1}
 	ROR.W	#8,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 INCLY:
 	MOVE.W	A1,D1
 	MOVE.B	D3,D2
@@ -5557,7 +5650,7 @@ INCLY:
 	MOVE.W	CCR,D3
 	BFINS	D2,D3{31:1}
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 DECHY:
 	MOVE.W	A1,D1
 	ROR.W	#8,D1
@@ -5567,7 +5660,7 @@ DECHY:
 	BFINS	D2,D3{31:1}
 	ROR.W	#8,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 DECLY:
 	MOVE.W	A1,D1
 	MOVE.B	D3,D2
@@ -5575,121 +5668,121 @@ DECLY:
 	MOVE.W	CCR,D3
 	BFINS	D2,D3{31:1}
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYN:
 	MOVE.W	A1,D1
 	LSL.W	#8,D1
 	MOVE.B	(A5)+,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	11
 LDLYN:
 	MOVE.W	A1,D1
 	MOVE.B	(A5)+,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	11
 LDAHY:
 	MOVE.W	A1,D7
 	LSR.W	#8,D7
-	Otra	9
+	Otra	8
 LDALY:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D7
-	Otra	9
+	Otra	8
 LDLHY:
 	MOVE.W	A1,D1
 	LSR.W	#8,D1
 	MOVE.B	D1,D4
-	Otra	9
+	Otra	8
 LDLLY:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D4
-	Otra	9
+	Otra	8
 LDCHY:
 	MOVE.W	A1,D1
 	LSR.W	#8,D1
 	MOVE.B	D1,D5
-	Otra	9
+	Otra	8
 LDCLY:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D5
-	Otra	9
+	Otra	8
 LDEHY:
 	MOVE.W	A1,D1
 	LSR.W	#8,D1
 	MOVE.B	D1,D6
-	Otra	9
+	Otra	8
 LDELY:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D6
-	Otra	9
+	Otra	8
 LDHHY:
 	MOVE.W	A1,D1
 	MOVE.B	D4,D1
 	MOVE.W	D1,D4
-	Otra	9
+	Otra	8
 LDHLY:
 	MOVE.W	A1,D1
 	LSL.W	#8,D1
 	MOVE.B	D4,D1
 	MOVE.W	D1,D4
-	Otra	9
+	Otra	8
 LDBHY:
 	MOVE.W	A1,D1
 	MOVE.B	D5,D1
 	MOVE.W	D1,D5
-	Otra	9
+	Otra	8
 LDBLY:
 	MOVE.W	A1,D1
 	LSL.W	#8,D1
 	MOVE.B	D5,D1
 	MOVE.W	D1,D5
-	Otra	9
+	Otra	8
 LDDHY:
 	MOVE.W	A1,D1
 	MOVE.B	D6,D1
 	MOVE.W	D1,D6
-	Otra	9
+	Otra	8
 LDDLY:
 	MOVE.W	A1,D1
 	LSL.W	#8,D1
 	MOVE.B	D6,D1
 	MOVE.W	D1,D6
-	Otra	9
+	Otra	8
 LDLYA:
 	MOVE.W	A1,D1
 	MOVE.B	D7,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDLYC:
 	MOVE.W	A1,D1
 	MOVE.B	D5,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDLYE:
 	MOVE.W	A1,D1
 	MOVE.B	D6,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDLYL:
 	MOVE.W	A1,D1
 	MOVE.B	D4,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDLYB:
 	MOVE.W	A1,D1
 	ROR.W	#8,D5
 	MOVE.B	D5,D1
 	ROR.W	#8,D5
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDLYD:
 	MOVE.W	A1,D1
 	ROR.W	#8,D6
 	MOVE.B	D6,D1
 	ROR.W	#8,D6
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDLYH:
 	MOVE.W	A1,D1
 	LSR.W	#8,D1
@@ -5697,89 +5790,89 @@ LDLYH:
 	LSL.W	#8,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYL:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D2
 	LSL.W	#8,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYA:
 	MOVE.W	A1,D1
 	ROR.W	#8,D1
 	MOVE.B	D7,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYC:
 	MOVE.W	A1,D1
 	ROR.W	#8,D1
 	MOVE.B	D5,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYE:
 	MOVE.W	A1,D1
 	ROR.W	#8,D1
 	MOVE.B	D6,D1
 	ROR.W	#8,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYB:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D2
 	MOVE.W	D5,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYD:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D2
 	MOVE.W	D6,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 LDHYH:
 	MOVE.W	A1,D1
 	MOVE.B	D1,D2
 	MOVE.W	D4,D1
 	MOVE.B	D2,D1
 	MOVE.L	D1,A1
-	Otra	9
+	Otra	8
 
 ADCAHY:	PARDAAS
-	MIns	ADDX.B,D7,A1,1,T,X,4
+	MIns	ADDX.B,D7,A1,1,T,X,8
 ADDAHY:	PARDAAS
-	MIns	ADD.B,D7,A1,1,T,N,4
+	MIns	ADD.B,D7,A1,1,T,N,8
 SBCHY:	PARDAAR
-	MIns	SUBX.B,D7,A1,1,T,X,4
+	MIns	SUBX.B,D7,A1,1,T,X,8
 SUBHY:	PARDAAR
-	MIns	SUB.B,D7,A1,1,T,N,4
+	MIns	SUB.B,D7,A1,1,T,N,8
 ADCALY:	PARDAAS
 	MOVE.W	A1,D1
-	MIns	ADDX.B,D7,D1,0,T,X,4
+	MIns	ADDX.B,D7,D1,0,T,X,8
 ADDALY:	PARDAAS
 	MOVE.W	A1,D1
-	MIns	ADD.B,D7,D1,0,T,N,4
+	MIns	ADD.B,D7,D1,0,T,N,8
 SBCLY:	PARDAAR
 	MOVE.W	A1,D1
-	MIns	SUBX.B,D7,D1,0,T,X,4
+	MIns	SUBX.B,D7,D1,0,T,X,8
 SUBLY:	PARDAAR
 	MOVE.W	A1,D1
-	MIns	SUB.B,D7,D1,0,T,N,4
-ANDHY:	MIns	AND.B,D7,A1,1,P,N,4
+	MIns	SUB.B,D7,D1,0,T,N,8
+ANDHY:	MIns	AND.B,D7,A1,1,P,N,8
 ANDLY:	MOVE.W	A1,D1
-	MIns	AND.B,D7,D1,0,P,N,4
-ORHY:	MIns	OR.B,D7,A1,1,P,N,4
+	MIns	AND.B,D7,D1,0,P,N,8
+ORHY:	MIns	OR.B,D7,A1,1,P,N,8
 ORLY:	MOVE.W	A1,D1
-	MIns	OR.B,D7,D1,0,P,N,4
-XORHY:	MIns	EOR.B,D7,A1,1,P,N,4
+	MIns	OR.B,D7,D1,0,P,N,8
+XORHY:	MIns	EOR.B,D7,A1,1,P,N,8
 XORLY:	MOVE.W	A1,D1
-	MIns	EOR.B,D7,D1,0,P,N,4
-CPHY:	MIns	CMP.B,D7,A1,1,T,N,4
+	MIns	EOR.B,D7,D1,0,P,N,8
+CPHY:	MIns	CMP.B,D7,A1,1,T,N,8
 CPLY:	MOVE.W	A1,D1
-	MIns	CMP.B,D7,D1,0,T,N,4
+	MIns	CMP.B,D7,D1,0,T,N,8
 
 ; --------------------------------------------------------------
 LDMHL2:	MLDRR	D4,M,9,20
@@ -5974,11 +6067,11 @@ IRRD:
 	ROL.W	#4,D1
 	AND.B	#$F0,D7
 	OR.B	D1,D7
-	MOVE.W	CCR,D3
-	BFINS	D2,D3{31:1}
+	MOVE.B	Flags_PAR(A3,D7.W*4),D3	; (4.0) S Z, P/V = parity of A (was V = 0)
+	BFINS	D2,D3{31:1}		; C unchanged
 	CogePagE D4,A4
 	MOVE.B	RxDNew,(A4)
-	Otra	12
+	Otra	18			; (4.0) was 12
 
 IRLD:
 	CogePag	D4,A4
@@ -5992,11 +6085,11 @@ IRLD:
 	LSR.W	#8,D1
 	AND.B	#$F0,D7
 	OR.B	D1,D7
-	MOVE.W	CCR,D3
-	BFINS	D2,D3{31:1}
+	MOVE.B	Flags_PAR(A3,D7.W*4),D3	; (4.0) S Z, P/V = parity of A (was V = 0)
+	BFINS	D2,D3{31:1}		; C unchanged
 	CogePagE D4,A4
 	MOVE.B	RxDNew,(A4)
-	Otra	12
+	Otra	18			; (4.0) was 12
 
 RxDNew:	DC.B	0
 	EVEN
@@ -6244,7 +6337,13 @@ LDDRD0:	SUBI.W	#$100,D4
 
 
 
+; (4.0) CPIR/CPDR: each iteration 23 cycles (21 + 2 M1 waits), the last 18,
+; as INIR (it was a flat 16 for the whole search); S and Z from the last
+; compare (Z set on a match), P/V = BC != 0 (it was always set on a match), C
+; unchanged. H and N are not modelled. BC = 0 searches 65536 bytes; the cycle
+; count is capped at $7000 as LDIR's (the counter is a word).
 CPIR:
+	MOVE.W	D5,BlkBC		; BC before (0 = 65536)
 	SUBQ.W	#1,D5
 CPIRB:
 	CogePag	D4,A4
@@ -6253,26 +6352,16 @@ CPIRB:
 	ADDQ.W	#1,D4
 	DBF	D5,CPIRB
 	MOVEQ	#0,D5
-	AND.B	#$F9,D3
-	Otra	16
-CPIR0:	OR.B	#$06,D3
-	ADDQ.W	#1,D4
-	Otra	16
-
-CPI:
-	CogePag	D4,A4
-	CMP.B	(A4),D7
-	BEQ.S	CPI0
-	AND.B	#$FB,D3
-	ADDQ.W	#1,D4
-	SUBQ.W	#1,D5
-	OtraV	16
-CPI0:	OR.B	#$04,D3
-	ADDQ.W	#1,D4
-	SUBQ.W	#1,D5
-	OtraV	16
+	BRA.S	CPIRF
+	CNOP	0,4
+CPIR0:	ADDQ.W	#1,D4
+CPIRF:	MOVE.B	D3,D1			; old flags (C) before the compare:
+	CMP.B	(A4),D7			; flags of the last compare
+	BRA.S	BlkCmpF
+	CNOP	0,4
 
 CPDR:
+	MOVE.W	D5,BlkBC		; BC before (0 = 65536)
 	SUBQ.W	#1,D5
 CPDRB:
 	CogePag	D4,A4
@@ -6281,21 +6370,44 @@ CPDRB:
 	SUBQ.W	#1,D4
 	DBF	D5,CPDRB
 	MOVEQ	#0,D5
-	AND.B	#$F9,D3
-	Otra	16
-CPDR0:	OR.B	#$06,D3
-	SUBQ.W	#1,D4
-	Otra	16
+	BRA.S	CPDRF
+	CNOP	0,4
+CPDR0:	SUBQ.W	#1,D4
+CPDRF:	MOVE.B	D3,D1			; old flags (C) before the compare:
+	CMP.B	(A4),D7			; flags of the last compare
+BlkCmpF:				; (a MOVE.B here set the CCR and lost the
+	MOVE.W	CCR,D3			; compare's Z: DOS's CPIR searches failed)
+	BFINS	D1,D3{31:1}		; C unchanged
+	AND.B	#$FD,D3
+	TST.W	D5
+	BEQ.S	BlkCmpV
+	OR.B	#$02,D3			; P/V = BC != 0
+BlkCmpV:
+	Otra	16			; (4.0) flat, as 3.x: a per-iteration charge in one
+					; block drove the line counter deep negative
+					; inside the DOS directory search (disk boot hang).
+
+BlkBC:	DC.W	0
+	CNOP	0,4
+
+; (4.0) CPI/CPD: S and Z from A - (HL) (only Z was set), P/V = BC != 0, C
+; unchanged; H and N not modelled.
+CPI:
+	CogePag	D4,A4
+	MOVE.B	D3,D2
+	CMP.B	(A4),D7
+	MOVE.W	CCR,D3
+	BFINS	D2,D3{31:1}		; C unchanged
+	ADDQ.W	#1,D4
+	SUBQ.W	#1,D5
+	OtraV	16
 
 ICPD:
 	CogePag	D4,A4
+	MOVE.B	D3,D2
 	CMP.B	(A4),D7
-	BEQ.S	CPD0
-	AND.B	#$FB,D3
-	SUBQ.W	#1,D4
-	SUBQ.W	#1,D5
-	OtraV	16
-CPD0:	OR.B	#$04,D3
+	MOVE.W	CCR,D3
+	BFINS	D2,D3{31:1}		; C unchanged
 	SUBQ.W	#1,D4
 	SUBQ.W	#1,D5
 	OtraV	16
@@ -9356,38 +9468,38 @@ INSFD:
 	DC.L	NOCO,LDSPIY,NOCO,NOCO,NOCO,NOCO,NOCO,NOCO	; F8
 
 INSED:
-	DC.L	ED00,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 00
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 08
-	DC.L	ED10,ED11,ED12,ED13,ED14,ED15,ED16,NADA		; 10 (ED17 Usado!)
-	DC.L	ED18,ED19,ED1A,ED1B,NADA,NADA,NADA,NADA		; 18
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 20
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 28
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 30
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 38
+	DC.L	ED00,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 00
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 08
+	DC.L	ED10,ED11,ED12,ED13,ED14,ED15,ED16,EDNOP		; 10 (ED17 Usado!)
+	DC.L	ED18,ED19,ED1A,ED1B,EDNOP,EDNOP,EDNOP,EDNOP		; 18
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 20
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 28
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 30
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 38
 	DC.L	INBC,OUTCB,SBCHLBC,LDMBC,NEG,RETN,IM0,LDIA	; 40
-	DC.L	IINCC,OUTCC,ADCHLBC,LDBCM,NADA,RETI,NADA,LDRA	; 48
-	DC.L	INDC,OUTCD,SBCHLDE,LDMDE,NADA,NADA,IM1,LDAI	; 50
-	DC.L	INEC,OUTCE,ADCHLDE,LDDEM,NADA,NADA,IM2,LDAR	; 58
-	DC.L	INHC,OUTCH,SBCHLHL,LDMHL2,NADA,NADA,NADA,IRRD	; 60
-	DC.L	INLC,OUTCL,ADCHLHL,LDHLM2,NADA,NADA,NADA,IRLD	; 68
-	DC.L	IINFC,NADA,SBCHLSP,LDMSP,NADA,NADA,NADA,NADA	; 70
-	DC.L	INAC,OUTCA,ADCHLSP,LDSPM,NADA,NADA,NADA,NADA	; 78
-	DC.L	NADA,NADA,NADA,OTIR,NADA,NADA,NADA,NADA		; 80
-	DC.L	NADA,NADA,NADA,OTDR,NADA,NADA,NADA,NADA		; 88
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 90
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; 98
-	DC.L	LDI,CPI,INI,OUTI,NADA,NADA,NADA,NADA		; A0
-	DC.L	LDD,ICPD,IND,OUTD,NADA,NADA,NADA,NADA		; A8
-	DC.L	LDIR,CPIR,INIR,OTIR,NADA,NADA,NADA,NADA		; B0
-	DC.L	LDDR,CPDR,INDR,OTDR,NADA,NADA,NADA,NADA		; B8
-	DC.L	NADA,MULUBAB,NADA,MULUWHLBC,MULUBAB,NADA,NADA,NADA	; C0
-	DC.L	NADA,MULUBAC,NADA,NADA,NADA,MULUBAC,NADA,NADA	; C8
-	DC.L	NADA,MULUBAD,NADA,NADA,NADA,MULUBAD,NADA,NADA	; D0
-	DC.L	NADA,MULUBAE,NADA,NADA,NADA,MULUBAE,NADA,NADA	; D8
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; E0
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; E8
-	DC.L	NADA,NADA,NADA,MULUWHLSP,NADA,NADA,NADA,NADA	; F0
-	DC.L	NADA,NADA,NADA,NADA,NADA,NADA,NADA,NADA		; F8
+	DC.L	IINCC,OUTCC,ADCHLBC,LDBCM,NEG,RETI,IM0,LDRA	; 48
+	DC.L	INDC,OUTCD,SBCHLDE,LDMDE,NEG,RETN,IM1,LDAI	; 50
+	DC.L	INEC,OUTCE,ADCHLDE,LDDEM,NEG,RETN,IM2,LDAR	; 58
+	DC.L	INHC,OUTCH,SBCHLHL,LDMHL2,NEG,RETN,IM0,IRRD	; 60
+	DC.L	INLC,OUTCL,ADCHLHL,LDHLM2,NEG,RETN,IM0,IRLD	; 68
+	DC.L	IINFC,OUTC0,SBCHLSP,LDMSP,NEG,RETN,IM1,EDNOP	; 70
+	DC.L	INAC,OUTCA,ADCHLSP,LDSPM,NEG,RETN,IM2,EDNOP	; 78
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 80
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 88
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 90
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; 98
+	DC.L	LDI,CPI,INI,OUTI,EDNOP,EDNOP,EDNOP,EDNOP		; A0
+	DC.L	LDD,ICPD,IND,OUTD,EDNOP,EDNOP,EDNOP,EDNOP		; A8
+	DC.L	LDIR,CPIR,INIR,OTIR,EDNOP,EDNOP,EDNOP,EDNOP		; B0
+	DC.L	LDDR,CPDR,INDR,OTDR,EDNOP,EDNOP,EDNOP,EDNOP		; B8
+	DC.L	EDNOP,MULUBAB,EDNOP,MULUWHLBC,MULUBAB,EDNOP,EDNOP,EDNOP	; C0
+	DC.L	EDNOP,MULUBAC,EDNOP,EDNOP,EDNOP,MULUBAC,EDNOP,EDNOP	; C8
+	DC.L	EDNOP,MULUBAD,EDNOP,EDNOP,EDNOP,MULUBAD,EDNOP,EDNOP	; D0
+	DC.L	EDNOP,MULUBAE,EDNOP,EDNOP,EDNOP,MULUBAE,EDNOP,EDNOP	; D8
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; E0
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; E8
+	DC.L	EDNOP,EDNOP,EDNOP,MULUWHLSP,EDNOP,EDNOP,EDNOP,EDNOP	; F0
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; F8
 
 ********************************************************************
 
@@ -9756,6 +9868,10 @@ ModoGfx6:
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
+	MOVEQ	#-8,D0			; (4.0) COPPER6 shares TabCop5: the
+	JSR	Mode5Mod		; SCREEN 5 32-bit modulo back to -8.
+	MOVEQ	#0,D0			; (4.0) Planes rebuilt in 32-byte rows.
+	JSR	PlSet
 	MOVEM.L	BUFER(A3),D0-D2/A0-A1
 
 M6Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
@@ -9787,30 +9903,73 @@ ModoGfx5:
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
-	MOVEM.L	BUFER(A3),D0-D2/A0-A1
+; (4.0) MSX2+ (V9958On) on AGA: 32-bit bitplane fetch (FMODE $D; the
+; sprites stay 64-bit), so the plane pointers can step by 4 bytes for R#26
+; and BPLCON1 (1-32) does the rest; 36 bytes a line (W5FETCH), and the
+; planes take a wide layout (PlMode; AmiMSX_V9958_v4.asm,
+; Docs/msx2plus_phase2.md). Otherwise, and on the MSX2 machine, 64-bit
+; fetch, 32-byte rows and the -8 modulo as before.
+	SF	V9Scr5
+	TST.B	V9958On
+	BEQ.S	M5Fm
+	CMP.W	#$01FC,MCAGA
+	BNE.S	M5Fm
+	ST	V9Scr5
+	TST.B	BMSPair			; (4.0) Pair split regime: FMODE is the
+	BEQ.S	M5FmW			; frame's top mode's (BMSPost) and the
+	TST.B	MSplitSeen		; bottom's switch event's (AcCoBMSw).
+	BNE.S	M5Fm
+M5FmW:	MOVE.W	#$000D,MCAGA+2
+M5Fm:	MOVEM.L	BUFER(A3),D0-D2/A0-A1
 
 M5Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 	MOVE.L	#VDP17,VDPPunt+($17*4)	; *m5
 
 	MOVE.L	#VDP2E,VDPPUNT+($2E*4)
-	MOVE.L	#Modo5Dats,MSXVideoMode(A3)
 	BCLR	#0,DVDPS2(A3)			; Ejecuci�n SI terminada.
 
+	SF	BMSK5
+	TST.B	BMSPair			; (4.0) Pair split regime with SCR0 the
+	BEQ.S	M5Planes		; SCREEN 8 planes: keep them. This mode
+	TST.B	MSplitSeen		; shows from SCREENP (BMSPrep) and writes
+	BEQ.S	M5Planes		; VRAM and the dirty flags (OUT98XM).
+	CMP.B	#$07,LastRend
+	BNE.S	M5Planes
+	ST	BMSK5
+	MOVE.L	#IN98X,DREGIN98(A3)
+	MOVE.L	#OUT98XM,DREGOUT98(A3)
+	BRA	M5Keep			; (No layout change, no rebuild: SCR0
+					; is SCREEN 8's.)
+M5Planes:
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
-	BSR	ActPlanos5			; Actualiza VRAM en Bit-Planos.
-	MOVE.L	#ModoChg5a0,DirModoChg(A3)
-
-;;	MOVE.B	D1,ScrModo(A3)
-	MOVE.L	#IN98A,DREGIN98(A3)
-	MOVE.L	#OUT98A,DREGOUT98(A3)
-	TST.B	MSplitSeen
-	BNE.S	M5AT
+	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
+	TST.B	MSplitSeen		; (OUT98AT while SCREEN 4/5 splits keep
+	BNE.S	M5AT			; coming, as before.)
 	ST	SCRTDirty		; (Plain OUT98A: SCREENT may go stale,
 	SF	M5Tracked		; and the SCREEN 4 cache.)
 	BRA.S	M5NoAT
-M5AT:	MOVE.L	#OUT98AT,DREGOUT98(A3)
-	ST	M5Tracked
+M5AT:	ST	M5Tracked
 M5NoAT:
+	JSR	Pl5Want			; (4.0) The planes' layout: the frames'
+	TST.B	D0			; choice (PlWant, PRINT5) once there is
+	BEQ.S	M5Lay			; one, else this write's SP2 state.
+	TST.B	PlWant
+	BEQ.S	M5Lay
+	MOVE.B	PlWant,D0
+M5Lay:	CMP.B	PlMode,D0
+	BEQ.S	M5LaySame
+	ST	V5All			; Another layout: rebuild the planes.
+	JSR	PlSet
+M5LaySame:
+	MOVE.B	D0,PlWant
+	CLR.B	Sp2Cnt
+	JSR	Mode5Layout		; Descriptor, port 98h handlers, modulo.
+	MOVEM.L	BUFER(A3),D0-D2/A0-A1
+	BSR	ActPlanos5			; Actualiza VRAM en Bit-Planos.
+	MOVE.L	#ModoChg5a0,DirModoChg(A3)
+
+M5Keep:
+;;	MOVE.B	D1,ScrModo(A3)
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -9839,6 +9998,14 @@ M7Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 	BCLR	#0,DVDPS2(A3)		; Ejecuci�n SI terminada.
 
 	JSR	([DirModoChg.W,A3])		; Actualiza Bit-Planos en VRAM.
+	TST.B	PlMode			; (4.0) SCREEN 7 shares the planes, in
+	BEQ.S	M7LayN			; 32-byte rows: back from a wide layout.
+	ST	V5All
+	MOVEM.L	D0-D1/A0,BUFER(A3)
+	MOVEQ	#0,D0
+	JSR	PlSet
+	MOVEM.L	BUFER(A3),D0-D1/A0
+M7LayN:
 	BSR	ActPlanos7			; Actualiza VRAM en Bit-Planos.
 	MOVE.L	#ModoChg7a0,DirModoChg(A3)
 
@@ -9860,12 +10027,31 @@ M7Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 	CNOP	0,4
 ModoGfx8:
 	MOVE.L	(A7)+,RetOut(A3)
+	SF	BMSK8
+	TST.B	BMSPair			; (4.0) Pair split regime with SCR0 the
+	BEQ.S	M8V5All			; SCREEN 5 planes: keep them. This mode
+	TST.B	MSplitSeen		; shows from SCREENP (BMSPrep) and writes
+	BEQ.S	M8V5All			; VRAM and the dirty flags (OUT98XM).
+	CMP.B	#$07,LastRend
+	BEQ.S	M8V5All
+	ST	BMSK8
+	BRA.S	M8V5Keep
+M8V5All:
 	ST	V5All			; (SCR0 reused: SCREEN 5/7 planes gone.)
+M8V5Keep:
 
-	MOVE.W	#$000F,MCAGA+2
+	TST.B	BMSK8			; (4.0) SCR0 kept for SCREEN 5 (pair
+	BNE.S	M8FmKeep		; split): its layout stays, and FMODE is
+	MOVE.W	#$000F,MCAGA+2		; BMSPost's.
+M8FmKeep:
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
+	TST.B	BMSK8
+	BNE.S	M8PlKeep
+	MOVEQ	#0,D0			; (4.0) Planes rebuilt in 32-byte rows.
+	JSR	PlSet
+M8PlKeep:
 	MOVEM.L	BUFER(A3),D0-D2/A0-A1
 
 M8Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
@@ -9882,6 +10068,10 @@ M8Chap:	MOVE.L	#VDP17,VDPPUNT+($17*4)	; *m8
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98B,DREGIN98(A3)
 	MOVE.L	#OUT98B,DREGOUT98(A3)
+	TST.B	BMSK8
+	BEQ.S	M8OutB
+	MOVE.L	#OUT98XM,DREGOUT98(A3)	; (Pair split: VRAM, TAB98, VBlk5.)
+M8OutB:
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -9964,8 +10154,23 @@ VDP1:
 	BTST	#6,D2
 	BEQ.S	VDP1BlOff
 	MOVE.B	#2,(BlankTab.L,D1.W)	; 2: display again.
+	CMP.W	#$8100,MCOPP96+2	; (4.0) Display on mid-frame: the frame's
+	BEQ.S	VDP1BlOff		; bitplane DMA must be on. If the frame
+	MOVE.W	#$8100,MCOPP96+2	; started blank (MiraInter0), blank it
+	OR.B	#$08,TabRasCMDS		; from line 0 by colours instead, up to
+	MOVE.B	#1,BlankTab		; this event.
 VDP1BlOff:
 	MOVE.B	#3,PalSplitSeen		; Colours via the copper from line 0.
+	SF	S5Valid			; 5th sprite flag: recompute.
+	BRA.S	VDP1Set			; Mid-frame BL changes are copper events
+					; only: MCOPP96 (the frame's DMACON word,
+					; read by the copper at the top of the
+					; Amiga frame) keeps the state at line 0,
+					; set below and by MiraInter0. Before
+					; 4.0 every write set it, so a game whose
+					; last BL write in the frame is "off"
+					; (Manbow 2's title, off from line 181)
+					; showed a black frame.
 VDP1NoBl:
 	SF	S5Valid			; 5th sprite flag: recompute.
 	MOVE.W	#$0100,D1
@@ -9974,6 +10179,7 @@ VDP1NoBl:
 	MOVE.W	#$8100,D1
 VDP1C0:
 	MOVE.W	D1,MCOPP96+2
+VDP1Set:
 	MOVE.B	D2,DVDP1(A3)
 	MOVE.W	D2,D1
 	SWAP	D2
@@ -10031,6 +10237,8 @@ VDP8:
 	BEQ	VDP8CON
 	TST.B	DbOn			; (4.0) Double buffer: the render hides
 	BNE	VDP8CON2		; them, in the frame it draws.
+	CMP.W	#1,DirPrefs+$16		; (4.0) Sprites every frame: so does the
+	BEQ	VDP8CON2		; overlay pass (Act_Adjust, TopR8, bands).
 	CMP.W	#192,CurLine(A3)	; Sprites off during the display: left to
 	BCS	VDP8CON2		; the render (Act_Adjust, MIDSAMPLE's R#8).
 					; Hiding them here hid them for the whole
@@ -10069,6 +10277,14 @@ VDP8CON:
 	MOVE.B	#$3,COSPR2(A3)
 	TST.B	DbOn			; (4.0) Double buffer: positions come
 	BNE	VDP8CON2		; with the frame (Act_Adjust), not here.
+	CMP.W	#1,DirPrefs+$16		; (4.0) Sprites every frame: the same. Here
+	BEQ	VDP8CON2		; MidAdj is the last 16-line sample, the
+					; HUD's R#18 in a game that enables sprites
+					; below a top status bar (Manbow 2, line 42:
+					; R#18 0 instead of the playfield's 8..7), and
+					; it went into both overlay buffers and the
+					; sprite registers: the ship crept 15 dots
+					; and jumped back at each scroll wrap.
 
 	MOVE.B	MidAdj,D2		; Playfield R#18 (Lilly's Saga sets R#18
 					; just after re-enabling sprites).
@@ -10384,15 +10600,39 @@ ARET:	SWAP	D2
 ; don't exist and stay ignored). R#25 bit 1 (MSK) masks the left 8 dots,
 ; R#27 (0-7) shifts the picture right without moving the sprites or the
 ; window: both per display line, through the R#18 copper event (bit 1,
-; AcCoRutAdjust), which now carries R#18, R#27 and R#25 in TabRasDATA+3,
-; +5, +6. R#26 (coarse scroll, SP2) is kept but not shown yet (phase 2).
+; AcCoRutAdjust), which now carries R#18, R#27, R#25 and R#26 in
+; TabRasDATA+3, +5, +6, +7. R#26 (coarse scroll, 8-dot steps) is shown in
+; SCREEN 5 on the MSX2+ machine (V9Scr5: the plane pointers step with it,
+; AcCoRutGBY5; phase 2 step 1, Docs/msx2plus_phase2.md); elsewhere kept.
+; SP2 (R#25 bit 0) is not shown yet.
 VDPR25:	TST.B	V9958On
 	BEQ.S	ARET
 	MOVE.B	D2,V9R25
 	BRA.S	VDPR9Ev
-VDPR26:	MOVE.B	D2,V9R26
-	SWAP	D2
-	RTS
+VDPR26:	AND.B	#$3F,D2
+	MOVE.B	D2,V9R26
+	TST.B	V9958On
+	BEQ.S	ARET
+	MOVE.W	R26EvN,D1		; (4.0) The frame's writes, for the tile
+	CMP.W	#R26EVMAX,D1		; modes' name rotation (NtSrc).
+	BCC.S	VDPR26T
+	ADDQ.W	#1,R26EvN
+	ADD.W	D1,D1
+	ADD.W	D1,D1
+	MOVE.B	D2,(R26Ev+2.L,D1.W)
+	MOVE.W	CurLine(A3),D1
+	ADDQ.W	#1,D1
+	MOVE.W	R26EvN,D2
+	SUBQ.W	#1,D2
+	ADD.W	D2,D2
+	ADD.W	D2,D2
+	MOVE.W	D1,(R26Ev.L,D2.W)
+	MOVE.B	V9R26,D2
+VDPR26T:
+	MOVEQ	#0,D1
+	TST.B	V9Scr5
+	BEQ.S	ARET
+	BRA.S	VDPR9Ev
 VDPR27:	TST.B	V9958On
 	BEQ.S	ARET
 	AND.B	#7,D2
@@ -10402,15 +10642,29 @@ VDPR9Ev:
 	ADDQ.W	#1,D1
 	OR.B	#$02,(TabRasCMDS.L,D1.W)
 	MOVE.B	VDPAdjust(A3),(TabRasDATA+3.L,D1.W*8)
+VDPR9Ev2:				; (From VDP12 too: D1 = event line.)
 	MOVE.B	V9R27,(TabRasDATA+5.L,D1.W*8)
 	MOVE.B	V9R25,(TabRasDATA+6.L,D1.W*8)
+	MOVE.B	V9R26,(TabRasDATA+7.L,D1.W*8)
+	TST.B	V9Scr5			; SCREEN 5 on the V9958: the plane
+	BEQ.S	VDPR9EvX		; pointers step with the scroll
+	OR.B	#$01,(TabRasCMDS.L,D1.W)	; (AcCoRutGBY5): a pointer event
+	MOVE.B	DVDP2(A3),(TabRasDATA+1.L,D1.W*8)	; with this line's page
+	MOVE.B	VDPLinY(A3),(TabRasDATA+4.L,D1.W*8)	; and R#23.
+VDPR9EvX:
 	SWAP	D2
 	RTS
 V9958On:	DC.B	0
 V9R25:		DC.B	0
 V9R26:		DC.B	0
 V9R27:		DC.B	0
+V9Scr5:		DC.B	0		; SCREEN 5 on the MSX2+ machine (AGA).
 		EVEN
+W5FETCH=36				; Bytes a line the 32-bit fetch reads
+					; (DDFSTRT $40, DDFSTOP $B8: 9 units).
+Mod5Cur:	DC.W	-8		; TabCop5/C5AGA modulo in place (Mode5Mod).
+AdjCur:		DC.L	0,0		; ActCopperLine: the adjust event in
+					; effect (TabRasDATA's 8-byte layout).
 COL00:	DC.L	MSX2Pal
 COL01:	DC.L	MSX2Pal
 	CNOP	0,8
@@ -10480,7 +10734,6 @@ VDP13:
 	RTS
 ;	-----------------------<=
 
-Dir_Scan:DC.L	TabCop5+(TabCop5Add)+$E
 
 
 
@@ -10501,11 +10754,8 @@ VDP12:
 	ADDQ.W	#1,D1
 	OR.B	#$02,(TabRasCMDS,D1.W)		; Act. Adjust X
 	MOVE.B	D2,(TabRasDATA+3,D1.W*8)	; VDP ($12)
-	MOVE.B	V9R27,(TabRasDATA+5.L,D1.W*8)	; (4.0) and the V9958's
-	MOVE.B	V9R25,(TabRasDATA+6.L,D1.W*8)	; R#27/R#25 (0 on MSX2)
-
-	SWAP	D2
-	RTS
+	BRA	VDPR9Ev2			; (4.0) and the V9958's R#27/R#25/
+						; R#26 (0 on MSX2); SWAP D2, RTS there.
 
 
 	MOVE.B	D2,VDPAdjust(A3)
@@ -10557,347 +10807,12 @@ AdjustSpr:
 	DC.W	INISPR2*$100+$51,FINSPR2*$100+$82	;  2
 	DC.W	INISPR2*$100+$50,FINSPR2*$100+$83	;  1
 
-; <=---------------------------------------------------------=>
-VDP17m5:
-	NOINT
-	IInsBuc
-	RSPLITCHK	VDPLinY
-	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
-	MOVEM.L	D0/D1/D3/A0,BUFER(A3)
-
-; -=-=-
-V17Buc0:CMP.B	#$67,$DFF007
-	BCC.S	V17Buc0
-; -=-=-
-	MOVE.B	ScanningY(A3),D1
-V17Buc2:CMP.B	$DFF006,D1
-	BEQ.S	V17Buc2
-; -=-=-
-V17Buc1:
-	CMP.B	#IniPant-1,$DFF006
-	BEQ.S	V17Buc1
-;;;	BCS.S	V17Con1
-; -=-=-
-	MOVE.B	DVDP2(A3),D3
-	AND.W	#$0060,D3
-	LSL.W	#3,D3
-	MOVE.B	D2,D3
-
-	MOVE.W	Ant_Rest(PC),D0
-	MOVE.W	D3,Ant_Rest
-
-	MOVE.B	$DFF006,D1
-	MOVE.B	D1,ScanningY(A3)
-	SUB.B	#INIPANT-1,D1
-
-	ADD.B	D1,D3
-	ADD.B	D1,D0
-	BNE.S	V17Con0
-	ADD.W	#$0100,D0
-V17Con0:
-	SUB.W	D0,D3
-
-	LSL.W	#5,D3
-
-ModC52:	SUBQ.W	#8,D3
-
-	MOVE.W	D3,D0
-	SWAP	D3
-	MOVE.W	D0,D3
-	MOVE.L	D3,$DFF108
-; -=-=-
-V17Con1:
-; -=-=-
-ModC50:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de p�gina en copper.
-	MOVE.L	Cop_Rest(PC),A0
-	MOVE.W	D0,(A0)
-	MOVE.W	D0,4(A0)
-	MOVE.W	#255,D0
-	SUB.B	D2,D0
-	MULU	#TabCop5Add,D0
-	LEA	(TabCop5+$4+$2,D0.W),A0
-ModC51:	MOVE.W	#(-32*256)-8,D0
-	MOVE.W	D0,(A0)
-	MOVE.W	D0,4(A0)
-	MOVE.L	A0,Cop_Rest
-; -=-=-
-	MOVE.B	DVDP2(A3),D0		; Pone Bit-Panos en copper.
-	AND.W	#$0060,D0
-	LSL.W	#3,D0
-	MOVE.B	D2,D0
-
-	MULU	#32,D0
-	ADD.L	#SCR0,D0
-	LEA	PLANO5+2,A0
-	MOVE.L	#(32*1024),D1
-
-	MOVE.W	D0,4(A0)
-	SWAP	D0
-	MOVE.W	D0,(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,12(A0)
-	SWAP	D0
-	MOVE.W	D0,8(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,20(A0)
-	SWAP	D0
-	MOVE.W	D0,16(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,28(A0)
-	SWAP	D0
-	MOVE.W	D0,24(A0)
-; -=-=-
-	MOVEM.L	BUFER(A3),D0/D1/D3/A0
-	FInsBuc
-
-	MOVEQ	#$13,D1
-	MOVE.B	VDPIntY(A3),D2
-	JMP	([VDPPunt.W,PC,D1.W*4])
-	SWAP	D2
-	SIINT
-	RTS
-
-
-; -=-=-
-	CNOP	0,8
-Cop_Rest:DC.L	TabCop5+$4+$2
-Ant_Rest:DC.W	0
-; -=-=-
-
-; -=-=-=-=-=-=-=-=-=-=-=-=-
-
-VDP17m7:
-	NOINT
-	IInsBuc
-	RSPLITCHK	VDPLinY
-	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
-	MOVEM.L	D0/D1/D3/A0,BUFER(A3)
-
-; -=-=-
-V17Buc70:CMP.B	#$67,$DFF007
-	BCC.S	V17Buc70
-; -=-=-
-	MOVE.B	ScanningY(A3),D1
-V17Buc72:CMP.B	$DFF006,D1
-	BEQ.S	V17Buc72
-; -=-=-
-V17Buc71:
-	CMP.B	#IniPant-1,$DFF006
-	BEQ.S	V17Buc71
-;;	BCS.S	V17Con71
-; -=-=-
-	MOVE.B	DVDP2(A3),D3
-	AND.W	#$0020,D3
-	LSL.W	#3,D3
-	MOVE.B	D2,D3
-
-	MOVE.W	Ant_Rest(PC),D0
-	MOVE.W	D3,Ant_Rest
-
-	MOVE.B	$DFF006,D1
-	MOVE.B	D1,ScanningY(A3)
-	SUB.B	#INIPANT-1,D1
-
-	ADD.B	D1,D3
-	ADD.B	D1,D0
-	BNE.S	V17Con70
-	ADD.W	#$0100,D0
-V17Con70:
-	SUB.W	D0,D3
-
-	LSL.W	#6,D3
-
-ModC72:	SUBQ.W	#8,D3
-
-	MOVE.W	D3,D0
-	SWAP	D3
-	MOVE.W	D0,D3
-	MOVE.L	D3,$DFF108
-; -=-=-
-V17Con71:
-; -=-=-
-ModC70:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de p�gina en copper.
-	MOVE.L	Cop_Rest(PC),A0
-	MOVE.W	D0,(A0)
-	MOVE.W	D0,4(A0)
-	MOVE.W	#255,D0
-	SUB.B	D2,D0
-	MULU	#TabCop5Add,D0
-	LEA	(TabCop5+$4+$2,D0.W),A0
-ModC71:	MOVE.W	#(-64*256)-8,D0
-	MOVE.W	D0,(A0)
-	MOVE.W	D0,4(A0)
-	MOVE.L	A0,Cop_Rest
-; -=-=-
-	MOVE.B	DVDP2(A3),D0		; Pone Bit-Panos en copper.
-	AND.W	#$0020,D0
-	LSL.W	#3,D0
-	MOVE.B	D2,D0
-
-	MULU	#64,D0
-	ADD.L	#SCR0,D0
-	LEA	PLANO7+2,A0
-	MOVE.L	#(64*512),D1
-
-	MOVE.W	D0,4(A0)
-	SWAP	D0
-	MOVE.W	D0,(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,12(A0)
-	SWAP	D0
-	MOVE.W	D0,8(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,20(A0)
-	SWAP	D0
-	MOVE.W	D0,16(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,28(A0)
-	SWAP	D0
-	MOVE.W	D0,24(A0)
-; -=-=-
-	MOVEM.L	BUFER(A3),D0/D1/D3/A0
-	FInsBuc
-
-	MOVEQ	#$13,D1
-	MOVE.B	VDPIntY(A3),D2
-	JMP	([VDPPunt.W,PC,D1.W*4])
-	SWAP	D2
-	SIINT
-	RTS
-; -=-=-
-
-; -=-=-=-=-=-=-=-=-=-=-=-=-
-
-VDP17m8:
-	NOINT
-	IInsBuc
-	RSPLITCHK	VDPLinY
-	MOVE.B	D2,VDPLinY(A3)			; Registro de Scroll.
-	MOVEM.L	D0/D1/D3/A0,BUFER(A3)
-
-; -=-=-
-V17Buc80:CMP.B	#$67,$DFF007
-	BCC.S	V17Buc80
-; -=-=-
-	MOVE.B	ScanningY(A3),D1
-V17Buc82:CMP.B	$DFF006,D1
-	BEQ.S	V17Buc82
-; -=-=-
-V17Buc81:
-	CMP.B	#IniPant-1,$DFF006
-	BEQ.S	V17Buc81
-;;;	BCS.S	V17Con81
-; -=-=-
-	MOVE.B	DVDP2(A3),D3
-	AND.W	#$0020,D3
-	LSL.W	#3,D3
-	MOVE.B	D2,D3
-
-	MOVE.W	Ant_Rest(PC),D0
-	MOVE.W	D3,Ant_Rest
-
-	MOVE.B	$DFF006,D1
-	MOVE.B	D1,ScanningY(A3)
-	SUB.B	#INIPANT-1,D1
-
-	ADD.B	D1,D3
-	ADD.B	D1,D0
-	BNE.S	V17Con80
-	ADD.W	#$0100,D0
-V17Con80:
-	SUB.W	D0,D3
-
-	LSL.W	#5,D3
-
-ModC82:	SUBQ.W	#8,D3
-
-	MOVE.W	D3,D0
-	SWAP	D3
-	MOVE.W	D0,D3
-	MOVE.L	D3,$DFF108
-; -=-=-
-V17Con81:
-; -=-=-
-ModC80:	MOVEQ	#-8,D0			; Calcula Nuevo Fin de p�gina en copper.
-	MOVE.L	Cop_Rest(PC),A0
-	MOVE.W	D0,(A0)
-	MOVE.W	D0,4(A0)
-	MOVE.W	#255,D0
-	SUB.B	D2,D0
-	MULU	#TabCop5Add,D0
-	LEA	(TabCop5+$4+$2,D0.W),A0
-ModC81:	MOVE.W	#(-32*256)-8,D0
-	MOVE.W	D0,(A0)
-	MOVE.W	D0,4(A0)
-	MOVE.L	A0,Cop_Rest
-; -=-=-
-	MOVE.B	DVDP2(A3),D0		; Pone Bit-Panos en copper.
-	AND.W	#$0020,D0
-	LSL.W	#3,D0
-	MOVE.B	D2,D0
-
-	MULU	#32,D0
-	ADD.L	#SCR0,D0
-	LEA	PLANO8+2,A0
-	MOVE.L	#(32*512),D1
-
-	MOVE.W	D0,4(A0)
-	SWAP	D0
-	MOVE.W	D0,(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,12(A0)
-	SWAP	D0
-	MOVE.W	D0,8(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,20(A0)
-	SWAP	D0
-	MOVE.W	D0,16(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,28(A0)
-	SWAP	D0
-	MOVE.W	D0,24(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,36(A0)
-	SWAP	D0
-	MOVE.W	D0,32(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,44(A0)
-	SWAP	D0
-	MOVE.W	D0,40(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,52(A0)
-	SWAP	D0
-	MOVE.W	D0,48(A0)
-	SWAP	D0
-	ADD.L	D1,D0
-	MOVE.W	D0,60(A0)
-	SWAP	D0
-	MOVE.W	D0,56(A0)
-; -=-=-
-	MOVEM.L	BUFER(A3),D0/D1/D3/A0
-	FInsBuc
-
-	MOVEQ	#$13,D1
-	MOVE.B	VDPIntY(A3),D2
-	JMP	([VDPPunt.W,PC,D1.W*4])
-	SWAP	D2
-	SIINT
-	RTS
-; -=-=-
-
-; -=-=-=-=-=-=-=-=-=-=-=-=-
+; (4.0) The beam-timed R#23/R#2 handlers of SCREEN 5-8 (VDP17m5, m7, m8:
+; a BPL1MOD jump written at the Amiga line the beam was in, and page-end
+; entries in TabCop5, which the copper never runs) were unreachable: every
+; mode installs VDP17 below, which records the write as an event at the
+; MSX line (TabRasCMDS/TabRasDATA) and ActCopperLine builds it into the
+; per-line copper list (AcCoRutGBY5-8). Removed; Docs/bitmap_line_events.md.
 
 ;	-----------------------=>  VDP ($17)  Hardware Vertical Scroll
 VDP17:
@@ -10999,6 +10914,10 @@ P5Band:	MOVEQ	#0,D0			; (Pl5Band, 16 MSX lines = 8 plane
 	ELSE
 	BEQ	P5BandN
 	ENDC
+	TST.B	PlMode			; (4.0) Wide layouts: the band from
+	BEQ.S	P5BandN0		; AmiMSX_V9958_v4.asm (back at P5BandN;
+	JMP	P4W_BAND		; no second call level on the Restas A7).
+P5BandN0:
 	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
 	MOVEQ	#0,D1
 	MOVE.W	D0,D1
@@ -11107,7 +11026,7 @@ ActPla7Con:
 	MOVEM.L	D0-D7/A0-A2/A4-A5,BUFER(A3)
 	MOVE.L	A6,ActPA6
 	TST.B	V5All			; All of VRAM (start, after SCREEN 6/8)...
-	BNE.S	ActPlaAll
+	BNE	ActPlaAll
 	SUB.L	A6,A6			; ...or the 1 KB blocks written since.
 ActPlaBlk:
 	CMP.W	#128,A6
@@ -11121,6 +11040,10 @@ ActPlaBlk:
 	BCC.S	ActPlaNoT
 	ST	SCRTDirty
 ActPlaNoT:
+	TST.B	PlMode			; (4.0) Wide layouts: AmiMSX_V9958_v4.asm.
+	BEQ.S	ActPlaBlkN
+	JMP	ActPlaBlkW
+ActPlaBlkN:
 	MOVE.L	A6,D7
 	LSL.L	#8,D7			; 256 plane bytes per 1 KB of VRAM.
 	LEA	(SCR0.L,D7.L),A0
@@ -11140,6 +11063,13 @@ ActPlaAll:
 	ST	SCRTDirty
 	LEA	VBlk5,A0
 	MOVEQ	#(128/4)-1,D7
+	TST.B	PlMode			; (4.0) Wide layouts: every block
+	BEQ.S	ActPlaClr		; through ActPlaBlkW.
+ActPlaSet:
+	MOVE.L	#-1,(A0)+
+	DBF	D7,ActPlaSet
+	SUB.L	A6,A6
+	BRA	ActPlaBlk
 ActPlaClr:
 	CLR.L	(A0)+
 	DBF	D7,ActPlaClr
@@ -11283,13 +11213,15 @@ BIEN8:
 ; -=-=-
 
 	CNOP	0,8
-PRINT8:	MOVE.L	#COPPER8,NEXTCOPP	; No mover.
+PRINT8:	MOVE.L	#COPPER8,D1		; No mover.
+	TST.B	BMSOn			; (4.0) Pair split: the top mode's list.
+	BEQ.S	PR8List
+	MOVE.L	BMSList,D1
+PR8List:
+	MOVE.L	D1,NEXTCOPP
 	MOVE.L	#SPRMODE6,RSPR(A3)
 
 	BSR	Act_Adjust
-; -=-=-
-	ST	ScanningY(A3)
-; -=-=-
 	BTST	#3,DVDP9(A3)
 	BEQ	NoInterlaz8
 
@@ -11665,25 +11597,29 @@ c8Bucle0z:
 
 	CNOP	0,8
 PRINT5:
-	MOVE.L	#COPPER5,NEXTCOPP
+	MOVE.L	#COPPER5,D1
+	TST.B	BMSOn			; (4.0) Pair split: the top mode's list
+	BEQ.S	PR5List			; (BMSPrep; one write: the copper
+	MOVE.L	BMSList,D1		; interrupt reads NEXTCOPP any time).
+PR5List:
+	MOVE.L	D1,NEXTCOPP
 	MOVE.L	#SPRMODE5,RSPR(A3)
 
 	BSR	Act_Adjust
-; -=-=-
-	ST	ScanningY(A3)
-; -=-=-
+	JSR	Pl5Frame		; (4.0) The planes' layout for SP2.
 	BTST	#3,DVDP9(A3)
 	BEQ.S	NoInterlaz5
 
+	MOVEQ	#0,D0
 	MOVE.B	DVDP2(A3),D0		; Pone Bit-Panos en copper.
 	AND.W	#$0060,D0
 	LSL.W	#3,D0
 	MOVE.B	VDPLinY(A3),D0
 
-	MULU	#32,D0
+	JSR	Pl5DispOff		; (4.0) Layouts.
 	ADD.L	#SCR0,D0
 	LEA	PLANO5+2,A0
-	MOVE.L	#(32*1024),D1
+	MOVE.L	PlSizeL,D1
 
 	MOVE.W	D0,4(A0)
 	SWAP	D0
@@ -11730,6 +11666,8 @@ SPR_ECS:
 ; and jittered (Space Manbow's ship on BigMig).
 SPR1DBL:	MACRO
 	JSR	SprWaitSw		; (the buffer may still be on screen)
+	ST	SprDrawn		; (DbCommitF: a dropped frame's buffer
+					; is drawn again)
 	TST.B	SprBufB
 	BNE.S	\@b
 	LEA	BUFERSPR2-2,A0
@@ -11895,6 +11833,8 @@ SPRMODE5con:
 	CNOP	0,8
 SPRMODE5b:
 	LEA	REGS(PC),A3
+	TST.B	BandSprOn	; (4.0) Or a band with them on (BANDSHOT).
+	BNE.S	SISPRASC
 	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC
 
@@ -11930,6 +11870,8 @@ SPR2OFF:
 	CNOP	0,8
 SPRMODE51f:
 	LEA	REGS(PC),A3
+	TST.B	BandSprOn	; (4.0) Or a band with them on (BANDSHOT).
+	BNE.S	SISPRASC1f
 	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC1f
 
@@ -12004,6 +11946,8 @@ SPRMODE6con:
 	CNOP	0,8
 SPRMODE6b:
 	LEA	REGS(PC),A3
+	TST.B	BandSprOn	; (4.0) Or a band with them on (BANDSHOT).
+	BNE.S	SISPRASC6
 	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC6
 
@@ -12041,6 +11985,8 @@ SPR2OFF6:
 	CNOP	0,8
 SPRMODE61f:
 	LEA	REGS(PC),A3
+	TST.B	BandSprOn	; (4.0) Or a band with them on (BANDSHOT).
+	BNE.S	SISPRASC1fb
 	BTST	#1,TopR8	; Sprites on (playfield R#8, MIDSAMPLE).
 	BEQ.S	SISPRASC1fb
 
@@ -12070,9 +12016,6 @@ PRINT7:
 	MOVE.L	#SPRMODE5,RSPR(A3)
 
 	BSR	Act_Adjust
-; -=-=-
-	ST	ScanningY(A3)
-; -=-=-
 	BTST	#3,DVDP9(A3)
 	BEQ.S	NoInterlaz7
 
@@ -12121,16 +12064,21 @@ BITPLASPR:
 	MOVE.L	D0,-(SP)
 	LSR.L	#2,D0
 	LEA	(SCR0.L,D0.L),A0
-	MOVE.L	#(64*512),D1
+	LSR.W	#6,D0
+	LEA	(TABSPR.L,D0.W),A6
+	TST.B	PlMode			; (4.0) Wide layouts: the table's line
+	BEQ.S	BPlSprN			; (PlAddrOff; 2 KB tables stay in a page).
+	MOVE.L	(SP),D0
+	JSR	PlAddrOff
+	LEA	(SCR0.L,D0.L),A0
+BPlSprN:
+	MOVE.L	PlSizeL,D1
 	MOVE.L	A0,A1
 	ADD.L	D1,A1
 	MOVE.L	A1,A2
 	ADD.L	D1,A2
 	MOVE.L	A2,A3
 	ADD.L	D1,A3
-
-	LSR.W	#6,D0
-	LEA	(TABSPR.L,D0.W),A6
 
 	LEA	DIRVRAM,A4
 	ADD.L	(SP)+,A4
@@ -12143,10 +12091,10 @@ P4_BUCI:
 	TST.B	(A6)+
 	BNE.S	REDESPR
 
-	ADD.W	#16*4,A0
-	ADD.W	#16*4,A1
-	ADD.W	#16*4,A2
-	ADD.W	#16*4,A3
+	ADDA.W	PlStr2W,A0		; (two lines)
+	ADDA.W	PlStr2W,A1
+	ADDA.W	PlStr2W,A2
+	ADDA.W	PlStr2W,A3
 	ADD.W	#(8*4*8),A4
 
 	DBF	D5,P4_BUCI
@@ -12218,6 +12166,13 @@ P4BBUC:
 	OR.L	(A6,D6.W*4),D4
 	MOVE.L	D4,(A4)
 	ADD.W	#$10,A4
+	CMP.W	#8,D7			; (4.0) Wide layouts: past the first
+	BNE.S	BPlSprNx		; line's 16 words, over its copy.
+	ADDA.W	PlSkipW,A0
+	ADDA.W	PlSkipW,A1
+	ADDA.W	PlSkipW,A2
+	ADDA.W	PlSkipW,A3
+BPlSprNx:
 	DBF	D7,P4BBUC
 
 	MOVEM.L	(SP)+,D5/A6
@@ -12286,16 +12241,22 @@ BITSPRCOL:
 	SUB.L	D1,D0
 	LSR.L	#2,D0
 	LEA	(SCR0.L,D0.L),A0
-	MOVE.L	#(64*512),D1
+	LSR.W	#6,D0
+	LEA	(TABSPR.L,D0.W),A6
+	TST.B	PlMode			; (4.0) Wide layouts (PlAddrOff).
+	BEQ.S	BSpColN
+	MOVE.L	A4,D0
+	SUB.L	#DIRVRAM,D0
+	JSR	PlAddrOff
+	LEA	(SCR0.L,D0.L),A0
+BSpColN:
+	MOVE.L	PlSizeL,D1
 	MOVE.L	A0,A1
 	ADD.L	D1,A1
 	MOVE.L	A1,A2
 	ADD.L	D1,A2
 	MOVE.L	A2,A3
 	ADD.L	D1,A3
-
-	LSR.W	#6,D0
-	LEA	(TABSPR.L,D0.W),A6
 
 	LEA	TABLAP4B(PC),A5
 	MOVE.W	#$100,D6
@@ -12306,10 +12267,10 @@ P4_BUC3I:
 	TST.B	(A6)+
 	BNE.S	COORSPR
 
-	ADD.W	#64,A0
-	ADD.W	#64,A1
-	ADD.W	#64,A2
-	ADD.W	#64,A3
+	ADDA.W	PlStr2W,A0		; (two lines)
+	ADDA.W	PlStr2W,A1
+	ADDA.W	PlStr2W,A2
+	ADDA.W	PlStr2W,A3
 	ADD.W	#(8*8*4),A4
 
 	DBF	D5,P4_BUC3I
@@ -12381,6 +12342,13 @@ P4BBUC2:
 	OR.L	(A6,D6.W*4),D4
 	MOVE.L	D4,(A4)
 	ADD.W	#$10,A4
+	CMP.W	#8,D7			; (4.0) Wide layouts: over the copy.
+	BNE.S	BSpColNx
+	ADDA.W	PlSkipW,A0
+	ADDA.W	PlSkipW,A1
+	ADDA.W	PlSkipW,A2
+	ADDA.W	PlSkipW,A3
+BSpColNx:
 	DBF	D7,P4BBUC2
 
 	MOVEM.L	(SP)+,D5/A6
@@ -12402,20 +12370,6 @@ PRINT6ecs:
 	MOVE.L	#SPRMODE6,RSPR(A3)
 
 	BSR	Act_Adjust
-
-ModC60:	MOVEQ	#-8,D1
-	MOVE.L	Cop_Rest,A4
-	MOVE.W	D1,(A4)
-	MOVE.W	D1,4(A4)
-
-ModC61:	MOVE.W	#(-64*256)-8,D1
-	MOVE.W	#255,D0
-	SUB.B	VDPLINY(A3),D0
-	MULU	#TabCop5Add,D0
-	LEA	(TabCop5+4+2,D0.W),A4
-	MOVE.L	A4,Cop_Rest
-	MOVE.W	D1,(A4)
-	MOVE.W	D1,4(A4)
 
 
 	MOVE.B	DVDP2(A3),D0
@@ -13405,8 +13359,7 @@ NoEsTruco2:
 	BNE	ACTUTODO4
 
 
-	LEA	DIRVRAM,A0
-	ADD.L	PVDP2(A3),A0		; Tabla de texto.
+	JSR	NtSrc			; (4.0) Tabla de texto (R#26: rotated).
 	MOVEQ	#(4)-1,D7
 	BSR	COPIATXT4	; Actualiza Pantalla.
 
@@ -13424,8 +13377,7 @@ ACTUTODO4:
 	MOVE.W	#((32*8*4)/4)-1,D0
 	BSR	TRANSBLT4	; Actualiza Gfx y colores de Caracteres.
 	LEA	REGS(PC),A3
-	LEA	DIRVRAM,A0
-	ADD.L	PVDP2(A3),A0		; Tabla de texto.
+	JSR	NtSrc			; (4.0) Tabla de texto (R#26: rotated).
 	MOVEQ	#(4)-1,D6
 	BSR	ACTUALIZA4	; Actualiza pantalla al 100%
 
@@ -14715,8 +14667,7 @@ PRECHK1:TST.L	(A0)+
 	BRA	PREPSIG
 	CNOP	0,8
 PREPRUT:
-	LEA	DIRVRAM,A0
-	ADD.L	PVDP2(A3),A0		; Tabla de texto.
+	JSR	NtSrc			; (4.0) Tabla de texto (R#26: rotated).
 	MOVE.W	D7,D0
 	LSL.W	#8,D0
 	ADD.W	D0,A0			; This block's names.
@@ -15052,8 +15003,7 @@ TABLABUF:
 ; ----------------------------->  Copia Caracteres en Pantalla.
 COPIATXT:
 	LEA	REGS(PC),A3
-	LEA	DIRVRAM,A0
-	ADD.L	PVDP2(A3),A0		; Tabla de texto.
+	JSR	NtSrc			; (4.0) Tabla de texto (R#26: rotated).
 
 	LEA	TABLABUF(PC),A2
 	MOVE.L	4(A2),A1
@@ -15172,8 +15122,7 @@ TXT2:	DS.B	80*30
 ; ----------------------------->  Imprime  Gfx de caracteres en pantalla.
 ACTUALIZA:
 	LEA	REGS(PC),A3
-	LEA	DIRVRAM,A0
-	ADD.L	PVDP2(A3),A0		; Tabla de texto.
+	JSR	NtSrc			; (4.0) Tabla de texto (R#26: rotated).
 
 	MOVE.L	A0,A6
 	MOVE.L	TABLABUF(PC),A1
@@ -16268,6 +16217,12 @@ MiraInter0:
 	ADDQ.B	#1,RFrame		; (LD A,R)
 	SF	S5Valid			; 5th sprite flag: new frame.
 	CLR.W	S5Next
+	MOVE.W	#$0100,D1		; (4.0) The frame's bitplane DMA (MCOPP96)
+	BTST	#6,DVDP1(A3)		; is R#1 BL as the display starts; changes
+	BEQ.S	MI0BlOff		; during the display are BlankTab events
+	MOVE.W	#$8100,D1		; (VDP1).
+MI0BlOff:
+	MOVE.W	D1,MCOPP96+2
 
 ;;	SF	PetInt38+1(A3)
 ;;	BCLR	#7,Estado(A3)		; Petici�n de Interrupci�n Vertical.
@@ -16280,6 +16235,10 @@ MiraInter0:
 	MOVE.B	VDPAdjust(A3),TabRasDATA+3 ; VDP ($12)
 	MOVE.B	V9R27,TabRasDATA+5	 ; (4.0) V9958 R#27, R#25
 	MOVE.B	V9R25,TabRasDATA+6
+	MOVE.B	V9R26,TabRasDATA+7
+	MOVE.B	V9R26,R26Top		; (4.0) Tile modes: R#26 at the frame
+	CLR.W	R26EvN			; start, no writes yet, NTROT stale.
+	SF	NtFrame
 	MOVE.B	VDPLinY(A3),TabRasDATA+4 ; VDP ($17)
 	OR.B	#$03,TabRasCMDS		 ; Adjust + Scroll Y
 
@@ -16445,7 +16404,7 @@ NoModoHalt:
 	SUB.W	(A7),A5
 	MOVE.W	A5,D2
 ;	----------------
-	SUBQ.W	#7,(A3)			; * Resta Cycles *
+	SUB.W	#13,(A3)		; * Resta Cycles * (4.0) 13 as a Z80 IM 1 (was 7)
 ;	----------------
 	MOVEQ	#0,D1
 	SUBQ.W	#2,D0
@@ -16469,10 +16428,11 @@ NoModoHalt:
 ;	----------------
 NoModo1:
 	BMI.S	SiModo2			; �Es Modo IM 0?
-	LEA	$66(A4),A5
-	Otra2
+	LEA	$38(A4),A5		; (4.0) IM 0: the MSX bus reads FFh = RST 38h
+	Otra2				; (as openMSX). It went to 0066h (NMI).
 ;	----------------
 SiModo2:
+	SUBQ.W	#6,(A3)			; (4.0) IM 2: 19 cycles
 	MOVE.W	I(A3),D1
 	ST	D1
 	CogePag	D1,A4
@@ -16567,7 +16527,8 @@ BufBasura:	DS.L	20
 ; ---------------------------------=> Emulaci�n de 1 Frame.
 	CNOP	0,4
 Emula1Frame:
-	JSR	DbCommit		; (4.0) double buffer: show the last frame
+	JSR	DbCommitF		; (4.0) double buffer: show the last frame
+					; (or drop it, if late: DbCommitF)
 	IFD	PERF
 	JSR	PerfStamp		; A: Z80 frame done.
 	MOVE.L	PerfNow,PerfA
@@ -16603,6 +16564,10 @@ DispLg1:
 	ENDC
 
 	JSR	DbLineSafe		; (4.0) not the copper list on screen
+	IFD	COPLINEDB
+	JSR	CopLineSafe		; (review R5) nor after a late flip
+	ENDC
+	JSR	BMSPrep			; (4.0) bitmap-pair mode split: the top page
 	JSR	ActCopperLine	; *Z0*
 
 	LEA	Regs(PC),A3
@@ -16726,6 +16691,7 @@ RendSame:
 	JSR	DbStop
 RendDbOk:
 	JSR	([RVDP.W,A3])		; Emulaci�n del VDP.
+	JSR	BMSPost			; (4.0) pair split: COPPER8P's colours
 	TST.B	DbStopCop		; (4.0) Smooth display stopped this frame
 	BEQ.S	RendNoSt		; after the $FC interrupt: the new mode's
 	SF	DbStopCop		; list now, not the live COPPER4 template
@@ -16733,6 +16699,9 @@ RendDbOk:
 	BEQ.S	RendNoSt
 	MOVE.L	NEXTCOPP,$DFF084
 RendNoSt:
+	IFD	COPLINEDB
+	JSR	CopLineFlip		; (4.0 draft) the list just built shows next
+	ENDC
 	TST.W	SnapPend		; Key-script SNAP: hold this frame.
 	BEQ.S	NoSnapDo
 	JSR	KeySnapDo
@@ -16746,6 +16715,9 @@ NoSnapDo:
 	RTS
 RefrCon:
 	SUBQ.W	#1,Refresh
+	IFD	COPLINEDB
+	JSR	CopLineFlip
+	ENDC
 	IFD	PERF
 	MOVE.L	PerfC,PerfD		; Frame skipped: no render.
 	JSR	PerfFrame
@@ -16754,6 +16726,90 @@ RefrCon:
 
 
 Refresh:DC.W	0
+
+	IFD	COPLINEDB
+; (4.0 draft, vasm -DCOPLINEDB=1) The per-line copper list double-buffered
+; in every mode: the list ActCopperLine just built (CopperLineDos) becomes
+; the one the mode's copper jumps to (ZALTO4-8) from the next frame start,
+; and the next frame builds the other (DbSwapLines: list, routines and the
+; restore table). Before, one list was rebuilt in place, and when the
+; emulation ran late (Wait60fps returns at once) the rebuild overlapped the
+; copper's run of it: lines above the beam kept last frame's events, lines
+; below got the new ones. Smooth display swaps for itself (DbPost): nothing
+; here while it is on. The jump's two words are not written while the
+; copper is about to read them (lines 24-28). Docs/bitmap_line_events.md.
+; (review R5) The copper reads the jump at line IniPant-17 = 26 in SCREEN 4
+; (COPPER4) but at IniPant-1 = 42 in SCREEN 5-8 (NPLAx's second WAIT), so
+; the wait covers lines 24-28 and 40-44. A flip after line 24 may come after
+; this frame's read: the copper then runs the old list (Dos after the swap)
+; to the end of the display, and the next rebuild must wait for that
+; (CopLineSafe, as DbLineSafe does for Smooth display).
+	CNOP	0,4
+CopLineFlip:
+	TST.B	DbOn
+	BNE	CopLFX
+	MOVE.L	D0,-(SP)
+	SF	CopFlipLate
+	TST.B	INTWB
+	BNE.S	CopLFGo
+CopLFW:	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#24,D0
+	BCS.S	CopLFGo			; before both reads: shows this frame
+	CMP.W	#$FC,D0
+	BCC.S	CopLFGo			; after the list's end: next frame, safe
+	ST	CopFlipLate		; the copper keeps the old list this frame
+	SUB.W	#24,D0
+	CMP.W	#5,D0
+	BCS.S	CopLFW			; 24-28: SCREEN 4's read
+	SUB.W	#16,D0
+	CMP.W	#5,D0
+	BCS.S	CopLFW			; 40-44: SCREEN 5-8's read
+CopLFGo:
+	MOVE.W	FMXVbl,CopFlipV
+	MOVE.L	CopperLineDos,D0
+	MOVE.W	D0,ZALTO4+6
+	MOVE.W	D0,ZALTO5+6
+	MOVE.W	D0,ZALTO6+6
+	MOVE.W	D0,ZALTO7+6
+	MOVE.W	D0,ZALTO8+6
+	SWAP	D0
+	MOVE.W	D0,ZALTO4+2
+	MOVE.W	D0,ZALTO5+2
+	MOVE.W	D0,ZALTO6+2
+	MOVE.W	D0,ZALTO7+2
+	MOVE.W	D0,ZALTO8+2
+	JSR	DbSwapLines
+	MOVE.L	(SP)+,D0
+CopLFX:	RTS
+
+; Before ActCopperLine: after a late flip the list it is about to rebuild is
+; the one the copper is still running; wait until the beam is past the
+; list's end ($FC) or a VBlank has come (as DbLineSafe). Keeps registers.
+CopLineSafe:
+	TST.B	DbOn
+	BNE.S	CopLSX
+	TST.B	CopFlipLate
+	BEQ.S	CopLSX
+	SF	CopFlipLate
+	TST.B	INTWB
+	BNE.S	CopLSX
+	MOVEM.L	D0-D1,-(SP)
+	MOVE.W	CopFlipV,D1
+CopLSL:	CMP.W	FMXVbl,D1
+	BNE.S	CopLSY
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#$FC,D0
+	BCS.S	CopLSL
+CopLSY:	MOVEM.L	(SP)+,D0-D1
+CopLSX:	RTS
+CopFlipLate:	DC.B	0
+	EVEN
+CopFlipV:	DC.W	0
+	ENDC
 
 ; ---------------------------------=> Espera a 60fps
 	CNOP	0,4
@@ -16847,6 +16903,7 @@ VDP2C:
 	TRVLOG	$2C,D2			; (Trace: CPU colour bytes, LMMC/HMMC data.)
 	ENDC
 	ST	CmdAny			; (4.0) a command drew (any mode)
+	ST	BMSCmd			; (4.0) pair split: the top page whole again
 	ST	SCRTDirty
 	MOVE.B	D2,DVDPCL(A3)
 	MOVE.B	DVDPREG(A3),D2
@@ -16883,6 +16940,7 @@ VDP2E:
 	BCLOG	1,D2,DVDPDY(A3),DVDPNY(A3),DVDPSY(A3)
 	ENDC
 	ST	CmdAny			; (4.0) a command drew (any mode)
+	ST	BMSCmd			; (4.0) pair split: the top page whole again
 	ST	SCRTDirty
 	CMP.B	#$07,ScrModo(A3)
 	BNE.S	Torna8
@@ -16892,6 +16950,10 @@ Torna8:
 	IInsBuc
 	MOVEM.L	D0-D7/A0-A6,BUFER(A3)
 
+	CMP.L	#Modo5WDats,MSXVideoMode(A3)	; (4.0) ...and the wide layouts
+	BEQ.S	P5MkGo
+	CMP.L	#Modo5PDats,MSXVideoMode(A3)
+	BEQ.S	P5MkGo
 	CMP.L	#Modo5Dats,MSXVideoMode(A3)	; (4.0) Commands draw in the planes
 	BEQ.S	P5MkGo			; only (SCREEN 5/7). Mark the 16-line
 	CMP.L	#Modo7Dats,MSXVideoMode(A3)	; bands they draw in (Pl5Band), so
@@ -16988,6 +17050,23 @@ COMANDOS:
 	DC.L	HMMC	; F	Copia de CPU a VRAM a Byte.
 
 ; ------------------------------------------------
+
+; (4.0) Start a blit of D4.L = (rows<<6)|words: BLTSIZE, or BLTSIZV/BLTSIZH
+; in the wide layouts, whose doubled rows can pass 1024. A2 = $DFF002.
+BLTSZ:	MACRO
+	TST.W	$3C(A4)
+	BEQ.S	\@n
+	MOVE.L	\1,BltSzTmp		; (no stack: A7 is the Restas table)
+	LSR.L	#6,\1
+	MOVE.W	\1,$5C-2(A2)
+	MOVE.L	BltSzTmp,\1
+	AND.W	#63,\1
+	MOVE.W	\1,$5E-2(A2)
+	MOVE.L	BltSzTmp,\1
+	BRA.S	\@x
+\@n:	MOVE.W	\1,$58-2(A2)
+\@x:
+	ENDM
 
 	CNOP	0,8
 STOP:
@@ -17106,7 +17185,8 @@ HMMC:
 	AND.W	D1,DVDPNX2(A3)
 
 	AND.W	#$000F,D2
-	MOVE.L	(LMMCPunteros.W,PC,D2.W*4),A0
+	MOVE.L	$34(A4),A0		; (4.0) the layout's routines
+	MOVE.L	(A0,D2.W*4),A0
 
 	MOVE.B	DVDPCL(A3),D2
 
@@ -17117,7 +17197,8 @@ LMMC:
 	MOVEQ	#0,D0
 
 	AND.W	#$000F,D2
-	MOVE.L	(LMMCPunteros.W,PC,D2.W*4),A0
+	MOVE.L	$34(A4),A0		; (4.0) the layout's routines
+	MOVE.L	(A0,D2.W*4),A0
 
 	MOVE.B	DVDPCL(A3),D2
 	MOVE.W	$30(A4),D1
@@ -17140,7 +17221,15 @@ LMMCNoCeroY:
 
 
 	MOVE.W	DVDPDY2(A3),D1
-	MULU	$0C(A4),D1
+	TST.W	$3C(A4)			; (4.0) Wide layouts: the line's bit
+	BEQ.S	LmmcDyN			; offset (PLROWOFF; no stack here).
+	AND.L	#$3FF,D1
+	PLROWOFF	D1
+	LSL.L	#3,D1
+	BRA.S	LmmcDyW
+LmmcDyN:
+	MULU	$32(A4),D1
+LmmcDyW:
 	MOVEQ	#0,D7
 	MOVE.W	DVDPDX2(A3),D7
 	ADD.L	D7,D1
@@ -17151,28 +17240,49 @@ LMMCNoCeroY:
 	BEQ.S	LMMCDESX
 	MOVEQ	#-1,D5
 
-	MOVE.W	$0C(A4),D6
+	MOVE.W	$32(A4),D6
 	ADD.W	CONTA2CX(A3),D6
 
 	BTST	#3,DVDPARG(A3)
 	BEQ.S	LMMCDESY
 
-	MOVE.W	$0C(A4),D6
+	MOVE.W	$32(A4),D6
 	SUB.W	CONTA2CX(A3),D6
 	NEG.L	D6
 
 	BRA.S	LMMCDESY
 	CNOP	0,4
 LMMCDESX:
-	MOVE.W	$0C(A4),D6
+	MOVE.W	$32(A4),D6
 	SUB.W	CONTA2CX(A3),D6
 	BTST	#3,DVDPARG(A3)
 	BEQ.S	LMMCDESY
-	MOVE.W	$0C(A4),D6
+	MOVE.W	$32(A4),D6
 	ADD.W	CONTA2CX(A3),D6
 	NEG.L	D6
 LMMCDESY:
 
+	TST.W	$3C(A4)			; (4.0) Wide layouts: the sprite tables'
+	BEQ.S	LmmcTsN			; flags for the whole rectangle now (the
+	MOVEM.L	D0-D1,LmmcSv		; bit offset no longer gives the line).
+	MOVE.W	DVDPDY2(A3),D0
+	MOVE.W	CONTA2C(A3),D1
+	BTST	#3,DVDPARG(A3)
+	BEQ.S	LmmcTsD
+	SUB.W	D1,D0
+	ADDQ.W	#1,D0
+LmmcTsD:
+	LSR.W	#1,D0			; TABSPR: 256 VRAM bytes, 2 lines each
+	ADDQ.W	#1,D1
+	LSR.W	#1,D1
+	AND.W	#$1FF,D0
+LmmcTsB:
+	ST	(TABSPR.L,D0.W)
+	ADDQ.W	#1,D0
+	AND.W	#$1FF,D0
+	DBF	D1,LmmcTsB
+	MOVEM.L	LmmcSv,D0-D1
+LmmcTsN:
 
 	MOVE.W	$10(A4),D4
 	MOVE.L	$2C(A4),A5
@@ -17249,11 +17359,17 @@ LMMCRut:MACRO
 \@SiCopy:
 
 	BFINS	D2,(A6){D1:1}
+	IFNC	"\3","0"
+	BFINS	D2,\3(A6){D1:1}		; (4.0) the row's copy
+	ENDC
 \@NoCopy:
 	OR.B	D2,D3
 	SUB.L	$16(A4),A6
 	DBF	D7,\@LMMCBuc0
 	BFINS	D3,(A6){D1:1}
+	IFNC	"\3","0"
+	BFINS	D3,\3(A6){D1:1}
+	ENDC
 \@NoLMMCopy:
 
 	ADD.L	D5,CPUCopyBuf
@@ -17272,12 +17388,14 @@ LMMCRut:MACRO
 	ADDQ.L	#1,D1
 	DBF	D0,\@LMMCBuc1
 
+	IFC	"\3","0"		; (4.0: wide layouts marked at the start)
 	LSR.L	#8,D1
 	TST.W	$1E(A4)
 	BEQ.S	\@NoRotes
 	LSR.L	#1,D1
 \@NoRotes:
 	ST	(TABSPR.L,D1.W)
+	ENDC
 
 
 	MOVEM.L	BUFER(A3),D0-D7/A0-A6
@@ -17302,14 +17420,47 @@ LMMCRut:MACRO
 
 
 	CNOP	0,8
-LMMCImp:	LMMCRut	Copy,Imp
-LMMCAnd:	LMMCRut	Copy,And
-LMMCOr:		LMMCRut	Copy,Or
-LMMCXor:	LMMCRut	Copy,Xor
-LMMCTImp:	LMMCRut	Cero,Imp
-LMMCTAnd:	LMMCRut	Cero,And
-LMMCTOr:	LMMCRut	Cero,Or
-LMMCTXor:	LMMCRut	Cero,Xor
+LMMCImp:	LMMCRut	Copy,Imp,0
+LMMCAnd:	LMMCRut	Copy,And,0
+LMMCOr:		LMMCRut	Copy,Or,0
+LMMCXor:	LMMCRut	Copy,Xor,0
+LMMCTImp:	LMMCRut	Cero,Imp,0
+LMMCTAnd:	LMMCRut	Cero,And,0
+LMMCTOr:	LMMCRut	Cero,Or,0
+LMMCTXor:	LMMCRut	Cero,Xor,0
+
+; (4.0) The wide layouts: each pixel also into the row's copy, 32 bytes on
+; (layout 1) or 64 (layout 2, SP2).
+	CNOP	0,8
+LMMCImpW:	LMMCRut	Copy,Imp,32
+LMMCAndW:	LMMCRut	Copy,And,32
+LMMCOrW:	LMMCRut	Copy,Or,32
+LMMCXorW:	LMMCRut	Copy,Xor,32
+LMMCTImpW:	LMMCRut	Cero,Imp,32
+LMMCTAndW:	LMMCRut	Cero,And,32
+LMMCTOrW:	LMMCRut	Cero,Or,32
+LMMCTXorW:	LMMCRut	Cero,Xor,32
+	CNOP	0,8
+LMMCImpP:	LMMCRut	Copy,Imp,64
+LMMCAndP:	LMMCRut	Copy,And,64
+LMMCOrP:	LMMCRut	Copy,Or,64
+LMMCXorP:	LMMCRut	Copy,Xor,64
+LMMCTImpP:	LMMCRut	Cero,Imp,64
+LMMCTAndP:	LMMCRut	Cero,And,64
+LMMCTOrP:	LMMCRut	Cero,Or,64
+LMMCTXorP:	LMMCRut	Cero,Xor,64
+
+	CNOP	0,8
+LMMCPunterosW:
+	DC.L	LMMCImpW,LMMCAndW,LMMCOrW,LMMCXorW
+	DC.L	LMMCImpW,LMMCAndW,LMMCOrW,LMMCXorW
+	DC.L	LMMCTImpW,LMMCTAndW,LMMCTOrW,LMMCTXorW
+	DC.L	LMMCTImpW,LMMCTAndW,LMMCTOrW,LMMCTXorW
+LMMCPunterosP:
+	DC.L	LMMCImpP,LMMCAndP,LMMCOrP,LMMCXorP
+	DC.L	LMMCImpP,LMMCAndP,LMMCOrP,LMMCXorP
+	DC.L	LMMCTImpP,LMMCTAndP,LMMCTOrP,LMMCTXorP
+	DC.L	LMMCTImpP,LMMCTAndP,LMMCTOrP,LMMCTXorP
 
 
 
@@ -17473,8 +17624,14 @@ NODESBORX2:
 	MOVE.L	A0,A1			; Destino X,Y
 	MOVEQ	#0,D0
 	MOVE.W	DVDPSY2(A3),D0
+	TST.W	$3C(A4)			; (4.0) Wide layouts: the line's
+	BEQ.S	CalcSyN			; offset (PLROWOFF: no stack here).
+	PLROWOFF	D0
+	BRA.S	CalcSyW
+CalcSyN:
 	MOVE.W	$08(A4),D3		; Y * Size lado.
 	LSL.W	D3,D0
+CalcSyW:
 	ADD.L	D0,A0
 	MOVEQ	#0,D0
 	MOVE.W	DVDPSX2(A3),D0
@@ -17485,8 +17642,14 @@ NODESBORX2:
 
 	MOVEQ	#0,D1
 	MOVE.W	DVDPDY2(A3),D1
+	TST.W	$3C(A4)
+	BEQ.S	CalcDyN
+	PLROWOFF	D1
+	BRA.S	CalcDyW
+CalcDyN:
 	MOVE.W	$08(A4),D3	; Y * Size lado.
 	LSL.W	D3,D1
+CalcDyW:
 	ADD.L	D1,A1
 	MOVEQ	#0,D1
 	MOVE.W	DVDPDX2(A3),D1
@@ -17574,8 +17737,16 @@ TABSPRBUC:
 	MOVE.W	D6,D3
 	ADD.W	$0A(A4),D3		; ** Size 1 linea.
 	NEG.W	D3
+	TST.W	$3C(A4)			; (4.0) Wide layouts, DIY up: start at
+	BEQ.S	NODESBORY		; the row's copy (the half-rows walk
+	ADDA.W	$0A(A4),A0		; down in memory).
+	ADDA.W	$0A(A4),A1
 
 NODESBORY:
+	TST.W	$3C(A4)			; (4.0) Wide layouts: twice the rows
+	BEQ.S	CalcHN			; (the row and its copy).
+	ADD.W	D4,D4
+CalcHN:
 	ROL.L	#6,D4
 
 	ROR.W	#4,D1
@@ -17653,13 +17824,23 @@ TABSPRBUCD:
 	LEA	-2(A1,D6.W),A1
 
 	BTST	#3,DVDPARG(A3)
-	BNE.S	NODESBORYD
+	BNE.S	MdDesUp
 
 	MOVE.W	D6,D3
 	ADD.W	$0A(A4),D3		; ** Size 1 linea.
 	NEG.W	D3
+	BRA.S	NODESBORYD
+MdDesUp:
+	TST.W	$3C(A4)			; (4.0) Wide layouts, DIY up: start at
+	BEQ.S	NODESBORYD		; the row's copy.
+	ADDA.W	$0A(A4),A0
+	ADDA.W	$0A(A4),A1
 
 NODESBORYD:
+	TST.W	$3C(A4)			; (4.0) Twice the rows.
+	BEQ.S	MdDesHN
+	ADD.W	D4,D4
+MdDesHN:
 	ROL.L	#6,D4
 
 	SWAP	D5
@@ -17736,7 +17917,7 @@ TIMPSH:
 	MOVE.W	D7,$40-2(A2)
 	MOVE.L	A6,$50-2(A2)	; A = source plane 0
 	MOVE.L	A5,$54-2(A2)	; D = M
-	MOVE.W	D4,$58-2(A2)	; Size
+	BLTSZ	D4		; Size
 	MOVE.W	$10(A4),D7
 	SUBQ.W	#1,D7			; Then OR in every colour plane.
 TIMPOR:
@@ -17750,7 +17931,7 @@ TIMPB:
 	MOVE.L	A6,$50-2(A2)	; A = next source plane
 	MOVE.L	A5,$48-2(A2)	; C = M
 	MOVE.L	A5,$54-2(A2)	; D = M
-	MOVE.W	D4,$58-2(A2)	; Size
+	BLTSZ	D4		; Size
 	DBF	D7,TIMPOR
 TIMPB2:
 	BTST	#$E,(A2)
@@ -17814,7 +17995,7 @@ V2EBUCLE:
 	MOVE.L	A0,$4C-2(A2)	; B
 	MOVE.L	A1,$48-2(A2)	; C
 	MOVE.L	A1,$54-2(A2)	; D
-	MOVE.W	D4,$58-2(A2)	; Size
+	BLTSZ	D4		; Size
 
 	LSR.B	#1,D5
 	ROXR.B	D7
@@ -17877,7 +18058,10 @@ MINCON0:ADD.W	D5,D3
 
 	MOVE.L	$12(A4),A0
 	LEA	$DFF002,A6
-	MOVE.W	$0A(A4),D6
+	SF	LineTwin		; (4.0) Wide layouts: drawn twice, the
+	MOVEM.L	D0-D3/A0,LineSv		; second time into the rows' copies.
+LineGo:
+	MOVE.W	$38(A4),D6
 
 *************************************************************************
 *                           RUTINA DE LINEAS                            *
@@ -17900,7 +18084,14 @@ DrawLine:
 y1ly2:	sub.w	d1,d3			;d3:yd
 ; here we could do an optimization with special shifts
 ; depending on the DL_Width value ... i know it, but please, let it be.
+	TST.W	$3C(A4)			; (4.0) Wide layouts: PLROWOFF (no stack).
+	BEQ.S	LineYN
+	AND.L	#$3FF,D1
+	PLROWOFF	D1
+	BRA.S	LineYW
+LineYN:
 	mulu	d4,d1			;   use muls for neg y-vals
+LineYW:
 	add.l	d1,a0		        ;   please don't use add.w here!
 	moveq	#0,d1			;d1:quant-counter
 	sub.w	d0,d2			;d2:xd
@@ -17962,7 +18153,17 @@ ESPBLTMLI:
 	BTST	d1,(A6)
 	BNE.S	ESPBLTMLI
 	DBF	D6,LINEBUC
-	BRA	V2EMAL
+	TST.B	LineTwin		; (4.0) Wide layouts: once more into
+	BNE	V2EMAL			; the rows' copies.
+	TST.W	$3A(A4)
+	BEQ	V2EMAL
+	ST	LineTwin
+	MOVEM.L	LineSv,D0-D3/A0
+	ADDA.W	$3A(A4),A0
+	BRA	LineGo
+LineTwin:	DC.B	0
+	EVEN
+LineSv:		DS.L	5
 ; ------------- oktant-table --------------------------------------------
 SML=0
 	CNOP	0,8
@@ -17999,6 +18200,11 @@ MODO7DATS:
 	DC.W	512/2		; $2A  X Bytes en VRAM.
 	DC.L	SCR0+(64*512*3)	; $2C  Ultimo plano.
 	DC.W	4		; $30  Rotar bits en LMMC
+	DC.W	512		; $32  (4.0) Row stride in bits (LMMC).
+	DC.L	LMMCPunteros	; $34  LMMC/HMMC routines.
+	DC.W	64		; $38  LINE row stride (bytes).
+	DC.W	0		; $3A  LINE twin offset (0: none).
+	DC.W	0		; $3C  Half-row doubled layout (PlMode 1/2).
 
 
 	CNOP	0,8
@@ -18024,7 +18230,70 @@ MODO5DATS:
 	DC.W	256/2		; $2A  X Bytes en VRAM.
 	DC.L	SCR0+(32*1024*3); $2C  Ultimo plano.
 	DC.W	4		; $30  Rotar bits en LMMC
+	DC.W	256		; $32  (4.0) Row stride in bits (LMMC).
+	DC.L	LMMCPunteros	; $34  LMMC/HMMC routines.
+	DC.W	32		; $38  LINE row stride (bytes).
+	DC.W	0		; $3A  LINE twin offset (0: none).
+	DC.W	0		; $3C  Half-row doubled layout (PlMode 1/2).
 
+
+	CNOP	0,8
+MODO5WDATS:				; (4.0) SCREEN 5, layout 1: 64-byte rows,
+	DC.L	0		;	the row then its copy (PlMode 1).
+	DC.W	$00FF		; $04  Size X. Mask
+	DC.W	$03FF		; $06  Size Y. Mask
+	DC.W	$6		; $08  Bits a rotar (unused: PlRowOff).
+	DC.W	32		; $0A  Size X: the blitter half-row.
+	DC.W	256		; $0C  Max copy X
+	DC.W	1024		; $0E  Max copy Y
+	DC.W	4		; $10  N�mero de planos
+	DC.L	SCR0-PLSZW	; $12  Inicio plano Mascara.
+	DC.L	PLSZW		; $16  Size de 1 plano
+	DC.W	$FFFE		; $1A  Mascara para X dots
+	DC.W	2		; $1C  N�mero de dots en Byte.
+	DC.W	1		; $1E  Rotaci�n para TABSPR.
+	DC.W	4		; $20  Rotaci�n para CPU Copy.
+	DC.B	$0F		; $22  Mascara color.
+	DC.B	0		; $23  
+	DC.L	POINTW		; $24  Rutina  IN A,(98)
+	DC.W	$0001		; $28  Mascara Dot Point.
+	DC.W	256/2		; $2A  X Bytes en VRAM.
+	DC.L	SCR0+(PLSZW*3)	; $2C  Ultimo plano.
+	DC.W	4		; $30  Rotar bits en LMMC
+	DC.W	512		; $32  Row stride in bits (LMMC).
+	DC.L	LMMCPunterosW	; $34  LMMC/HMMC routines (copy at +32).
+	DC.W	64		; $38  LINE row stride.
+	DC.W	32		; $3A  LINE twin offset.
+	DC.W	1		; $3C  Half-row doubled layout.
+
+	CNOP	0,8
+MODO5PDATS:				; (4.0) SCREEN 5, layout 2: 128-byte
+	DC.L	0		;	page-pair rows, even|odd|even|odd (SP2).
+	DC.W	$00FF		; $04  Size X. Mask
+	DC.W	$03FF		; $06  Size Y. Mask
+	DC.W	$7		; $08  Bits a rotar (unused: PlRowOff).
+	DC.W	64		; $0A  Size X: the blitter half-row.
+	DC.W	256		; $0C  Max copy X
+	DC.W	1024		; $0E  Max copy Y
+	DC.W	4		; $10  N�mero de planos
+	DC.L	SCR0-PLSZW	; $12  Inicio plano Mascara.
+	DC.L	PLSZW		; $16  Size de 1 plano
+	DC.W	$FFFE		; $1A  Mascara para X dots
+	DC.W	2		; $1C  N�mero de dots en Byte.
+	DC.W	1		; $1E  Rotaci�n para TABSPR.
+	DC.W	4		; $20  Rotaci�n para CPU Copy.
+	DC.B	$0F		; $22  Mascara color.
+	DC.B	0		; $23  
+	DC.L	POINTP		; $24  Rutina  IN A,(98)
+	DC.W	$0001		; $28  Mascara Dot Point.
+	DC.W	256/2		; $2A  X Bytes en VRAM.
+	DC.L	SCR0+(PLSZW*3)	; $2C  Ultimo plano.
+	DC.W	4		; $30  Rotar bits en LMMC
+	DC.W	1024		; $32  Row stride in bits (LMMC).
+	DC.L	LMMCPunterosP	; $34  LMMC/HMMC routines (copy at +64).
+	DC.W	128		; $38  LINE row stride.
+	DC.W	64		; $3A  LINE twin offset.
+	DC.W	1		; $3C  Half-row doubled layout.
 
 	CNOP	0,8
 MODO6DATS:
@@ -18049,6 +18318,11 @@ MODO6DATS:
 	DC.W	512/4		; $2A  X Bytes en VRAM.
 	DC.L	SCR0+(64*1024*1); $2C  Ultimo plano.
 	DC.W	6		; $30  Rotar bits en LMMC
+	DC.W	512		; $32  (4.0) Row stride in bits (LMMC).
+	DC.L	LMMCPunteros	; $34  LMMC/HMMC routines.
+	DC.W	64		; $38  LINE row stride (bytes).
+	DC.W	0		; $3A  LINE twin offset (0: none).
+	DC.W	0		; $3C  Half-row doubled layout (PlMode 1/2).
 
 
 	CNOP	0,8
@@ -18074,6 +18348,11 @@ MODO8DATS:
 	DC.W	256/1		; $2A  X Bytes en VRAM.
 	DC.L	SCR0+(32*512*7)	; $2C  Ultimo plano.
 	DC.W	0		; $30  Rotar bits en LMMC
+	DC.W	256		; $32  (4.0) Row stride in bits (LMMC).
+	DC.L	LMMCPunteros	; $34  LMMC/HMMC routines.
+	DC.W	32		; $38  LINE row stride (bytes).
+	DC.W	0		; $3A  LINE twin offset (0: none).
+	DC.W	0		; $3C  Half-row doubled layout (PlMode 1/2).
 
 
 
@@ -18500,6 +18779,20 @@ TesteaJoyRet:
 ; byte $7F >= $20 it overflowed and copied the JP nn handler over CALL nn.
 	RTS
 
+; CD32KEY button,row,bit: an MSX key follows a CD32 pad button. D2 = the
+; buttons (0 = pressed), D0 = those that changed this frame. The key is
+; pressed in the matrix with the button and released with it.
+CD32KEY:	MACRO
+	BTST	#\1,D0
+	BEQ.S	\@n
+	BTST	#\1,D2
+	BNE.S	\@u
+	BCLR	#\3,KEY+\2(A3)
+	BRA.S	\@n
+\@u:	BSET	#\3,KEY+\2(A3)
+\@n:
+	ENDM
+
 	CNOP	0,8
 TesteaJoyRut:
 	LEA	REGS,A3
@@ -18541,6 +18834,123 @@ NOB2_E:
 	BNE.S	NOB2B_E
 	BSET	#5,D1
 NOB2B_E:
+
+; ---- (4.0) CD32 pad on the joystick port (Amiga port 2). With pin 5
+; (POTGO DATRX) driven low the pad latches its buttons and shows them on
+; pin 9 (POTGOR DATRY), one per clock pulse on pin 6 (CIA-A PRA bit 7 as
+; an output): blue, red, yellow, green, right shoulder, left shoulder,
+; play, then a 1 and a 0 (the pad's ID; a plain joystick shows the same
+; level all along and fails the check). 0 = pressed. The waits are
+; CIA reads (an E cycle each, ~1.4 us, on any CPU): pin 5 needs a few
+; lines to fall (the pot capacitor; WinUAE models it so too). Pin 6 is
+; driven high BEFORE pin 5 goes low: in plain mode a held red button
+; pulls pin 6 low, and the pad's shift register (a 4021: parallel load
+; while pin 5 is high, shift on a rising clock edge once it is low)
+; would see the line's rise as a clock pulse and shift a bit early
+; (the ID then lands in bits 6/7 and the check fails whenever red is
+; held). Held high first, the line can't move while the pad switches
+; modes. A pad that answered is read every frame; otherwise the port
+; is probed every 16 frames (and each of the 8 frames after a pad
+; stops answering, keeping its buttons as they were, so a one-frame
+; miss shows nothing), so a plain joystick's fire line (pin 6) is
+; rarely driven. Red = MSX trigger A, blue = trigger B (as the plain
+; read's pins 6 and 9, which stay in use); yellow = Space, green = M,
+; play = F1.
+; (4.1) Off unless built with -DCD32PAD=1: auto-detection failed on real
+; pads/adapters (KTRL, Mega Multi); 4.2 makes it a per-port menu option.
+	IFD	CD32PAD
+	MOVE.B	CD32Cnt,D0
+	ADDQ.B	#1,CD32Cnt
+	TST.B	CD32Pad
+	BNE.S	CD32Read		; A pad answered last time: read it.
+	TST.B	CD32Try
+	BNE.S	CD32Retry		; Just lost one: probe every frame.
+	AND.B	#$0F,D0			; None: probe every 16 frames.
+	BNE	CD32Done
+	BRA.S	CD32Read
+CD32Retry:
+	SUBQ.B	#1,CD32Try
+CD32Read:
+	IFD	CD32TEST		; (Test builds: ESC, row 7 bit 2, stays
+	BCLR	#2,KEY+7(A3)		; pressed once the probe has run.)
+	ENDC
+	BSET	#7,$BFE001		; Pin 6: an output, high, held so
+	BSET	#7,$BFE201		; while pin 5 falls (no clock edge).
+	MOVE.W	#$6F00,$DFF034		; Pin 5 low (OUTRX=1, DATRX=0), pin 9
+	MOVE.W	#200-1,D0		; an input, port A's pins high: latch.
+CD32Lat:
+	TST.B	$BFE001			; Pin 5 has the pot capacitor (47 nF)
+	DBF	D0,CD32Lat		; on it: ~300 us (4-5 lines) to fall.
+	MOVEQ	#0,D2
+	MOVEQ	#9-1,D0
+CD32Bit:
+	LSR.W	#1,D2
+	BTST	#6,$DFF016		; Pin 9: the button (1 = released).
+	BEQ.S	CD32Low
+	BSET	#8,D2
+CD32Low:
+	BCLR	#7,$BFE001		; Clock low...
+	TST.B	$BFE001
+	TST.B	$BFE001
+	TST.B	$BFE001
+	BSET	#7,$BFE001		; ...and high: the next button.
+	TST.B	$BFE001
+	TST.B	$BFE001
+	TST.B	$BFE001
+	DBF	D0,CD32Bit
+	MOVE.W	#$FF00,$DFF034		; Pin 5 high: plain joystick mode
+	BCLR	#7,$BFE201		; (clock edges ignored), pin 6 an
+					; input again.
+	IFD	CD32TEST		; (Test builds: the raw bits 0-7 in
+	MOVE.B	D2,KEY+10(A3)		; matrix row 10, bit 8 in row 7 bit 0.)
+	BSET	#0,KEY+7(A3)
+	BTST	#8,D2
+	BNE.S	CD32TId
+	BCLR	#0,KEY+7(A3)
+CD32TId:
+	ENDC
+	MOVE.W	D2,D0
+	AND.W	#$0180,D0
+	CMP.W	#$0080,D0		; Bit 7 = 1, bit 8 = 0: a CD32 pad.
+	BEQ.S	CD32Yes
+	TST.B	CD32Pad			; No pad. Was one answering last
+	BEQ.S	CD32Lost		; frame? Then probe again for 8
+	MOVE.B	#8,CD32Try		; frames (a glitch, or unplugged).
+CD32Lost:
+	CLR.B	CD32Pad
+	MOVEQ	#-1,D2			; Gone: everything released...
+	TST.B	CD32Try
+	BEQ.S	CD32Btns
+	MOVE.B	CD32Old,D2		; ...or, while retrying, as it was.
+	BRA.S	CD32Btns
+CD32Yes:
+	ST	CD32Pad
+	CLR.B	CD32Try
+CD32Btns:
+	IFD	CD32TEST		; (Test builds, for tests/jtest: F5,
+	BSET	#1,KEY+7(A3)		; row 7 bit 1, pressed while a pad
+	TST.B	CD32Pad			; is detected.)
+	BEQ.S	CD32TNo
+	BCLR	#1,KEY+7(A3)
+CD32TNo:
+	ENDC
+	BTST	#1,D2			; Red = MSX trigger A.
+	BNE.S	CD32NoRed
+	BSET	#4,D1
+CD32NoRed:
+	BTST	#0,D2			; Blue = trigger B.
+	BNE.S	CD32NoBlue
+	BSET	#5,D1
+CD32NoBlue:
+	MOVE.B	CD32Old,D0
+	MOVE.B	D2,CD32Old
+	EOR.B	D2,D0			; The buttons that changed.
+	CD32KEY	2,8,0			; Yellow = Space.
+	CD32KEY	3,4,2			; Green = M.
+	CD32KEY	6,6,5			; Play = F1.
+	ENDC
+CD32Done:
+; ----
 
 	TST.B	LEEJOY2(A3)
 	BNE.S	ESMOUSE
@@ -21457,6 +21867,18 @@ SCCP3:	MOVEM.L	(SP)+,D3-D7/A0-A1
 	CNOP	0,8
 ActCopperLine:
 	LEA	Regs,A3
+	IFD	PERF
+	ADDQ.L	#1,AclN			; (perf.bin) rebuilds, and those begun
+	MOVE.L	$DFF004,D0		; while the copper may be running the
+	LSR.L	#8,D0			; list (the beam inside the display).
+	AND.W	#$1FF,D0
+	SUB.W	#IniPant,D0
+	BCS.S	AclOut
+	CMP.W	#212,D0
+	BCC.S	AclOut
+	ADDQ.L	#1,AclLate
+AclOut:
+	ENDC
 ; ----------------------------------=> Pone datos de posible desbordamiento de BG.
 	MOVE.W	DesLinY(A3),D1
 	OR.B	#$01,(TabRasCMDS.L,D1.W)
@@ -21542,6 +21964,12 @@ AcCoRut:
 
 
 
+	BTST	#1,D5			; (4.0) An adjust event here: its R#18,
+	BEQ.S	AcCoNoAdj		; R#27 and R#26 are the state the pointer
+	MOVE.L	(TabRasDATA.L,D7.W*8),AdjCur	; events from this line on use
+	MOVE.L	(TabRasDATA+4.L,D7.W*8),AdjCur+4	; (AcCoRutGBY5, Adj5Calc).
+AcCoNoAdj:
+
 	LSR.B	#1,D5
 	CALLCS	AcCoRutGBY
 
@@ -21579,6 +22007,13 @@ AcCoRut:
 ; COLORMSX2 entry (its register; entry k = MSX colour k EOR MCAGA+10), not
 ; the border's $180 (COLBORDE).
 AcCoRutPal:
+	TST.B	BMSOn			; (4.0) SCREEN 8 above a pair split: its
+	BEQ.S	ACPalDo			; colours are its list's, not the MSX
+	CMP.B	#$07,BMSTop		; palette's (nor the blank bank: AcCoBMSw
+	BNE.S	ACPalDo			; fills it at the split).
+	CMP.W	BMSLine,D7
+	BCS.W	ACPalNone
+ACPalDo:
 	MOVEM.L	D1-D2/D4/A0-A1,-(SP)
 	LEA	PalTop,A0
 	TST.W	D7
@@ -21633,6 +22068,7 @@ ACPalBk:
 	MOVE.L	#$01060C40,(A3)+
 ACPalFin:
 	MOVEM.L	(SP)+,D1-D2/D4/A0-A1
+ACPalNone:
 	RTS
 
 ; Display disabled from line D7 (R#1 BL, BlankTab 1): every COLORMSX2
@@ -21724,10 +22160,20 @@ AcCoRutAdjust:
 	MOVE.B	3(A0),D1		; VDP ($12)
 	AND.W	#$000F,D1
 	MOVE.W	#$0102,(A3)+
+	TST.B	V9Scr5			; (4.0) SCREEN 5 on the V9958: R#26 too,
+	BNE.S	ACAdj5			; with the 32-bit fetch (Adj5Calc).
 	MOVEQ	#7,D4			; (4.0) V9958 R#27 shifts the picture
 	AND.B	5(A0),D4		; right (openMSX): D lores dots after
 	BNE.S	ACAdj27			; the window start = 32 + R#18 shift +
 	MOVE.W	(AdjustBuf.W,PC,D1.W*4),(A3)+	; R#27 (AdjustBuf: R#27 = 0).
+	BRA.S	ACAdjW
+ACAdj5:
+	MOVEM.L	D1-D2/D5,-(SP)
+	BSR	Adj5Calc		; D1 = delay (1-63)
+	MOVE.W	D1,D5
+	BSR	AdjCon1
+	MOVE.W	D4,(A3)+
+	MOVEM.L	(SP)+,D1-D2/D5
 	BRA.S	ACAdjW
 ACAdj27:
 	MOVEM.L	D2/D5,-(SP)
@@ -21741,18 +22187,8 @@ ACAdjSP:NEG.W	D5
 	ADD.W	#16,D5
 ACAdjS0:ADD.W	#32,D5
 	ADD.W	D4,D5			; D (25-47)
-	MOVE.W	D5,D2			; BPLCON1, both playfields: bits 0-3 of D
-	AND.W	#15,D2			; in PFxH2-5, bit 4 in PFxH6, bit 5 in
-	MOVE.W	D2,D4			; PFxH7.
-	LSL.W	#4,D4
-	OR.W	D2,D4
-	BTST	#4,D5
-	BEQ.S	ACAdjB6
-	OR.W	#$4400,D4
-ACAdjB6:BTST	#5,D5
-	BEQ.S	ACAdjB7
-	OR.W	#$8800,D4
-ACAdjB7:MOVE.W	D4,(A3)+
+	BSR	AdjCon1
+	MOVE.W	D4,(A3)+
 	MOVEM.L	(SP)+,D2/D5
 ACAdjW:
 
@@ -21818,6 +22254,112 @@ AdjustBuf2:
 	DC.W	$CC99,$7ABA	;  2
 	DC.W	$CC88,$79B9	;  1
 
+; (4.0) BPLCON1 for a delay of D5.W lores dots (0-63), both playfields:
+; bits 0-3 of D in PFxH2-5, bit 4 in PFxH6, bit 5 in PFxH7. Out: D4.W.
+; Uses D2.
+AdjCon1:
+	MOVE.W	D5,D2
+	AND.W	#15,D2
+	MOVE.W	D2,D4
+	LSL.W	#4,D4
+	OR.W	D2,D4
+	BTST	#4,D5
+	BEQ.S	AdjCon1b6
+	OR.W	#$4400,D4
+AdjCon1b6:
+	BTST	#5,D5
+	BEQ.S	AdjCon1b7
+	OR.W	#$8800,D4
+AdjCon1b7:
+	RTS
+
+; (4.0) SCREEN 5 on the V9958 (32-bit fetch, FMODE $D): the data offset at
+; the window's left edge is W = (8*(R#26 & 31) - R#27 - s18) & 255 (s18 is
+; R#18's shift, which also moves the window), from AdjCur (the adjust event
+; in effect: +3 R#18, +5 R#27, +7 R#26). Out: D1.W = BPLCON1 delay, D2.W =
+; bytes to add to the plane pointers (0, 4, .., 28). Uses D1, D2.
+; - W 0..224: V = (W - 32) & 255, k = ((V + 32) >> 5) & 7, delay 32k - V
+;   (1..32): the first dot shown is fetched dot 32 - delay, and the last is
+;   inside the 36 fetched bytes.
+; - W 225..255 (a right shift of 1..31 dots): no step, delay 288 - W
+;   (33..63), the MSX2 R#27/R#18 form; the left dots are pre-fetch (MSK
+;   hides 8).
+; With 32-byte plane rows (phase 2 step 1) the right W dots show the next
+; row's start; the 64-byte rows of step 2 make that the wrap
+; (Docs/msx2plus_phase2.md, section 3).
+Adj5Calc:
+	MOVEQ	#0,D2
+	MOVE.B	AdjCur+7,D2		; R#26
+	AND.W	#31,D2
+	CMP.B	#2,PlMode		; (4.0) SP2 (layout 2): 64 steps over
+	BNE.S	Adj5Nn			; the 512-dot pair row.
+	MOVE.B	AdjCur+7,D2
+	AND.W	#63,D2
+Adj5Nn:	LSL.W	#3,D2			; 8n
+	MOVEQ	#7,D1
+	AND.B	AdjCur+5,D1		; R#27
+	SUB.W	D1,D2
+	MOVEQ	#15,D1
+	AND.B	AdjCur+3,D1		; R#18 low nibble -> s18
+	BEQ.S	Adj5S0
+	CMP.W	#8,D1
+	BCC.S	Adj5SP
+	NEG.W	D1			; 1-7: -1..-7
+	BRA.S	Adj5S0
+Adj5SP:	NEG.W	D1
+	ADD.W	#16,D1			; 8-15: +8..+1
+Adj5S0:	SUB.W	D1,D2
+	MOVE.W	#255,D1			; The line's dots less one: 255, or 511
+	CMP.B	#2,PlMode		; for SP2.
+	BNE.S	Adj5Mk
+	MOVE.W	#511,D1
+Adj5Mk:	AND.W	D1,D2			; W
+	TST.B	PlMode			; (32-byte rows only: a right shift of
+	BNE.S	Adj5Wrap		; 1-31 dots keeps the MSX2 form, as the
+	CMP.W	#225,D2			; wrap would show the next line.)
+	BCS.S	Adj5Wrap
+	MOVE.W	#288,D1			; Right shift: delay 33-63, no step.
+	SUB.W	D2,D1
+	MOVEQ	#0,D2
+	RTS
+Adj5Wrap:
+	SUB.W	#32,D2
+	AND.W	D1,D2			; V
+	MOVE.W	D1,-(SP)
+	MOVE.W	D2,D1
+	ADD.W	#32,D1
+	AND.W	(SP),D1
+	AND.W	#$FFE0,D1		; 32k
+	SUB.W	D1,D2
+	NEG.W	D2			; 32k - V
+	AND.W	(SP)+,D2		; delay 1-32
+	LSR.W	#3,D1			; 4k
+	EXG	D1,D2
+	RTS
+
+; (4.0) Mode5Mod: D0.W = the per-line BPLxMOD of the SCREEN 5 copper
+; (TabCop5 and C5AGA; COPPER6 shares TabCop5): -8 with the 64-bit fetch,
+; 32-W5FETCH with the 32-bit one (ModoGfx5). Written only when it changes,
+; so never on ECS (its tables hold 0 and it never asks for another value).
+; Uses D0, D1, A0.
+Mode5Mod:
+	CMP.W	Mod5Cur,D0
+	BEQ.S	Mode5ModX
+	MOVE.W	D0,Mod5Cur
+	MOVE.W	D0,C5AGA+2
+	MOVE.W	D0,C5AGA+6
+	LEA	TabCop5+6,A0
+	MOVE.W	#(212+1)-1,D1
+Mode5ModB:
+	MOVE.W	D0,(A0)
+	MOVE.W	D0,4(A0)
+	ADD.W	#TabCop5Add,A0
+	DBF	D1,Mode5ModB
+Mode5ModX:
+	RTS
+
+	INCLUDE	"AmiMSX_V9958_v4.asm"	; (4.0) MSX2+ phase 2: wide SCREEN 5 layouts.
+
 ; ----------------------------------<=
 
 
@@ -21825,10 +22367,21 @@ AdjustBuf2:
 	CNOP	0,8
 AcCoRutGBY:
 	LEA	(TabRasDATA.L,D7.W*8),A0
-
+	TST.B	BMSOn			; (4.0) Pair split: the top from SCREENP;
+	BNE.S	AcCoGBYbm		; at the split line the bottom's state.
+AcCoGBYm:
 	MOVEQ	#0,D1
 	MOVE.B	Regs+ScrModo,D1
 	JMP	([TabScrBGY.W,PC,D1.W*4])
+AcCoGBYbm:
+	CMP.W	BMSLine,D7
+	BCC.S	AcCoGBYbb
+	MOVEQ	#0,D1
+	MOVE.B	BMSTop,D1
+	JMP	([TabScrBGYT.W,PC,D1.W*4])
+AcCoGBYbb:
+	BNE.S	AcCoGBYm
+	BRA	AcCoBMSw		; (it emits the bottom's pointers too)
 ActCopRet:
 	RTS
 
@@ -21841,8 +22394,18 @@ AcCoRutGBY5:
 	MOVE.B	4(A0),D1	; VDP ($17)
 	ADD.B	D7,D1
 
-	MULU	#32,D1
-	ADD.L	#SCR0,D1
+	MOVEM.L	D0/D2,-(SP)		; (4.0) Layouts: the line's offset
+	MOVEQ	#0,D0			; (Pl5DispOff: 32- or 64-byte rows, or
+	MOVE.W	D1,D0			; the SP2 pair row), and with V9958 R#26
+	JSR	Pl5DispOff		; the pointers step by the adjust state
+	ADD.L	#SCR0,D0		; in effect (AdjCur, Adj5Calc).
+	TST.B	V9Scr5
+	BEQ.S	AcCoGBY5n
+	BSR	Adj5Calc
+	ADD.W	D2,D0
+AcCoGBY5n:
+	MOVE.L	D0,D1
+	MOVEM.L	(SP)+,D0/D2
 
 NexBpl5=(32*1024)
 
@@ -21852,21 +22415,21 @@ NexBpl5=(32*1024)
 	MOVE.W	#$00E0,(A3)+
 	MOVE.W	D1,(A3)+
 	SWAP	D1
-	ADD.L	#NexBpl5,D1
+	ADD.L	PlSizeL,D1
 	MOVE.W	#$00E6,(A3)+
 	MOVE.W	D1,(A3)+
 	SWAP	D1
 	MOVE.W	#$00E4,(A3)+
 	MOVE.W	D1,(A3)+
 	SWAP	D1
-	ADD.L	#NexBpl5,D1
+	ADD.L	PlSizeL,D1
 	MOVE.W	#$00EA,(A3)+
 	MOVE.W	D1,(A3)+
 	SWAP	D1
 	MOVE.W	#$00E8,(A3)+
 	MOVE.W	D1,(A3)+
 	SWAP	D1
-	ADD.L	#NexBpl5,D1
+	ADD.L	PlSizeL,D1
 	MOVE.W	#$00EE,(A3)+
 	MOVE.W	D1,(A3)+
 	SWAP	D1
@@ -22015,6 +22578,227 @@ NexBpl8=(32*512)
 	RTS
 
 
+; (4.0) Pair split: the lines above the split come from SCREENP (the top
+; page as BMSConv8 / BMSConv5 convert it: 256 lines of 32 bytes a plane,
+; BMSPAGE apart, no page bits), with the line's R#23.
+	CNOP	0,4
+AcCoRutGBY5T:
+	MOVEQ	#0,D1
+	MOVE.B	4(A0),D1	; VDP ($17)
+	ADD.B	D7,D1
+	LSL.W	#5,D1
+	ADD.L	#SCREENP,D1
+	MOVE.W	#$00E2,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E0,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00E6,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E4,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00EA,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E8,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00EE,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00EC,(A3)+
+	MOVE.W	D1,(A3)+
+	RTS
+	CNOP	0,4
+AcCoRutGBY8T:
+	MOVEQ	#0,D1
+	MOVE.B	4(A0),D1	; VDP ($17)
+	ADD.B	D7,D1
+	LSL.W	#5,D1
+	ADD.L	#SCREENP,D1
+	MOVE.W	#$00E2,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E0,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00E6,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E4,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00EA,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E8,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00EE,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00EC,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00F2,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00F0,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00F6,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00F4,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00FA,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00F8,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	MOVE.W	#$00FE,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00FC,(A3)+
+	MOVE.W	D1,(A3)+
+	RTS
+
+; (4.0) Pair split, at the split line and before the bottom's plane
+; pointers: the bottom mode's state, since the frame runs the top mode's
+; list. SCREEN 5 below SCREEN 8: 4 planes, SCREEN 5's BPLCON4, then the
+; colours SCREEN 8's 256 took: the 16 of the palette in effect at this
+; line (PalTop or the last palette event above), the sprites' 16 (16-31,
+; as MASTERCOPPER) and the blank bank (32-47, the border colour; first
+; when this line is blanked by R#1 BL). SCREEN 8 below SCREEN 5: 8
+; planes, its BPLCON4 and its colours 0-47 back from Scr8Pal (MSX2 only:
+; the fetch is 64-bit and the modulo -8 on both sides there). About 60
+; MOVEs: the first part of the split
+; line can show them arriving.
+	CNOP	0,4
+AcCoBMSw:
+	MOVEM.L	D1-D2/D4/A0-A1,-(SP)
+	CMP.B	#$07,BMSBot
+	BEQ	ACBMSw8
+	MOVE.L	#$01004000,(A3)+	; BPLCON0: 4 planes.
+	MOVE.W	#$01FC,(A3)+		; FMODE and the modulo of SCREEN 5's
+	MOVE.W	#$000F,(A3)+		; fetch: 64-bit and -8, or on the V9958
+	MOVE.W	#$0108,(A3)+		; (V9Scr5) 32-bit and Mod5Cur (MSX2+
+	MOVE.W	#-8,(A3)+		; step 2).
+	MOVE.W	#$010A,(A3)+
+	MOVE.W	#-8,(A3)+
+	TST.B	V9Scr5
+	BEQ.S	ACBMSwFmX
+	MOVE.W	#$000D,-10(A3)
+	MOVE.W	Mod5Cur,-6(A3)
+	MOVE.W	Mod5Cur,-2(A3)
+ACBMSwFmX:
+	MOVE.W	#$010C,(A3)+		; BPLCON4 as MASTERCOPPER.
+	MOVE.W	MCAGA+10,(A3)+
+	BSR	ACBMSwPtr		; the bottom's plane pointers before the
+	CMP.B	#1,(BlankTab.L,D7.W)	; colours (review R2 2)
+	BNE.S	ACBMSwPal
+	BSR.W	ACBMSwBlank
+ACBMSwPal:
+	LEA	PalTop,A0		; The palette in effect at this line.
+	MOVEQ	#0,D1
+ACBMSwEv:
+	CMP.W	PalEvN,D1
+	BCC.S	ACBMSwGo
+	CMP.W	(PalEvLines.L,D1.W*2),D7
+	BCS.S	ACBMSwGo
+	MOVE.W	D1,D4
+	LSL.W	#5,D4
+	LEA	(PalEvBuf.L,D4.W),A0
+	ADDQ.W	#1,D1
+	BRA.S	ACBMSwEv
+ACBMSwGo:
+	MOVEQ	#0,D4
+	MOVE.B	MCAGA+10,D4
+	LEA	COLORMSX2,A1
+	MOVEQ	#0,D2
+ACBMSwC:
+	MOVE.W	(A1),D1
+	CMP.W	#$0180,D1
+	BEQ.S	ACBMSwCn
+	MOVE.W	D1,(A3)+
+	MOVE.W	D2,D1
+	EOR.B	D4,D1
+	AND.W	#$0F,D1
+	BNE.S	ACBMSwCc
+	BTST	#5,REGS+DVDP8		; Colour 0, TP off: the border colour.
+	BNE.S	ACBMSwCc
+	MOVE.W	D4,D1
+	AND.W	#$0F,D1
+ACBMSwCc:
+	MOVE.W	(A0,D1.W*2),(A3)+
+ACBMSwCn:
+	ADDQ.W	#4,A1
+	ADDQ.W	#1,D2
+	CMP.W	#16,D2
+	BCS.S	ACBMSwC
+	LEA	COLORSPR2,A1		; The sprites' colours as MASTERCOPPER.
+	MOVEQ	#16-1,D1
+ACBMSwS:
+	MOVE.L	(A1)+,(A3)+
+	DBF	D1,ACBMSwS
+	CMP.B	#1,(BlankTab.L,D7.W)
+	BEQ.S	ACBMSwFin
+	BSR.W	ACBMSwBlank
+ACBMSwFin:
+	MOVEM.L	(SP)+,D1-D2/D4/A0-A1
+	RTS
+; (4.0) The bottom mode's plane pointers for the split line, emitted right
+; after its BPLCON0/BPLCON4 so that they land before the line's fetch (about
+; 50 colour MOVEs follow). The mode's GBY routine returns here.
+ACBMSwPtr:
+	MOVEM.L	D0-D6/A0-A2/A4-A6,-(SP)
+	LEA	(TabRasDATA.L,D7.W*8),A0
+	BSR	AcCoGBYm
+	MOVEM.L	(SP)+,D0-D6/A0-A2/A4-A6
+	RTS
+ACBMSwBlank:				; Colours 32-47: the border colour.
+	MOVE.L	#$01062C40,(A3)+
+	MOVE.W	#$0180,D1
+ACBMSwBk:
+	MOVE.W	D1,(A3)+
+	MOVE.W	ColBorde+2,(A3)+
+	ADDQ.W	#2,D1
+	CMP.W	#$01A0,D1
+	BCS.S	ACBMSwBk
+	MOVE.L	#$01060C40,(A3)+
+	RTS
+ACBMSw8:
+	MOVE.L	#$01000010,(A3)+	; BPLCON0: 8 planes.
+	MOVE.L	#$010C0022,(A3)+	; BPLCON4 as COPPER8.
+	BSR	ACBMSwPtr		; pointers before the colours (review R2 2)
+	LEA	Scr8Pal,A0		; Its colours 0-31 (bank 0)...
+	MOVEQ	#32-1,D1
+ACBMSw8a:
+	MOVE.L	(A0)+,(A3)+
+	DBF	D1,ACBMSw8a
+	MOVE.L	(A0)+,(A3)+		; ...bank 1 and its 32-47...
+	MOVEQ	#17-1,D1		; (header + 32-47 = 17 longs; review R2)
+ACBMSw8b:
+	MOVE.L	(A0)+,(A3)+
+	DBF	D1,ACBMSw8b
+	MOVE.L	#$01060C40,(A3)+	; ...and bank 0 again.
+	BRA.W	ACBMSwFin
+
 	CNOP	0,4
 AcCoRutGBY4:
 	TST.B	MSplitOn5		; Above a SCREEN 5 / 4 split: SCREENT.
@@ -22096,6 +22880,15 @@ TabScrBGY:
 	DC.L	ActCopRet
 	DC.L	ActCopRet	; 1 2T	10 010  (Modo 80 columnas)
 	REPT	5+8
+	DC.L	ActCopRet
+	ENDR
+
+	CNOP	0,4
+; (4.0) Pair split: the top mode's per-line pointers (SCREENP).
+TabScrBGYT:
+	DC.L	ActCopRet,ActCopRet,ActCopRet,AcCoRutGBY5T
+	DC.L	ActCopRet,ActCopRet,ActCopRet,AcCoRutGBY8T
+	REPT	24
 	DC.L	ActCopRet
 	ENDR
 
@@ -22545,6 +23338,7 @@ DIRPLANOS:
 	DC.L	PLANO6,SCR0,(64*1024),2
 	DC.L	PLANO8,SCR0,(32*512),8
 	DC.L	PLANO8E,SCR0,(32*512),5
+	DC.L	PLANO5P,SCREENP,BMSPAGE,4
 	DC.L	0
 DIRCOLORES:
 	DC.L	COLORMSX2,MSX1PAL,16
@@ -22587,12 +23381,14 @@ DIRSALTOS:
 	DC.L	SALTO7,SALTO5
 	DC.L	SALTO8,SALTO5
 	DC.L	SALTO8E,SALTO5
+	DC.L	SALTO8P,SALTO5
 
 	DC.L	ZALTO4,CopperLine0
 	DC.L	ZALTO5,CopperLine0
 	DC.L	ZALTO6,CopperLine0
 	DC.L	ZALTO7,CopperLine0
 	DC.L	ZALTO8,CopperLine0
+	DC.L	ZALTO8P,CopperLine0
 
 	DC.L	ScrModeCopp,CopperRet
 	DC.L	0
@@ -22663,6 +23459,10 @@ WBCOPP:		DC.L	0
 ActDosROM:	DC.L	0
 DERSTACK:	DC.B	0
 SwapJoyD:	DC.B	0
+CD32Pad:	DC.B	0		; (4.0) A CD32 pad answered on port 2.
+CD32Cnt:	DC.B	0		; Frames, for the 16-frame probe.
+CD32Old:	DC.B	-1		; Its buttons last frame (0 = pressed).
+CD32Try:	DC.B	0		; Frames left of the probe after a loss.
 		DC.W	0
 VBRPun:		DC.L	0
 NEXTCOPP:	DC.L	COPPERN
@@ -22781,6 +23581,7 @@ PalS0None:
 MS0None:
 	MIDSAMPLE			; (Lilly's Saga: sprites off and adjust 0
 					; for its HUD at line ~173.)
+	SF	BandSprOn		; (4.0) No band with sprites on yet.
 	CLR.W	BandN			; Sprite bands: on with line interrupts
 	MOVE.B	DVDP0(A3),D1		; in sprite mode 2 (SCREEN 4-8).
 	AND.B	#$1C,D1
@@ -23021,8 +23822,12 @@ MSFLin:
 	ADD.W	D6,D1
 	AND.W	#$FF,D1
 	ADD.W	D0,D1
-	MULU	#32,D1
-	LEA	(SCR0.L,D1.L),A0
+	MOVE.L	D0,-(SP)		; (4.0) Layouts: the line's offset.
+	MOVEQ	#0,D0
+	MOVE.W	D1,D0
+	JSR	PlRowOff
+	LEA	(SCR0.L,D0.L),A0
+	MOVE.L	(SP)+,D0
 	MOVEQ	#4-1,D4
 MSFPla:
 	MOVE.L	A0,A2
@@ -23034,7 +23839,7 @@ MSFPla:
 	MOVE.L	(A2)+,(A1)+
 	MOVE.L	(A2)+,(A1)+
 	MOVE.L	(A2)+,(A1)+
-	ADD.L	#SIZEX*SIZEY,A0		; Next plane.
+	ADDA.L	PlSizeL,A0		; Next plane.
 	DBF	D4,MSFPla
 	ADDQ.W	#1,D5
 	DBF	D7,MSFLin
@@ -23096,6 +23901,314 @@ SCRTBHi:	DC.W	128
 LastRend:	DC.B	$FF		; Mode of the last render.
 M5Tracked:	DC.B	0		; This SCREEN 5 stay marks the SCREEN 4 cache.
 		EVEN
+
+; ---------------------------------------------------------------------
+; (4.0) Bitmap-pair mode split (Docs/bitmap_mode_split.md): SCREEN 8 over
+; SCREEN 5 (Manbow 2's title) or 5 over 8. The frame renders in the mode
+; at its end (the bottom: SCR0, its PRINT routine, its R#23), the lines
+; above the split come from SCREENP, the top page converted on its own,
+; through the top mode's copper list (its palette loads in the vertical
+; blank) and a switch event at the split line (AcCoBMSw). Entering the
+; mode that doesn't own SCR0 keeps SCR0 (ModoGfx8/5: BMSK8/BMSK5) and
+; writes VRAM and the dirty flags only (OUT98XM), which BMSConv8/5 read.
+; Before the copper build: is this render a pair split (MODESW's split,
+; the mode now the other one of the pair)? Then the bottom's registers go
+; to the split line's event and its page wrap, the top page is converted
+; (all of it when the page, the pair or a VDP command changed, else the
+; bytes written since) and BMSList is the top mode's copper list.
+	CNOP	0,4
+BMSPrep:
+	SF	BMSOn
+	TST.W	MSplitL
+	BEQ	BMSPRet
+	TST.B	BMSPair
+	BEQ	BMSPRet
+	TST.B	DirPrefs+$6B		; (Planes kept: Refresh 100% Graphics.)
+	BEQ	BMSPRet
+	CMP.W	#$01FC,MCAGA		; AGA only.
+	BNE	BMSPRet
+	MOVEM.L	D0-D7/A0-A3,-(SP)
+	LEA	REGS,A3
+	MOVE.B	MSplitTop,D0
+	MOVE.B	ScrModo(A3),D1
+	MOVE.B	D0,D2
+	EOR.B	D1,D2
+	CMP.B	#4,D2			; Still the pair's other mode at the end.
+	BNE	BMSPFin
+	CMP.B	#$07,D0			; A SCREEN 5 top on the MSX2+ machine: not
+	BEQ.S	BMSPTopOK		; yet (SCREENP has 32-byte rows and the
+	TST.B	V9958On			; 64-bit fetch; the V9958 SCREEN 5 path
+	BNE	BMSPFin			; has 32-bit fetch and the R#26 step).
+BMSPTopOK:
+	MOVE.B	D0,BMSTop
+	MOVE.B	D1,BMSBot
+	MOVE.W	MSplitL,BMSLine
+	MOVE.L	#COPPER8,BMSList
+	CMP.B	#$07,D0
+	BEQ.S	BMSPL8
+	MOVE.L	#COPPER8P,BMSList
+BMSPL8:
+	ST	BMSOn
+; The bottom's registers at the split line: its pointers and R#18.
+	MOVE.W	MSplitL,D0
+	LEA	(TabRasDATA.L,D0.W*8),A0
+	MOVE.B	DVDP2(A3),1(A0)
+	MOVE.B	VDPAdjust(A3),3(A0)
+	MOVE.B	VDPLinY(A3),4(A0)
+	MOVE.B	V9R27,5(A0)
+	MOVE.B	V9R25,6(A0)
+	MOVE.B	V9R26,7(A0)		; (MSX2+ step 2: R#26 too.)
+	OR.B	#$03,(TabRasCMDS.L,D0.W)
+; Its page wrap (line 256 - R#23) below the split: pointers again. The
+; top's (DesLinY, MiraInter0) below the split would set the top's
+; registers there: the bottom's instead.
+	MOVEQ	#0,D1
+	SUB.B	VDPLinY(A3),D1
+	BSR.S	BMSPWrap
+	MOVE.W	DesLinY(A3),D1
+	BSR.S	BMSPWrap
+; The top page into SCREENP.
+	MOVEQ	#$60,D3			; Its page bits: R#2 bits 5-6 (SCREEN 5)...
+	CMP.B	#$07,BMSTop
+	BNE.S	BMSPPg
+	MOVEQ	#$20,D3			; ...or bit 5 (SCREEN 8).
+BMSPPg:
+	AND.B	MS_DVDP2,D3
+	MOVE.W	D3,D2
+	LSL.W	#8,D2
+	MOVE.B	BMSTop,D2
+	SWAP	D2
+	MOVE.B	BMSBot,D2
+	TST.B	BMSCmd
+	BNE.S	BMSPFull
+	CMP.L	BMSKey,D2
+	BEQ.S	BMSPInc
+BMSPFull:
+	ST	BMSFull
+BMSPInc:
+	MOVE.L	D2,BMSKey
+	SF	BMSCmd
+	CMP.B	#$07,BMSTop
+	BNE.S	BMSPTop5
+	BSR	BMSConv8
+	BRA.S	BMSPFin
+BMSPTop5:
+	BSR	BMSConv5
+BMSPFin:
+	MOVEM.L	(SP)+,D0-D7/A0-A3
+BMSPRet:
+	RTS
+; D1.W = a line: below the split (and in the display), the bottom's
+; registers (A0) and a pointer event there.
+BMSPWrap:
+	CMP.W	D0,D1
+	BLS.S	BMSPWrapN
+	CMP.W	#212,D1
+	BCC.S	BMSPWrapN
+	LEA	(TabRasDATA.L,D1.W*8),A1
+	MOVE.L	(A0),(A1)
+	MOVE.L	4(A0),4(A1)
+	OR.B	#$01,(TabRasCMDS.L,D1.W)
+BMSPWrapN:
+	RTS
+
+; After the render, SCREEN 5 above SCREEN 8: COPPER8P's SCREEN 5 colours
+; (the sprites' and the palette's, as MASTERCOPPER loads them), its blank
+; bank (the border colour) and its line-0 plane pointers. (The copper may
+; be reading them in a vertical blank: one frame with half a palette at
+; worst, when the colours change.)
+	CNOP	0,4
+BMSPost:
+	TST.B	BMSOn
+	BEQ.S	BMSPoRet
+	MOVE.W	#$000F,MCAGA+2		; The top's fetch: 64-bit (SCREEN 8, or
+	CMP.B	#$07,BMSTop		; SCREEN 5 on MSX2). ModoGfx5/8 leave it.
+	BEQ.S	BMSPoRet
+	MOVEM.L	D0-D1/A0-A1,-(SP)
+	LEA	COLORSPR2,A0		; (COLORMSX2 follows it.)
+	LEA	C8PCol,A1
+	MOVEQ	#32-1,D0
+BMSPoC:	MOVE.L	(A0)+,(A1)+
+	DBF	D0,BMSPoC
+	LEA	C8PBlank+2,A1
+	MOVE.W	ColBorde+2,D1
+	MOVEQ	#16-1,D0
+BMSPoB:	MOVE.W	D1,(A1)
+	ADDQ.W	#4,A1
+	DBF	D0,BMSPoB
+	MOVEQ	#0,D1			; The top's planes at line 0 (R#23 there).
+	MOVE.B	TabRasDATA+4,D1
+	LSL.W	#5,D1
+	ADD.L	#SCREENP,D1
+	LEA	PLANO5P+2,A1
+	MOVEQ	#4-1,D0
+BMSPoP:	MOVE.W	D1,4(A1)
+	SWAP	D1
+	MOVE.W	D1,(A1)
+	SWAP	D1
+	ADD.L	#BMSPAGE,D1
+	ADDQ.W	#8,A1
+	DBF	D0,BMSPoP
+	MOVEM.L	(SP)+,D0-D1/A0-A1
+BMSPoRet:
+	RTS
+
+; The SCREEN 8 top page (R#2 bit 5, 64 KB) into SCREENP, as PasaPun8Bpl
+; does into SCR0: the 32-byte runs with a dirty flag (TAB98, cleared: the
+; SCREEN 5 bottom writes its planes itself), or all of them (BMSFull).
+	CNOP	0,4
+BMSConv8:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	MOVEQ	#0,D0
+	MOVE.B	MS_DVDP2,D0
+	AND.W	#$20,D0
+	LSL.W	#8,D0			; The page's TAB98 bytes: 0 or 8192.
+	LEA	Tab98,A4
+	ADD.W	D0,A4
+	TST.B	BMSFull
+	BEQ.S	BMSC8Inc
+	SF	BMSFull
+	MOVE.L	A4,A0			; All of it: every flag set.
+	MOVE.W	#(8192/4)-1,D1
+	MOVEQ	#-1,D2
+BMSC8All:
+	MOVE.L	D2,(A0)+
+	DBF	D1,BMSC8All
+BMSC8Inc:
+	LEA	DirVRAM,A6
+	MOVEQ	#0,D1
+	MOVE.W	D0,D1
+	LSL.L	#3,D1			; Its VRAM: 0 or 64 KB.
+	ADD.L	D1,A6
+	LEA	SCREENP,A0
+	LEA	PasPun8Fast,A2
+	LEA	TablaPun8Bpl,A5
+	MOVE.W	#BMSPAGE,D2
+	MOVEQ	#(8*4),D3
+	MOVE.W	#$0100,D6
+	MOVE.W	#(8192/4)-1,D5		; Flag longs: 32 VRAM bytes each.
+BMSC8Buc1:
+	TST.L	(A4)+
+	BNE.S	BMSC8Rut
+	ADDQ	#4,A0
+	ADD.W	D3,A6
+	DBF	D5,BMSC8Buc1
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+	CNOP	0,4
+BMSC8Rut:
+	CLR.L	-4(A4)
+	MOVE.W	#(4)-1,D4
+	MOVEQ	#0,D7
+BMSC8Buc:
+	MOVE.B	(A6)+,D7
+	MOVE.L	(A5,D7.W*8),D0
+	MOVE.L	4(A5,D7.W*8),D1
+	REPT	7
+	PaPuMac
+	ENDR
+	MOVEQ	#0,D7
+	MOVE.B	D0,(A2)+
+	LSR.W	#8,D0
+	MOVE.B	D0,4-1(A2)
+	SWAP	D0
+	MOVE.B	D0,8-1(A2)
+	LSR.W	#8,D0
+	MOVE.B	D0,12-1(A2)
+	MOVE.B	D1,16-1(A2)
+	LSR.W	#8,D1
+	MOVE.B	D1,20-1(A2)
+	SWAP	D1
+	MOVE.B	D1,24-1(A2)
+	LSR.W	#8,D1
+	MOVE.B	D1,28-1(A2)
+	DBF	D4,BMSC8Buc
+	MOVE.L	-4(A2),(A0)+
+	LEA	-4(A0,D2.W),A1
+	MOVE.L	(A2)+,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,(A1)
+	SUB.W	D3,A2
+	DBF	D5,BMSC8Buc1
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+
+; The SCREEN 5 top page (R#2 bits 5-6, 32 KB) into SCREENP, 4 planes, with
+; PU4_BUC (8 VRAM bytes, 16 pixels, to 2 bytes a plane): the 8-byte runs
+; with a dirty flag (TAB98, kept: PasaPun8Bpl clears them for the
+; SCREEN 8 bottom), or all of them (BMSFull).
+	CNOP	0,4
+BMSConv5:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	MOVEQ	#0,D0
+	MOVE.B	MS_DVDP2,D0
+	AND.W	#$60,D0
+	LSR.W	#5,D0			; Page 0-3...
+	MOVE.W	D0,D1
+	LSL.W	#8,D1
+	LSL.W	#4,D1			; ...4096 TAB98 bytes...
+	LEA	Tab98,A3
+	ADD.W	D1,A3
+	MOVEQ	#15,D1
+	LSL.L	D1,D0			; ...32 KB of VRAM.
+	LEA	DirVRAM,A4
+	ADD.L	D0,A4
+	LEA	SCREENP,A0
+	LEA	SCREENP+BMSPAGE,A1
+	LEA	SCREENP+(2*BMSPAGE),A2
+	LEA	SCREENP+(3*BMSPAGE),A5
+	TST.B	BMSFull
+	BEQ.S	BMSC5Inc
+	SF	BMSFull
+	MOVE.W	#4096-1,D7
+	MOVE.L	#BMSC5Done,ActPRet
+	JMP	PU4_BUC
+BMSC5Inc:
+	MOVE.W	#4096-1,BMSC5Cnt
+	MOVE.L	#BMSC5Next,ActPRet
+BMSC5Loop:
+	TST.B	(A3)+
+	BNE.S	BMSC5Go
+	ADDQ.W	#8,A4
+	ADDQ.W	#2,A0
+	ADDQ.W	#2,A1
+	ADDQ.W	#2,A2
+	ADDQ.W	#2,A5
+BMSC5Next:
+	SUBQ.W	#1,BMSC5Cnt
+	BCC.S	BMSC5Loop
+	BRA.S	BMSC5Done
+BMSC5Go:
+	MOVEQ	#0,D7			; One run, back at BMSC5Next.
+	JMP	PU4_BUC
+BMSC5Done:
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+
+BMSPair:	DC.B	0		; MODESW: the split's modes are a pair (5, 8).
+BMSOn:		DC.B	0		; This render shows a pair split.
+BMSTop:		DC.B	0		; Mode above the split (3: SCREEN 5, 7: 8)...
+BMSBot:		DC.B	0		; ...and below it (the render's).
+BMSCmd:		DC.B	0		; A VDP command ran since the last render.
+BMSFull:	DC.B	0		; Convert the whole top page.
+BMSK8:		DC.B	0		; SCREEN 8 entered with SCR0 kept for SCREEN 5,
+BMSK5:		DC.B	0		; SCREEN 5 entered with SCR0 kept for SCREEN 8.
+		EVEN
+BMSLine:	DC.W	0		; First line below the split.
+BMSC5Cnt:	DC.W	0
+BMSKey:		DC.L	-1		; Top mode, page, bottom mode in SCREENP.
+BMSList:	DC.L	COPPER8		; The frame's copper list (PRINT5/8).
+; ---------------------------------------------------------------------
 
 ; ---------------------------------------=> Key script (CLI test hook).
 ; Records of 8 bytes: frame (MSX frames since power on), keyboard matrix
@@ -23284,8 +24397,8 @@ HUDS4Lin:
 	MOVE.W	D0,D1
 	LSR.W	#3,D1			; Name row 0-31.
 	AND.W	#7,D0			; Line in the character.
-	LEA	DIRVRAM,A4
-	ADD.L	PVDP2(A3),A4
+	JSR	NtSrc			; (4.0) The names (R#26: rotated).
+	MOVE.L	A0,A4
 	MOVE.W	D1,D2
 	LSL.W	#5,D2
 	ADD.W	D2,A4			; This row's names.
@@ -23439,6 +24552,7 @@ MidAdj:		DC.B	0		; R#18,
 MidLinY:	DC.B	0		; R#23 (MIDSAMPLE).
 		EVEN
 BandOn:		DC.B	0		; Bands this frame (MiraInter0S).
+BandSprOn:	DC.B	0		; (4.0) A band with sprites on (BANDSHOT).
 BandPass:	DC.B	0		; Drawing by bands (IMPSPR2B).
 BandLater:	DC.B	0		; Not the first band.
 		EVEN
@@ -24438,6 +25552,43 @@ ZALTO8:	DC.W	$0084,0,$0086,0		; Salto a CopperLine0/CopperLine1
 SALTO8:	DC.W	$0080,0,$0082,0
 	DC.W	$0088,0
 
+; (4.0) SCREEN 5 above SCREEN 8 (pair split, Docs/bitmap_mode_split.md):
+; SCREEN 8's list with its 256 colours, then SCREEN 5's state for the top:
+; its 16 colours and the sprites' (C8PCol, from MASTERCOPPER by BMSPost),
+; the blank bank (C8PBlank, the border colour), BPLCON4 and 4 planes.
+; AcCoBMSw switches to SCREEN 8 at the split line.
+PANPOS:	SET	INIPANT-16
+
+	CNOP	0,8
+COPPER8P:
+C8XORP:	DC.W	$010C,$0022
+	DC.L	$01060C40
+Scr8PalP:
+	DCB.L	8*33,$01A00000		; (ArreglaScr8Pal copies Scr8Pal here.)
+C8PCol:	DCB.L	32,$01A00000		; COLORSPR2, COLORMSX2 (BMSPost).
+	DC.L	$01062C40
+C8PBlank:
+C8PBK	SET	$0180
+	REPT	16
+	DC.W	C8PBK,0
+C8PBK	SET	C8PBK+2
+	ENDR
+	DC.L	$01060C40
+C8AGAP:	DC.W	$0108,-MOD,$010A,-MOD
+	DC.W	$010C,$0011
+
+NPLA8P:	DC.W	((PANPOS-17)*$100)+$D1,$FFFE,$0100,$4000
+
+	DC.W	((PANPOS-1)*$100)+$21,$FFFE
+PLANO5P:	DS.W	4*4
+
+ZALTO8P:	DC.W	$0084,0,$0086,0		; Salto a CopperLine0
+	DC.W	$008A,0
+
+SALTO8P:	DC.W	$0080,0,$0082,0
+	DC.W	$0088,0
+
+
 ; ------------------------------------------------ ;
 
 PANPOS:	SET	INIPANT-16
@@ -24698,7 +25849,7 @@ SCCKO:	DS.B	(16*1024)
 	CNOP	0,8
 TMASK:	DS.B	(1024*64)
 MASK:	DS.B	(1024*64)
-SCR0:	DS.B	(1024*128)
+SCR0:	DS.B	(1024*256)	; (4.0) 256 KB: the wide SCREEN 5 layouts (PlMode).
 	DS.L	10
 	CNOP	0,8
 SCREEN:	DS.B	(32*32*8*4)
@@ -24739,6 +25890,13 @@ TABLA7E:	DS.B	256*1024
 	CNOP	0,8
 SCREENB:	DS.B	(212*32*4)	; Lines below a SCREEN 4 table split.
 SCREENT:	DS.B	(212*32*4)	; Lines above a SCREEN 5 / 4 mode split.
+
+; --------------------------------
+	SECTION	BMSPLIT,BSS_C
+; --------------------------------
+	CNOP	0,8
+SCREENP:	DS.B	8*BMSPAGE	; (4.0) The page above a bitmap-pair mode
+					; split (BMSConv8/5): 8 planes of 256 lines.
 	DS.B	12*8
 
 ; --------------------------------
@@ -24911,6 +26069,8 @@ DispLast:	DS.L	1
 DispN:		DS.L	1
 DispLog:	DS.B	4096		; Amiga frames since the MSX frame before
 DispLine:	DS.B	4096		; beam line / 2 when each frame ended
+AclN:		DS.L	1		; ActCopperLine runs, and those begun
+AclLate:	DS.L	1		; with the beam inside the display.
 	IFD	STATEDUMP
 StDSv:		DS.L	3
 StDumpN:	DS.L	1

@@ -21,6 +21,12 @@
 ;   which the rest of AmiMSX writes as before) are copied to the back pair
 ;   (DbSnap); the next Emula1Frame points the copper at it (DbCommit), past
 ;   line $1C so the whole copy takes effect at the next frame start.
+; - A late frame (the render ran past the next VBlank) is not committed
+;   (DbCommitF): the next MSX frame is drawn over it in the same back buffer
+;   and that one is committed. Without this a late frame cost a whole Amiga
+;   frame of MSX time (DbPre waits for the VBlank after each commit), and
+;   the game's VBlank-driven music slowed; now the display drops the late
+;   picture and the emulation keeps 50/60 MSX frames per second.
 ; Only SCREEN 4 (PRINT4S, with its table and SCREEN 5/4 mode splits); any other frame
 ; stops it (DbStop) and AmiMSX runs as before. A1200/030 presets: off.
 ; =========================================================================
@@ -78,6 +84,11 @@ DbPost:
 	MOVE.L	D1,$DFF084
 DbPostF1:
 	MOVE.W	FMXVbl,DbComV
+	SF	SprDrawn		; This frame's sprite overlay is shown
+					; directly (no pending snapshot): a skip
+					; of the next frame must not give its
+					; buffer back (SprDrawn means 'the
+					; pending frame drew an overlay').
 	MOVE.B	#1,DbB			; Back: index 1.
 	BSR	DbSetPtrs
 	MOVEQ	#-1,D0			; The whole screen to the back first.
@@ -96,7 +107,10 @@ DbPostClr:
 	BRA	DbPostR
 DbPostSnap:
 	BSR	DbSnap
-	MOVE.L	DbRowsCur,DbRowsPrev	; (rows the other buffer lacks)
+	MOVE.L	DbRowsCur,D0		; (rows the other buffer lacks: this
+	OR.L	DbRowsAcc,D0		; frame's and those of a skipped one)
+	MOVE.L	D0,DbRowsPrev
+	CLR.L	DbRowsAcc
 	BSR	DbSwapLines
 	ST	DbPend
 DbPostR:
@@ -142,6 +156,52 @@ DbSwapLines:
 	MOVE.L	D0,TabRasRESTUno
 	RTS
 
+; Emula1Frame start: the pending snapshot, unless the frame is late. Late:
+; the render ended after the VBlank that followed the last commit (two or
+; more VBlanks since it, so the picture would stay on screen two frames
+; anyway) with the frame's $FC tick still ahead (there is time to draw the
+; next MSX frame before it). Then the snapshot is dropped: the next frame
+; is drawn over it in the same back buffer, so DbPre has no VBlank to wait
+; for, no rows to catch up, and the per-line list and sprite overlay buffer
+; of the dropped frame (never on screen) are reused. The frame after a
+; skip is always committed (no stall when every frame is late), and a
+; key-script SNAP (KeySnapDo) always commits: the capture is the MSX frame.
+DbCommitF:
+	TST.B	DbPend
+	BEQ.S	DbComFX
+	TST.B	DbSkip			; The frame before was dropped: show
+	BNE.S	DbCommit		; this one.
+	TST.B	INTWB			; (Workbench mode: no VBlank count.)
+	BNE.S	DbCommit
+	MOVE.L	D0,-(SP)
+	MOVE.W	FMXVbl,D0
+	SUB.W	DbComV,D0
+	CMP.W	#2,D0			; In time (shown at the next VBlank).
+	BCS.S	DbComFC
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	CMP.W	#$FC,D0			; This frame's tick is gone too: the
+	BCC.S	DbComFC			; VBlank is near, show it.
+	ST	DbSkip
+	ADDQ.L	#1,DbSkips
+	MOVE.L	DbRowsPrev,D0		; Rows the other buffer lacks: kept for
+	OR.L	D0,DbRowsAcc		; the commit after the next render,
+	CLR.L	DbRowsPrev		; nothing for DbCatch now.
+	BSR	DbSwapLines		; Rebuild the dropped frame's per-line
+					; list (the one on screen stays Dos
+					; after DbPost's swap).
+	TST.B	SprDrawn		; The sprite overlay drawn for the
+	BEQ.S	DbComFS			; dropped frame: draw into it again (the
+	NOT.B	SprBufB			; other one is on screen; 0/FFh), no wait
+	MOVE.W	DbComV,SprSwV		; for a switch that never reached the
+DbComFS:				; screen.
+	SF	SprDrawn
+	MOVE.L	(SP)+,D0
+DbComFX:
+	RTS
+DbComFC:
+	MOVE.L	(SP)+,D0
 ; Emula1Frame start (and before a key-script SNAP): show the pending
 ; snapshot from the next frame start. Waits for the blitter (the catch-up
 ; and the tiles) and, if the beam is in lines 0-$1C, for line $1D: the
@@ -149,6 +209,8 @@ DbSwapLines:
 DbCommit:
 	TST.B	DbPend
 	BEQ.S	DbComX
+	SF	DbSkip
+	SF	SprDrawn
 	MOVEM.L	D0-D1/A6,DbSv2
 	LEA	$DFF002,A6
 DbComB:	BTST	#$E,(A6)
@@ -271,13 +333,29 @@ DbReset:
 	SF	DbOn
 	SF	DbFirst
 	SF	DbPend
+	SF	DbSkip
+	SF	SprDrawn
+	CLR.L	DbRowsAcc
 	CMP.L	#CopperLine0,CopperLineDos
 	BEQ.S	DbStL0
 	BSR	DbSwapLines
 DbStL0:	MOVE.L	#CopperLine0,D0
 	MOVE.W	D0,ZALTO4+6
+	IFD	COPLINEDB
+	MOVE.W	D0,ZALTO5+6		; (review R5) CopLineFlip moves these too
+	MOVE.W	D0,ZALTO6+6
+	MOVE.W	D0,ZALTO7+6
+	MOVE.W	D0,ZALTO8+6
+	ENDC
 	SWAP	D0
 	MOVE.W	D0,ZALTO4+2
+	IFD	COPLINEDB
+	MOVE.W	D0,ZALTO5+2
+	MOVE.W	D0,ZALTO6+2
+	MOVE.W	D0,ZALTO7+2
+	MOVE.W	D0,ZALTO8+2
+	SF	CopFlipLate
+	ENDC
 	CLR.B	DbB
 	MOVE.L	#SCREEN,DbScr
 	MOVE.L	#SCREEN,DbFront
@@ -311,7 +389,9 @@ DbCopB:		DC.L	0
 DbMasB:		DC.L	0
 DbRowsCur:	DC.L	0		; Tile rows drawn this frame (bit 0 = row 0).
 DbRowsPrev:	DC.L	0
+DbRowsAcc:	DC.L	0		; Rows of dropped frames (DbCommitF).
 DbCommits:	DC.L	0
+DbSkips:	DC.L	0		; Late frames dropped (DbCommitF).
 DbStopP:	DC.L	0
 DbStopR:	DC.L	0
 DbStarts:	DC.L	0
@@ -324,6 +404,8 @@ DbSv2:		DS.L	3
 DbOn:		DC.B	0
 DbFirst:	DC.B	0
 DbPend:		DC.B	0
+DbSkip:		DC.B	0		; The last frame was dropped (DbCommitF).
+SprDrawn:	DC.B	0		; SPR1DBL drew an overlay buffer this frame.
 DbB:		DC.B	0		; Back buffer index.
 DbTD:		DC.B	0,0		; and whether the page changed since.
 		EVEN

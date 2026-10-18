@@ -1,4 +1,11 @@
-# Gradius III Legends: Space through the menus and the disk load (~80s), then play
+# Gradius III Legends: Space through the menus and the disk load (~80s), then play.
+# Play starts at about 113 s (run to run it varies: the game seeds from the RTC).
+# openMSX: use a machine WITHOUT MSX-MUSIC (AmiMSX_MSX2P_Disk_NoFM / AmiMSX_MSX2_Disk_NoFM,
+# the reference machines with the slot-3 MSX-MUSIC removed): with the C-BIOS music ROM
+# the game polls its music driver's TSTBGM on the "STAGE 01" screen until the jingle ends,
+# and it never does, so it stays there (15 Oct 2026). The game scrolls with the V9958
+# R#26/R#27 registers, so it only scrolls on an MSX2+ machine (V9938: the scenery grows
+# from the left edge and never moves).
 14s   SPACE 5 every 100 until 200s
 100s  UP 30
 110s  DOWN 30

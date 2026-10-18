@@ -1,8 +1,19 @@
-# AmiMSX 4.0: changes since 3.1
+# AmiMSX 4.x: changes since 3.1
 
 AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft), made with his permission. It is built from his v3.1 source, with parts of his later v3.2/v3.5 source. The aim of this version is accuracy first. The low-spec target is a 68030 at 50 MHz with fast RAM; PiStorm (Emu68), BigMig and other fast CPUs have speed to spare and get the costlier features (FM sound, 60 Hz, smooth display).
 
-4.0 is released as a beta. Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+4.0 and 4.1 are released as betas. Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+
+## 4.1 beta (18 Oct 2026)
+
+- **MSX2+ coarse scroll:** R#26 and the two-page scroll (SP2) in SCREEN 5 (wide plane layouts, 32-bit fetch on the MSX2+ machine) and in the tile modes (the name table rotated per row). Gradius III Legends scrolls as on an MSX2+ (set ROM: MSX2+).
+- **Bitmap-pair mode splits:** SCREEN 8 over SCREEN 5 and 5 over 8, each part with its own planes and palette (Manbow 2's title screen).
+- **Display:** the frame's bitplane DMA follows the BL bit at the top of the display, so a game that blanks the bottom of the screen no longer blanks the whole frame. Dead beam-timed bitmap handlers removed.
+- **Sprites:** with sprites every frame, an R#8 "sprites on" write no longer re-positions the overlay with a stale R#18 adjust (Manbow 2's ship jumping back).
+- **Smooth display:** a frame that runs late is dropped instead of shown twice, so the music keeps its tempo.
+- **Z80:** BIT, IN r,(C), RLD/RRD, CPI/CPD/CPIR/CPDR and DAA flags; RETI leaves IFF alone; IM 0 goes to 38h; OUT (C),0; undefined ED and DD/FD opcodes as NOPs; interrupt and EX (SP),HL timings.
+- **MVD drives** are write-enabled by default.
+- **CD32 pads:** auto-detection is off (it failed on real pads and adapters); CD32 support returns as a menu option.
 
 ## Emulation
 
@@ -14,6 +25,7 @@ AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 - **LD A,R** comes from emulated time, not the Amiga beam, so runs repeat exactly.
 - **Timing:** M1 wait states are counted, and a line is the real 228 cycles.
 - **D1 register:** scanline handlers no longer leak D1's high word (Barbarian's mode-2 hang).
+- **Core audit** (`Docs/z80_audit.md`, against openMSX 21.0): IM 0 now behaves as RST 38h (it jumped to the NMI vector); RETI no longer enables interrupts; BIT sets P/V and S; IN r,(C), RLD and RRD set P/V to the parity; CPI/CPD set S, CPIR/CPDR set P/V and count their cycles; DAA's S, Z and P/V come from the result; OUT (C),0 and the undocumented ED duplicates (NEG, RETN, IM) exist; undefined ED and DD/FD prefixes cost their cycles; EX (SP),HL, RLD/RRD, the IXH/IXL forms and interrupt acceptance cost the right cycles. H and N are still not modelled. `tools/make_zex.py` makes a self-checking ZEXALL-style test ROM.
 
 ### VDP
 
@@ -49,7 +61,8 @@ AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 - **R#27 fine horizontal scroll** (0-7 dots; sprites don't move) and **R#25 MSK** (the left 8 dots show the border colour) are emulated per display line. Space Manbow scrolls in 2-dot steps under a still score panel, as in openMSX; Nemesis 3 Enhanced, Chikubi Ninja and Pro Yakyuu Family Stadium use them too.
 - **MSX2+ only:** both work on the MSX2+ machine alone. On MSX2 the registers are ignored as before, so MSX2 games are unchanged.
 - **BIOS:** the MSX2+ BIOS gets the same ID patch as MSX and MSX2 (see Use Japanese ID).
-- **Not yet:** R#26 coarse scroll and SP2 (two-page scroll), R#27 in SCREEN 2 (Salamander Enhanced) and the YJK modes (SCREEN 10-12). See `msx2plus_plan.md`.
+- **R#26 coarse scroll and SP2:** the picture scrolls in 8-dot steps per display line on the MSX2+ machine, wrapping cleanly (Gradius III Legends: the scenery enters from the right), and SP2 (R#25 bit 0 with an odd page) shows the 512-dot two-page line (the Gradius 2 enhancement patch). SCREEN 5 keeps its planes in a wide layout for this (256 KB of chip RAM for the planes; VDP commands draw both copies); SCREEN 2 and 4 rotate the name table instead, so each coarse step redraws the tiles. Needs "Refresh 100% Graphics" (on by default). See `msx2plus_phase2.md`.
+- **Not yet:** R#27's wrap at the right edge in the tile modes, R#26 in SCREEN 1/6/7/8, R#27 in SCREEN 2 (Salamander Enhanced) and the YJK modes (SCREEN 10-12). See `msx2plus_plan.md` and `msx2plus_phase2.md`.
 
 ### Sound
 
@@ -99,6 +112,7 @@ AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 - **Mask screen edges** (Options > Internal Emulation: "Mask screen edges (always)" and "Auto mask (scrolling games)"): hides 7 dots at each side of the picture, where games that scroll sideways in software redraw columns; a TV's overscan hid them on a real MSX. Auto, the default, masks once the playfield's R#18 changes from frame to frame three or more times within a second, and keeps the mask until Power ON or Reset; other games keep the full picture. A split that sets and restores R#18 within each frame (Galious Enhanced) is not a scroll and isn't masked. Both are stored in the prefs and in the per-game settings, so a game can be forced on or off.
 - **Audio filter** (Options > Internal Emulation): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset; also saved per game.
 - **Smooth display** (Options > Internal Emulation, "Smooth display (fast CPUs)"; on in the PiStorm preset): SCREEN 4 is double-buffered. Each frame is drawn off screen (tiles, HUD and mode-split strips, plane pointers, R#18/R#23, palette and sprite pointers) and shown complete at a frame start. On a fast Amiga the render still takes longer than the vertical blank (BigMig: 120-140 lines), so before, the tiles changed during the frame while the scroll registers and sprites changed at the next one, and the scenery jumped against the hero in scrolling games (Lilly's Saga, Space Manbow). It needs about 90 KB more chip RAM and some blitter time to keep the hidden buffer up to date, so it is off in the 030 preset, whose display path is unchanged. Other screen modes run as before.
+- **CD32 pads** (joystick port, Amiga port 2): read with the CD32 protocol (pin 5 latches, pin 6 clocks, the buttons come in on pin 9), so a CD32-style pad such as the KTRL CD32 gives red = MSX trigger A, blue = trigger B, yellow = Space, green = M and play = F1; the shoulder buttons do nothing. The pad is detected by its ID bits (a 1 then a 0 after the seven buttons) and read every frame; without one the port is probed every 16 frames (and on each of the 8 frames after a pad stops answering, so a one-frame miss is not seen) and a plain one- or two-button joystick is read as before. Port 1 (the mouse port) keeps the plain read. The timing uses CIA reads, so it is the same on a 68030 and a PiStorm. Beta: written from the CD32 pad protocol and WinUAE's source, not yet verified on a real pad.
 - **Use Japanese ID (60 Hz)** (Options): the BIOS reports a Japanese machine and starts at 60 Hz, the machines most games were written for; with Frequence "From VDP" the display follows. Off: an international machine at 50 Hz. It applies to MSX, MSX2 and MSX2+; in v3.1 it changed only the ID bytes and kept 50 Hz. On in the PiStorm preset.
 
 ## From Juan's v3.2/v3.5 source

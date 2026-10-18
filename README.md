@@ -1,4 +1,4 @@
-# AmiMSX 4.0 (beta)
+# AmiMSX 4.1 (beta)
 
 AmiMSX is an MSX, MSX2 and MSX2+ emulator for the Amiga, written in 68020 assembly by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft). Version 4.0 is a community update, released with his permission. It is built from his v3.1 source, with parts of his v3.2/v3.5 source.
 
@@ -8,10 +8,15 @@ AmiMSX is an MSX, MSX2 and MSX2+ emulator for the Amiga, written in 68020 assemb
 
 The release archive (Aminet `misc/emu`) holds the AmiMSX drawer: the program, `AmiMSX2.data` (MSX system ROMs), `AmiMSX2.mapper`, `AmiMSX4.romdb`, the AmigaGuide and two preset icons. "AmiMSX 030" is for a 68030/50; "AmiMSX PiStorm" is for PiStorm, BigMig and other fast CPUs.
 
+## Games it runs well
+
+Tested on a PiStorm A1200 and in the regression suite: homebrew such as Manbow 2, Lilly's Saga, Chikubi Ninja, Delta, Neon Revenant, BUN-GA-RUA, Pampas & Selene, Uridium, Night Knight, Nogalious, Sword of IANNA and Gradius III Legends (MSX2+), and enhanced Konami classics (community patches; bring your own original) such as Space Manbow, Nemesis 3 Enhanced, Salamander Enhanced, Usas Enhanced and Zanac Ex Enhanced.
+
 ## Building
 
 - **Assembler:** [vasm](http://sun.hasenbraten.de/vasm/) 2.0f or later, the 68k Motorola-syntax version. Put the Windows binary at `tools/vasmm68k_mot.exe`, or change `build.sh`.
 - **Build:** `sh build.sh` assembles `AmiMSX_Main_v3.1.asm` (which includes the other sources) into `build/AmiMSX`.
+- **Linux without a native vasm** (cloud sessions): `node tools/vasm_wasm.mjs -devpac -nocase -m68020 -Fhunkexe -nosym -maxerrors=0 -o build/AmiMSX AmiMSX_Main_v3.1.asm` runs the npm WebAssembly build of vasm (`romdev-toolchain-vasm`, unpacked in `tools/vasm-wasm/`); it matches the include names' case for Linux without touching the sources.
 - **Release:** `python tools/make_release.py` stages the drawer, and `winuae/make_lha.ps1` packs it with the Amiga's `lha` in WinUAE.
 
 ## Testing

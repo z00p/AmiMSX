@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.0 (14.10.2026)
+@version $VER: AmiMSX.guide 4.1 (18.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.0 beta
+                          AmiMSX Emulator v4.1 beta
                           ( 14.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -844,6 +844,12 @@ only the 4 loudest voices, for less CPU time.  Both need a fast CPU.
 like joystick second firebutton.
 
     A Joypad can be used.
+
+    A CD32 pad in the joystick port (Amiga port 2, the B port below)
+is read with the CD32 protocol: red = MSX firebutton 1, blue =
+firebutton 2, yellow = Space, green = M, play = F1.  The shoulder
+buttons do nothing.  The pad is detected by its ID bits; a plain
+joystick works as before.  (4.0 beta: not yet verified on a real pad.)
 
     Amiga firebutton 1 = MSX firebutton 1
     Amiga firebutton 2 & 3 = MSX firebutton 2    

@@ -573,6 +573,9 @@ PerfDump:
 	MOVE.L	#DbCommits,D2		; (4.0) double-buffered frames shown,
 	MOVE.L	#16,D3			; stops (option/split, renderer), starts
 	BSR	WRITEFILE
+	MOVE.L	#AclN,D2		; (4.0) copper line list rebuilds, late ones.
+	MOVE.L	#8,D3
+	BSR	WRITEFILE
 	IFD	STATEDUMP
 	MOVE.L	#StDumpN,D2		; (state dumps: count, then 4 slots)
 	MOVE.L	#4+4*STDSIZE,D3
@@ -7023,7 +7026,7 @@ TABLAB4:
 	DC.L	$F2FFF4FB,$F6F0F0F0,$F0F0F0F0,$F0F3F0F0
 
 	DC.B	0	; $60 - Drive para instalar.
-	DC.B	$FF	; $61 - Write Protected.
+	DC.B	$00	; $61 - Write Protected (4.1: off by default, so disk games can save).
 	DC.B	0	; $62 - R.Shift as Space.
 	DC.B	0	; $63 - L.Shift as Space.
 	DC.B	0	; $64 - Sprites Base 2
