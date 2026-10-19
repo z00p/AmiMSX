@@ -2,7 +2,9 @@
 ; Shows PSG R#14 for joystick 1 and 2 and keyboard rows 4, 6, 7, 8 and 10
 ; as bits (0 = pressed), plus a frame counter, in SCREEN 0. Used for the
 ; CD32 pad tests in WinUAE (Docs/open_issues.md, CD32 entries): a test
-; build (vasm -DCD32TEST=1) dumps the raw pad byte into row 10.
+; build (vasm -DCD32TEST=1) dumps port 2's raw pad byte into row 10 and
+; presses F5 (row 7 bit 1) while port 2 is set to CD32 pad, ESC (row 7
+; bit 2) while port 1 is (4.1.1: the menu option, no detection).
 	DEVICE NONE
 	ORG $4000
 	DB "AB"

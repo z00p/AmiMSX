@@ -1966,7 +1966,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.1  (Pro)  '
+    DC.B    'AmiMSX Emulator v4.1.1 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -4243,7 +4243,7 @@ PasswordIText0:
     CNOP    0,2
 
 AboutIText0:
-    DC.B    'AmiMSX Emulator v4.1',0
+    DC.B    'AmiMSX Emulator v4.1.1',0
 
 AboutIText1:
     DC.B    '(October 11th, 2026)',0
@@ -4443,6 +4443,48 @@ MSX2NewMenu18:
     DC.L    MSX2MComm18
     DC.W    $0009
     DC.L    0,0
+
+MSX2NewMenu18a:                     ; (4.1.1) item 2: JoyPort 2 pad
+    DC.B    2,0
+    DC.L    MSX2MName18a
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+MSX2NewMenu18b:                     ; sub-item 0: Standard (2 buttons)
+    DC.B    3,0
+    DC.L    MSX2MName18b
+    DC.L    0
+    DC.W    $0101
+    DC.L    2,0                     ; excludes sub-item 1
+
+MSX2NewMenu18c:                     ; sub-item 1: CD32 pad
+    DC.B    3,0
+    DC.L    MSX2MName18c
+    DC.L    0
+    DC.W    $0001
+    DC.L    1,0                     ; excludes sub-item 0
+
+MSX2NewMenu18d:                     ; (4.1.1) item 3: JoyPort 1 pad
+    DC.B    2,0
+    DC.L    MSX2MName18d
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+MSX2NewMenu18e:                     ; sub-item 0: Standard (2 buttons)
+    DC.B    3,0
+    DC.L    MSX2MName18b
+    DC.L    0
+    DC.W    $0101
+    DC.L    2,0
+
+MSX2NewMenu18f:                     ; sub-item 1: CD32 pad
+    DC.B    3,0
+    DC.L    MSX2MName18c
+    DC.L    0
+    DC.W    $0001
+    DC.L    1,0
 
 MSX2NewMenu19:
     DC.B    2,0
@@ -5173,6 +5215,18 @@ MSX2MName18:
 
 MSX2MComm18:
     DC.B    'X',0
+
+MSX2MName18a:
+    DC.B    'JoyPort 2 (Joystick) Pad',0
+
+MSX2MName18b:
+    DC.B    'Standard (2 buttons)',0
+
+MSX2MName18c:
+    DC.B    'CD32 pad',0
+
+MSX2MName18d:
+    DC.B    'JoyPort 1 (Mouse port) Pad',0
 
 MSX2MName20:
     DC.B    'Multi-key ON',0

@@ -508,7 +508,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.1  ("
+	DC.B	"$VER:AmiMSX Emulator v4.1.1 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -12174,6 +12174,10 @@ P4BBUC:
 	ADDA.W	PlSkipW,A3
 BPlSprNx:
 	DBF	D7,P4BBUC
+	ADDA.W	PlSkipW,A0		; (4.1.1) ...and over the second line's
+	ADDA.W	PlSkipW,A1		; copy too, or every block after a
+	ADDA.W	PlSkipW,A2		; rebuilt one is read a line early
+	ADDA.W	PlSkipW,A3		; (Pampas & Selene's left-facing patterns).
 
 	MOVEM.L	(SP)+,D5/A6
 	DBF	D5,P4_BUCI
@@ -12350,6 +12354,10 @@ P4BBUC2:
 	ADDA.W	PlSkipW,A3
 BSpColNx:
 	DBF	D7,P4BBUC2
+	ADDA.W	PlSkipW,A0		; (4.1.1) And the second line's copy
+	ADDA.W	PlSkipW,A1		; (as BITPLASPR).
+	ADDA.W	PlSkipW,A2
+	ADDA.W	PlSkipW,A3
 
 	MOVEM.L	(SP)+,D5/A6
 	DBF	D5,P4_BUC3I
@@ -18835,104 +18843,114 @@ NOB2_E:
 	BSET	#5,D1
 NOB2B_E:
 
-; ---- (4.0) CD32 pad on the joystick port (Amiga port 2). With pin 5
-; (POTGO DATRX) driven low the pad latches its buttons and shows them on
-; pin 9 (POTGOR DATRY), one per clock pulse on pin 6 (CIA-A PRA bit 7 as
-; an output): blue, red, yellow, green, right shoulder, left shoulder,
-; play, then a 1 and a 0 (the pad's ID; a plain joystick shows the same
-; level all along and fails the check). 0 = pressed. The waits are
-; CIA reads (an E cycle each, ~1.4 us, on any CPU): pin 5 needs a few
-; lines to fall (the pot capacitor; WinUAE models it so too). Pin 6 is
-; driven high BEFORE pin 5 goes low: in plain mode a held red button
-; pulls pin 6 low, and the pad's shift register (a 4021: parallel load
-; while pin 5 is high, shift on a rising clock edge once it is low)
-; would see the line's rise as a clock pulse and shift a bit early
-; (the ID then lands in bits 6/7 and the check fails whenever red is
-; held). Held high first, the line can't move while the pad switches
-; modes. A pad that answered is read every frame; otherwise the port
-; is probed every 16 frames (and each of the 8 frames after a pad
-; stops answering, keeping its buttons as they were, so a one-frame
-; miss shows nothing), so a plain joystick's fire line (pin 6) is
-; rarely driven. Red = MSX trigger A, blue = trigger B (as the plain
-; read's pins 6 and 9, which stay in use); yellow = Space, green = M,
-; play = F1.
-; (4.1) Off unless built with -DCD32PAD=1: auto-detection failed on real
-; pads/adapters (KTRL, Mega Multi); 4.2 makes it a per-port menu option.
-	IFD	CD32PAD
-	MOVE.B	CD32Cnt,D0
-	ADDQ.B	#1,CD32Cnt
-	TST.B	CD32Pad
-	BNE.S	CD32Read		; A pad answered last time: read it.
-	TST.B	CD32Try
-	BNE.S	CD32Retry		; Just lost one: probe every frame.
-	AND.B	#$0F,D0			; None: probe every 16 frames.
-	BNE	CD32Done
-	BRA.S	CD32Read
-CD32Retry:
-	SUBQ.B	#1,CD32Try
-CD32Read:
-	IFD	CD32TEST		; (Test builds: ESC, row 7 bit 2, stays
-	BCLR	#2,KEY+7(A3)		; pressed once the probe has run.)
-	ENDC
-	BSET	#7,$BFE001		; Pin 6: an output, high, held so
-	BSET	#7,$BFE201		; while pin 5 falls (no clock edge).
-	MOVE.W	#$6F00,$DFF034		; Pin 5 low (OUTRX=1, DATRX=0), pin 9
-	MOVE.W	#200-1,D0		; an input, port A's pins high: latch.
+; ---- (4.1.1) CD32 pads: a menu option per port (PrefCD32 = the joystick
+; port, Amiga port 2; PrefCD32M = the mouse port, Amiga port 1), saved
+; with the prefs and per game. No auto-detection (4.0's ID check failed
+; on real pads and adapters: KTRL CD32, Mega Multi): a port set to CD32
+; pad is read with the CD32 protocol every frame and its bits are taken
+; as they come. With pin 5 (POTGO DATxX) driven low the pad latches its
+; buttons and shows them on pin 9 (POTGOR DATxY), one per clock pulse on
+; pin 6 (CIA-A PRA bit 7 for port 2, bit 6 for port 1, as outputs):
+; blue, red, yellow, green, right shoulder, left shoulder, play; 0 =
+; pressed. The waits are CIA reads (an E cycle each, ~1.4 us, on any
+; CPU): pin 5 needs a few lines to fall (the pot capacitor; WinUAE
+; models it so too). Pin 6 is driven high BEFORE pin 5 goes low: in
+; plain mode a held red button pulls pin 6 low, and the pad's shift
+; register (a 4021: parallel load while pin 5 is high, shift on a
+; rising clock edge once it is low) would see the line's rise as a
+; clock pulse and shift a bit early. Held high first, the line can't
+; move while the pad switches modes. Both ports are latched and clocked
+; together (one wait, ~300 us a frame). Red = MSX trigger A, blue =
+; trigger B (as the plain read's pins 6 and 9, which stay in use: a
+; pad that doesn't answer still works as a two-button joystick; port
+; 1's red and blue go into its own read, below, through CD32Btn1);
+; yellow = Space, green = M, play = F1 (CD32KEY). A port on Standard
+; is never driven: the plain read is all it gets.
+	MOVE.L	D3,CD32SvD3		; (No stack: the frame interrupt runs on the
+	MOVE.L	D4,CD32SvD4		; Z80 core's A7, the Restas table.)
+	MOVEQ	#0,D3			; D3 = CIA-A PRA bits: the pin 6 lines to clock.
+	MOVE.W	#$FF00,D0		; D0 = POTGO: pin 5 low on each CD32 port.
+	TST.B	PrefCD32
+	BEQ.S	CD32NoP2
+	MOVE.B	#$80,D3
+	AND.W	#$6FFF,D0		; Port 2: DATRX=0 (pin 5 low), OUTRY=0 (pin 9 an input).
+CD32NoP2:
+	TST.B	PrefCD32M
+	BEQ.S	CD32NoP1
+	OR.B	#$40,D3
+	AND.W	#$F6FF,D0		; Port 1: DATLX=0, OUTLY=0.
+CD32NoP1:
+	MOVEQ	#-1,D2			; No pad read: port 2's buttons all
+	MOVEQ	#-1,D4			; released, and port 1's.
+	TST.B	D3
+	BEQ	CD32None
+	OR.B	D3,$BFE001		; Pin 6: an output, high, held so
+	OR.B	D3,$BFE201		; while pin 5 falls (no clock edge).
+	MOVE.W	D0,$DFF034		; Pin 5 low (the other pins high): latch.
+	MOVE.W	#200-1,D0
 CD32Lat:
 	TST.B	$BFE001			; Pin 5 has the pot capacitor (47 nF)
 	DBF	D0,CD32Lat		; on it: ~300 us (4-5 lines) to fall.
-	MOVEQ	#0,D2
-	MOVEQ	#9-1,D0
+	MOVEQ	#0,D2			; Port 2's buttons, bit 0 = the first
+	MOVEQ	#0,D4			; out (blue); bit 7 stays 0. Port 1's.
+	MOVEQ	#7-1,D0
 CD32Bit:
-	LSR.W	#1,D2
-	BTST	#6,$DFF016		; Pin 9: the button (1 = released).
-	BEQ.S	CD32Low
-	BSET	#8,D2
-CD32Low:
-	BCLR	#7,$BFE001		; Clock low...
+	LSR.B	#1,D2
+	BTST	#6,$DFF016		; Port 2 pin 9: the button (1 = released).
+	BEQ.S	CD32Lo2
+	BSET	#6,D2
+CD32Lo2:
+	LSR.B	#1,D4
+	BTST	#2,$DFF016		; Port 1 pin 9.
+	BEQ.S	CD32Lo1
+	BSET	#6,D4
+CD32Lo1:
+	EOR.B	D3,$BFE001		; Clock low...
 	TST.B	$BFE001
 	TST.B	$BFE001
 	TST.B	$BFE001
-	BSET	#7,$BFE001		; ...and high: the next button.
+	EOR.B	D3,$BFE001		; ...and high: the next button.
 	TST.B	$BFE001
 	TST.B	$BFE001
 	TST.B	$BFE001
 	DBF	D0,CD32Bit
 	MOVE.W	#$FF00,$DFF034		; Pin 5 high: plain joystick mode
-	BCLR	#7,$BFE201		; (clock edges ignored), pin 6 an
-					; input again.
-	IFD	CD32TEST		; (Test builds: the raw bits 0-7 in
-	MOVE.B	D2,KEY+10(A3)		; matrix row 10, bit 8 in row 7 bit 0.)
-	BSET	#0,KEY+7(A3)
-	BTST	#8,D2
-	BNE.S	CD32TId
-	BCLR	#0,KEY+7(A3)
-CD32TId:
-	ENDC
-	MOVE.W	D2,D0
-	AND.W	#$0180,D0
-	CMP.W	#$0080,D0		; Bit 7 = 1, bit 8 = 0: a CD32 pad.
-	BEQ.S	CD32Yes
-	TST.B	CD32Pad			; No pad. Was one answering last
-	BEQ.S	CD32Lost		; frame? Then probe again for 8
-	MOVE.B	#8,CD32Try		; frames (a glitch, or unplugged).
-CD32Lost:
-	CLR.B	CD32Pad
-	MOVEQ	#-1,D2			; Gone: everything released...
-	TST.B	CD32Try
-	BEQ.S	CD32Btns
-	MOVE.B	CD32Old,D2		; ...or, while retrying, as it was.
-	BRA.S	CD32Btns
-CD32Yes:
-	ST	CD32Pad
-	CLR.B	CD32Try
-CD32Btns:
-	IFD	CD32TEST		; (Test builds, for tests/jtest: F5,
-	BSET	#1,KEY+7(A3)		; row 7 bit 1, pressed while a pad
-	TST.B	CD32Pad			; is detected.)
-	BEQ.S	CD32TNo
+	NOT.B	D3			; (clock edges ignored), pin 6 an
+	AND.B	D3,$BFE201		; input again.
+	TST.B	PrefCD32		; A port on Standard was clocked
+	BNE.S	CD32P2			; along (one loop for both): its
+	MOVEQ	#-1,D2			; bits are a plain joystick's pin 9,
+CD32P2:	TST.B	PrefCD32M		; not buttons.
+	BNE.S	CD32None
+	MOVEQ	#-1,D4
+; A port set to CD32 pad with a plain pad (or an adapter in its standard
+; mode) answers every clock with the same pin 9 level: all seven 'buttons'
+; pressed whenever its fire 2 is. A CD32 pad can't show that, so treat it as
+; no pad: the plain read still gives fire 1/2, and no Space/M/F1 (pause).
+	MOVE.B	D2,D0
+	AND.B	#$7F,D0
+	BNE.S	CD32Ok2
+	MOVEQ	#-1,D2
+CD32Ok2:
+	MOVE.B	D4,D0
+	AND.B	#$7F,D0
+	BNE.S	CD32Ok1
+	MOVEQ	#-1,D4
+CD32Ok1:
+CD32None:
+	MOVE.B	D4,CD32Btn1		; Port 1's red and blue: its read below.
+	IFD	CD32TEST		; (Test builds, for tests/jtest: F5, row
+	BSET	#1,KEY+7(A3)		; 7 bit 1, pressed while port 2 is set
+	TST.B	PrefCD32		; to CD32 pad; ESC, row 7 bit 2, while
+	BEQ.S	CD32TNo2		; port 1 is. Row 10 = port 2's raw bits.)
 	BCLR	#1,KEY+7(A3)
-CD32TNo:
+CD32TNo2:
+	BSET	#2,KEY+7(A3)
+	TST.B	PrefCD32M
+	BEQ.S	CD32TNo1
+	BCLR	#2,KEY+7(A3)
+CD32TNo1:
+	MOVE.B	D2,KEY+10(A3)
 	ENDC
 	BTST	#1,D2			; Red = MSX trigger A.
 	BNE.S	CD32NoRed
@@ -18948,12 +18966,20 @@ CD32NoBlue:
 	CD32KEY	2,8,0			; Yellow = Space.
 	CD32KEY	3,4,2			; Green = M.
 	CD32KEY	6,6,5			; Play = F1.
-	ENDC
+	MOVE.B	D4,D2			; Port 1's pad: the same keys.
+	MOVE.B	CD32Old1,D0
+	MOVE.B	D2,CD32Old1
+	EOR.B	D2,D0
+	CD32KEY	2,8,0
+	CD32KEY	3,4,2
+	CD32KEY	6,6,5
+	MOVE.L	CD32SvD3,D3
+	MOVE.L	CD32SvD4,D4
 CD32Done:
 ; ----
 
 	TST.B	LEEJOY2(A3)
-	BNE.S	ESMOUSE
+	BNE	ESMOUSE
 
 	NOT.B	D1
 	MOVE.B	D1,DATOJOY1(A3)
@@ -18984,6 +19010,15 @@ NOB2C_F:
 	BNE.S	NOB2B_F
 	BSET	#5,D1
 NOB2B_F:
+	MOVE.B	CD32Btn1,D0		; (4.1.1) A CD32 pad in the mouse port:
+	BTST	#1,D0			; red = trigger A...
+	BNE.S	NOCDR_F
+	BSET	#4,D1
+NOCDR_F:
+	BTST	#0,D0			; ...blue = trigger B.
+	BNE.S	NOCDB_F
+	BSET	#5,D1
+NOCDB_F:
 	NOT.B	D1
 	MOVE.B	D1,DATOJOY2(A3)
 	RTS
@@ -19010,6 +19045,15 @@ NOB2C_FB:
 	BNE.S	NOB2B_FB
 	BSET	#5,D1
 NOB2B_FB:
+	MOVE.B	CD32Btn1,D0		; (4.1.1) A CD32 pad in the mouse port:
+	BTST	#1,D0			; red = trigger A...
+	BNE.S	NOCDR_FB
+	BSET	#4,D1
+NOCDR_FB:
+	BTST	#0,D0			; ...blue = trigger B.
+	BNE.S	NOCDB_FB
+	BSET	#5,D1
+NOCDB_FB:
 	NOT.B	D1
 	MOVE.B	D1,DATOJOY1(A3)
 	ST	DATOJOY2(A3)
@@ -23459,10 +23503,10 @@ WBCOPP:		DC.L	0
 ActDosROM:	DC.L	0
 DERSTACK:	DC.B	0
 SwapJoyD:	DC.B	0
-CD32Pad:	DC.B	0		; (4.0) A CD32 pad answered on port 2.
-CD32Cnt:	DC.B	0		; Frames, for the 16-frame probe.
-CD32Old:	DC.B	-1		; Its buttons last frame (0 = pressed).
-CD32Try:	DC.B	0		; Frames left of the probe after a loss.
+CD32Old:	DC.B	-1		; (4.1.1) The port 2 pad's buttons last
+CD32Old1:	DC.B	-1		; frame (0 = pressed); the port 1 pad's.
+CD32Btn1:	DC.B	-1		; The port 1 pad's buttons this frame.
+		DC.B	0		; (pad: keeps the data below aligned)
 		DC.W	0
 VBRPun:		DC.L	0
 NEXTCOPP:	DC.L	COPPERN
@@ -24356,6 +24400,8 @@ StDX:	MOVEM.L	StDSv,D0/A0-A1
 	RTS
 	ENDC
 
+CD32SvD3:	DC.L	0		; (4.1.1) D3/D4 kept here during the CD32 read.
+CD32SvD4:	DC.L	0
 KeyScrPtr:	DC.L	0		; Loaded script (Menu), 0: none.
 KeyFrN:		DC.L	0		; MSX frames since power on.
 KEYSCRMAX=256

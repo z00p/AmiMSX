@@ -1,8 +1,17 @@
 # AmiMSX 4.x: changes since 3.1
 
-AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft), made with his permission. It is built from his v3.1 source, with parts of his later v3.2/v3.5 source. The aim of this version is accuracy first. The low-spec target is a 68030 at 50 MHz with fast RAM; PiStorm (Emu68), BigMig and other fast CPUs have speed to spare and get the costlier features (FM sound, 60 Hz, smooth display).
+AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft), made with his permission. It is built from his v3.1 source, with parts of his later v3.2/v3.5 source. The aim of this version is accuracy first. The low-spec target is a 68030 at 50 MHz with fast RAM; PiStorm (Emu68), BigMig and other fast CPUs have speed to spare and get the costlier features (FM sound, 60 Hz, smooth display).
 
-4.0 and 4.1 are released as betas. Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+The 4.x releases are betas. Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+
+## 4.1.1
+
+- **CD32 pads:** a menu option per joystick port (Options: JoyPort 2 (Joystick) Pad, JoyPort 1 (Mouse port) Pad: Standard (2 buttons) or CD32 pad). With CD32 pad the port is read with the CD32 protocol every frame, forced, no ID check: red = MSX trigger A, blue = trigger B, yellow = Space, green = M, play = F1; the shoulder buttons do nothing. Standard is the plain two-button read, untouched. No auto-detection (4.0's probe failed on real pads and adapters: KTRL CD32, a Mega Multi adapter in CD32 mode). Both ports are read in one pass (~300 us a frame when either is set). Saved with the prefs and in a game's own settings (the per-game file grows by two bytes; 4.0/4.1 files still load).
+
+## 4.1.1 beta (19 Oct 2026)
+
+- **CD32 pads:** a menu option per joystick port (Standard / CD32 pad), saved with the prefs and per game; the auto-detection is gone. A CD32 port is read every frame without an ID check (red = fire 1, blue = fire 2, yellow = Space, green = M, play = F1); a pad that shows all seven buttons pressed (a plain pad, or an adapter in its standard mode) counts as released. The read keeps its registers in memory, not on the stack (the frame interrupt runs on the Z80 core's A7).
+- **MSX2+ (SCREEN 5 wide layouts):** sprite tables rebuilt from the planes after a VDP command were read one line off (Pampas & Selene's sprite walking left).
 
 ## 4.1 beta (18 Oct 2026)
 
@@ -13,7 +22,7 @@ AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 - **Smooth display:** a frame that runs late is dropped instead of shown twice, so the music keeps its tempo.
 - **Z80:** BIT, IN r,(C), RLD/RRD, CPI/CPD/CPIR/CPDR and DAA flags; RETI leaves IFF alone; IM 0 goes to 38h; OUT (C),0; undefined ED and DD/FD opcodes as NOPs; interrupt and EX (SP),HL timings.
 - **MVD drives** are write-enabled by default.
-- **CD32 pads:** auto-detection is off (it failed on real pads and adapters); CD32 support returns as a menu option.
+- **CD32 pads:** auto-detection is off (it failed on real pads and adapters); CD32 support returns as a menu option in 4.1.1.
 
 ## Emulation
 
@@ -112,7 +121,7 @@ AmiMSX 4.0 is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 - **Mask screen edges** (Options > Internal Emulation: "Mask screen edges (always)" and "Auto mask (scrolling games)"): hides 7 dots at each side of the picture, where games that scroll sideways in software redraw columns; a TV's overscan hid them on a real MSX. Auto, the default, masks once the playfield's R#18 changes from frame to frame three or more times within a second, and keeps the mask until Power ON or Reset; other games keep the full picture. A split that sets and restores R#18 within each frame (Galious Enhanced) is not a scroll and isn't masked. Both are stored in the prefs and in the per-game settings, so a game can be forced on or off.
 - **Audio filter** (Options > Internal Emulation): keeps the Amiga's low-pass filter (the power LED bit) on while a game runs, which takes the hiss out of the 8-bit FM and PSG output. AmiMSX used the LED as a disk light and turned the filter off; with the option on, the LED just stays lit. On in the PiStorm preset; also saved per game.
 - **Smooth display** (Options > Internal Emulation, "Smooth display (fast CPUs)"; on in the PiStorm preset): SCREEN 4 is double-buffered. Each frame is drawn off screen (tiles, HUD and mode-split strips, plane pointers, R#18/R#23, palette and sprite pointers) and shown complete at a frame start. On a fast Amiga the render still takes longer than the vertical blank (BigMig: 120-140 lines), so before, the tiles changed during the frame while the scroll registers and sprites changed at the next one, and the scenery jumped against the hero in scrolling games (Lilly's Saga, Space Manbow). It needs about 90 KB more chip RAM and some blitter time to keep the hidden buffer up to date, so it is off in the 030 preset, whose display path is unchanged. Other screen modes run as before.
-- **CD32 pads** (joystick port, Amiga port 2): read with the CD32 protocol (pin 5 latches, pin 6 clocks, the buttons come in on pin 9), so a CD32-style pad such as the KTRL CD32 gives red = MSX trigger A, blue = trigger B, yellow = Space, green = M and play = F1; the shoulder buttons do nothing. The pad is detected by its ID bits (a 1 then a 0 after the seven buttons) and read every frame; without one the port is probed every 16 frames (and on each of the 8 frames after a pad stops answering, so a one-frame miss is not seen) and a plain one- or two-button joystick is read as before. Port 1 (the mouse port) keeps the plain read. The timing uses CIA reads, so it is the same on a 68030 and a PiStorm. Beta: written from the CD32 pad protocol and WinUAE's source, not yet verified on a real pad.
+- **CD32 pads** (joystick port, Amiga port 2): read with the CD32 protocol (pin 5 latches, pin 6 clocks, the buttons come in on pin 9), so a CD32-style pad such as the KTRL CD32 gives red = MSX trigger A, blue = trigger B, yellow = Space, green = M and play = F1; the shoulder buttons do nothing. The pad was detected by its ID bits and the port probed every 16 frames without one; the detection failed on real pads and adapters, so 4.1 switched it off and 4.1.1 replaced it with the per-port menu option (above). The timing uses CIA reads, so it is the same on a 68030 and a PiStorm.
 - **Use Japanese ID (60 Hz)** (Options): the BIOS reports a Japanese machine and starts at 60 Hz, the machines most games were written for; with Frequence "From VDP" the display follows. Off: an international machine at 50 Hz. It applies to MSX, MSX2 and MSX2+; in v3.1 it changed only the ID bytes and kept 50 Hz. On in the PiStorm preset.
 
 ## From Juan's v3.2/v3.5 source

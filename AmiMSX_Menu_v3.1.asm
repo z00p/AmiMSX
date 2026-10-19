@@ -1229,7 +1229,7 @@ GOCONTOFF:
 ; -----------------------------------
 REINTMODE:
 	CLR.L	REINTMODETAGS+4
-	MOVEQ	#12,D0			; N� L�nea.
+	MOVEQ	#14,D0			; N� L�nea. (4.1.1: was 12)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	BNE.S	REINTMOFF
@@ -2353,7 +2353,7 @@ EsUnProtect:
 
 	SUBQ.L	#3,Debug+((8+5)*4)		; Registro PC.
 
-	MOVE.L	#(0*$40)+11,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(0*$40)+13,D0		; N� L�nea. (Sub-Item+Item; 4.1.1: was 11)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)		; MVD: Write UnProtected
@@ -2735,7 +2735,7 @@ ForceNTSC:
 	MOVEQ	#$04,D3
 	MOVE.B	D3,DirPrefs+$7C
 SetScrExit:
-	MOVE.L	#(0*$40)+12,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(0*$40)+14,D0		; N� L�nea. (Sub-Item+Item; 4.1.1: was 12)
 	MOVEQ	#1,D1			; N� menu.
 	MOVEQ	#3-1,D4
 
@@ -2936,11 +2936,15 @@ InsSl1NoGP:
 ; it plus ".prefs" (Lilly.rom.prefs), holds the settings that make sense per
 ; game: "AMXG", version 1, sound chip (DirPrefs+$1D), MSX2 sprites
 ; (DirPrefs+$16), sprite collisions (DirPrefs+$6C), mask screen edges
-; (PrefMask). Inserting a cartridge applies its file (GUI included, as GO
-; copies the GUI over DirPrefs); a cartridge without one brings the global
-; settings back, with the SCC sound chip for a Konami SCC cartridge. Save
-; Prefs always writes the global settings.
-GP_LEN=12
+; (PrefMask), audio filter, auto mask and (4.1.1, bytes 12-13) the CD32
+; pad setting of each joystick port. Inserting a cartridge applies its
+; file (GUI included, as GO copies the GUI over DirPrefs); a cartridge
+; without one brings the global settings back, with the SCC sound chip
+; for a Konami SCC cartridge. Save Prefs always writes the global
+; settings. A 4.0/4.1 file is 12 bytes: the pad bytes read as 0
+; (Standard).
+GP_LEN=14
+GP_LEN41=12				; A 4.0/4.1 file's length.
 
 ; DirPrefs -> the 12-byte block at A1, and back.
 GPFromPrefs:
@@ -2952,6 +2956,8 @@ GPFromPrefs:
 	MOVE.B	PrefMask,9(A1)
 	MOVE.B	PrefFilter,10(A1)
 	MOVE.B	PrefMaskNoAuto,11(A1)	; (0 in older files: auto mask on)
+	MOVE.B	PrefCD32,12(A1)		; (4.1.1; 0 in older files: Standard)
+	MOVE.B	PrefCD32M,13(A1)
 	RTS
 GPToPrefs:
 	MOVE.B	5(A1),DirPrefs+$1D
@@ -2960,6 +2966,8 @@ GPToPrefs:
 	MOVE.B	9(A1),PrefMask
 	MOVE.B	10(A1),PrefFilter
 	MOVE.B	11(A1),PrefMaskNoAuto
+	MOVE.B	12(A1),PrefCD32
+	MOVE.B	13(A1),PrefCD32M
 	RTS
 
 ; Those settings from the GUI into DirPrefs (ACTUPREFS for just these: all
@@ -2969,18 +2977,26 @@ GPGUIToPrefs:
 	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
 	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
-	MOVE.L	#(3*$40)+13,D0		; Mask screen edges.
+	MOVE.L	#(3*$40)+15,D0		; Mask screen edges.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefMask
-	MOVE.L	#(4*$40)+13,D0		; Audio filter.
+	MOVE.L	#(4*$40)+15,D0		; Audio filter.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#(6*$40)+13,D0		; Auto mask (ticked = 0).
+	MOVE.L	#(6*$40)+15,D0		; Auto mask (ticked = 0).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SEQ	PrefMaskNoAuto
+	MOVE.L	#(1*$40)+2,D0		; JoyPort 2 pad: CD32 pad (4.1.1).
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefCD32
+	MOVE.L	#(1*$40)+3,D0		; JoyPort 1 pad.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefCD32M
 	RTS
 
 ; The GUI from DirPrefs for those settings (gadgets and menu checkmarks).
@@ -2997,7 +3013,7 @@ GPShowGUI:
 	MOVEQ	#0,D1
 	MOVE.W	DirPrefs+$16,D1
 	BSR	CanviTags
-	MOVE.L	#(3*$40)+13,D0		; Mask screen edges.
+	MOVE.L	#(3*$40)+15,D0		; Mask screen edges.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
@@ -3005,7 +3021,7 @@ GPShowGUI:
 	BEQ.S	GPShow2
 	BSET	#0,$C(A0)
 GPShow2:
-	MOVE.L	#(4*$40)+13,D0		; Audio filter.
+	MOVE.L	#(4*$40)+15,D0		; Audio filter.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
@@ -3013,7 +3029,7 @@ GPShow2:
 	BEQ.S	GPShow3
 	BSET	#0,$C(A0)
 GPShow3:
-	MOVE.L	#(6*$40)+13,D0		; Auto mask (ticked when 0).
+	MOVE.L	#(6*$40)+15,D0		; Auto mask (ticked when 0).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
@@ -3021,6 +3037,35 @@ GPShow3:
 	BNE.S	GPShow4
 	BSET	#0,$C(A0)
 GPShow4:
+	MOVEM.L	D2/D3,-(SP)
+	MOVEQ	#2,D2			; JoyPort 2 pad (4.1.1): one of its
+	MOVE.B	PrefCD32,D3		; two sub-items ticked.
+	BSR.S	GPShowPad
+	MOVEQ	#3,D2			; JoyPort 1 pad.
+	MOVE.B	PrefCD32M,D3
+	BSR.S	GPShowPad
+	MOVEM.L	(SP)+,D2/D3
+	RTS
+; Item D2 of the Options menu: sub-item 1 (CD32 pad) ticked when D3 is
+; not 0, sub-item 0 (Standard) otherwise.
+GPShowPad:
+	MOVE.L	D2,D0
+	ADD.W	#(1*$40),D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	D3
+	BEQ.S	GPShowPad1
+	BSET	#0,$C(A0)
+GPShowPad1:
+	MOVE.L	D2,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BSET	#0,$C(A0)
+	TST.B	D3
+	BEQ.S	GPShowPad2
+	BCLR	#0,$C(A0)
+GPShowPad2:
 	RTS
 
 ; GPName = FILENOM + ".prefs".
@@ -3044,10 +3089,12 @@ GPLoad:
 	MOVE.L	#1005,D2
 	BSR	OPENFILE
 	BEQ.S	GPLoadNone
-	MOVE.L	#GPBuf,D2
+	CLR.W	GPBuf+12		; (4.1.1) The pad bytes: 0 unless the
+	MOVE.L	#GPBuf,D2		; file has them.
 	MOVEQ	#GP_LEN,D3
 	BSR	READFILE
-	SEQ	GPOk
+	CMP.L	#GP_LEN41,D0		; A 12-byte (4.0/4.1) file is fine too.
+	SCC	GPOk
 	BSR	CLOSEFILE
 	TST.B	GPOk
 	BEQ.S	GPLoadNone
@@ -6676,6 +6723,15 @@ PONPREFS:
 
 	MOVE.B	$6A(A5),D0
 	BFINS	D0,MSX2NewMenu18+10{7:1}	; Swap JoyPorts.
+
+	MOVE.B	PrefCD32,D0			; (4.1.1) JoyPort 2 pad: CD32 pad
+	BFINS	D0,MSX2NewMenu18c+10{7:1}	; or Standard (one of the two).
+	NOT.B	D0
+	BFINS	D0,MSX2NewMenu18b+10{7:1}
+	MOVE.B	PrefCD32M,D0			; JoyPort 1 pad.
+	BFINS	D0,MSX2NewMenu18f+10{7:1}
+	NOT.B	D0
+	BFINS	D0,MSX2NewMenu18e+10{7:1}
 ; -=-
 	MOVE.B	$12(A5),D0
 	BFINS	D0,MSX2NewMenu20+10{7:1}	; M-Key.
@@ -6856,58 +6912,68 @@ ACTUPREFS:
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$6A(A5)			; Swap JoyPorts
-; -=-
-	MOVEQ	#3,D0			; N� L�nea.
+
+	MOVE.L	#(1*$40)+2,D0		; (4.1.1) JoyPort 2 pad: sub-item 1 =
+	MOVEQ	#1,D1			; CD32 pad (0 = Standard).
+	BSR	COGECHECK
+	SNE	PrefCD32
+
+	MOVE.L	#(1*$40)+3,D0		; JoyPort 1 pad.
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	SNE	PrefCD32M
+; -=- (4.1.1: the items from here on are two further down the menu)
+	MOVEQ	#5,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$12(A5)			; Multi-Key ON
 
-	MOVEQ	#4,D0			; N� L�nea.
+	MOVEQ	#6,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$1E(A5)			; DEL como Pausa
 
-	MOVEQ	#5,D0			; N� L�nea.
+	MOVEQ	#7,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$62(A5)			; L.Shift as Space
 
-	MOVEQ	#6,D0			; N� L�nea.
+	MOVEQ	#8,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$63(A5)			; R.Shift as Space
 ; -=-
-	MOVE.L	#(0*$40)+8,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(0*$40)+10,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$7A(A5)			; Use Japanese ID
 
-	MOVE.L	#(0*$40)+9,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(0*$40)+11,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$7B(A5)			; Use Kanji ROM.
 ; -=-
-	MOVE.L	#(0*$40)+11,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(0*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$61(A5)			; Write Protected
 
-	MOVE.L	#(2*$40)+11,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(2*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$78(A5)			; Avisar al intentar Escribir.
 
-	MOVE.L	#(3*$40)+11,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(3*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$79(A5)			; Avisar al Salir si MVD modificado.
 ; -=-
-	MOVE.L	#(0*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(0*$40)+15,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$64(A5)			; Sprites Base 2
 
-	MOVE.L	#(1*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(1*$40)+15,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$6B(A5)			; 100% Refresh Screen
@@ -6916,39 +6982,39 @@ ACTUPREFS:
 					; menu item is gone in 4.0 (the real
 					; collision check always runs, and the
 					; old forced flag broke most games).
-	MOVE.L	#(2*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
+	MOVE.L	#(2*$40)+15,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$6E(A5)			; VDP 'TR bit'
 
-	MOVE.L	#(3*$40)+13,D0		; Sub-item 3 of item 13:
+	MOVE.L	#(3*$40)+15,D0		; Sub-item 3 of item 15:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefMask		; Mask screen edges (4.0).
-	MOVE.L	#(4*$40)+13,D0		; Sub-item 4: audio filter (4.0).
+	MOVE.L	#(4*$40)+15,D0		; Sub-item 4: audio filter (4.0).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#(5*$40)+13,D0		; Sub-item 5: smooth display (4.0).
+	MOVE.L	#(5*$40)+15,D0		; Sub-item 5: smooth display (4.0).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefDbuf
-	MOVE.L	#(6*$40)+13,D0		; Sub-item 6: auto mask (4.0; ticked =
+	MOVE.L	#(6*$40)+15,D0		; Sub-item 6: auto mask (4.0; ticked =
 	MOVEQ	#1,D1			; PrefMaskNoAuto 0).
 	BSR	COGECHECK
 	SEQ	PrefMaskNoAuto
 ; -=-
-	MOVEQ	#15,D0			; N� L�nea.
+	MOVEQ	#17,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$7D(A5)			; Disable Cheats
 
-	MOVEQ	#16,D0			; N� L�nea.
+	MOVEQ	#18,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$1F(A5)			; Ask for Reset
 
-	MOVEQ	#17,D0			; N� L�nea.
+	MOVEQ	#19,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
 	BSR	COGECHECK
 	SNE	$6F(A5)			; Overwrite
@@ -7084,6 +7150,10 @@ PrefDbuf:	DC.B	0		; Smooth display: FFh = SCREEN 4 double-
 PrefMaskNoAuto:	DC.B	0		; Auto mask off (FFh). 0 = the edges are
 					; masked once a game scrolls with R#18
 					; (MaskAuto), the default.
+PrefCD32:	DC.B	0		; (4.1.1) CD32 pad in the joystick port
+					; (Amiga port 2): FFh. 0 = Standard.
+PrefCD32M:	DC.B	0		; (4.1.1) CD32 pad in the mouse port
+					; (Amiga port 1): FFh. 0 = Standard.
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 
@@ -7884,6 +7954,8 @@ MPROJECT:
 MOPTIONS:
 	DC.L	CONTROLRET		; JoyStick 2 ON
 	DC.L	CONTROLRET		; Swap JoyPorts
+	DC.L	MenuPad			; JoyPort 2 pad (4.1.1)
+	DC.L	MenuPad			; JoyPort 1 pad (4.1.1)
 	DC.L	CONTROLRET		; -----
 	DC.L	CONTROLRET		; Multi-Key
 	DC.L	CONTROLRET		; DEL for Pause
@@ -7901,6 +7973,11 @@ MOPTIONS:
 	DC.L	CONTROLRET		; Ask for Reset
 	DC.L	ActuPrefs		; Overwrite
 	DC.L	CONTROLRET		; -----
+
+MenuPad:
+	DC.L	CONTROLRET		; Standard (2 buttons)
+	DC.L	CONTROLRET		; CD32 pad (Intuition's mutual exclusion
+	DC.L	CONTROLRET		; keeps one of the two ticked)
 
 MenuScrExit:
 	DC.L	NoChange		; No Change.

@@ -1,8 +1,8 @@
-# AmiMSX 4.1 (beta)
+# AmiMSX 4.x (beta)
 
-AmiMSX is an MSX, MSX2 and MSX2+ emulator for the Amiga, written in 68020 assembly by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft). Version 4.0 is a community update, released with his permission. It is built from his v3.1 source, with parts of his v3.2/v3.5 source.
+AmiMSX is an MSX, MSX2 and MSX2+ emulator for the Amiga, written in 68020 assembly by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft). Version 4.x is a community update, released with his permission. It is built from his v3.1 source, with parts of his v3.2/v3.5 source.
 
-4.0 puts accuracy first. The low-spec target is a 68030/50 with fast RAM, and PiStorm (Emu68), BigMig and other fast machines get FM sound, 60 Hz and smooth display on top. See [Docs/CHANGES_4.0.md](Docs/CHANGES_4.0.md) for what changed since 3.1, and [Docs/AmiMSX4.readme](Docs/AmiMSX4.readme) for requirements and installation.
+4.x puts accuracy first. The low-spec target is a 68030/50 with fast RAM, and PiStorm (Emu68), BigMig and other fast machines get FM sound, 60 Hz and smooth display on top. See [Docs/CHANGES_4.x.md](Docs/CHANGES_4.x.md) for what changed since 3.1, and [Docs/AmiMSX4.readme](Docs/AmiMSX4.readme) for requirements and installation.
 
 ## Running it
 

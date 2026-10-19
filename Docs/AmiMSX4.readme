@@ -1,15 +1,15 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.1 beta
+Short:        MSX/MSX2/MSX2+ emulator, 4.1.1 beta
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.1
+Version:      4.1.1
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
 Distribution: Aminet
 Kurz:         MSX-Emulator (MSX2/2+), mehr Genauigkeit
 
-AmiMSX 4.0 is a community update of AmiMSX, the MSX, MSX2 and MSX2+
+AmiMSX 4.x is a community update of AmiMSX, the MSX, MSX2 and MSX2+
 emulator by Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft),
 released with his permission. It is built from his v3.1 source, with parts
 of his later v3.2/v3.5 source. This version puts accuracy first: many
@@ -20,7 +20,7 @@ custom chips directly. HELP returns to the menu.
 
 Beta
 ----
-4.0 is a beta. It runs a large test set well, but some games still have
+4.x is a beta. It runs a large test set well, but some games still have
 problems (see Known limits). Please report anything you find as an issue
 on GitHub, with the game, the AmiMSX settings and your machine (CPU,
 accelerator or emulator), so it can be triaged for the next update:
@@ -79,7 +79,17 @@ What's new
 - Freeware texts and no anti-crack counter, from Juan's v3.2/v3.5.
 - Cleaner exits when a screen, window or device can't be opened.
 
-See Docs/CHANGES_4.0.txt for the full list.
+See Docs/CHANGES_4.x.txt for the full list.
+
+New in 4.1.1
+------------
+- CD32 pads: a menu option per joystick port (Options: JoyPort 2
+  (Joystick) Pad, JoyPort 1 (Mouse port) Pad: Standard (2 buttons) or
+  CD32 pad). With CD32 pad the port is read with the CD32 protocol:
+  red = fire 1, blue = fire 2, yellow = Space, green = M, play = F1.
+  No auto-detection. Saved with the prefs and per game.
+- MSX2+: sprites in SCREEN 5 are no longer garbled after a VDP
+  command touched their tables (Pampas & Selene walking left).
 
 New in 4.1
 ----------
@@ -115,12 +125,14 @@ Known limits
 - Smooth display covers SCREEN 4 only; other modes run as before.
 - Smooth display switches itself off in games that play MSX-Music
   (FM), so their music keeps its tempo.
-- MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games misbehave
-  with ROM set to MSX2+ (Pampas & Selene's sprite walking left); run
-  MSX2 games as MSX2.
+- MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games show a
+  different picture size or position with ROM set to MSX2+ (Gradius 2,
+  Pampas & Selene); run MSX2 games as MSX2.
 - Gradius III Legends (MSX2+): scenery can also appear at the left
-  edge, with a jump in the scroll; on the power meter screen the old
-  selection box isn't erased.
+  edge, with a jump in the scroll.
+- Uridium 2: the title picture is drawn wrong (the game plays fine).
+- Gradius 2 with the enhancement patch (MSX2+): a grid of extra dots
+  on the star field (the two-page tile scroll); fine as MSX2.
 - Jailbreak: scenery rows flash at the top of the playfield (bitmap
   splits are timed from the Amiga beam).
 - Head over Heels Remake: letters missing from the menu text.
@@ -132,9 +144,11 @@ Known limits
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
 - Lotus F3: the car jitters while it moves (seen on PiStorm).
-- CD32 pads: read as plain two-button joysticks (red = fire 1, blue =
-  fire 2). A CD32 mode is planned as a menu option. Left Amiga (port 2)
-  or Right Amiga (port 1) also press MSX fire button 2.
+- CD32 pads: on Standard a pad is read as a plain two-button joystick
+  (red = fire 1, blue = fire 2); set the port to CD32 pad for the
+  other buttons, and set a switchable adapter to its CD32 mode too.
+  Left Amiga (port 2) or Right Amiga (port 1) also press MSX fire
+  button 2.
 - Bit Logic: the hero on the intro screen is drawn split in two.
 - Rarely, a game doesn't start on the first Power ON after the
   cartridge was changed (a black screen): press Power ON again.

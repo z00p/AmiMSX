@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.1 (18.10.2026)
+@version $VER: AmiMSX.guide 4.1.1 (19.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.1 beta
+                          AmiMSX Emulator v4.1.1 beta
                           ( 14.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -12,7 +12,7 @@
             1994-2000/2009/2021 By: Juan Antonio Gómez Gálvez
                       GUS Entertainment / RED Soft
 
-                             @{"New in 4.0      " link Nuevo40}
+                             @{"New in 4.x      " link Nuevo40}
                              @{"Note from author" link Autor}
 
                              @{"Introduction    " link Introduccio}
@@ -29,7 +29,7 @@
                              @{"Greetings       " link Agraiments}
 
 
-        AmiMSX 4.0 is a community update, made with the author's
+        AmiMSX 4.x is a community update, made with the author's
                               permission.
 
       This is a beta: please report problems as issues on GitHub:
@@ -40,14 +40,14 @@
 
 @node Nuevo40 "AmiMSX Emulator."
 
-@{fg highlight}    New in 4.0:
+@{fg highlight}    New in 4.x:
 @{fg text}    -----------
 
-    AmiMSX 4.0 is a community update of AmiMSX, made with the permission
+    AmiMSX 4.x is a community update of AmiMSX, made with the permission
 of Juan Antonio Gómez Gálvez.  It is built from his v3.1 source, with
 parts of his later v3.2/v3.5 source.  Accuracy comes first.
 
-    4.0 is a beta.  Please report any game that misbehaves as an issue
+    4.x is a beta.  Please report any game that misbehaves as an issue
 on GitHub, with the game, the AmiMSX settings and your machine:
 https://github.com/z00p/AmiMSX/issues
 
@@ -79,10 +79,10 @@ https://github.com/z00p/AmiMSX/issues
     - Two @{"presets" link Presets}: one for a 68030, one for PiStorm and
       other fast CPUs.
 
-    The full list is in Docs/CHANGES_4.0.txt.
+    The full list is in Docs/CHANGES_4.x.txt.
 
 
-@{fg highlight}    Credits for 4.0:
+@{fg highlight}    Credits for 4.x:
 @{fg text}    ----------------
 
     AmiMSX:    Juan Antonio Gómez Gálvez, GUS Entertainment / RED Soft
@@ -291,6 +291,19 @@ some games will not work well.
 @{fg text}    ------------------
 
     Change JoyPorts A and B of MSX.
+
+
+@{fg highlight}    <*> JoyPort 2 (Joystick) Pad / JoyPort 1 (Mouse port) Pad:
+@{fg text}    ----------------------------------------------------------
+
+    What is plugged into each Amiga port:  Standard (2 buttons), the
+plain joystick read, or CD32 pad.  New in 4.1.1.  With CD32 pad the
+port is read with the CD32 protocol every frame, no questions asked
+(there is no auto-detection: it failed on real pads and adapters):
+red = MSX firebutton 1, blue = firebutton 2, yellow = Space, green =
+M, play = F1.  The shoulder buttons do nothing.  Choose Standard for
+a joystick or a mouse in that port.  Saved with the prefs and in a
+game's own settings.
 
 
 @{fg highlight}    <*> Multi-key ON:
@@ -845,11 +858,13 @@ like joystick second firebutton.
 
     A Joypad can be used.
 
-    A CD32 pad in the joystick port (Amiga port 2, the B port below)
-is read with the CD32 protocol: red = MSX firebutton 1, blue =
-firebutton 2, yellow = Space, green = M, play = F1.  The shoulder
-buttons do nothing.  The pad is detected by its ID bits; a plain
-joystick works as before.  (4.0 beta: not yet verified on a real pad.)
+    A CD32 pad works as a two-button joystick (red and blue) in
+either port.  Set the port to CD32 pad in the Options menu (JoyPort
+2 (Joystick) Pad, JoyPort 1 (Mouse port) Pad) and it is read with
+the CD32 protocol instead: red = MSX firebutton 1, blue = firebutton
+2, yellow = Space, green = M, play = F1.  The shoulder buttons do
+nothing.  Nothing is detected: a port left on Standard is read as a
+plain joystick, exactly as before.
 
     Amiga firebutton 1 = MSX firebutton 1
     Amiga firebutton 2 & 3 = MSX firebutton 2    

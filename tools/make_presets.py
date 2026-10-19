@@ -24,11 +24,17 @@ SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Musi
                     # ROMs still get the SCC). FM is on only where there's CPU to spare.
 COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
                     # read report a collision (IVDP0Spr). Real collision detection always runs. Keep 0.
-# 4.0 block after the credits string: PrefMask (mask screen edges always, FFh) at
-# the first byte, left at the binary's default (off), then PrefFilter.
-DBUF = -2           # byte (from the end): smooth display (SCREEN 4 double-buffered, fast CPUs)
-FILTER = -3         # byte (from the end): audio filter (Amiga low-pass, the power LED bit),
+# 4.0 block after the credits string (PrefMask, PrefFilter, PrefDbuf, PrefMaskNoAuto,
+# then 4.1.1's PrefCD32, PrefCD32M; AmiMSX_Menu_v3.1.asm, DIRPrefs): PrefMask (mask
+# screen edges always, FFh) is its first byte, left at the binary's default (off).
+# Offsets count from the end of the block.
+CD32_PORT1 = -1     # byte (from the end): CD32 pad in the mouse port (Amiga port 1), FFh.
+CD32_PORT2 = -2     # byte (from the end): CD32 pad in the joystick port (Amiga port 2), FFh.
+                    # Both left 0 (Standard, the plain two-button read) in every preset.
+DBUF = -4           # byte (from the end): smooth display (SCREEN 4 double-buffered, fast CPUs)
+FILTER = -5         # byte (from the end): audio filter (Amiga low-pass, the power LED bit),
                     # FFh = on while a game runs: less hiss from the 8-bit FM/PSG output.
+BLOCK40 = 6         # bytes after the credits string (PrefMask .. PrefCD32M)
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
@@ -48,7 +54,7 @@ def default_prefs(binary):
     assert 0 < j - i < 0x1000
     end = j + 4
     end += (-(end - i)) % 4      # CNOP 0,4 (DIRPrefs is 8-aligned)
-    end += 4                     # 4.0 block: PrefMask, PrefFilter, PrefDbuf + 1 reserved (FINPREFS)
+    end += BLOCK40               # 4.0/4.1.1 block up to FINPREFS
     return bytearray(b[i:end])
 
 
