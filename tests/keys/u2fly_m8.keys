@@ -1,0 +1,3 @@
+# Uridium 2 flight (u2fly) with Mask screen edges 8 dots (4.2 option test)
+option mask 8
+include u2fly.keys

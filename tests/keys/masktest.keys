@@ -1,0 +1,5 @@
+# Edge-mask test disk (tools/make_mask_test_dsk.py): AUTOEXEC.BAS shows SCREEN 7 boxes,
+# any key -> WIDTH 80 text, any key -> SCREEN 5 boxes.
+option machine 1
+25s   SPACE 5
+35s   SPACE 5

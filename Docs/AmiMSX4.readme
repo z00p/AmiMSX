@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.1.2 beta
+Short:        MSX/MSX2/MSX2+ emulator, 4.2
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.1.2
+Version:      4.2
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -18,10 +18,10 @@ games that broke or glitched in 3.x now run as on a real MSX.
 As before, AmiMSX takes over the machine while the MSX runs and drives the
 custom chips directly. HELP returns to the menu.
 
-Beta
-----
-4.x is a beta. It runs a large test set well, but some games still have
-problems (see Known limits). Please report anything you find as an issue
+Reporting problems
+------------------
+AmiMSX runs a large test set well, but some games still have problems
+(see Known limits). Please report anything you find as an issue
 on GitHub, with the game, the AmiMSX settings and your machine (CPU,
 accelerator or emulator), so it can be triaged for the next update:
 https://github.com/z00p/AmiMSX/issues
@@ -80,6 +80,21 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 4.2
+----------
+- Gradius III Legends: on POWER METER SELECT the old selection box is
+  erased again. VDP LINE now honours the logical operation (XOR, AND,
+  OR, NOT and the transparent versions); it always drew solid before.
+- Mask screen edges is now Off, 8 dots or 16 dots, per game; Off is
+  the default and shows the whole picture. Auto mask is gone (it cut
+  off Uridium 2's score panel). The MSX2+ left mask (R#25) is always
+  applied.
+- Quitting: Screen on Exit 'No Change' puts the Amiga's own PAL/NTSC
+  timing back. After a 60 Hz game, PAL screens opened later (other
+  emulators, games) lost their bottom lines.
+- Options menu: Audio filter and Smooth display no longer run the
+  PAL/NTSC screen handlers when picked.
 
 New in 4.1.2
 ------------
@@ -148,14 +163,13 @@ Known limits
 - MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games choose a
   different video mode on an MSX2+, so the picture size differs
   (Gradius 2, Pampas & Selene); run MSX2 games as MSX2.
-- Gradius III Legends (MSX2+): on POWER METER SELECT the old
-  selection box stays drawn when the selection moves.
 - Uridium 2: enemy ships don't destroy the ship on contact (shots
   do).
 - Jailbreak: scenery rows flash at the top of the playfield (bitmap
   splits are timed from the Amiga beam).
 - Head over Heels Remake: letters missing from the menu text.
-- Nemesis 2: stray cyan dots on the star field.
+- Nemesis 2: the stars are drawn cyan instead of white, and the ship
+  can be missing for a frame in the hangar intro.
 - Bombaman: moving characters look ghosted on fast machines (seen on
   PiStorm and BigMig), though each frame is correct.
 - Manbow 2: the lower part of the title screen (START) is missing,

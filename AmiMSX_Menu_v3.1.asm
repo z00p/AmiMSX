@@ -925,9 +925,19 @@ QUITAR:
 	BNE.S	EsNTSC2
 	MOVE.W	#$20,D1
 EsNTSC2:MOVE.W	D1,$DFF1DC
+	BRA.S	ScrExitSet
 NoChangeCon:
+	MOVE.L	4.W,A0			; (4.2) 'No Change' puts the system's own
+	MOVEQ	#0,D1			; beam timing back (ExecBase VBlankFrequency:
+	CMP.B	#50,$212(A0)		; 50 = PAL). A 60 Hz MSX game left BEAMCON0
+	BNE.S	SysNTSC			; at NTSC, and AmigaOS doesn't restore it:
+	MOVE.W	#$20,D1			; PAL screens opened afterwards ran at
+SysNTSC:MOVE.W	D1,$DFF1DC		; 59.3 Hz and lost their bottom lines.
+ScrExitSet:
 ; --------------------------
 	JSR	CLOSEDOWNSCREEN
+	MOVE.L	_INTUITIONBASE,A6	; (4.2) Rebuild the display for the
+	JSR	-384(A6)		; restored timing (RemakeDisplay).
 	MOVEQ	#0,D0
 	RTS
 ; (4.0) OpenMSX2Window failed: its menus and gadgets may exist without
@@ -2945,8 +2955,9 @@ InsSl1NoGP:
 ; it plus ".prefs" (Lilly.rom.prefs), holds the settings that make sense per
 ; game: "AMXG", version 1, sound chip (DirPrefs+$1D), MSX2 sprites
 ; (DirPrefs+$16), sprite collisions (DirPrefs+$6C), mask screen edges
-; (PrefMask), audio filter, auto mask and (4.1.1, bytes 12-13) the CD32
-; pad setting of each joystick port. Inserting a cartridge applies its
+; (PrefMask: 0, 8 or 16 dots since 4.2; FFh in older files = 8), audio
+; filter, a byte that was 4.0-4.1's auto mask (written 0 and ignored since
+; 4.2) and (4.1.1, bytes 12-13) the CD32 pad setting of each joystick port. Inserting a cartridge applies its
 ; file (GUI included, as GO copies the GUI over DirPrefs); a cartridge
 ; without one brings the global settings back, with the SCC sound chip
 ; for a Konami SCC cartridge. Save Prefs always writes the global
@@ -2964,7 +2975,7 @@ GPFromPrefs:
 	MOVE.B	DirPrefs+$6C,8(A1)
 	MOVE.B	PrefMask,9(A1)
 	MOVE.B	PrefFilter,10(A1)
-	MOVE.B	PrefMaskNoAuto,11(A1)	; (0 in older files: auto mask on)
+	CLR.B	11(A1)			; (4.0-4.1 auto mask: unused since 4.2)
 	MOVE.B	PrefCD32,12(A1)		; (4.1.1; 0 in older files: Standard)
 	MOVE.B	PrefCD32M,13(A1)
 	RTS
@@ -2973,8 +2984,8 @@ GPToPrefs:
 	MOVE.W	6(A1),DirPrefs+$16
 	MOVE.B	8(A1),DirPrefs+$6C
 	MOVE.B	9(A1),PrefMask
+	BSR	MaskNorm		; (an older file's FFh = 8 dots)
 	MOVE.B	10(A1),PrefFilter
-	MOVE.B	11(A1),PrefMaskNoAuto
 	MOVE.B	12(A1),PrefCD32
 	MOVE.B	13(A1),PrefCD32M
 	RTS
@@ -2986,18 +2997,11 @@ GPGUIToPrefs:
 	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
 	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
-	MOVE.L	#(3*$40)+15,D0		; Mask screen edges.
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	SNE	PrefMask
-	MOVE.L	#(4*$40)+15,D0		; Audio filter.
+	BSR	MaskFromGUI		; Mask screen edges (4.2: 3 sub-items).
+	MOVE.L	#(6*$40)+15,D0		; Audio filter.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#(6*$40)+15,D0		; Auto mask (ticked = 0).
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	SEQ	PrefMaskNoAuto
 	MOVE.L	#(1*$40)+2,D0		; JoyPort 2 pad: CD32 pad (4.1.1).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
@@ -3022,28 +3026,36 @@ GPShowGUI:
 	MOVEQ	#0,D1
 	MOVE.W	DirPrefs+$16,D1
 	BSR	CanviTags
-	MOVE.L	#(3*$40)+15,D0		; Mask screen edges.
-	MOVEQ	#1,D1
+	MOVE.L	#(3*$40)+15,D0		; Mask screen edges (4.2): Off,
+	MOVEQ	#1,D1			; 8 dots or 16 dots ticked.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	TST.B	PrefMask
-	BEQ.S	GPShow2
+	BNE.S	GPShow2
 	BSET	#0,$C(A0)
 GPShow2:
-	MOVE.L	#(4*$40)+15,D0		; Audio filter.
+	MOVE.L	#(4*$40)+15,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	CMP.B	#8,PrefMask
+	BNE.S	GPShow2b
+	BSET	#0,$C(A0)
+GPShow2b:
+	MOVE.L	#(5*$40)+15,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	CMP.B	#16,PrefMask
+	BNE.S	GPShow2c
+	BSET	#0,$C(A0)
+GPShow2c:
+	MOVE.L	#(6*$40)+15,D0		; Audio filter.
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	TST.B	PrefFilter
-	BEQ.S	GPShow3
-	BSET	#0,$C(A0)
-GPShow3:
-	MOVE.L	#(6*$40)+15,D0		; Auto mask (ticked when 0).
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	BCLR	#0,$C(A0)
-	TST.B	PrefMaskNoAuto
-	BNE.S	GPShow4
+	BEQ.S	GPShow4
 	BSET	#0,$C(A0)
 GPShow4:
 	MOVEM.L	D2/D3,-(SP)
@@ -3054,6 +3066,33 @@ GPShow4:
 	MOVE.B	PrefCD32M,D3
 	BSR.S	GPShowPad
 	MOVEM.L	(SP)+,D2/D3
+	RTS
+; (4.2) Mask screen edges from the menu: sub-item 4 of item 15 = 8 dots,
+; 5 = 16 dots, else (3) Off.
+MaskFromGUI:
+	CLR.B	PrefMask
+	MOVE.L	#(4*$40)+15,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BEQ.S	MaskFG1
+	MOVE.B	#8,PrefMask
+MaskFG1:
+	MOVE.L	#(5*$40)+15,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BEQ.S	MaskFG2
+	MOVE.B	#16,PrefMask
+MaskFG2:
+	RTS
+; (4.2) PrefMask as 0, 8 or 16 (dots each side): an older prefs or per-game
+; file's FFh (4.0-4.1 'Mask screen edges (always)') reads as 8.
+MaskNorm:
+	TST.B	PrefMask
+	BEQ.S	MaskNormR
+	CMP.B	#16,PrefMask
+	BEQ.S	MaskNormR
+	MOVE.B	#8,PrefMask
+MaskNormR:
 	RTS
 ; Item D2 of the Options menu: sub-item 1 (CD32 pad) ticked when D3 is
 ; not 0, sub-item 0 (Standard) otherwise.
@@ -6778,15 +6817,20 @@ PONPREFS:
 	MOVE.B	$6E(A5),D0
 	BFINS	D0,MSX2NewMenu41+10{7:1}	; VDP 'TR bit' always ready
 
-	MOVE.B	PrefMask,D0
-	BFINS	D0,MSX2NewMenu41b+10{7:1}	; Mask screen edges (4.0)
+	BSR	MaskNorm			; Mask screen edges (4.2): one
+	TST.B	PrefMask			; of Off / 8 dots / 16 dots.
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41b+10{7:1}
+	CMP.B	#8,PrefMask
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41e+10{7:1}
+	CMP.B	#16,PrefMask
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41f+10{7:1}
 	MOVE.B	PrefFilter,D0
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
 	MOVE.B	PrefDbuf,D0
 	BFINS	D0,MSX2NewMenu41d+10{7:1}	; Smooth display (4.0)
-	MOVE.B	PrefMaskNoAuto,D0
-	NOT.B	D0
-	BFINS	D0,MSX2NewMenu41e+10{7:1}	; Auto mask (4.0)
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -6839,7 +6883,8 @@ PONPREFS2:
 ; Option records (row $FE) of a loaded key script: settings for the test run,
 ; applied after ACTUPREFS (which copies the GUI over DirPrefs at every GO).
 ; 1 = sprite frames (DirPrefs+$16: 1 every frame, 2...), 2 = sprite
-; collisions option (DirPrefs+$6C), 3 = mask screen edges (PrefMask),
+; collisions option (DirPrefs+$6C), 3 = mask screen edges (PrefMask: 0
+; Off, 16 = 16 dots, other values 8 dots),
 ; 4 = sound chip (DirPrefs+$1D).
 KeyOptApply:
 	TST.L	KeyScrPtr
@@ -6860,8 +6905,8 @@ KeyOpt2:
 KeyOpt3:
 	CMP.B	#3,5(A0)		; 3 = mask screen edges (PrefMask).
 	BNE.S	KeyOpt4
-	TST.B	7(A0)
-	SNE	PrefMask
+	MOVE.B	7(A0),PrefMask
+	BSR	MaskNorm
 KeyOpt4:
 	CMP.B	#4,5(A0)		; 4 = sound chip (DirPrefs+$1D: 0 PSG,
 	BNE.S	KeyOpt5			; 1 SCC, 2 SCC+, 3 PSG+FM, 4 lite).
@@ -6996,22 +7041,16 @@ ACTUPREFS:
 	BSR	COGECHECK
 	SNE	$6E(A5)			; VDP 'TR bit'
 
-	MOVE.L	#(3*$40)+15,D0		; Sub-item 3 of item 15:
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	SNE	PrefMask		; Mask screen edges (4.0).
-	MOVE.L	#(4*$40)+15,D0		; Sub-item 4: audio filter (4.0).
+	BSR	MaskFromGUI		; Sub-items 3-5 of item 15: mask screen
+					; edges Off / 8 / 16 dots (4.2).
+	MOVE.L	#(6*$40)+15,D0		; Sub-item 6: audio filter (4.0).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#(5*$40)+15,D0		; Sub-item 5: smooth display (4.0).
+	MOVE.L	#(7*$40)+15,D0		; Sub-item 7: smooth display (4.0).
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefDbuf
-	MOVE.L	#(6*$40)+15,D0		; Sub-item 6: auto mask (4.0; ticked =
-	MOVEQ	#1,D1			; PrefMaskNoAuto 0).
-	BSR	COGECHECK
-	SEQ	PrefMaskNoAuto
 ; -=-
 	MOVEQ	#17,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
@@ -7151,14 +7190,14 @@ TABLAB4:
 	CNOP	0,4
 ; 4.0 settings, after the original block: a prefs file from an older version
 ; is shorter, so these stay 0 (BUFPREFS starts cleared).
-PrefMask:	DC.B	0		; Mask screen edges: FFh = 8 dots each side.
+PrefMask:	DC.B	0		; Mask screen edges: dots hidden each side,
+					; 0 (Off), 8 or 16 (4.2; FFh before = 8).
 PrefFilter:	DC.B	0		; Audio filter (Amiga low-pass, the power
 					; LED bit): FFh = on while a game runs.
 PrefDbuf:	DC.B	0		; Smooth display: FFh = SCREEN 4 double-
 					; buffered (AmiMSX_Dbuf_v4.asm).
-PrefMaskNoAuto:	DC.B	0		; Auto mask off (FFh). 0 = the edges are
-					; masked once a game scrolls with R#18
-					; (MaskAuto), the default.
+PrefMaskNoAuto:	DC.B	0		; 4.0-4.1's Auto mask setting: unused
+					; since 4.2 (kept for the file layout).
 PrefCD32:	DC.B	0		; (4.1.1) CD32 pad in the joystick port
 					; (Amiga port 2): FFh. 0 = Standard.
 PrefCD32M:	DC.B	0		; (4.1.1) CD32 pad in the mouse port
@@ -8005,7 +8044,11 @@ MenuInternal:
 	DC.L	CONTROLRET		; Sprites Y coor. from Line Interrupt
 	DC.L	CONTROLRET		; 100% refresh in screen changes
 	DC.L	CONTROLRET		; VDP 'TR bit' always ready
-	DC.L	CONTROLRET
+	DC.L	CONTROLRET		; Mask screen edges: Off (4.2: Intuition's
+	DC.L	CONTROLRET		; 8 dots   mutual exclusion keeps one of
+	DC.L	CONTROLRET		; 16 dots  the three ticked)
+	DC.L	CONTROLRET		; Audio filter (4.2: entries for sub-items
+	DC.L	CONTROLRET		; Smooth display 4-7; they ran MENUSCREEN's)
 
 MENUSCREEN:
 	DC.L	SETPAL			; Set PAL

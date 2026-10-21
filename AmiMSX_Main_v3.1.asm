@@ -545,7 +545,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.1.2 ("
+	DC.B	"$VER:AmiMSX Emulator v4.2 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -2347,8 +2347,6 @@ HARDRESET:
 	MOVE.L	#COPPERN,$DFF084
 	JSR	DbReset			; (4.0) No smooth-display state left.
 	SF	FmUsed			; (4.0) MSX-Music not used yet.
-	SF	MaskAuto		; (4.0) Auto mask: a new game.
-	CLR.B	MaskCnt
 	LEA	REGS,A3
 
 	LEA	AMITECLAS,A0
@@ -2415,8 +2413,6 @@ MSXRESET:
 	MOVE.L	#COPPERN,$DFF084
 	JSR	DbReset			; (4.0) No smooth-display state left.
 	SF	FmUsed			; (4.0) MSX-Music not used yet.
-	SF	MaskAuto		; (4.0) Auto mask: a new game.
-	CLR.B	MaskCnt
 	LEA	REGS,A3
 
 	LEA	AMITECLAS,A0
@@ -9785,12 +9781,16 @@ OUTS:
 
 
 	CNOP	0,8
-; Mask screen edges (PrefMask): the display window is 8 dots wider than the
-; 256 picture dots (3 left, 5 right, measured in WinUAE), so hiding 7 dots
-; each side moves its edges in by these (8 was a touch much on a real A1200;
-; the scroll columns Lilly's Saga redraws are 7 dots at most past R#18).
-EDGEL=10
-EDGER=12
+; Mask screen edges (PrefMask, 4.2: Off / 8 / 16 dots each side): the
+; display window (AdjustBuf+2, moving with R#18) is exactly the 256 picture
+; dots (WinUAE, 21 Oct 2026: Uridium 2's HUD in full as in openMSX with
+; Off; 8 hid 8+3 / 8+5 and 16 hid 16+3 / 16+5 with the 4.0 "3 left, 5
+; right" margins, so they are 0). MaskL/MaskR = N+EDGEL0 / N+EDGER0, set at
+; each frame start (MiraInter0S). 8 covers the scroll columns Lilly's Saga
+; redraws past R#18. The V9958's R#25 MSK (left 8 dots, MSX2+) is applied
+; whatever the option (AcCoRutAdjust).
+EDGEL0=0
+EDGER0=0
 Act_Adjust:
 	IFD	TRACE
 	TRVLOG	$FD,MidAdj
@@ -9803,11 +9803,10 @@ Act_Adjust:
 	MOVE.W	(AdjustBuf,D2.W*4),AdjustX+10
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+3
 	MOVE.B	(AdjustBuf+2,D2.W*4),VERPAN+7
-	TST.B	MaskNow		; Mask screen edges (menu): the window 8
-	BEQ.S	ActAdjNoMask		; dots narrower each side, where games
-	ADD.B	#EDGEL,VERPAN+3		; redraw columns while they scroll
-	SUB.B	#EDGER,VERPAN+7		; (Lilly's Saga).
-ActAdjNoMask:
+	MOVE.B	MaskL,D1		; Mask screen edges (menu): the window
+	ADD.B	D1,VERPAN+3		; MaskL/MaskR narrower (0 when Off).
+	MOVE.B	MaskR,D1
+	SUB.B	D1,VERPAN+7
 
 	BTST	#1,TopR8		; Playfield R#8 (MIDSAMPLE).
 	BNE	Act_AdjCon
@@ -11890,11 +11889,8 @@ SPR1DBL:	MACRO
 SprBufB:	DC.B	0
 		EVEN
 TsMsNx:		DC.W	0		; (TSPLITCHK scratch)
-MaskNow:	DC.B	0		; (4.0) edges masked this frame
-MaskAuto:	DC.B	0		; the game scrolls by R#18
-MaskCnt:	DC.B	0		; R#18 changes in this window
-MaskWin:	DC.B	49		; frames left in the window
-MaskLast:	DC.B	0		; R#18 at the last frame start
+MaskL:		DC.B	0		; (4.2) window edges moved in this frame:
+MaskR:		DC.B	0		; 0 or N+EDGEL0 / N+EDGER0 (Mask screen edges)
 FmUsed:		DC.B	0		; MSX-Music written since Power ON/Reset
 		EVEN
 SprSwV:		DC.W	-1		; FMXVbl when the copper was pointed at the
@@ -18359,6 +18355,20 @@ MINCON0:ADD.W	D5,D3
 	AND.W	$04(A4),D2
 	AND.W	$06(A4),D3
 
+	MOVEQ	#$0F,D6			; (4.1.2) The logical op (R#46 low
+	AND.B	DVDPREG(A3),D6		; nibble) as the blitter minterm: the
+	BCLR	#3,D6			; line used to be drawn as IMP whatever
+	BEQ.S	LineOpN			; the op (BASIC's LINE ...,B,XOR box
+	MOVE.B	DVDPCL(A3),D7		; erase in Gradius III Legends' power
+	AND.B	$22(A4),D7		; meter select). T-ops with colour 0
+	BEQ	V2EMAL			; leave every dot: nothing to draw.
+LineOpN:
+	MOVE.B	LineMtTab(PC,D6.W),LineMint+1
+	BRA.S	LineOpX
+LineMtTab:			; A = the line's dot, B = the colour bit (BLTBDAT), C = the dot
+	DC.B	$CA,$8A,$EA,$6A	; IMP: B. AND: B&C. OR: B|C. XOR: B^C.
+	DC.B	$3A,$CA,$CA,$CA	; NOT: ~B. 5-7: undefined, as IMP.
+LineOpX:
 	MOVE.L	$12(A4),A0
 	LEA	$DFF002,A6
 	SF	LineTwin		; (4.0) Wide layouts: drawn twice, the
@@ -18406,7 +18416,7 @@ LineYW:
 	lsr.w	#3,d0	         	;   yeah, on byte (necessary for bchg) ....
 	add.w	d0,a0			;   ... blitter ands automagically
 	ror.w	#4,d4			;d4:shift
-	or.w	#$b00+DL_MInterns,d4	;   bltcon0-codes
+	or.w	LineMint,d4		;   bltcon0-codes ($B00 + the op's minterm)
 	swap	d4
 	cmp.w	d2,d3			;   which delta is the biggest?
 	bge.w	.dygdx
@@ -18466,6 +18476,7 @@ ESPBLTMLI:
 	BRA	LineGo
 LineTwin:	DC.B	0
 	EVEN
+LineMint:	DC.W	$0B00+DL_MInterns	; (4.1.2) USEA/B/C/D + the op's minterm.
 LineSv:		DS.L	5
 ; ------------- oktant-table --------------------------------------------
 SML=0
@@ -22549,22 +22560,19 @@ ACAdjW:
 	MOVE.B	(AdjustBuf+2.w,PC,D1.W*4),D4
 	BTST	#1,6(A0)		; (4.0) R#25 MSK: the left 8 dots are
 	BEQ.S	ACAdjM0			; border (where R#27 brings in what the
-	ADD.B	#3+8,D4			; Amiga fetched before the line).
+	TST.B	MaskL			; Amiga fetched before the line), always
+	BNE.S	ACAdjM0			; (4.2; the mask option's 8 or 16 dots
+	ADD.B	#EDGEL0+8,D4		; cover them too).
 	BRA.S	ACAdjM1
 ACAdjM0:
-	TST.B	MaskNow		; (Mask screen edges, as Act_Adjust.)
-	BEQ.S	ACAdjM1
-	ADD.B	#EDGEL,D4
+	ADD.B	MaskL,D4		; (Mask screen edges, as Act_Adjust.)
 ACAdjM1:
 	MOVE.W	#$008E,(A3)+
 	MOVE.W	D4,(A3)+
 
 	MOVE.W	VERPAN+6,D4
 	MOVE.B	(AdjustBuf+2.w,PC,D1.W*4),D4
-	TST.B	MaskNow
-	BEQ.S	ACAdjM2
-	SUB.B	#EDGER,D4
-ACAdjM2:
+	SUB.B	MaskR,D4
 	MOVE.W	#$0090,(A3)+
 	MOVE.W	D4,(A3)+
 AcCoAdjRet:
@@ -24076,43 +24084,29 @@ MiraInterBSplit:			; (Before CurLine moves on: the band
 ; Line 0: new frame for the sprite snapshots, then MiraInter0.
 	CNOP	0,4
 MiraInter0S:
-	MOVE.B	MidAdj,D1		; (4.0) Auto mask: the playfield's R#18
-	CMP.B	MaskLast,D1		; (MIDSAMPLE, last frame) against the
-	BEQ.S	MaskSame		; frame before: a split that sets and
-	MOVE.B	D1,MaskLast		; restores R#18 every frame is not a
-					; scroll (Galious Enh); the playfield
-					; under a still HUD is (Space Manbow).
-	ADDQ.B	#1,MaskCnt
-	BCC.S	MaskSame
-	ST	MaskCnt
-MaskSame:
-	SUBQ.B	#1,MaskWin		; 3 or more frame-to-frame R#18 changes
-	BCC.S	MaskWOk			; in 50 frames = a game that scrolls
-	MOVE.B	#49,MaskWin		; sideways by R#18 and redraws edge
-	CMP.B	#3,MaskCnt		; columns: mask from then on (until Power
-	BCS.S	MaskWClr		; ON/Reset), as a TV's overscan hid them.
-	ST	MaskAuto
-MaskWClr:
-	CLR.B	MaskCnt
-MaskWOk:
-	MOVE.B	PrefMask,MaskNow	; Mask screen edges (always), or
-	TST.B	PrefMaskNoAuto		; automatic.
-	BNE.S	MaskNOk
-	TST.B	MaskAuto
-	BEQ.S	MaskNOk
-	ST	MaskNow
-MaskNOk:
+	MOVE.B	PrefMask,D1		; (4.2) Mask screen edges: Off, 8 or 16
+	BEQ.S	MaskSet			; dots each side (an older prefs file's
+	CMP.B	#16,D1			; FFh = 8). MaskL/MaskR: how far the
+	BEQ.S	Mask16			; window edges move in (Act_Adjust,
+	MOVE.B	#8,D1			; AcCoRutAdjust, Ver2). No automatic
+Mask16:	ADD.B	#EDGEL0,D1		; mask any more (4.0-4.1's Auto mask
+MaskSet:				; cropped Uridium 2's HUD).
+	MOVE.B	D1,MaskL
+	BEQ.S	MaskSetR
+	ADD.B	#EDGER0-EDGEL0,D1
+MaskSetR:
+	MOVE.B	D1,MaskR
 	CLR.W	TSplit			; Table split: new frame.
 	CLR.W	SegStart		; Register split segments too.
 	CLR.W	SegBest
 	SF	SegSeen
 	CLR.W	MSplitL			; Mode split too (regime: MSplitSeen).
-	MOVE.B	#$A1,Ver2+3		; SCREEN 1-3 window: masked edges or not.
-	MOVE.B	#$A1,Ver2+7
-	TST.B	MaskNow
-	BEQ.S	FrMaskNo
-	MOVE.B	#$A1+EDGEL,Ver2+3
-	MOVE.B	#$A1-EDGER,Ver2+7
+	MOVE.B	#$A1,D1			; SCREEN 1-3 window: masked edges or not.
+	ADD.B	MaskL,D1
+	MOVE.B	D1,Ver2+3
+	MOVE.B	#$A1,D1
+	SUB.B	MaskR,D1
+	MOVE.B	D1,Ver2+7
 FrMaskNo:
 	MOVE.W	Ver2+2,Ver2B+2
 	MOVE.W	Ver2+6,Ver2B+6

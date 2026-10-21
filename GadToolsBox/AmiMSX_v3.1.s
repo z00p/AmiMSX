@@ -1966,7 +1966,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.1.2 (Pro) '
+    DC.B    'AmiMSX Emulator v4.2 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -4243,7 +4243,7 @@ PasswordIText0:
     CNOP    0,2
 
 AboutIText0:
-    DC.B    'AmiMSX Emulator v4.1.2',0
+    DC.B    'AmiMSX Emulator v4.2',0
 
 AboutIText1:
     DC.B    '(October 11th, 2026)',0
@@ -4636,12 +4636,26 @@ MSX2NewMenu41:
     DC.W    $0109
     DC.L    0,0
 
-MSX2NewMenu41b:
-    DC.B    3,0
-    DC.L    MSX2MName41b
+MSX2NewMenu41b:                      ; (4.2) sub-items 3-5: Mask screen
+    DC.B    3,0                     ; edges Off / 8 dots / 16 dots (one
+    DC.L    MSX2MName41b            ; ticked: mutual exclusion)
     DC.L    0
-    DC.W    $0009
-    DC.L    0,0
+    DC.W    $0101
+    DC.L    $30,0                   ; excludes sub-items 4 and 5
+
+MSX2NewMenu41e:                     ; sub-item 4: 8 dots
+    DC.B    3,0
+    DC.L    MSX2MName41e
+    DC.L    0
+    DC.W    $0001
+    DC.L    $28,0                   ; excludes sub-items 3 and 5
+
+MSX2NewMenu41f:                     ; sub-item 5: 16 dots
+    DC.B    3,0
+    DC.L    MSX2MName41f
+    DC.L    0
+    DC.W    $0001
+    DC.L    $18,0                   ; excludes sub-items 3 and 4
 
 MSX2NewMenu41c:
     DC.B    3,0
@@ -4653,13 +4667,6 @@ MSX2NewMenu41c:
 MSX2NewMenu41d:
     DC.B    3,0
     DC.L    MSX2MName41d
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu41e:                     ; (4.0) sub-item 6
-    DC.B    3,0
-    DC.L    MSX2MName41e
     DC.L    0
     DC.W    $0009
     DC.L    0,0
@@ -5295,7 +5302,7 @@ MSX2MName41:
     DC.B    'VDP ''TR bit'' always ready',0
 
 MSX2MName41b:
-    DC.B    'Mask screen edges (always)',0
+    DC.B    'Mask screen edges: Off',0
 
 MSX2MName41c:
     DC.B    'Audio filter (less hiss)',0
@@ -5304,7 +5311,10 @@ MSX2MName41d:
     DC.B    'Smooth display (fast CPUs)',0
 
 MSX2MName41e:
-    DC.B    'Auto mask (scrolling games)',0
+    DC.B    'Mask screen edges: 8 dots',0
+
+MSX2MName41f:
+    DC.B    'Mask screen edges: 16 dots',0
 
 MSX2MName43:
     DC.B    'Disable Cheats',0

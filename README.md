@@ -1,4 +1,4 @@
-# AmiMSX 4.x (beta)
+# AmiMSX 4.x
 
 AmiMSX is an MSX, MSX2 and MSX2+ emulator for the Amiga, written in 68020 assembly by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft). Version 4.x is a community update, released with his permission. It is built from his v3.1 source, with parts of his v3.2/v3.5 source.
 
@@ -33,4 +33,4 @@ Tested on a PiStorm A1200 and in the regression suite: homebrew such as Manbow 2
 
 ## Reporting problems
 
-4.0 is a beta: please report any game that misbehaves, so it can be triaged for the next update. Open an issue with the game, the AmiMSX settings and the machine (CPU, accelerator or emulator). See [CONTRIBUTING.md](CONTRIBUTING.md).
+Please report any game that misbehaves, so it can be triaged for the next update. Open an issue with the game, the AmiMSX settings and the machine (CPU, accelerator or emulator). See [CONTRIBUTING.md](CONTRIBUTING.md).

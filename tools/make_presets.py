@@ -25,9 +25,12 @@ SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Musi
 COLLIDE = 0x6C      # byte: the original "Sprites collisions ON (always)" hack: FFh makes every S#0
                     # read report a collision (IVDP0Spr). Real collision detection always runs. Keep 0.
 # 4.0 block after the credits string (PrefMask, PrefFilter, PrefDbuf, PrefMaskNoAuto,
-# then 4.1.1's PrefCD32, PrefCD32M; AmiMSX_Menu_v3.1.asm, DIRPrefs): PrefMask (mask
-# screen edges always, FFh) is its first byte, left at the binary's default (off).
+# then 4.1.1's PrefCD32, PrefCD32M; AmiMSX_Menu_v3.1.asm, DIRPrefs). 6 bytes, as in 4.0-4.1.
 # Offsets count from the end of the block.
+MASK = -6           # byte (from the end): PrefMask, mask screen edges: dots hidden each side,
+                    # 0 (Off), 8 or 16 (4.2; 4.0-4.1 wrote FFh = 8). Off in every preset.
+NOAUTO = -3         # byte (from the end): 4.0-4.1's Auto mask (PrefMaskNoAuto): unused since
+                    # 4.2 (no automatic masking); written 0.
 CD32_PORT1 = -1     # byte (from the end): CD32 pad in the mouse port (Amiga port 1), FFh.
 CD32_PORT2 = -2     # byte (from the end): CD32 pad in the joystick port (Amiga port 2), FFh.
                     # Both left 0 (Standard, the plain two-button read) in every preset.
@@ -37,8 +40,8 @@ FILTER = -5         # byte (from the end): audio filter (Amiga low-pass, the pow
 BLOCK40 = 6         # bytes after the credits string (PrefMask .. PrefCD32M)
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
-    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1)}),
-    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF)}),
+    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
 ]
 
 W, H = 46, 46

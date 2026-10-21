@@ -1,0 +1,2 @@
+include masktest.keys
+option mask 16

@@ -2,7 +2,15 @@
 
 AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS Entertainment / RED Soft), made with his permission. It is built from his v3.1 source, with parts of his later v3.2/v3.5 source. The aim of this version is accuracy first. The low-spec target is a 68030 at 50 MHz with fast RAM; PiStorm (Emu68), BigMig and other fast CPUs have speed to spare and get the costlier features (FM sound, 60 Hz, smooth display).
 
-The 4.x releases are betas. Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
+
+## 4.2 (21 Oct 2026)
+
+- **Mask screen edges** (Options > Internal Emulation) is now a choice of **Off, 8 dots or 16 dots** at each side of the picture (default Off), kept in the prefs and in the per-game settings. A prefs or per-game file from 4.0/4.1 with the mask on reads as 8 dots. The edges are measured on the 256-dot picture (the display window is the picture's width; 4.0-4.1's "7 dots" really hid 10 at the left and 12 at the right).
+- **Auto mask (scrolling games) is gone:** AmiMSX no longer masks the edges by itself when a game scrolls with R#18. It cut off the "1UP"/"2UP" score panel of Uridium 2, which openMSX and a real MSX show in full.
+- **MSX2+ left mask (V9958 R#25 MSK)** is always shown on the MSX2+ machine, whatever the mask option says (with 8 or 16 dots the option's mask covers it).
+- **Options menu:** the Audio filter and Smooth display items no longer run the PAL/NTSC screen handlers when picked (their menu handler entries were missing).
+- **Quitting after a 60 Hz game:** Screen on Exit 'No Change' (the default) now puts the Amiga's own beam timing back (PAL on a PAL machine, from ExecBase's VBlankFrequency) and rebuilds the display. A 60 Hz MSX game sets BEAMCON0 to NTSC, AmigaOS does not restore it, and PAL screens opened afterwards ran at 59.3 Hz and lost their bottom lines (seen in other emulators started after AmiMSX).
 
 ## 4.1.2 beta (21 Oct 2026)
 

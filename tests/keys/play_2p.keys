@@ -1,0 +1,3 @@
+# Generic play on the MSX2+ machine (R#25 MSK test, mask option Off)
+option machine 2
+include play.keys

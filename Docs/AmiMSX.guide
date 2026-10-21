@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.1.2 (21.10.2026)
+@version $VER: AmiMSX.guide 4.2 (21.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.1.2 beta
+                             AmiMSX Emulator v4.2
                           ( 14.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -32,7 +32,7 @@
         AmiMSX 4.x is a community update, made with the author's
                               permission.
 
-      This is a beta: please report problems as issues on GitHub:
+            Please report problems as issues on GitHub:
                   https://github.com/z00p/AmiMSX/issues
 
 @endnode
@@ -47,8 +47,7 @@
 of Juan Antonio Gómez Gálvez.  It is built from his v3.1 source, with
 parts of his later v3.2/v3.5 source.  Accuracy comes first.
 
-    4.x is a beta.  Please report any game that misbehaves as an issue
-on GitHub, with the game, the AmiMSX settings and your machine:
+    Please report any game that misbehaves as an issue on GitHub, with the game, the AmiMSX settings and your machine:
 https://github.com/z00p/AmiMSX/issues
 
     - Z80:  POP/RET through ROM, RLD/RRD on ROM, NEG/CPL flags, M1 wait
@@ -64,10 +63,10 @@ https://github.com/z00p/AmiMSX/issues
       steps.  (See @{"MSX2 Sound Emulation" link Soroll}.)
 
     - Display:  double-buffered sprites, Smooth display for fast CPUs,
-      automatic edge mask for games that scroll sideways.
+      an edge mask of 8 or 16 dots for games that scroll sideways.
 
-    - Options:  Use Japanese ID (60 Hz), Mask screen edges, Auto mask,
-      Audio filter, Smooth display.  (See @{"Options Menu" link MenuOpt}.)
+    - Options:  Use Japanese ID (60 Hz), Mask screen edges (Off, 8 or
+      16 dots), Audio filter, Smooth display.  (See @{"Options Menu" link MenuOpt}.)
 
     - Cartridges:  mapper from a ROM database, 8Kb, 48/64Kb and 4Mb
       ROMs, flash Konami SCC cartridges with saves, per-game settings.
@@ -367,15 +366,25 @@ harddisk.
 @{fg highlight}    <*> Screen Mode on Exit:
 @{fg text}    ------------------------
 
-    Force to set screen mode to PAL, NTSC, or no change.
+    The display timing AmiMSX leaves when you quit: Force PAL, Force
+NTSC, or No Change (the default), which puts back the Amiga's own
+timing (PAL on a PAL machine).  A 60 Hz MSX game switches the Amiga to
+NTSC timing; before 4.2 'No Change' left it there, so PAL screens opened
+afterwards lost their bottom lines.
 
 
 @{fg highlight}    <*> Internal Emulation (4.0 options):
 @{fg text}    -------------------------------------
 
-    - Mask screen edges (always):  Hides 7 dots at each side of the
-picture, where games that scroll sideways redraw columns.  (A TV's
-overscan hid them on a real MSX.)
+    - Mask screen edges:  Off, 8 dots or 16 dots.  Hides that many dots
+at each side of the picture, where games that scroll sideways redraw
+columns.  (A TV's overscan hid them on a real MSX.)  Off, the default,
+shows the whole picture, as openMSX does.  8 dots covers the columns most
+games redraw (Lilly's Saga); 16 dots is for wider ones.  Text screens
+(SCREEN 0, 40 and 80 columns) are never masked.  The MSX2+ left
+mask (V9958 R#25) is always shown, whatever this option says: it is part
+of the machine.  (Before 4.2 an "Auto mask" option masked the edges once
+a game scrolled; it is gone: it cut off the score panel of Uridium 2.)
 
     - Audio filter (less hiss):  Keeps the Amiga's low-pass filter on while
 a game runs, for less hiss from the FM and PSG sound.  The power LED stays
@@ -384,10 +393,6 @@ lit.
     - Smooth display (fast CPUs):  SCREEN 4 is double-buffered, so each
 frame is shown complete.  Needs a fast CPU and about 90Kb more Chip
 memory.  Other screen modes are not changed.
-
-    - Auto mask (scrolling games):  On by default.  Masks the edges once a
-game scrolls sideways with R#18, until Power ON or Reset.  Other games keep
-the full picture.
 
     The edge mask and the audio filter are kept in the per-game settings
 too.  (See @{"Cartridges Menu" link MenuCar}.)

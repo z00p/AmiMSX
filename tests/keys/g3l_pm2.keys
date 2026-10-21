@@ -1,0 +1,7 @@
+# Gradius III Legends, MSX2+ machine: the POWER METER SELECT screen (AUTOEXEC.BAS lines
+# 110-230: BLOAD "select.sr5",S, the box drawn with LINE ...,10,B and moved with two
+# LINE ...,B,XOR). It comes at boot, before the title, and waits for Space; no Space
+# here, DOWN every 4 s moves the box (cyclic over the 4 rows).
+option machine 2
+option sound 0
+30s   DOWN 10 every 4s until 100s
