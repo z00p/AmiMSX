@@ -189,6 +189,15 @@ NOHAYMEM2:
 	CLR.L	BUCFILEB
 	CLR.L	DIRFILEB
 NOHAYMEMB:
+	MOVE.L	MagAlloc,D0		; (4.1.2) the magnified sprites' bank.
+	BEQ.S	NoHayMagMem
+	MOVE.L	D0,A1
+	MOVE.L	#MAGSIZE*2,D0
+	MOVE.L	4.W,A6
+	JSR	-$D2(A6)
+	CLR.L	MagAlloc
+	CLR.L	MagBank
+NoHayMagMem:
 
 	MOVEQ	#0,D0
 	JSR	LIBMEM
@@ -4550,8 +4559,8 @@ SPR5BUC0:
 	RTS
 
 MSX2palScr8:
-	DC.W	$000,$004,$600,$604,$060,$064,$660,$664
-	DC.W	$E84,$00E,$E00,$E0E,$0E0,$0EE,$EE0,$EEE
+	DC.W	$000,$005,$700,$705,$070,$075,$770,$775
+	DC.W	$F95,$00F,$F00,$F0F,$0F0,$0FF,$FF0,$FFF
 
 ; -----------------------------------
 	CNOP	0,4

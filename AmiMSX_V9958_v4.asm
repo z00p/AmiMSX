@@ -489,13 +489,60 @@ Mode5Layout:
 	BEQ.S	Mode5LNT
 	MOVE.L	(A0),DREGOUT98(A3)
 Mode5LNT:
+; (4.1.2) Mode5Fetch (also PRINT5 every frame through Pl5Frame): the fetch
+; mode and the per-line modulo. The 32-bit fetch (FMODE $D, Adj5Calc's
+; pointer step and delay) only once the game has scrolled with R#26
+; (V9R26Used); FMODE itself is written here only where it is this mode's
+; to set (V9Fm32Ok: not a pair-split regime, whose AcCoBMSw writes it).
+; Else the MSX2 machine's 64-bit fetch, so a game that never writes R#26
+; is fetched and positioned exactly as on MSX2, whatever the AGA chips make
+; of a 32-bit fetch at DDFSTRT $40 (an A1200 showed MSX2+ shifted, WinUAE
+; does not). The modulo is the layout's stride less the fetch (-8 for the
+; MSX2 layout, as before).
+Mode5Fetch:
+	MOVEQ	#0,D0
+	TST.B	V9Scr5			; The V9958 SCREEN 5 path (AGA)...
+	BEQ.S	Mode5FSet
+	TST.B	V9R26Used		; ...once the game scrolls with R#26:
+	BEQ.S	Mode5FSet		; the 32-bit fetch, in a pair-split
+	MOVEQ	#-1,D0			; regime too (AcCoBMSw writes its FMODE
+Mode5FSet:				; there, as in 4.1.1).
+	MOVE.B	D0,V9Fm32
+	TST.B	V9Fm32Ok		; (Only this mode's own FMODE: not in a
+	BEQ.S	Mode5FNoFm		; pair-split regime, nor on ECS/MSX2.)
+	AND.W	#2,D0			; $000F (64-bit) or $000D (32-bit) in one
+	EOR.W	#$000F,D0		; write: the copper never reads the other
+	MOVE.W	D0,MCAGA+2		; value in between.
+Mode5FNoFm:
 	MOVE.W	PlStrideW,D0		; The per-line modulo: stride less the
-	SUB.W	#W5FETCH,D0		; 32-bit fetch (V9Scr5)...
-	TST.B	V9Scr5
+	SUB.W	#W5FETCH,D0		; 32-bit fetch...
+	TST.B	V9Fm32
 	BNE.S	Mode5LMod
-	MOVEQ	#-8,D0			; ...or the 64-bit one (32-byte rows).
-Mode5LMod:
+	MOVE.W	PlStrideW,D0		; ...or the 64-bit one (-8 with 32-byte
+	SUB.W	#W5FETCH64,D0		; rows: the MSX2 value, never written on
+Mode5LMod:				; ECS, whose tables hold 0).
 	JMP	Mode5Mod
+; (4.1.2) DdfSync (every rendered frame, after BMSPost): the frame's data
+; fetch window follows its FMODE (MCAGA+2). The 32-bit fetch ($000D) runs
+; from DDFSTRT $38 to DDFSTOP $B0 (9 units, 36 bytes as before): $38 is on
+; a 16-cycle unit boundary, so the AGA delay is BPLCON1 & 31 and Adj5Calc
+; reaches every offset. At $40 (8 cycles into a unit) the delay became
+; (BPLCON1 + 16) & 31, which put the picture 32 dots right for delays
+; 1..15 (Gradius III Legends: a rock column at the left edge and a jump).
+; Every other FMODE keeps $40/$B8; ECS ($48/$C0) is never touched.
+DdfSync:
+	CMP.W	#$000D,MCAGA+2
+	BNE.S	DdfSStd
+	MOVE.W	#$0038,AdjustX+2
+	MOVE.W	#$00B0,AdjustX+6
+	RTS
+DdfSStd:
+	CMP.W	#$0038,AdjustX+2
+	BNE.S	DdfSX
+	MOVE.W	#$0040,AdjustX+2
+	MOVE.W	#$00B8,AdjustX+6
+DdfSX:	RTS
+
 Mode5LTab:
 	DC.L	Modo5Dats,IN98A,OUT98A,OUT98AT
 	DC.L	Modo5WDats,IN98W,OUT98W,OUT98WT
@@ -512,7 +559,10 @@ Pl5Want:
 	BEQ.S	Pl5WantX
 	TST.B	DirPrefs+$6B
 	BEQ.S	Pl5WantX
-	MOVEQ	#1,D0
+	TST.B	V9R26Used		; (4.1.2) Layout 1 once the game scrolls
+	BEQ.S	Pl5WantSp		; with R#26; until then (and without SP2)
+	MOVEQ	#1,D0			; the MSX2 layout: the same planes,
+Pl5WantSp:				; writers, readers and fetch as MSX2.
 	BTST	#0,V9R25
 	BEQ.S	Pl5WantX
 	BTST	#5,REGS+DVDP2
@@ -559,8 +609,9 @@ Pl5FrRs:
 	BSR	Mode5Layout
 Pl5FrSame:
 	CLR.B	Sp2Cnt
-Pl5FrX:
-	RTS
+	BSR	Mode5Fetch		; (4.1.2) FMODE and modulo follow R#26's
+Pl5FrX:					; first use (a word write, then only when
+	RTS				; the modulo changes).
 
 ; PlAddrOff: D0.L = VRAM address -> D0.L = byte offset in a plane of its
 ; first copy (PlRowOff of the line, plus the column). Stack: 8 bytes.

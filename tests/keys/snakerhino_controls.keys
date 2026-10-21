@@ -1,0 +1,4 @@
+# Snake and Rhino in the Sketch: one Space past the title, then stay on the
+# CONTROLS page (the one the game draws with interrupts on, port-99 pairs);
+# for bursts at 17-22 s with tools/burst.py --keys snakerhino_controls.
+14s   SPACE 5

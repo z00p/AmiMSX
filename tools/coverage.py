@@ -54,6 +54,8 @@ def features(s, romtype, size):
             f.add("scroll:R#23" if r == "23" else "adjust:R#18"); msx2 = True
     if s.get("sprframes", 0) * 10 >= tot:
         f.add("sprites:mode2" if any(m in ("S4", "S5", "S6", "S7", "S8") for m in modes) else "sprites:mode1")
+        if s.get("magframes", 0) > 0:
+            f.add("sprites:mag")          # R#1 MAG (sprites doubled) in some frames
     f.add("machine:MSX2" if msx2 else "machine:MSX1")
     f.add("mapper:" + (romtype or ("plain" if size <= 65536 else "guess")))
     return f

@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.1.1 beta
+Short:        MSX/MSX2/MSX2+ emulator, 4.1.2 beta
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.1.1
+Version:      4.1.2
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -81,6 +81,26 @@ What's new
 
 See Docs/CHANGES_4.x.txt for the full list.
 
+New in 4.1.2
+------------
+- Uridium 2: the title picture is drawn right. The Z80 now takes a
+  pending interrupt straight after the instruction that follows EI,
+  as a real Z80 does.
+- Sprites: magnified sprites (R#1 MAG) in sprite mode 1 (Bit Logic's
+  hero on the intro screen, Popolon).
+- SCREEN 2/4: a tile whose pattern or colour changes is redrawn in
+  the same frame (Gradius 2 with the MSX2+ enhancement patch: a grid
+  of dots over the star field).
+- MSX2+: a SCREEN 5 game that doesn't use the coarse scroll (R#26)
+  uses the same display layout as on an MSX2.
+- MSX2+ coarse scroll: no stray column at the left edge and no jumps
+  (Gradius III Legends scrolls smoothly).
+- Screen pages: a page switch the game makes in the border is shown
+  from the top of the picture. On fast machines Barbarian's fighters
+  no longer flicker or vanish.
+- Colours: MSX colour levels now use the full Amiga range (white is
+  full white), matching an MSX within a step.
+
 New in 4.1.1
 ------------
 - CD32 pads: a menu option per joystick port (Options: JoyPort 2
@@ -125,22 +145,21 @@ Known limits
 - Smooth display covers SCREEN 4 only; other modes run as before.
 - Smooth display switches itself off in games that play MSX-Music
   (FM), so their music keeps its tempo.
-- MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games show a
-  different picture size or position with ROM set to MSX2+ (Gradius 2,
-  Pampas & Selene); run MSX2 games as MSX2.
-- Gradius III Legends (MSX2+): scenery can also appear at the left
-  edge, with a jump in the scroll.
-- Uridium 2: the title picture is drawn wrong (the game plays fine).
-- Gradius 2 with the enhancement patch (MSX2+): a grid of extra dots
-  on the star field (the two-page tile scroll); fine as MSX2.
+- MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games choose a
+  different video mode on an MSX2+, so the picture size differs
+  (Gradius 2, Pampas & Selene); run MSX2 games as MSX2.
+- Gradius III Legends (MSX2+): on POWER METER SELECT the old
+  selection box stays drawn when the selection moves.
+- Uridium 2: enemy ships don't destroy the ship on contact (shots
+  do).
 - Jailbreak: scenery rows flash at the top of the playfield (bitmap
   splits are timed from the Amiga beam).
 - Head over Heels Remake: letters missing from the menu text.
 - Nemesis 2: stray cyan dots on the star field.
-- Barbarian: the sky is lighter than on an MSX.
 - Bombaman: moving characters look ghosted on fast machines (seen on
   PiStorm and BigMig), though each frame is correct.
-- Manbow 2: a stray line at the top left of the title screen.
+- Manbow 2: the lower part of the title screen (START) is missing,
+  with a stray line at the top left.
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
 - Lotus F3: the car jitters while it moves (seen on PiStorm).
@@ -149,7 +168,6 @@ Known limits
   other buttons, and set a switchable adapter to its CD32 mode too.
   Left Amiga (port 2) or Right Amiga (port 1) also press MSX fire
   button 2.
-- Bit Logic: the hero on the intro screen is drawn split in two.
 - Rarely, a game doesn't start on the first Power ON after the
   cartridge was changed (a black screen): press Power ON again.
 

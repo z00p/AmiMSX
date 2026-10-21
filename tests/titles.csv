@@ -4,7 +4,7 @@ id,file,kind,set,romtype,keys,config,shots,smoke,notes,features
 010_WestenHouse,010_WestenHouse.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
 011_TheCure,011_TheCure.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
 015_UniverseUnknown,015_UniverseUnknown.rom,rom,core,,play,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
-016_BitLogic,016_BitLogic.rom,rom,core,,bitlogic,030,"60,75,85",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
+016_BitLogic,016_BitLogic.rom,rom,core,,bitlogic,030,"60,75,85",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mag sprites:mode1
 017_TheFallofPrometheus,017_TheFallofPrometheus.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
 029_RelevosSnowboarding,029_RelevosSnowboarding.rom,rom,core,,snowboarding,030,"30,45,60",,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
 031_KnightLoreRemake,031_KnightLoreRemake.rom,rom,core,,knightlore,030,"45,55,62",,,cmd:HMMV cmd:LMMM cmd:YMMM machine:MSX2 mapper:plain mode:S5 palette:mid-frame scroll:R#23
@@ -58,8 +58,8 @@ R2_MonsterHunter[KonamiSCC],R2_MonsterHunter[KonamiSCC].rom,rom,set2,KonamiSCC,p
 R2_NeonHorizon,R2_NeonHorizon.rom,rom,set2,,play,030,"30,45,60",,8 MB: over the 4 MB limit (out of scope),
 R2_NeonRevMSX1[ASCII8],R2_NeonRevMSX1[ASCII8].rom,rom,set2,ASCII8,play,030,"30,45,60",,,machine:MSX1 mapper:ASCII8 mode:S2 sprites:mode1
 R2_NeonRevMSX2[ASCII8],R2_NeonRevMSX2[ASCII8].rom,rom,set2,ASCII8,play,030,"30,45,60",,,machine:MSX2 mapper:ASCII8 mode:S4 sprites:mode2
-R2_Popolon,R2_Popolon.rom,rom,set2,,play,030,"30,45,60",Y,,machine:MSX1 mapper:plain mode:S2 sprites:mode1
-R2_Unleashed,R2_Unleashed.rom,rom,set2,,play,030,"30,45,60",,'Internal error' by 65 s (open),line-interrupts machine:MSX2 mapper:guess mode:S0 mode:S2 split:border split:mode sprites:mode1
+R2_Popolon,R2_Popolon.rom,rom,set2,,play,030,"30,45,60",Y,,machine:MSX1 mapper:plain mode:S2 sprites:mag sprites:mode1
+R2_Unleashed,R2_Unleashed.rom,rom,set2,,play,030,"30,45,60",,'Internal error' by 65 s (open),line-interrupts machine:MSX2 mapper:guess mode:S0 mode:S2 split:border split:mode sprites:mag sprites:mode1
 Triton,Triton.rom,rom,core,,triton,030,"30,45,60",,"map: RIGHT moves a planet cursor, Space circles it; launch sequence still unknown",machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
 R2_akin1,R2_akin1.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
 R2_akin2,R2_akin2.dsk,disk,set2,,autospace,030,"20,40,60",,disk: no openMSX scan (C-BIOS has no disk ROM),disk machine:MSX1
@@ -72,6 +72,7 @@ R2_io,R2_io.dsk,disk,set2,,autospace,030,"22,40,60",Y,disk: no openMSX scan (C-B
 014_UwolQuestforMoney,014_UwolQuestforMoney.rom,rom,core,ASCII8,play,030,"30,45,60",,DSK2ROM: calls MSX-BASIC (C-BIOS errors),machine:MSX1 mapper:ASCII8
 019_Alien8Remake,019_Alien8Remake.rom,rom,core,,play,030,"30,45,60",,,cmd:HMMV cmd:LMMM cmd:YMMM machine:MSX2 mapper:plain mode:S5 palette
 020_GradiusIIILegends,020_GradiusIIILegends.dsk,disk,core,,g3l,030,"30,45,60",,disk: no openMSX scan (C-BIOS has no disk ROM); play from ~113 s (openMSX: AmiMSX_MSX2P_Disk_NoFM - with MSX-MUSIC the STAGE 01 jingle never ends); scrolls with V9958 R#26/R#27 (needs MSX2+); features tags hand-written - coverage.py overwrites them (disk titles aren't scanned),disk machine:MSX2+ scroll:R#26 scroll:R#27 mode:S5 sprites:mode2
+020p_GradiusIIILegendsMSX2P,020_GradiusIIILegends.dsk,disk,core,,g3l_2p,030,"130,140,150",,MSX2+ machine (option machine 2) and PSG: tests the V9958 R#26/R#27 coarse scroll in play (scenery enters from the right); timing varies with the disk load,disk machine:MSX2+ scroll:R#26 scroll:R#27 mode:S5
 023_Shouganai,023_Shouganai.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
 024_ZombieCalaveraPrologue,024_ZombieCalaveraPrologue.rom,rom,core,,play,030,"30,45,60",,,machine:MSX2 mapper:plain mode:S2 split:mode sprites:mode1
 026_HeadoverHeelsRemake,026_HeadoverHeelsRemake.rom,rom,core,KonamiSCC,play,030,"30,45,60",,,cmd:HMMM cmd:HMMV cmd:LMMM cmd:LMMV machine:MSX2 mapper:KonamiSCC mode:S5 mode:S8 palette:mid-frame split:border split:mode split:sprite-tables split:sprites-on/off sprites:mode2

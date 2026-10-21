@@ -36,9 +36,14 @@ def blocks(d):
     return out
 
 
+# 4.1.2+: MSX level n -> nibble 0,3,5,7,9,11,13,15 (PalLvRB/PalLvG); older builds 2n.
+LEVEL = {v: n for n, v in enumerate((0, 3, 5, 7, 9, 11, 13, 15))}
+LEVEL.update({2 * n: n for n in range(1, 8) if 2 * n not in LEVEL})
+
+
 def ocs(w):
-    """MSX2Pal word (Amiga 12-bit, nibbles = MSX level * 2) -> MSX RGB digits."""
-    return f"{(w >> 9) & 7}{(w >> 5) & 7}{(w >> 1) & 7}"
+    """MSX2Pal word (Amiga 12-bit) -> MSX RGB digits (both the 4.1.2 levels and the old 2n)."""
+    return "".join(str(LEVEL.get((w >> s) & 15, "?")) for s in (8, 4, 0))
 
 
 def pal16(b):

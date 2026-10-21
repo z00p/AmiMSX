@@ -16,6 +16,7 @@ set ::palmid 0
 set ::palvbl 0
 set ::ie1 0
 set ::sprframes 0
+set ::magframes 0
 set ::regs {}
 for {set i 0} {$i < 47} {incr i} { lappend ::regs [vdpreg $i] }
 proc ::mode {} {
@@ -58,13 +59,16 @@ debug probe set_bp VDP.IRQvertical {[debug probe read VDP.IRQvertical] == 1} {
     if {![::on]} { return }
     incr ::frame
     dict incr ::modes [::mode]
-    if {!([vdpreg 8] & 0x02) && ([vdpreg 1] & 0x40)} { incr ::sprframes }
+    if {!([vdpreg 8] & 0x02) && ([vdpreg 1] & 0x40)} {
+        incr ::sprframes
+        if {[vdpreg 1] & 0x01} { incr ::magframes }
+    }
     if {[vdpreg 0] & 0x10} { set ::ie1 1 }
     set ::vbl [machine_info time]
 }
 after time $::secs {
     set f [open $::out w]
-    puts $f [list frames $::frame modes $::modes ie1 $::ie1 midregs $::midregs vblregs $::vblregs cmds $::cmds palmid $::palmid palvbl $::palvbl sprframes $::sprframes]
+    puts $f [list frames $::frame modes $::modes ie1 $::ie1 midregs $::midregs vblregs $::vblregs cmds $::cmds palmid $::palmid palvbl $::palvbl sprframes $::sprframes magframes $::magframes]
     close $f
     exit
 }
