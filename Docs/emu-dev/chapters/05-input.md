@@ -200,3 +200,55 @@ TJoyHost:
 **Why.** A test only means something if the same script gives the same MSX state at the same frame every time. When a key script is loaded, the key matrix is written only by the script; the keyboard handshake is still done, so the host's keyboard buffer does not fill, but the matrix is left alone. The key script is injected inside the emulator, so it does not depend on window focus either (chapter 06).
 
 **Evidence.** Together with the other repeatability measures (chapter 06), a scripted run gave identical VRAM at frame 1500 across two runs (compared byte for byte), and most titles were fully repeatable. The exceptions are games that read input AmiMSX takes from the host, such as the mouse. **Look up:** commit 20fa2e6; `KeyScrPtr`; `Docs/regression.md`.
+
+## Key remapping and a key-map editor (Arnold)
+
+*Reading notes.* The CPC keyboard has keys the Amiga keyboard lacks or puts elsewhere, and some games want a key that is awkward to reach (Pinball Dreams flips the right flipper with a key on the right of the CPC keyboard, and the Amiga's Right Shift is not it). Arnold lets the user remap Amiga keys to CPC keys per game.
+
+### Remap at the keyboard translation, behind one test
+
+**Problem.** In Pinball Dreams the right flipper is on the CPC key M, and the user wanted Right Shift for it. A remap must cost nothing for every other program, because the key handler runs for every key event.
+
+**Before.** Amiga rawkeys went through the joystick-key mapping (`joykey()`) and the normal key handling, with no per-key substitution.
+
+**After** (`host_amiga.c`, commit f3dc177, option `remap=AMIGAKEY:CPCKEY[,...]` in the preferences, in a game's own preferences file, and as the `REMAP=` ToolType or argument):
+
+    static void host_key(int code, int down, int qual)
+    {
+        ...
+        if (remap_on && remap_key[code] >= 0) {
+            if (down) CPC_SetKey(remap_key[code]); else CPC_ClearKey(remap_key[code]);
+            return;
+        }
+        ... joykey() and the normal table ...
+
+*Source: Arnold-m68k 1.0, `arnold/src/amiga/host_amiga.c` (GPL-2.0, derived from Kevin Thacker's Arnold).*
+
+The remap table is indexed by the Amiga raw key code and filled when the preferences load; with no remap, `remap_on` is 0 and the cost is one test. The CPC key names are the ones the key scripts already use, so there is one list of names in the program.
+
+**Why.** Remapping at the translation, before any other interpretation, means a remapped key behaves exactly like the CPC key it stands for in every mode (joystick keys, scripted runs). A side effect has to be documented: with `RSHIFT:M`, Right Shift no longer acts as Shift (use Left Shift).
+
+**Evidence.** WinUAE with Pinball Dreams, ball launched, `REMAP=RSHIFT:M`: injecting Right Shift moves the picture in the flipper row at x 188 to 228 (the right flipper), injecting Left Shift at x 138 to 176 (the left). The Amiga Return key does not flip: the game's key is Enter or M.
+
+**Look up.** Commit f3dc177; `KEYREMAP.md`.
+
+### Test the hook the way a user reaches it
+
+Key scripts gained `A:<amiga name>` to inject an Amiga raw key through `host_key`, so the remap and the joystick keys apply to scripted tests. The hook had to be set at the start of `main`, because `KEYS=` loads the script while the arguments are still being parsed (commit 5fdd886). A second bug was found only by a per-game preferences test in WinUAE: disk games should read `<disk A>.prefs`, but `game_prefs_name` compared `system.cpr` with `kwcmp`, which wants an upper-case keyword, so the comparison never matched and disk games never used their own preferences (commit 5473341). Rule: for every setting that is saved per game, run one test that saves it, restarts the program and checks the value was used.
+
+### Presets in one table; the editor fits the smallest screen
+
+The key-map screen has a preset list (None, Pinball with Right Shift = M, cursors to joystick, Q A O P to joystick, Right Alt and Right Amiga = fire 2) and an editor window (GadTools). Both are built from a single table so they cannot disagree:
+
+    const struct KeyPreset KeyMap_Presets[] = {
+        { "None",                       "" },
+        { "Pinball (Right Shift = M)",  "RSHIFT:M" },
+        ...
+        { NULL, NULL }
+    };
+
+*Source: Arnold-m68k 1.0, `arnold/src/amiga/keymaplogic.c` (GPL-2.0, derived from Kevin Thacker's Arnold).*
+
+The logic (preset table, parsing and printing of pairs, Amiga and CPC key names, the one-line summary that must fit the menu) is a plain C module with its own unit check (`tools/keymap_test.sh`: names valid, presets round-trip, summary fits), so the Amiga window code is only glue. Bugs found by running the editor in WinUAE: the menu window was not active again after the editor closed (`ActivateWindow`); the "Save for game" shortcut used raw key 0x22 instead of 0x24 (G); and a summary line of 76 characters clipped its last character, so the limit is 74. The editor and the menu both fit the 200-line NTSC screen (the editor ends near line 175); chapter 02 has the layout rule.
+
+**Look up.** Commits 677bfc9, adb8aec, c7c1f6b; `KEYMAP.md`; `KeyMap_Presets`.

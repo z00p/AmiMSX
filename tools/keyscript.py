@@ -7,6 +7,8 @@ Text format, one action per line ('#' starts a comment):
     option sprites <n>          (AmiMSX sprite frames for the run: 1 = every frame)
 Times and lengths are MSX frames (50 Hz) or seconds with an 's' suffix,
 counted from power on. Hold defaults to 5 frames.
+AKEY:<hex> presses an Amiga raw key code (00-67) through AmiMSX's own Amiga-to-MSX
+keyboard translation (the keyboard mapping test; openMSX ignores it).
 SNAP [freeze] marks a snapshot (AmiMSX holds the frame with the power LED on;
 openMSX takes a screenshot there). DUMP copies the MSX state at that frame
 (AmiMSX STATEDUMP builds, up to 4; written to perf.bin), without a freeze.
@@ -68,7 +70,8 @@ def parse(path, seen=None):
             continue
         try:
             start = frames(t[0])
-            keys = [KEYS[k.upper()] for k in t[1].split("+")]
+            keys = [(0xFB, int(k[5:], 16)) if k.upper().startswith("AKEY:") else KEYS[k.upper()]
+                    for k in t[1].split("+")]
         except (KeyError, ValueError, IndexError):
             raise SystemExit(f"{path}:{n}: bad line: {raw.rstrip()}")
         hold, every, until = (300 if t[1].upper() == "SNAP" else 5), None, None
@@ -115,7 +118,7 @@ def main():
         with open(a.tcl, "w", encoding="ascii") as f:
             f.write("set maxframeskip 0\n")
             for fr, row, mask, hold in recs:
-                if row in (0xFE, 0xFC):
+                if row in (0xFE, 0xFC, 0xFB):
                     continue
                 if row == 0xFF:
                     f.write(f'after time {fr / FPS:.3f} {{screenshot {{{a.shots_prefix}_{fr / FPS:g}s.png}}}}\n')

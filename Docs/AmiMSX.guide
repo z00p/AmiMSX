@@ -1,11 +1,11 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.2 (21.10.2026)
+@version $VER: AmiMSX.guide 4.3 (26.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                             AmiMSX Emulator v4.2
-                          ( 14.10.2026 - Freeware )
+                             AmiMSX Emulator v4.3
+                          ( 26.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 

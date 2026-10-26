@@ -187,4 +187,23 @@ MagCopy:	DS.B	256		; Per 16x16 slot or 8x8 pattern: the copy written last
 
 ## Driving the real A1200 (see chapter 06)
 
-*To be written (Arnold).*
+*Arnold.* The real-hardware practice for measurement runs is in chapter 06 ("Real hardware over the network") and the machine's habits in [chapter 11](11-test-machine.md). This section is about briefing an agent to use it.
+
+### Brief the run, and leave the machine as you found it
+
+**Problem.** The A1200 is shared with the tester and with other sessions, and a run that goes wrong leaves a program on the screen, a script waiting in the background, or a network share wedged.
+
+**What the brief must say.**
+1. **Look first.** List the screens and processes. Workbench only means the machine is free. If the tester's program is open, do not start yours (a test binary run at that moment may even change the machine's state: one of ours probably restored the PAL beam under the tester's own session, chapter 02).
+2. **Write the use down.** Add a row to the shared coordination file before a heavy job (who, what, how long) and move it to "done" afterwards. Limit the number of agents working at the same time (we used two), and check the plan's remaining usage before long runs (see "Usage budgets" above).
+3. **Runs end by themselves.** The key script ends with a quit, the program writes a "done" file, and the runner script waits for that file with a timeout. Do not rely on being able to close the program from the PC.
+4. **Leave it clean.** At the end the machine is at Workbench; the temporary directories, key files and logs of the run are deleted; and the agent says so in its report.
+
+**What went wrong, and the rule it gave.**
+- *A run with a missing key file* (and another with a path mangled by the Windows shell, chapter 07) started the program with nothing to quit it. It was closed from the program's own menu (Help, then Exit), never with Break, which can skip the cleanup that restores the screen and the sound. Check that every file the script names exists before the first run.
+- *A wedged network share.* A copy had already stalled and `Info` on the share hung; four `CD` commands queued behind it. Had the share come back, all four scripts would have started the program at the same time. Stop, do not queue more, report the state, and ask for a reboot, which clears the queue (chapter 11).
+- *The `s` (script) protection bit* cannot be set over the network from Windows. Start helper scripts with `Execute`, or ask the tester to run `Protect ... +s` once.
+
+**Sharing WinUAE.** Several sessions use the same WinUAE install. A lock file is created before WinUAE starts and removed afterwards; a lock more than 30 minutes old with no WinUAE process running is stale and may be removed. Hold it for minutes, not hours: a full regression is split into runs. The details and one failure of the lock itself are in "A lock made with `mkdir`" above.
+
+**Look up.** `Docs/agent_notes/release-1.0.md` (step 7: the wedged share), `STATUS.md`, `PERF50.md` (the missing key file).

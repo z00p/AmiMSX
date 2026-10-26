@@ -89,6 +89,32 @@ n 7, (HL) 7, (IX+d) 19; INC r 4, (HL) 11, (IX+d) 23, rr 6, IX 10; ADD HL
 16; repeats 21/16; NEG 8; IM 8; LD A,I 9; RETI/RETN 14; DAA/CPL/SCF/CCF/
 RLCA 4; DI/EI 4. The prefix handlers subtract the second M1 wait.
 
+## 4.3: every opcode against grauw's Z80+M1 column (24 Oct 2026, GitHub issue #2)
+
+`tools/make_z80time.py` builds a test cartridge from the instruction table at
+map.grauw.nl/resources/z80instr.php (959 cases: every documented instruction
+with each register, bit and condition, taken and not taken; block
+instructions with one repeat). A CYCLOG trace build (`-DTRACE=1 -DCYCLOG=1
+-DTRACEPC=<end+1>`) logs each instruction's address with the line's cycles
+left, and `tools/read_z80time.py` turns the drops into costs and compares
+them with the Z80+M1 column.
+
+- First run: 906 of 959 matched. Fixed: **DAA** cost only the M1 wait
+  (`OtraDAA` was used without its count: 1 cycle, now 5); **DD/FD + a plain
+  LD r,r'** (50 opcodes, e.g. DD 41) went straight to the unprefixed handler
+  (6 cycles, now 10 through NOCO, as the other plain opcodes already did).
+- After the fixes: **957 of 959 match.** The two left are **CPIR/CPDR**, a
+  flat 18 for the whole search (grauw: 23 per repeat, 18 for the last). That
+  is deliberate since 4.0: a per-iteration charge drove the line counter
+  deep negative in the DOS directory search (disk boot hang). A capped
+  per-iteration charge as LDIR's is possible but needs a disk-boot test.
+- LDIR/LDDR/INIR/OTIR and the rest of the block instructions match with one
+  repeat, as do the interrupt-free conditional jumps, calls and returns.
+- Not covered by the table: interrupt acceptance (13/19, checked in 4.0),
+  HALT, RST (they jump into the BIOS) and the undocumented opcodes.
+- Line ends: an instruction that ends a line is charged correctly (+228
+  per line); the trace showed no exceptions once interrupts were kept off.
+
 ## Impact on real games
 
 - The documented S, Z, P/V and C of every common instruction match, which is

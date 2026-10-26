@@ -1,0 +1,620 @@
+[
+{
+"code": 0,
+"row": 1,
+"bit": 7,
+"key": ";"
+},
+{
+"code": 1,
+"row": 0,
+"bit": 1,
+"key": "1"
+},
+{
+"code": 2,
+"row": 0,
+"bit": 2,
+"key": "2"
+},
+{
+"code": 3,
+"row": 0,
+"bit": 3,
+"key": "3"
+},
+{
+"code": 4,
+"row": 0,
+"bit": 4,
+"key": "4"
+},
+{
+"code": 5,
+"row": 0,
+"bit": 5,
+"key": "5"
+},
+{
+"code": 6,
+"row": 0,
+"bit": 6,
+"key": "6"
+},
+{
+"code": 7,
+"row": 0,
+"bit": 7,
+"key": "7"
+},
+{
+"code": 8,
+"row": 1,
+"bit": 0,
+"key": "8"
+},
+{
+"code": 9,
+"row": 1,
+"bit": 1,
+"key": "9"
+},
+{
+"code": 10,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 11,
+"row": 1,
+"bit": 2,
+"key": "-"
+},
+{
+"code": 12,
+"row": 1,
+"bit": 3,
+"key": "^"
+},
+{
+"code": 13,
+"row": 1,
+"bit": 4,
+"key": "BSLASH"
+},
+{
+"code": 14,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 15,
+"row": 9,
+"bit": 3,
+"key": "KP0"
+},
+{
+"code": 16,
+"row": 4,
+"bit": 6,
+"key": "Q"
+},
+{
+"code": 17,
+"row": 5,
+"bit": 4,
+"key": "W"
+},
+{
+"code": 18,
+"row": 3,
+"bit": 2,
+"key": "E"
+},
+{
+"code": 19,
+"row": 4,
+"bit": 7,
+"key": "R"
+},
+{
+"code": 20,
+"row": 5,
+"bit": 1,
+"key": "T"
+},
+{
+"code": 21,
+"row": 5,
+"bit": 6,
+"key": "Y"
+},
+{
+"code": 22,
+"row": 5,
+"bit": 2,
+"key": "U"
+},
+{
+"code": 23,
+"row": 3,
+"bit": 6,
+"key": "I"
+},
+{
+"code": 24,
+"row": 4,
+"bit": 4,
+"key": "O"
+},
+{
+"code": 25,
+"row": 4,
+"bit": 5,
+"key": "P"
+},
+{
+"code": 26,
+"row": 1,
+"bit": 5,
+"key": "@"
+},
+{
+"code": 27,
+"row": 1,
+"bit": 6,
+"key": "["
+},
+{
+"code": 28,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 29,
+"row": 9,
+"bit": 4,
+"key": "KP1"
+},
+{
+"code": 30,
+"row": 9,
+"bit": 5,
+"key": "KP2"
+},
+{
+"code": 31,
+"row": 9,
+"bit": 6,
+"key": "KP3"
+},
+{
+"code": 32,
+"row": 2,
+"bit": 6,
+"key": "A"
+},
+{
+"code": 33,
+"row": 5,
+"bit": 0,
+"key": "S"
+},
+{
+"code": 34,
+"row": 3,
+"bit": 1,
+"key": "D"
+},
+{
+"code": 35,
+"row": 3,
+"bit": 3,
+"key": "F"
+},
+{
+"code": 36,
+"row": 3,
+"bit": 4,
+"key": "G"
+},
+{
+"code": 37,
+"row": 3,
+"bit": 5,
+"key": "H"
+},
+{
+"code": 38,
+"row": 3,
+"bit": 7,
+"key": "J"
+},
+{
+"code": 39,
+"row": 4,
+"bit": 0,
+"key": "K"
+},
+{
+"code": 40,
+"row": 4,
+"bit": 1,
+"key": "L"
+},
+{
+"code": 41,
+"row": 2,
+"bit": 1,
+"key": "]"
+},
+{
+"code": 42,
+"row": 2,
+"bit": 0,
+"key": ":"
+},
+{
+"code": 43,
+"row": 2,
+"bit": 5,
+"key": "_"
+},
+{
+"code": 44,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 45,
+"row": 9,
+"bit": 7,
+"key": "KP4"
+},
+{
+"code": 46,
+"row": 10,
+"bit": 0,
+"key": "KP5"
+},
+{
+"code": 47,
+"row": 10,
+"bit": 1,
+"key": "KP6"
+},
+{
+"code": 48,
+"row": 6,
+"bit": 3,
+"key": "CAPS"
+},
+{
+"code": 49,
+"row": 5,
+"bit": 7,
+"key": "Z"
+},
+{
+"code": 50,
+"row": 5,
+"bit": 5,
+"key": "X"
+},
+{
+"code": 51,
+"row": 3,
+"bit": 0,
+"key": "C"
+},
+{
+"code": 52,
+"row": 5,
+"bit": 3,
+"key": "V"
+},
+{
+"code": 53,
+"row": 2,
+"bit": 7,
+"key": "B"
+},
+{
+"code": 54,
+"row": 4,
+"bit": 3,
+"key": "N"
+},
+{
+"code": 55,
+"row": 4,
+"bit": 2,
+"key": "M"
+},
+{
+"code": 56,
+"row": 2,
+"bit": 2,
+"key": ","
+},
+{
+"code": 57,
+"row": 2,
+"bit": 3,
+"key": "."
+},
+{
+"code": 58,
+"row": 2,
+"bit": 4,
+"key": "/"
+},
+{
+"code": 59,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 60,
+"row": 10,
+"bit": 7,
+"key": "KP."
+},
+{
+"code": 61,
+"row": 10,
+"bit": 2,
+"key": "KP7"
+},
+{
+"code": 62,
+"row": 10,
+"bit": 3,
+"key": "KP8"
+},
+{
+"code": 63,
+"row": 10,
+"bit": 4,
+"key": "KP9"
+},
+{
+"code": 64,
+"row": 8,
+"bit": 0,
+"key": "SPACE"
+},
+{
+"code": 65,
+"row": 7,
+"bit": 5,
+"key": "BS"
+},
+{
+"code": 66,
+"row": 7,
+"bit": 3,
+"key": "TAB"
+},
+{
+"code": 67,
+"row": 7,
+"bit": 7,
+"key": "RETURN"
+},
+{
+"code": 68,
+"row": 7,
+"bit": 7,
+"key": "RETURN"
+},
+{
+"code": 69,
+"row": 7,
+"bit": 2,
+"key": "ESC"
+},
+{
+"code": 70,
+"row": 8,
+"bit": 3,
+"key": "DEL"
+},
+{
+"code": 71,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 72,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 73,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 74,
+"row": 10,
+"bit": 5,
+"key": "KP-"
+},
+{
+"code": 75,
+"row": 0,
+"bit": 0,
+"key": "0"
+},
+{
+"code": 76,
+"row": 8,
+"bit": 5,
+"key": "UP"
+},
+{
+"code": 77,
+"row": 8,
+"bit": 6,
+"key": "DOWN"
+},
+{
+"code": 78,
+"row": 8,
+"bit": 7,
+"key": "RIGHT"
+},
+{
+"code": 79,
+"row": 8,
+"bit": 4,
+"key": "LEFT"
+},
+{
+"code": 80,
+"row": 6,
+"bit": 5,
+"key": "F1"
+},
+{
+"code": 81,
+"row": 6,
+"bit": 6,
+"key": "F2"
+},
+{
+"code": 82,
+"row": 6,
+"bit": 7,
+"key": "F3"
+},
+{
+"code": 83,
+"row": 7,
+"bit": 0,
+"key": "F4"
+},
+{
+"code": 84,
+"row": 7,
+"bit": 1,
+"key": "F5"
+},
+{
+"code": 85,
+"row": 7,
+"bit": 6,
+"key": "SELECT"
+},
+{
+"code": 86,
+"row": 7,
+"bit": 4,
+"key": "STOP"
+},
+{
+"code": 87,
+"row": 8,
+"bit": 1,
+"key": "HOME"
+},
+{
+"code": 88,
+"row": 8,
+"bit": 2,
+"key": "INS"
+},
+{
+"code": 89,
+"row": 8,
+"bit": 3,
+"key": "DEL"
+},
+{
+"code": 90,
+"row": 6,
+"bit": 3,
+"key": "CAPS"
+},
+{
+"code": 91,
+"row": 2,
+"bit": 5,
+"key": "_"
+},
+{
+"code": 92,
+"row": 9,
+"bit": 2,
+"key": "KP/"
+},
+{
+"code": 93,
+"row": 9,
+"bit": 0,
+"key": "KP*"
+},
+{
+"code": 94,
+"row": 9,
+"bit": 1,
+"key": "KP+"
+},
+{
+"code": 96,
+"row": 6,
+"bit": 0,
+"key": "SHIFT"
+},
+{
+"code": 97,
+"row": 6,
+"bit": 0,
+"key": "SHIFT"
+},
+{
+"code": 98,
+"row": -1,
+"bit": 0,
+"key": "CAPS (toggle)"
+},
+{
+"code": 99,
+"row": 6,
+"bit": 1,
+"key": "CTRL"
+},
+{
+"code": 100,
+"row": 6,
+"bit": 2,
+"key": "GRAPH"
+},
+{
+"code": 101,
+"row": 6,
+"bit": 4,
+"key": "CODE"
+},
+{
+"code": 102,
+"row": 14,
+"bit": 0,
+"key": "row14"
+},
+{
+"code": 103,
+"row": 14,
+"bit": 1,
+"key": "row14"
+}
+]

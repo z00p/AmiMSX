@@ -4,6 +4,17 @@ AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 4.3 (26 Oct 2026)
+
+- **SCREEN 7/8 video memory** is now stored as on the V9938, which interleaves its two 64 KB banks in SCREEN 7 and 8 (logical A at physical (A >> 1) | (A & 1) << 16). Data written in one kind of mode now reads back right in the other. Manbow 2's title screen draws in SCREEN 5 and shows a SCREEN 8 picture above it: the boxes over its logo and the stray line at the top left are gone.
+- **Sprites in part of a split screen:** sprites switched on only below a split are shown (Manbow 2's "START" and its arrow). The overlay used to follow the sprite setting of the frame's larger part.
+- **VDP command timing:** a command keeps S#2's CE (busy) bit set as long as on a V9938 (openMSX's per-access costs, slower inside the display window); the drawing itself is still done at once. Games that wait for a command now wait the real time: Jailbreak's HUD palette is restored in the border again, not on the last display line (the strip at the bottom of the playfield).
+- **VDP commands:** the XOR, AND and NOT logical operations (and their T forms) draw right in the bitplane modes; Head over Heels Remake's menu letters are complete. SCREEN 8: LMMV applies its logical operation, HMMM/LMMM/HMMV/LMMV follow DIX/DIY, and POINT/LMCM read VRAM. SCREEN 5/7 command results reach VRAM before SCREEN 6/8 reuse the planes, and leaving SCREEN 7 writes back the right lines.
+- **Z80 timing:** DAA takes 5 cycles (was 1), and a DD/FD prefix before a plain LD r,r' 10 (was 6). Checked against the Z80+M1 column of the timing table at map.grauw.nl: 957 of 959 instructions match (CPIR/CPDR still charge a flat 18 for the whole search).
+- **Sprite collisions** (S#0 bit 5) are checked over the lines where sprites are on, not by R#8 at the moment the game reads S#0.
+- **Tests:** a keyboard mapping test (`tools/keytest.sh`: every Amiga key through AmiMSX's table, read back by a cartridge), a Z80 timing test (`tools/make_z80time.py`) and a SCREEN 7/8 memory test (`tools/maptest.sh`, compared with openMSX byte for byte).
+- **Speed:** SCREEN 8 games that switch modes every frame run a little slower on a 68030/50 (Uridium 2: about 67% of MSX speed in WinUAE's cycle-exact 030, was about 74%).
+
 ## 4.2 (21 Oct 2026)
 
 - **Mask screen edges** (Options > Internal Emulation) is now a choice of **Off, 8 dots or 16 dots** at each side of the picture (default Off), kept in the prefs and in the per-game settings. A prefs or per-game file from 4.0/4.1 with the mask on reads as 8 dots. The edges are measured on the 256-dot picture (the display window is the picture's width; 4.0-4.1's "7 dots" really hid 10 at the left and 12 at the right).

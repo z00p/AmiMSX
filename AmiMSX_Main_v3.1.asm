@@ -399,7 +399,8 @@ BANDSHOT:	MACRO
 	MOVE.W	DVDP5(A3),D0
 	AND.W	#$03FC,D0
 	LSL.L	#7,D0
-	LEA	DIRVRAM-512,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
+	LEA	-512(A0),A0
 	ADD.L	D0,A0
 	MOVE.W	#(640/4)-1,D0
 \@c:	MOVE.L	(A0)+,(A1)+
@@ -435,6 +436,20 @@ BANDPEND:	MACRO
 \@x:
 	ENDM
 
+; (4.3) VMAP Dn: a logical VRAM address in G6/G7 (SCREEN 7/8) to its offset
+; in DIRVRAM. DIRVRAM holds VRAM physically: in G6/G7 the V9938 keeps the
+; even logical bytes in bank 0 and the odd ones in bank 1, logical A at
+; (A >> 1) | (A & 1) << 16; in the other modes logical = physical
+; (Docs/screen78_vram_mapping.md). SPRSH is the logical view in G6/G7, for
+; the sprite code (SprVB).
+VMAP:	MACRO
+	AND.L	#$1FFFF,\1
+	LSR.L	#1,\1
+	BCC.S	\@e
+	BSET	#16,\1
+\@e:
+	ENDM
+
 ; Scanline handlers: D1's high word must stay as the core left it (zero):
 ; it indexes with D1.L. Long arithmetic here goes in the saved D0 (a
 ; SCREEN 5 table above 64 KB in D1 sent Barbarian's Z80 into a NOP sled).
@@ -464,6 +479,7 @@ MODESW:	MACRO
 	MOVE.W	D1,MsNewW
 	MOVE.B	ScrModo(A3),MsOld
 	MOVE.B	D1,ScrModo(A3)
+	MOVE.L	#DIRVRAM,SprVB		; (4.3) The sprite tables: VRAM (ModoGfx7/8: SPRSH).
 	SF	V9Scr5			; (4.0) Set again by ModoGfx5.
 	SF	V9Fm32			; (4.1.2) And its 32-bit fetch state: the
 	SF	V9Fm32Ok		; copper events test V9Fm32 in any mode.
@@ -545,7 +561,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.2 ("
+	DC.B	"$VER:AmiMSX Emulator v4.3 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -1807,6 +1823,17 @@ MagCopy:	DS.B	256		; Per 16x16 slot (pattern/4*4) or 8x8 pattern:
 SprSnap:	DS.B	512+128		; 512 bytes before the table, then the table.
 SprSnapT:	DS.B	512+128
 S5Valid:	DC.B	0		; 5th sprite flag (see IVDP0).
+; (4.3) VDP command busy time (S#2 CE), see CETime. Commands still draw at
+; once; CE reads as busy until the time a V9938 would take (openMSX's
+; per-access costs, slower in the display window).
+	CNOP	0,4
+CmdFrN:		DC.W	0		; MSX frames (MiraInter0), low word.
+CEEndFr:	DC.W	0		; Frame of the end,
+CEEndL:		DC.W	0		; its CurLine (0-255),
+CEEndLeft:	DC.W	0		; and the cycles left in that line then.
+CESave:		DS.L	8
+CEPend:		DC.B	0		; A command's busy time is running.
+		EVEN
 RFrame:		DC.B	0		; MSX frames, low byte (LD A,R).
 S0LastV:	DC.B	0		; Idle poll (S0Nada): last S#0 value,
 S0IdleN:	DC.B	0		; repeats,
@@ -1818,6 +1845,10 @@ S5D2:		DC.L	0
 S5Save:		DS.L	9
 S5Cnt:		DS.B	256
 S5Tab:		DS.B	192
+		EVEN
+SCOnLo:		DC.W	0		; (4.1.2) Display lines with sprites on, this
+SCOnHi:		DC.W	$7FFF		; frame (VDP8): first, one past ($7FFF: open).
+SCBandF:	DC.W	0,$7FFF		; The last frame's, for SCCalc.
 ; Sprite collision (S#0 bit 5, see SCCalc).
 	IFD	PERF
 SCCalls:	DC.L	0
@@ -1847,8 +1878,12 @@ TraceStub:	MACRO
 	SUB.W	(A7),D1			; Z80 address after the opcode byte.
 	MOVE.L	TracePtr,A4
 	MOVE.W	D1,(A4)+
+	IFD	CYCLOG
+	MOVE.W	(A3),(A4)+		; (4.3) CYCLOG: the cycles left in the line.
+	ELSEIF
 	MOVE.B	D2,(A4)+
 	MOVE.B	DA8(A3),(A4)+
+	ENDC
 	CMP.L	#TraceBufEnd,A4
 	BCS.S	\@W
 	LEA	TraceBuf,A4
@@ -2034,7 +2069,11 @@ TraceCount:	DC.L	0
 TraceTab:	DS.L	256*2
 TraceHdr:	DC.L	"ATRC",0,0,0		; +4 ring offset, +8 count, +15 A8
 		DS.L	16			; +16 PagRead[8], +48 PRINT2 count, +52 ACTUTODO2
+	IFD	CYCLOG
+TraceBuf:	DS.L	16384			; (4.3) PC.w, cycles left.w (Z80 timing audit)
+	ELSEIF
 TraceBuf:	DS.L	4096			; PC.w, opcode.b, A8.b
+	ENDC
 TraceBufEnd:
 	IFD	HANGCHK
 HangPC:		DC.L	0
@@ -5247,7 +5286,7 @@ CONTD:
 SUMA:
 	MOVE.W	#04,CCR
 	ABCD.B	D2,D7
-	OtraDAA
+	OtraDAA	4			; (4.3) DAA is 4 T-states (was 0 + M1)
 RESTA:
 	MOVE.W	D3,CCR
 	BCS.S	SUMA
@@ -5258,7 +5297,7 @@ RESTAB:
 	MOVE.B	D1,D7
 	MOVE.W	#04,CCR
 	SBCD.B	D2,D7
-	OtraDAA
+	OtraDAA	4			; (4.3) DAA is 4 T-states (was 0 + M1)
 MIRAC:
 	MOVE.W	D3,CCR
 	BCC	CONTD
@@ -5267,7 +5306,7 @@ MIRAC:
 	SF	D7
 	MOVE.W	#04,CCR
 	SBCD.B	D2,D7
-	OtraDAA
+	OtraDAA	4			; (4.3) DAA is 4 T-states (was 0 + M1)
 
 SCF:	BSET	#0,D3
 	Otra	4
@@ -7592,6 +7631,37 @@ VRAM98XM:
 	ST	(VBlk5-REGS.W,A3,D1.W)
 	RTS
 
+; (4.3) OUT98XM in SCREEN 8 (pair split, SCR0 the SCREEN 5 planes): the byte
+; to bank 0/1 (VMAP) and SPRSH, TAB98 at the logical address (BMSConv8),
+; VBlk5 at the physical one (the SCREEN 5 planes).
+	CNOP	0,8
+OUT98XM8:
+	IFD	U2TRVADDR
+	U2TRAP
+	ENDC
+	MOVE.B	D1,D2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	TST.B	D1
+	BNE.S	CRAM98XM8
+	AND.L	#$1FFFF,D1
+	LEA	(DIRVRAM.L,D1.L),A2
+CRAM98XM8:
+	ADDQ.L	#1,A2
+	MOVE.B	D2,(SPRSH.L,D1.L)
+	MOVE.L	D1,A4
+	LSR.L	#3,D1
+	ST	(TAB98-REGS.W,A3,D1.W)
+	ST	(TAB98B-REGS.W,A3,D1.W)
+	MOVE.L	A4,D1
+	VMAP	D1
+	MOVE.B	D2,(DIRVRAM.L,D1.L)
+	LSR.L	#8,D1
+	LSR.L	#2,D1
+	ST	(VBlk5-REGS.W,A3,D1.W)
+	MOVEQ	#0,D1
+	RTS
+
 ;	-----------
 
 	CNOP	0,8
@@ -7629,6 +7699,34 @@ IN98A4:
 	DARBITA	6
 	RTS
 
+
+; (4.3) SCREEN 7: OUT98A with the byte at its physical place (VMAP) and in
+; SPRSH; A2 and the planes keep the logical address.
+	CNOP	0,8
+VRAM98A7:
+	AND.L	#$1FFFF,D1
+	LEA	(DIRVRAM.L,D1.L),A2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	BRA.S	CRAM98A7
+	CNOP	0,8
+OUT98A7:
+	IFD	U2TRVADDR
+	U2TRAP
+	ENDC
+	MOVE.B	D1,D2
+	MOVE.L	A2,D1
+	SUB.L	#DIRVRAM,D1
+	TST.B	D1
+	BEQ.S	VRAM98A7
+CRAM98A7:
+	ADDQ.L	#1,A2
+	MOVE.B	D2,(SPRSH.L,D1.L)
+	MOVE.L	D1,A4
+	VMAP	D1
+	MOVE.B	D2,(DIRVRAM.L,D1.L)
+	MOVE.L	A4,D1
+	BRA	PL98A
 
 	CNOP	0,8
 VRAM98A:
@@ -7683,7 +7781,7 @@ OUT98A:
 	BEQ.S	VRAM98A
 	ENDC
 CRAM98A:MOVE.B	D2,(A2)+
-	ADD.L	D1,D1
+PL98A:	ADD.L	D1,D1
 INIOUTSC5:
 	MOVE.W	(INIOUTSC5+2,PC,D2.W*2),D2	; d8=0: Devpac form was (PC,D2.W*2)
 
@@ -7805,15 +7903,23 @@ IN98B:
 	AND.L	#$1FFFF,D1
 	LEA	(DIRVRAM.L,D1.L),A2
 IVRAM98B:
+	ADDQ.L	#1,A2		; (4.3) A2: the logical address; the byte
+	VMAP	D1		; from bank 0/1.
+	LEA	(DIRVRAM.L,D1.L),A4
+	MOVEQ	#0,D1
+	MOVE.B	(A4),D1
+	RTS
 
-
-	MOVEQ	#0,D1		; * NEW *
-	MOVE.B	(A2)+,D1	; * NEW *
-	RTS			; * NEW *
+POINTB:				; (4.3) POINT/LMCM in SCREEN 8: D1 = the logical
+	VMAP	D1		; address; the VRAM byte (the planes lag behind
+	LEA	(DIRVRAM.L,D1.L),A4	; VDP2Escr8 until the frame's conversion).
+	MOVEQ	#0,D1
+	MOVE.B	(A4),D1
+	RTS
 
 
 	ADDQ	#1,A2
-POINTB:
+POINTBp:
 	ROR.L	#3,D1
 	LEA	(SCR0+(32*512*7),D1.W),A4
 
@@ -7889,7 +7995,12 @@ OUT98B:
 	SUB.L	#DIRVRAM,D1
 	TST.B	D1
 	BEQ.S	VRAM98B
-CRAM98B:MOVE.B	D2,(A2)+
+CRAM98B:ADDQ.L	#1,A2			; (4.3) A2: the logical address. The
+	MOVE.B	D2,(SPRSH.L,D1.L)	; byte to bank 0/1 (VMAP) and SPRSH;
+	MOVE.L	D1,A4			; the dirty flags stay logical (the
+	VMAP	D1			; conversion reads logical runs).
+	MOVE.B	D2,(DIRVRAM.L,D1.L)
+	MOVE.L	A4,D1
 
 	MOVE.B	(PasScr8Out-$100.W,PC,D2.W),D2
 
@@ -9566,14 +9677,14 @@ INSDD:
 	DC.L	NOCO,ADDIXIX,LDIXM,DECIX,INCLX,DECLX,LDLXN,NOCO	; 28
 	DC.L	NOCO,NOCO,NOCO,NOCO,INCIXM,DECIXM,LDIXMN,NOCO	; 30
 	DC.L	NOCO,ADDIXSP,NOCO,NOCO,NOCO,NOCO,NOCO,NOCO	; 38
-	DC.L	LDBB,LDBC,LDBD,LDBE,LDBHX,LDBLX,LDBIX,LDBA	; 40
-	DC.L	LDCB,LDCC,LDCD,LDCE,LDCHX,LDCLX,LDCIX,LDCA	; 48
-	DC.L	LDDB,LDDC,LDDD,LDDE,LDDHX,LDDLX,LDDIX,LDDA	; 50
-	DC.L	LDEB,LDEC,LDED,LDEE,LDEHX,LDELX,LDEIX,LDEA	; 58
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDBHX,LDBLX,LDBIX,NOCO	; 40
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDCHX,LDCLX,LDCIX,NOCO	; 48
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDDHX,LDDLX,LDDIX,NOCO	; 50
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDEHX,LDELX,LDEIX,NOCO	; 58
 	DC.L	LDHXB,LDHXC,LDHXD,LDHXE,LDHXH,LDHXL,LDHIX,LDHXA	; 60
 	DC.L	LDLXB,LDLXC,LDLXD,LDLXE,LDLXH,LDLXL,LDLIX,LDLXA	; 68
 	DC.L	LDIXB,LDIXC,LDIXD,LDIXE,LDIXH,LDIXL,NOCO,LDIXA	; 70
-	DC.L	LDAB,LDAC,LDAD,LDAE,LDAHX,LDALX,LDAIX,LDAA	; 78
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDAHX,LDALX,LDAIX,NOCO	; 78
 	DC.L	NOCO,NOCO,NOCO,NOCO,ADDAHX,ADDALX,ADDAIX,NOCO	; 80
 	DC.L	NOCO,NOCO,NOCO,NOCO,ADCAHX,ADCALX,ADCAIX,NOCO	; 88
 	DC.L	NOCO,NOCO,NOCO,NOCO,SUBHX,SUBLX,SUBIX,NOCO	; 90
@@ -9600,14 +9711,14 @@ INSFD:
 	DC.L	NOCO,ADDIYIY,LDIYM,DECIY,INCLY,DECLY,LDLYN,NOCO	; 28
 	DC.L	NOCO,NOCO,NOCO,NOCO,INCIYM,DECIYM,LDIYMN,NOCO	; 30
 	DC.L	NOCO,ADDIYSP,NOCO,NOCO,NOCO,NOCO,NOCO,NOCO	; 38
-	DC.L	LDBB,LDBC,LDBD,LDBE,LDBHY,LDBLY,LDBIY,LDBA	; 40
-	DC.L	LDCB,LDCC,LDCD,LDCE,LDCHY,LDCLY,LDCIY,LDCA	; 48
-	DC.L	LDDB,LDDC,LDDD,LDDE,LDDHY,LDDLY,LDDIY,LDDA	; 50
-	DC.L	LDEB,LDEC,LDED,LDEE,LDEHY,LDELY,LDEIY,LDEA	; 58
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDBHY,LDBLY,LDBIY,NOCO	; 40
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDCHY,LDCLY,LDCIY,NOCO	; 48
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDDHY,LDDLY,LDDIY,NOCO	; 50
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDEHY,LDELY,LDEIY,NOCO	; 58
 	DC.L	LDHYB,LDHYC,LDHYD,LDHYE,LDHYH,LDHYL,LDHIY,LDHYA	; 60
 	DC.L	LDLYB,LDLYC,LDLYD,LDLYE,LDLYH,LDLYL,LDLIY,LDLYA	; 68
 	DC.L	LDIYB,LDIYC,LDIYD,LDIYE,LDIYH,LDIYL,NOCO,LDIYA	; 70
-	DC.L	LDAB,LDAC,LDAD,LDAE,LDAHY,LDALY,LDAIY,LDAA	; 78
+	DC.L	NOCO,NOCO,NOCO,NOCO,LDAHY,LDALY,LDAIY,NOCO	; 78
 	DC.L	NOCO,NOCO,NOCO,NOCO,ADDAHY,ADDALY,ADDAIY,NOCO	; 80
 	DC.L	NOCO,NOCO,NOCO,NOCO,ADCAHY,ADCALY,ADCAIY,NOCO	; 88
 	DC.L	NOCO,NOCO,NOCO,NOCO,SUBHY,SUBLY,SUBIY,NOCO	; 90
@@ -9808,9 +9919,11 @@ Act_Adjust:
 	MOVE.B	MaskR,D1
 	SUB.B	D1,VERPAN+7
 
-	BTST	#1,TopR8		; Playfield R#8 (MIDSAMPLE).
-	BNE	Act_AdjCon
-
+	TST.B	BandSprOn		; (4.3) A band with sprites on (BANDSHOT):
+	BNE.S	ActAdjSp		; place the overlay as SPRMODE5b/6b draw it
+	BTST	#1,TopR8		; (Manbow 2's START: sprites on only below
+	BNE	Act_AdjCon		; its pair split). Playfield R#8 (MIDSAMPLE).
+ActAdjSp:
 	MOVE.L	(AdjustSpr.w,PC,D2.W*4),D1
 
 	LEA	SPRIT0+1,A0
@@ -10023,6 +10136,12 @@ V5AllKeep3:
 	CNOP	0,4
 ModoGfx6:
 	MOVE.L	(A7)+,RetOut(A3)
+	JSR	([DirModoChg.W,A3])	; (4.1.2) Leaving SCREEN 5/7: the bands VDP
+	MOVE.L	#ModoChgRET,DirModoChg(A3)	; commands drew in the planes
+					; go to VRAM first (they were lost:
+					; Manbow 2's START, HMMM in SCREEN 5,
+					; then SCREEN 8; a stale ModoChg5a0
+					; later wrote SCREEN 8 planes to VRAM).
 	ST	V5All			; (SCR0 reused: SCREEN 5/7 planes gone.)
 
 	MOVE.W	#$000F,MCAGA+2
@@ -10173,14 +10292,18 @@ M7Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 	JSR	PlSet
 	MOVEM.L	BUFER(A3),D0-D1/A0
 M7LayN:
-	BSR	ActPlanos7			; Actualiza VRAM en Bit-Planos.
+	ST	V5All			; (4.3) SCREEN 7's planes are its logical
+	BSR	ActPlanos7			; view, SCREEN 5's the physical one (VMAP):
+	ST	V5All			; no sharing, all of VRAM both ways.
 	MOVE.L	#ModoChg7a0,DirModoChg(A3)
 
 ;;	MOVE.B	D1,ScrModo(A3)
 	MOVE.L	#IN98A,DREGIN98(A3)
 	SF	M5Tracked
 	ST	SCRTDirty
-	MOVE.L	#OUT98A,DREGOUT98(A3)
+	MOVE.L	#OUT98A7,DREGOUT98(A3)	; (4.3) The planar mapping.
+	MOVE.L	#SPRSH,SprVB		; (4.3) The sprites read the logical view
+	JSR	SprShRef		; (SPRSH), the tables refreshed now.
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -10194,6 +10317,12 @@ M7LayN:
 	CNOP	0,4
 ModoGfx8:
 	MOVE.L	(A7)+,RetOut(A3)
+	JSR	([DirModoChg.W,A3])	; (4.1.2) Leaving SCREEN 5/7: the bands VDP
+	MOVE.L	#ModoChgRET,DirModoChg(A3)	; commands drew in the planes
+					; go to VRAM first (they were lost:
+					; Manbow 2's START, HMMM in SCREEN 5,
+					; then SCREEN 8; a stale ModoChg5a0
+					; later wrote SCREEN 8 planes to VRAM).
 	SF	BMSK8
 	TST.B	BMSPair			; (4.0) Pair split regime with SCR0 the
 	BEQ.S	M8V5All			; SCREEN 5 planes: keep them. This mode
@@ -10237,8 +10366,10 @@ M8Chap:	MOVE.L	#VDP17,VDPPUNT+($17*4)	; *m8
 	MOVE.L	#OUT98B,DREGOUT98(A3)
 	TST.B	BMSK8
 	BEQ.S	M8OutB
-	MOVE.L	#OUT98XM,DREGOUT98(A3)	; (Pair split: VRAM, TAB98, VBlk5.)
+	MOVE.L	#OUT98XM8,DREGOUT98(A3)	; (Pair split: VRAM, TAB98, VBlk5.)
 M8OutB:
+	MOVE.L	#SPRSH,SprVB		; (4.3) The sprites read the logical view
+	JSR	SprShRef		; (SPRSH), the tables refreshed now.
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -10400,6 +10531,36 @@ VDP8:
 	RSPLITCHK	DVDP8
 
 	MOVE.B	D2,DVDP8(A3)
+; (4.1.2) Sprite collision band (SCCalc): the display lines this frame with
+; sprites on (SPD clear), SCOnLo to SCOnHi (one past; $7FFF: still on, or
+; none for SCOnLo). Uridium 2 turns sprites off for its status panel
+; (line ~187) and reads S#0 in the VBlank, with SPD still set. A write in
+; the border or the blank sets the next frame's start. No stack: D1.W only.
+	MOVE.W	#192,D1
+	BTST	#7,DVDP9(A3)
+	BEQ.S	SCB192
+	MOVE.W	#212,D1
+SCB192:	CMP.W	CurLine(A3),D1
+	BHI.S	SCBInD
+	MOVE.W	#$7FFF,SCOnHi		; Border or blank: the next frame's start.
+	MOVE.W	#$7FFF,SCOnLo
+	BTST	#1,D2
+	BNE.S	SCBDone
+	CLR.W	SCOnLo
+	BRA.S	SCBDone
+SCBInD:	BTST	#1,D2
+	BEQ.S	SCBOn
+	CMP.W	#$7FFF,SCOnHi		; Off: closes an open band at this line.
+	BNE.S	SCBDone
+	CMP.W	#$7FFF,SCOnLo
+	BEQ.S	SCBDone
+	MOVE.W	CurLine(A3),SCOnHi
+	BRA.S	SCBDone
+SCBOn:	CMP.W	#$7FFF,SCOnLo		; On: opens it (a second band in the frame
+	BNE.S	SCBOn2			; joins the first: from its start on).
+	MOVE.W	CurLine(A3),SCOnLo
+SCBOn2:	MOVE.W	#$7FFF,SCOnHi
+SCBDone:
 	BTST	#1,D2
 	BEQ	VDP8CON
 	TST.B	DbOn			; (4.0) Double buffer: the render hides
@@ -11075,8 +11236,11 @@ ModoChg5Dat:
 
 	CNOP	0,8
 ModoChg5a0:
+	SF	Chg7
+	BRA.S	ModChg57
 ModoChg7a0:
-
+	ST	Chg7			; (4.3) SCREEN 7: the bands to VRAM via VMAP.
+ModChg57:
 	TST.B	DirPrefs+$6B		; Refresh 100% Graphics.
 	BNE.S	ModChg50Con
 	RTS
@@ -11109,6 +11273,8 @@ P5Band:	MOVEQ	#0,D0			; (Pl5Band, 16 MSX lines = 8 plane
 	BEQ.S	P5BandN0		; AmiMSX_V9958_v4.asm (back at P5BandN;
 	JMP	P4W_BAND		; no second call level on the Restas A7).
 P5BandN0:
+	TST.B	Chg7			; (4.3) SCREEN 7: P7Band.
+	BNE	P7Band
 	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
 	MOVEQ	#0,D1
 	MOVE.W	D0,D1
@@ -11192,6 +11358,7 @@ P5BandN:
 	ADDQ.W	#1,Pl5BI
 	CMP.W	#64,Pl5BI
 	BNE	P5Band
+	SF	Chg7
 	CLR.L	Pl5Band
 	CLR.L	Pl5Band+4
 
@@ -11206,8 +11373,11 @@ P5BandN:
 
 	CNOP	0,8
 ActPlanos5:
+	SF	Act7
+	BRA.S	ActPla57
 ActPlanos7:
-
+	ST	Act7			; (4.3) SCREEN 7: VRAM via VMAP (PU7_BUC).
+ActPla57:
 	TST.B	DirPrefs+$6B		; Refresh 100% Graphics.
 	BNE.S	ActPla7Con
 	RTS
@@ -11235,6 +11405,8 @@ ActPlaNoT:
 	BEQ.S	ActPlaBlkN
 	JMP	ActPlaBlkW
 ActPlaBlkN:
+	TST.B	Act7
+	BNE	ActPla7Blk
 	MOVE.L	A6,D7
 	LSL.L	#8,D7			; 256 plane bytes per 1 KB of VRAM.
 	LEA	(SCR0.L,D7.L),A0
@@ -11248,7 +11420,7 @@ ActPlaBlkN:
 	BRA.S	PU4_BUC
 ActPlaNx:
 	ADDQ.W	#1,A6
-	BRA.S	ActPlaBlk
+	BRA	ActPlaBlk
 ActPlaAll:
 	SF	V5All
 	ST	SCRTDirty
@@ -11266,6 +11438,8 @@ ActPlaClr:
 	DBF	D7,ActPlaClr
 	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
 	MOVE.L	#ActPlaFin,ActPRet
+	TST.B	Act7			; (4.3) SCREEN 7: all of the logical
+	BNE	PU7_BUC			; VRAM (A4 = bank 0, 4 bytes a step).
 
 PU4_BUC:				; (4.0) Table-driven (C2PTab): 4 lookups
 	MOVEQ	#0,D6			; per 8 pixels, not 32 bit shifts.
@@ -11322,6 +11496,7 @@ PU4_BUC:				; (4.0) Table-driven (C2PTab): 4 lookups
 	DBF	D7,PU4_BUC
 	JMP	([ActPRet.L])		; (No BSR here: one call level.)
 ActPlaFin:
+	SF	Act7
 	MOVE.L	ActPA6,A6
 	MOVEM.L	BUFER(A3),D0-D7/A0-A2/A4-A5
 	SIINT
@@ -11329,6 +11504,169 @@ ActPlaFin:
 	RTS
 ActPA6:		DC.L	0
 ActPRet:	DC.L	0
+Act7:		DC.B	0		; (4.3) ActPlanos7 running.
+Chg7:		DC.B	0		; (4.3) ModoChg7a0 running.
+	EVEN
+
+; (4.3) SCREEN 7, 1 KB physical block A6 written since (VBlk5): its 2 KB
+; of logical VRAM, the even bytes in bank 0 (block A6 & 63) and the odd
+; ones in bank 1, into the planes (512 bytes of each).
+ActPla7Blk:
+	MOVE.L	A6,D7
+	AND.L	#63,D7
+	LSL.L	#8,D7
+	ADD.L	D7,D7			; Plane bytes: 512 per block.
+	LEA	(SCR0.L,D7.L),A0
+	LEA	(SCR0+(SIZEX*SIZEY*1),D7.L),A1
+	LEA	(SCR0+(SIZEX*SIZEY*2),D7.L),A2
+	LEA	(SCR0+(SIZEX*SIZEY*3),D7.L),A5
+	ADD.L	D7,D7			; Bank 0: 1 KB per block.
+	LEA	(DIRVRAM.L,D7.L),A4
+	MOVE.W	#(2048/8)-1,D7
+	MOVE.L	#ActPlaNx,ActPRet
+
+; (4.3) PU4_BUC for SCREEN 7: 8 logical bytes (16 pixels) from the two
+; banks, A4 = the bank 0 byte of the first (VMAP). Back at ActPRet.
+PU7_BUC:
+	MOVEQ	#0,D6
+	MOVE.B	(A4),D6			; Logical bytes 0-3 (e0 o0 e1 o1) -> D4.
+	MOVE.L	(C2PTab,PC,D6.W*4),D4
+	LSL.L	#6,D4
+	MOVE.B	($10000,A4),D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D5
+	LSL.L	#4,D5
+	OR.L	D5,D4
+	MOVE.B	(1,A4),D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D5
+	ADD.L	D5,D5
+	ADD.L	D5,D5
+	OR.L	D5,D4
+	MOVE.B	($10001,A4),D6
+	OR.L	(C2PTab,PC,D6.W*4),D4
+	MOVE.B	(2,A4),D6		; Logical bytes 4-7 (e2 o2 e3 o3) -> D5.
+	MOVE.L	(C2PTab,PC,D6.W*4),D5
+	LSL.L	#6,D5
+	MOVE.B	($10002,A4),D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D3
+	LSL.L	#4,D3
+	OR.L	D3,D5
+	MOVE.B	(3,A4),D6
+	MOVE.L	(C2PTab,PC,D6.W*4),D3
+	ADD.L	D3,D3
+	ADD.L	D3,D3
+	OR.L	D3,D5
+	MOVE.B	($10003,A4),D6
+	OR.L	(C2PTab,PC,D6.W*4),D5
+	ADDQ.L	#4,A4
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A0)+
+	LSR.L	#8,D4
+	LSR.L	#8,D5
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A1)+
+	LSR.L	#8,D4
+	LSR.L	#8,D5
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A2)+
+	LSR.L	#8,D4
+	LSR.L	#8,D5
+	MOVE.W	D4,D0
+	LSL.W	#8,D0
+	MOVE.B	D5,D0
+	MOVE.W	D0,(A5)+
+	DBF	D7,PU7_BUC
+	JMP	([ActPRet.L])
+
+; (4.3) ModoChg7a0's band Pl5BI (D0): 8 SCREEN 7 lines, 2 KB of logical
+; VRAM, from the planes to the two banks (bank 0 at band * 1 KB), then
+; the same bytes into SPRSH. Back at P5BandN.
+P7Band:
+	MOVEM.L	ModoChg5Dat(PC),D7/A0/A1/A2/A4/A5
+	MOVEQ	#0,D1
+	MOVE.W	D0,D1
+	MULU.W	#8*SIZEX,D1		; plane offset
+	ADDA.L	D1,A0
+	ADDA.L	D1,A1
+	ADDA.L	D1,A2
+	ADDA.L	D1,A5
+	ADD.L	D1,D1			; bank 0 offset: band * 1 KB
+	ADDA.L	D1,A4
+	MOVE.L	#(8*SIZEX/2)-1,D7
+P7_BUC:
+	MOVE.W	(A0)+,D0
+	MOVE.W	(A1)+,D1
+	MOVE.W	(A2)+,D2
+	MOVE.W	(A5)+,D3
+	MOVE.W	D0,D6			; Pixels 0-7: the planes' high bytes.
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D4
+	MOVE.W	D1,D6
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	ADD.L	D5,D5
+	OR.L	D5,D4
+	MOVE.W	D2,D6
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#2,D5
+	OR.L	D5,D4
+	MOVE.W	D3,D6
+	LSR.W	#8,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#3,D5
+	OR.L	D5,D4
+	ROL.L	#8,D4			; Logical bytes 0-3: e0 o0 e1 o1.
+	MOVE.B	D4,(A4)
+	ROL.L	#8,D4
+	MOVE.B	D4,($10000,A4)
+	ROL.L	#8,D4
+	MOVE.B	D4,(1,A4)
+	ROL.L	#8,D4
+	MOVE.B	D4,($10001,A4)
+	MOVEQ	#0,D6			; Pixels 8-15: the low bytes.
+	MOVE.B	D0,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D4
+	MOVE.B	D1,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	ADD.L	D5,D5
+	OR.L	D5,D4
+	MOVE.B	D2,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#2,D5
+	OR.L	D5,D4
+	MOVE.B	D3,D6
+	MOVE.L	(P2CTab,PC,D6.W*4),D5
+	LSL.L	#3,D5
+	OR.L	D5,D4
+	ROL.L	#8,D4			; Logical bytes 4-7: e2 o2 e3 o3.
+	MOVE.B	D4,(2,A4)
+	ROL.L	#8,D4
+	MOVE.B	D4,($10002,A4)
+	ROL.L	#8,D4
+	MOVE.B	D4,(3,A4)
+	ROL.L	#8,D4
+	MOVE.B	D4,($10003,A4)
+	ADDQ.L	#4,A4
+	DBF	D7,P7_BUC
+	MOVEQ	#0,D0			; The band's 2 KB into SPRSH.
+	MOVE.W	Pl5BI,D0
+	MOVEQ	#11,D1
+	LSL.L	D1,D0			; logical start: band * 2 KB
+	LEA	(SPRSH.L,D0.L),A1
+	LSR.L	#1,D0
+	LEA	(DIRVRAM.L,D0.L),A0
+	MOVE.W	#1024-1,D7
+P7BSh:	MOVE.B	(A0),(A1)+
+	MOVE.B	($10000,A0),(A1)+
+	ADDQ.L	#1,A0
+	DBF	D7,P7BSh
+	BRA	P5BandN
 ; (4.0) SCREEN 5/7 plane conversion tables. P2CTab: a plane byte (8
 ; pixels, bit 7 first) -> bit 0 of each pixel's nibble in a VRAM long (pixel
 ; i at bits 31-4i..28-4i); shifted by the plane number. C2PTab: a VRAM byte
@@ -11404,7 +11742,8 @@ BIEN8:
 ; -=-=-
 
 	CNOP	0,8
-PRINT8:	MOVE.L	#COPPER8,D1		; No mover.
+PRINT8:	BSR	SprShChk		; (4.3) SPRSH up to date.
+	MOVE.L	#COPPER8,D1		; No mover.
 	TST.B	BMSOn			; (4.0) Pair split: the top mode's list.
 	BEQ.S	PR8List
 	MOVE.L	BMSList,D1
@@ -11482,7 +11821,9 @@ PasaPun8Bpl:
 	LEA	Scr0,A0
 	LEA	PasPun8Fast,A2
 	LEA	TablaPun8Bpl,A5
-	LEA	DirVRAM,A6
+	LEA	DirVRAM,A6		; (4.3) Bank 0 (even logical bytes) in A6,
+	MOVE.L	A3,P8SvA3		; bank 1 (odd) in A3 (VMAP).
+	LEA	DirVRAM+$10000,A3
 
 	LEA	Tab98,A4
 
@@ -11496,9 +11837,11 @@ PaPu8BpBuc1:
 	BNE.S	PaPu8BpRut
 
 	ADDQ	#4,A0
-	ADD.W	D3,A6
+	LEA	16(A6),A6		; (4.3) 32 logical bytes: 16 a bank.
+	LEA	16(A3),A3
 
 	DBF	D5,PaPu8BpBuc1
+	MOVE.L	P8SvA3,A3
 	RTS
 
 	CNOP	0,4
@@ -11520,10 +11863,22 @@ PaPuMac:MACRO
 	OR.L	4(A5,D7.W*8),D1
 \@EsCero:
 	ENDM
+PaPuMa8:MACRO				; (4.3) PaPuMac from bank \1 (VMAP).
+	ADD.W	D6,D7
+	MOVE.B	(\1)+,D7
+	BEQ.S	\@EsCero
+	OR.L	(A5,D7.W*8),D0
+	OR.L	4(A5,D7.W*8),D1
+\@EsCero:
+	ENDM
 
-	REPT	7
-	PaPuMac
-	ENDR
+	PaPuMa8	A3			; Logical bytes 1-7: odd from bank 1,
+	PaPuMa8	A6			; even from bank 0.
+	PaPuMa8	A3
+	PaPuMa8	A6
+	PaPuMa8	A3
+	PaPuMa8	A6
+	PaPuMa8	A3
 
 	MOVEQ	#0,D7
 
@@ -11565,10 +11920,85 @@ PaPuMac:MACRO
 	SUB.W	D3,A2
 
 	DBF	D5,PaPu8BpBuc1
+	MOVE.L	P8SvA3,A3
 	RTS
 
 	CNOP	0,16
 PasPun8Fast:	DS.L	8
+P8SvA3:		DC.L	0
+
+; (4.3) SprShChk: SPRSH's sprite tables again when a VDP command drew
+; (SprShSt) or R#5/R#6/R#11 moved them. A3 = REGS. Keeps every register.
+	CNOP	0,4
+SprShChk:
+	TST.B	SprShSt
+	BNE	SprShRef
+	MOVE.L	D0,SprShD0
+	MOVE.L	PVDP5(A3),D0
+	CMP.L	SprShK5,D0
+	BNE.S	SprShCkG
+	MOVE.L	PVDP6(A3),D0
+	CMP.L	SprShK6,D0
+	BNE.S	SprShCkG
+	MOVE.L	SprShD0,D0
+	RTS
+SprShCkG:
+	MOVE.L	SprShD0,D0
+; (4.3) SprShRef: the sprite tables into SPRSH (the logical view) from the
+; physical VRAM: colours and attributes (R#5/R#11, 1.5 KB around them), the
+; patterns (R#6, 2 KB) and, with "sprites a frame late" (DirPrefs+$64),
+; the previous frame's. A3 = REGS. A leaf (the mode handlers call it).
+SPRSHCP:MACRO				; D0 = logical start, D1 = bytes - 1:
+	AND.L	#$1FFFE,D0		; logical pairs (bank 0, bank 1), up to
+	ADDQ.W	#2,D1			; the end of VRAM. Uses D2, A0, A1.
+	LSR.W	#1,D1
+	SUBQ.W	#1,D1			; pairs - 1
+	MOVE.L	#$20000,D2
+	SUB.L	D0,D2
+	LSR.L	#1,D2			; room (pairs)
+	CMP.W	D2,D1
+	BCS.S	\@n
+	MOVE.W	D2,D1
+	SUBQ.W	#1,D1
+\@n:	LEA	(SPRSH.L,D0.L),A1
+	LSR.L	#1,D0
+	LEA	(DIRVRAM.L,D0.L),A0
+\@l:	MOVE.B	(A0)+,(A1)+
+	MOVE.B	($FFFF,A0),(A1)+
+	DBF	D1,\@l
+	ENDM
+SprShRef:
+	MOVEM.L	D0-D3/A0-A1,SprShSv
+	SF	SprShSt
+	MOVE.L	PVDP5(A3),D0
+	MOVE.L	D0,SprShK5
+	SUB.L	#$400,D0
+	MOVE.W	#$600-1,D1
+	SPRSHCP
+	MOVE.L	PVDP6(A3),D0
+	MOVE.L	D0,SprShK6
+	MOVE.W	#$800-1,D1
+	SPRSHCP
+	TST.B	DirPrefs+$64
+	BEQ	SprShR1
+	MOVEQ	#0,D0
+	MOVE.W	AntVDP5,D0
+	AND.W	#$03FC,D0
+	LSL.L	#7,D0
+	SUB.L	#$400,D0
+	MOVE.W	#$600-1,D1
+	SPRSHCP
+	MOVE.L	AntPVDP6,D0
+	MOVE.W	#$800-1,D1
+	SPRSHCP
+SprShR1:
+	MOVEM.L	SprShSv,D0-D3/A0-A1
+	RTS
+SprShSv:	DS.L	6
+SprShD0:	DC.L	0
+SprShK5:	DC.L	-1
+SprShK6:	DC.L	-1
+SprVB:		DC.L	DIRVRAM		; (4.3) The sprite code's VRAM: SPRSH in G6/G7.
 
 ; -------------------------------<=
 
@@ -11602,185 +12032,279 @@ VDP2Escr8:
 	MOVEM.L	BUFER(A3),D0-D7/A0-A6
 	JMP	Torna8
 
+; (4.3) HMMM/LMMM (COPIA8) and HMMV/LMMV (COPYVDP8) in SCREEN 8: VRAM
+; through VMAP (bank 0 even, bank 1 odd), DIX/DIY, and the logical op of
+; LMMM/LMMV (HMMM/HMMV move bytes: IMP). Before 4.3: linear VRAM, always
+; rightwards and downwards, LMMV as IMP. The rows are logical, 256 bytes;
+; NX 1-256 (0: 256), NY 1-512 (0: 512) as before. The dirty flags (TAB98,
+; logical, for PasaPun8Bpl and BMSConv8; VBlk5, physical, for the SCREEN 5
+; planes) are set per row, and SPRSH (the sprites' view) is refreshed at
+; the next frame (SprShSt). No stack: A7 is the Restas table.
+	CNOP	0,8
 COPIA8:
-	MOVE.W	DVDPSY(A3),D0
-	MULU	#256,D0
-	ADD.W	DVDPSX(A3),D0
-	LEA	(DIRVRAM,D0.L),A0
-
-	MOVE.W	DVDPDY(A3),D0
-	MULU	#256,D0
-	ADD.W	DVDPDX(A3),D0
-	LEA	(DIRVRAM,D0.L),A1
-
-	MOVE.L	D0,D5
-
-	MOVE.W	DVDPNX(A3),D0
-	AND.W	#$00FF,D0
-	BNE.S	RECON0
-	MOVE.W	#$100,D0
-RECON0:
-	MOVE.L	#$100,D2
-	SUB.W	D0,D2
-
-	MOVE.W	DVDPNY(A3),D1
-	AND.W	#$01FF,D1
-	BNE.S	RECON1
-	MOVE.W	#$200,D1
-RECON1:
-
-	SUBQ.W	#1,D0
-	SUBQ.W	#1,D1
-; ------------------------------- PRUEBA ABAJO
+	MOVE.W	DVDPSY(A3),D7		; D7: the source row's start.
+	MULU	#256,D7
+	ADD.W	DVDPSX(A3),D7
+	MOVEQ	#0,D6			; Source: VRAM.
 	MOVE.B	DVDPREG(A3),D3
-	AND.B	#$0F,D3
-	BTST	#3,D3
-	BNE.S	Tc8Continua
-
-	CMP.B	#8,D3
-	BEQ.S	Nc8Bucle1
-
-c8Bucle1:
-	MOVE.W	D0,D4
-c8Bucle0:
-	MOVE.B	(A0)+,(A1)+
-	MOVE.L	D5,D6
-	LSR.L	#3,D6
-	ST	(Tab98,D6.L)
-	ADDQ.L	#1,D5
-	DBF	D4,c8Bucle0
-	ADD.W	D2,A0
-	ADD.W	D2,A1
-	ADD.L	D2,D5
-	DBF	D1,c8Bucle1
-
-	MOVEM.L	BUFER(A3),D0-D7/A0-A6
-	SWAP	D2
-	RTS
-
-Nc8Bucle1:
-	MOVE.W	D0,D4
-Nc8Bucle0:
-	MOVE.B	(A0)+,D3
-	NOT.B	D3
-	MOVE.B	D3,(A1)+
-	MOVE.L	D5,D6
-	LSR.L	#3,D6
-	ST	(Tab98,D6.L)
-	ADDQ.L	#1,D5
-	DBF	D4,Nc8Bucle0
-	ADD.W	D2,A0
-	ADD.W	D2,A1
-	ADD.L	D2,D5
-	DBF	D1,Nc8Bucle1
-
-	MOVEM.L	BUFER(A3),D0-D7/A0-A6
-	SWAP	D2
-	RTS
-
-Tc8Continua:
-	CMP.B	#$0C,D3
-	BEQ.S	TNc8Bucle1
-
-Tc8Bucle1:
-	MOVE.W	D0,D4
-Tc8Bucle0:
-	MOVE.B	(A0)+,D3
-	BEQ.S	Tc8Cont
-	MOVE.B	D3,(A1)
-Tc8Cont:
-	ADDQ	#1,A1
-	MOVE.L	D5,D6
-	LSR.L	#3,D6
-	ST	(Tab98,D6.L)
-	ADDQ.L	#1,D5
-	DBF	D4,Tc8Bucle0
-	ADD.W	D2,A0
-	ADD.W	D2,A1
-	ADD.L	D2,D5
-	DBF	D1,Tc8Bucle1
-
-	MOVEM.L	BUFER(A3),D0-D7/A0-A6
-	SWAP	D2
-	RTS
-
-TNc8Bucle1:
-	MOVE.W	D0,D4
-TNc8Bucle0:
-	MOVE.B	(A0)+,D3
-	BEQ.S	TNc8Cont
-	NOT.B	D3
-	MOVE.B	D3,(A1)
-TNc8Cont:
-	ADDQ	#1,A1
-	MOVE.L	D5,D6
-	LSR.L	#3,D6
-	ST	(Tab98,D6.L)
-	ADDQ.L	#1,D5
-	DBF	D4,TNc8Bucle0
-	ADD.W	D2,A0
-	ADD.W	D2,A1
-	ADD.L	D2,D5
-	DBF	D1,TNc8Bucle1
-
-	MOVEM.L	BUFER(A3),D0-D7/A0-A6
-	SWAP	D2
-	RTS
-; ------------------------------- PRUEBA ARRIBA
+	AND.W	#$000F,D3		; LMMM: the op; HMMM: IMP.
+	CMP.B	#$09,D2
+	BEQ.S	V8Go
+	MOVEQ	#0,D3
+	BRA.S	V8Go
 
 COPYVDP8:
-	MOVE.W	DVDPSY(A3),D0
-	MULU	#256,D0
-	ADD.W	DVDPSX(A3),D0
-	LEA	(DIRVRAM,D0.L),A0
+	MOVEQ	#4,D6			; Source: the colour (R#44).
+	MOVE.B	DVDPREG(A3),D3
+	AND.W	#$000F,D3		; LMMV: the op; HMMV: IMP.
+	CMP.B	#$08,D2
+	BEQ.S	V8Go
+	MOVEQ	#0,D3
 
-	MOVE.W	DVDPDY(A3),D0
-	MULU	#256,D0
-	ADD.W	DVDPDX(A3),D0
-	LEA	(DIRVRAM,D0.L),A1
+V8Go:	MOVE.W	D3,D4			; Loop: op 0-4 (5-7: IMP), +5 for T,
+	AND.W	#7,D4			; +10 for the colour as the source.
+	CMP.W	#5,D4
+	BCS.S	V8Op
+	MOVEQ	#0,D4
+V8Op:	BTST	#3,D3
+	BEQ.S	V8NoT
+	ADDQ.W	#5,D4
+V8NoT:	TST.W	D6
+	BEQ.S	V8Src
+	ADD.W	#10,D4
+V8Src:	MOVE.L	(V8Loops.L,D4.W*4),A2
 
-	MOVE.L	D0,D5
+	MOVE.W	DVDPDY(A3),D5		; D5: the destination row's start.
+	MULU	#256,D5
+	ADD.W	DVDPDX(A3),D5
 
 	MOVE.W	DVDPNX(A3),D0
 	AND.W	#$00FF,D0
-	BNE.S	RECON0z
+	BNE.S	V8NX
 	MOVE.W	#$100,D0
-RECON0z:
-	MOVE.L	#$100,D2
-	SUB.W	D0,D2
-
+V8NX:	SUBQ.W	#1,D0
+	EXT.L	D0
 	MOVE.W	DVDPNY(A3),D1
 	AND.W	#$01FF,D1
-	BNE.S	RECON1z
+	BNE.S	V8NY
 	MOVE.W	#$200,D1
-RECON1z:
+V8NY:	SUBQ.W	#1,D1
 
-	SUBQ.W	#1,D0
-	SUBQ.W	#1,D1
+	MOVE.W	#1,A0			; X step (DIX: -1),
+	BTST	#2,DVDPARG(A3)
+	BEQ.S	V8DX
+	MOVE.W	#-1,A0
+V8DX:	MOVE.W	#256,A1			; Y step (DIY: -256).
+	BTST	#3,DVDPARG(A3)
+	BEQ.S	V8DY
+	MOVE.W	#-256,A1
+V8DY:	MOVE.B	DVDPCL(A3),D3		; (The colour, for HMMV/LMMV.)
+	JMP	(A2)
 
-	MOVE.B	DVDPCL(A3),D7
-
-c8Bucle1z:
-	MOVE.W	D0,D4
-c8Bucle0z:
-	MOVE.B	D7,(A1)+
-	MOVE.L	D5,D6
-	LSR.L	#3,D6
-	ST	(Tab98,D6.L)
-	ADDQ.L	#1,D5
-	DBF	D4,c8Bucle0z
-	ADD.W	D2,A0
-	ADD.W	D2,A1
-	ADD.L	D2,D5
-	DBF	D1,c8Bucle1z
-
-	MOVEM.L	BUFER(A3),D0-D7/A0-A6
+V8Done:	MOVE.W	DVDPDY(A3),D0		; SPRSH stale only if the rows drawn may
+	AND.L	#$3FF,D0		; touch the sprite tables (Uridium 2 draws
+	MOVE.W	DVDPNY(A3),D1		; every frame: no refresh each time).
+	AND.L	#$3FF,D1
+	ADDQ.L	#1,D1
+	MOVE.L	D0,D2
+	SUB.L	D1,D2			; Rows DY-NY .. DY+NY (either DIY),
+	ADD.L	D1,D0
+	LSL.L	#8,D2			; as logical addresses.
+	LSL.L	#8,D0
+	MOVE.L	PVDP5(A3),D1		; Colours and attributes (SprShRef's).
+	SUB.L	#$400,D1
+	CMP.L	D0,D1
+	BGE.S	V8DnP
+	ADD.L	#$600,D1
+	CMP.L	D2,D1
+	BLE.S	V8DnP
+	ST	SprShSt
+V8DnP:	MOVE.L	PVDP6(A3),D1		; Patterns.
+	CMP.L	D0,D1
+	BGE.S	V8DnX
+	ADD.L	#$800,D1
+	CMP.L	D2,D1
+	BLE.S	V8DnX
+	ST	SprShSt
+V8DnX:	MOVEM.L	BUFER(A3),D0-D7/A0-A6
 	SWAP	D2
 	RTS
 
+; The destination row's dirty flags: TAB98 over its logical bytes, VBlk5
+; for the 1 KB physical blocks of both banks at its two ends. D5 = the
+; row's start, D0 = NX-1, A0 = X step. Uses D2, D4, D6.
+V8RMK:	MACRO
+	MOVE.L	D5,D6
+	CMPA.W	#1,A0
+	BEQ.S	\@p
+	SUB.L	D0,D6
+\@p:	MOVE.L	D6,D2
+	ADD.L	D0,D2
+	AND.L	#$1FFFF,D6
+	AND.L	#$1FFFF,D2
+	MOVE.L	D6,D4
+	LSR.L	#8,D4
+	LSR.L	#3,D4
+	ST	(VBlk5.L,D4.L)
+	ST	(VBlk5+64,D4.L)
+	MOVE.L	D2,D4
+	LSR.L	#8,D4
+	LSR.L	#3,D4
+	ST	(VBlk5.L,D4.L)
+	ST	(VBlk5+64,D4.L)
+	LSR.L	#3,D6
+	LSR.L	#3,D2
+	SUB.L	D6,D2
+	BCC.S	\@t
+	ADD.L	#$4000,D2		; (past the end of VRAM: wraps)
+\@t:	AND.W	#$3FFF,D6
+	ST	(TAB98.L,D6.L)
+	ADDQ.W	#1,D6
+	DBF	D2,\@t
+	ENDM
 
+; One loop: \1 = 0 source from VRAM (A5), 1 the colour (D3); \2 = op
+; (0 IMP, 1 AND, 2 OR, 3 XOR, 4 NOT); \3 = 1: T (source 0 leaves the
+; destination). D7/D5 = source/destination row, A5/A6 their bytes.
+V8LP:	MACRO
+\@r:
+	IFEQ	\2+\3
+	CMPA.W	#1,A0			; IMP rightwards: the row is two runs, one
+	BNE	\@b0			; per bank (logical bytes 0, 2, 4... and
+	MOVE.L	D5,D6			; 1, 3, 5...), for the source and the
+	AND.L	#$1FFFF,D6		; destination alike: copy them as runs
+	ADD.L	D0,D6			; (not past the end of VRAM, and not when
+	CMP.L	#$1FFFF,D6		; the rows overlap: the byte order would
+	BHI	\@b0			; differ).
+	IFEQ	\1
+	MOVE.L	D7,D6
+	AND.L	#$1FFFF,D6
+	ADD.L	D0,D6
+	CMP.L	#$1FFFF,D6
+	BHI	\@b0
+	MOVE.L	D5,D6
+	SUB.L	D7,D6
+	BPL.S	\@dp
+	NEG.L	D6
+\@dp:	CMP.L	D0,D6
+	BLS	\@b0
+	MOVE.L	D7,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A5
+	ENDC
+	MOVE.L	D5,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A6
+	MOVE.W	D0,D2			; Even offsets: (NX + 1) / 2 bytes.
+	ADDQ.W	#2,D2
+	LSR.W	#1,D2
+	SUBQ.W	#1,D2
+\@f1:
+	IFEQ	\1
+	MOVE.B	(A5)+,(A6)+
+	ELSE
+	MOVE.B	D3,(A6)+
+	ENDC
+	DBF	D2,\@f1
+	MOVE.W	D0,D2			; Odd offsets: NX / 2 bytes.
+	ADDQ.W	#1,D2
+	LSR.W	#1,D2
+	BEQ	\@m
+	SUBQ.W	#1,D2
+	IFEQ	\1
+	MOVE.L	D7,D6
+	ADDQ.L	#1,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A5
+	ENDC
+	MOVE.L	D5,D6
+	ADDQ.L	#1,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A6
+\@f2:
+	IFEQ	\1
+	MOVE.B	(A5)+,(A6)+
+	ELSE
+	MOVE.B	D3,(A6)+
+	ENDC
+	DBF	D2,\@f2
+	BRA	\@m
+\@b0:
+	ENDC
+	MOVE.L	D7,A5
+	MOVE.L	D5,A6
+	MOVE.W	D0,D4
+\@b:
+	IFEQ	\1
+	MOVE.L	A5,D6
+	VMAP	D6
+	MOVE.B	(DIRVRAM.L,D6.L),D3
+	ADDA.L	A0,A5
+	ENDC
+	IFNE	\3
+	TST.B	D3
+	BEQ.S	\@s
+	ENDC
+	MOVE.L	A6,D6
+	VMAP	D6
+	IFEQ	\2
+	MOVE.B	D3,(DIRVRAM.L,D6.L)
+	ENDC
+	IFEQ	\2-1
+	MOVE.B	(DIRVRAM.L,D6.L),D2
+	AND.B	D3,D2
+	MOVE.B	D2,(DIRVRAM.L,D6.L)
+	ENDC
+	IFEQ	\2-2
+	MOVE.B	(DIRVRAM.L,D6.L),D2
+	OR.B	D3,D2
+	MOVE.B	D2,(DIRVRAM.L,D6.L)
+	ENDC
+	IFEQ	\2-3
+	MOVE.B	(DIRVRAM.L,D6.L),D2
+	EOR.B	D3,D2
+	MOVE.B	D2,(DIRVRAM.L,D6.L)
+	ENDC
+	IFEQ	\2-4
+	MOVE.B	D3,D2
+	NOT.B	D2
+	MOVE.B	D2,(DIRVRAM.L,D6.L)
+	ENDC
+\@s:	ADDA.L	A0,A6
+	DBF	D4,\@b
+\@m:	V8RMK
+	ADD.L	A1,D7
+	ADD.L	A1,D5
+	DBF	D1,\@r
+	BRA	V8Done
+	ENDM
 
-
+	CNOP	0,4
+V8Loops:
+	DC.L	V8L0,V8L1,V8L2,V8L3,V8L4,V8L5,V8L6,V8L7,V8L8,V8L9
+	DC.L	V8L10,V8L11,V8L12,V8L13,V8L14,V8L15,V8L16,V8L17,V8L18,V8L19
+V8L0:	V8LP	0,0,0
+V8L1:	V8LP	0,1,0
+V8L2:	V8LP	0,2,0
+V8L3:	V8LP	0,3,0
+V8L4:	V8LP	0,4,0
+V8L5:	V8LP	0,0,1
+V8L6:	V8LP	0,1,1
+V8L7:	V8LP	0,2,1
+V8L8:	V8LP	0,3,1
+V8L9:	V8LP	0,4,1
+V8L10:	V8LP	1,0,0
+V8L11:	V8LP	1,1,0
+V8L12:	V8LP	1,2,0
+V8L13:	V8LP	1,3,0
+V8L14:	V8LP	1,4,0
+V8L15:	V8LP	1,0,1
+V8L16:	V8LP	1,1,1
+V8L17:	V8LP	1,2,1
+V8L18:	V8LP	1,3,1
+V8L19:	V8LP	1,4,1
+SprShSt:	DC.B	$FF		; SPRSH: refresh the sprite tables.
+	EVEN
 
 ; -------------------------------<=
 ; -------------------------------<=
@@ -12200,6 +12724,7 @@ SPR2OFF1fb:
 
 	CNOP	0,8
 PRINT7:
+	BSR	SprShChk		; (4.3) SPRSH up to date.
 	MOVE.L	#COPPER7,NEXTCOPP
 	MOVE.L	#SPRMODE5,RSPR(A3)
 
@@ -12268,7 +12793,7 @@ BPlSprN:
 	MOVE.L	A2,A3
 	ADD.L	D1,A3
 
-	LEA	DIRVRAM,A4
+	MOVE.L	SprVB,A4		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	(SP)+,A4
 
 	LEA	TABLAP4B(PC),A5
@@ -12421,7 +12946,7 @@ TABLAP4B:DS.B	256*4*4
 	CNOP	0,8
 BITSPRCOL:
 	LEA	REGS(PC),A3
-	LEA	DIRVRAM,A4
+	MOVE.L	SprVB,A4		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 
 	MOVE.L	PVDP5(A3),D0		; Coordenadas sprites.
 	ADD.L	D0,A4			; Coordenadas sprites Bpl.
@@ -12438,7 +12963,7 @@ BITSPRCOL:
 	TST.B	PlMode			; (4.0) Wide layouts (PlAddrOff).
 	BEQ.S	BSpColN
 	MOVE.L	A4,D0
-	SUB.L	#DIRVRAM,D0
+	SUB.L	SprVB,D0
 	JSR	PlAddrOff
 	LEA	(SCR0.L,D0.L),A0
 BSpColN:
@@ -12713,7 +13238,7 @@ S5Clr:	CLR.L	(A1)+
 	DBF	D0,S5Clr
 	LEA	S5Cnt,A1
 	MOVE.L	PVDP5(A3),A0		; Sprite attribute table.
-	ADD.L	#DIRVRAM,A0
+	ADD.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	MOVEQ	#8,D5			; Height: 8, 16 (SI), x2 (MAG).
 	BTST	#1,DVDP1(A3)
 	BEQ.S	S5NoSI
@@ -12794,8 +13319,9 @@ SCDblY:
 	BEQ	SCEnd
 	BTST	#4,D0			; Text mode.
 	BNE	SCEnd
-	BTST	#1,DVDP8(A3)		; SPD: sprites off.
-	BNE	SCEnd
+	CMP.W	#$7FFF,SCBandF		; (4.1.2) SPD: no display line with sprites
+	BEQ	SCEnd			; on in the frame (R#8 at the read may be the
+					; status panel's: Uridium 2).
 	MOVEQ	#8,D6			; Height: 8, 16 (SI), x2 (MAG).
 	BTST	#1,D0
 	SNE	SCSI
@@ -12825,10 +13351,10 @@ SCMode1:MOVE.W	D1,SCLim
 	BEQ.S	SCSat1
 	AND.L	#$1FE7F,D0
 SCSat1:	MOVE.W	D4,SCStop
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	D0,A0
 	LEA	-$200(A0),A1		; Colours (mode 2).
-	LEA	DIRVRAM,A2
+	MOVE.L	SprVB,A2
 	ADD.L	PVDP6(A3),A2		; Pattern table.
 ; 1. The sprites on screen, in table order (SCSpr, for the per-line limit).
 ; Those that can collide also go into SCList, sorted by top: a pixel in the
@@ -12965,13 +13491,16 @@ SCIf:	SUB.W	#32,A5
 	DBF	D6,SCI
 SCJNx:	ADDQ.W	#1,D7
 	BRA.S	SCJ
-SCPair:	TST.W	D0			; Lines both cover: D0 (J's top, from
-	BPL.S	SCP1			; line 0) to I's bottom (to the end of
-	MOVEQ	#0,D0			; the display), less one.
-SCP1:	MOVE.W	2(A5),D1
+SCPair:	CMP.W	SCBandF,D0		; Lines both cover: D0 (J's top, from
+	BGE.S	SCP1			; the band's first line, 0 or more) to
+	MOVE.W	SCBandF,D0		; I's bottom (to the end of the display
+SCP1:	MOVE.W	2(A5),D1		; and of the band), less one.
 	CMP.W	SCNL,D1
-	BLE.S	SCP2
+	BLE.S	SCP1b
 	MOVE.W	SCNL,D1
+SCP1b:	CMP.W	SCBandF+2,D1
+	BLE.S	SCP2
+	MOVE.W	SCBandF+2,D1
 SCP2:	CMP.W	D1,D0
 	BGE	SCINx
 	MOVE.W	D1,SCHi
@@ -13122,6 +13651,28 @@ IVDP1:
 
 ; -------------------------------------------------
 
+; (4.3) S#2 CE: busy until the command's end time (CETime). D1 only.
+CEPOLL:	MACRO
+	IFND	NOCETIME
+	TST.B	CEPend
+	BEQ.S	\@X
+	MOVE.W	CmdFrN,D1
+	SUB.W	CEEndFr,D1
+	BMI.S	\@B			; End in a later frame: busy.
+	BNE.S	\@D			; In an earlier one: done.
+	MOVE.W	CurLine(A3),D1
+	CMP.W	CEEndL,D1
+	BCS.S	\@B
+	BHI.S	\@D
+	MOVE.W	(A3),D1			; The end line: cycles left count down.
+	CMP.W	CEEndLeft,D1
+	BLE.S	\@D
+\@B:	BSET	#0,D2
+	BRA.S	\@X
+\@D:	SF	CEPend
+\@X:
+	ENDC
+	ENDM
 IVDP2:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$6C,D2		;  Timing X e Y Off. (no usados a 1)
@@ -13146,6 +13697,7 @@ NoTimming_X:
 	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
+	CEPOLL
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
 	RTS
@@ -13172,6 +13724,7 @@ NoTimming_Xtr:
 	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
+	CEPOLL
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
 	RTS
@@ -13211,6 +13764,7 @@ NoTimming_X060:
 	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
+	CEPOLL
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
 	RTS
@@ -13241,6 +13795,7 @@ NoTimming_Xtr060:
 	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
+	CEPOLL
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
 	RTS
@@ -15882,7 +16437,7 @@ PONSPR:	MACRO
 TRANSSPR16:
 	LEA	REGS(PC),A3
 	MOVE.L	GFXSPR,A1
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	PVDP6(A3),A0		; Tabla Gfx Sprits VRAM
 	MOVE.W	#64-1,D0
 	MOVE.W	#(18*4),D1
@@ -15967,7 +16522,7 @@ PONSPR8:MACRO
 TRANSSPR8:
 	LEA	REGS(PC),A3
 	MOVE.L	GFXSPR8,A1
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	PVDP6(A3),A0		; Tabla Gfx Sprits VRAM
 	MOVE.W	#64-1,D0
 	MOVE.W	#(18*4*2),D1
@@ -16506,6 +17061,7 @@ MI0NoLive:
 	BCLOG	5,VDPAdjust(A3),MidAdj-1,DVDP2(A3),VDPLinY(A3)
 	ENDC
 	ADDQ.B	#1,RFrame		; (LD A,R)
+	ADDQ.W	#1,CmdFrN		; (4.3) CE busy time (CETime).
 	SF	L0Arm			; (4.1.2) The display starts (L0Prep).
 	SF	S5Valid			; 5th sprite flag: new frame.
 	CLR.W	S5Next
@@ -16665,6 +17221,13 @@ MiraInterVB:
 
 InterVer:
 	ST	SCPend			; Sprite collisions: check at next S#0.
+	MOVE.L	SCOnLo,SCBandF		; (4.1.2) This frame's sprite lines (SCCalc),
+	MOVE.W	#$7FFF,SCOnHi		; the next frame's from the R#8 now.
+	MOVE.W	#$7FFF,SCOnLo
+	BTST	#1,DVDP8(A3)
+	BNE.S	InterVerSB
+	CLR.W	SCOnLo
+InterVerSB:
 	BSET	#7,Estado(A3)		; Petici�n de Interrupci�n Vertical.
 	ST	PetInt38+1(A3)
 	IFD	U2TRV
@@ -17238,6 +17801,168 @@ VDP2E:
 	IFD	BANDCHK
 	BCLOG	1,D2,DVDPDY(A3),DVDPNY(A3),DVDPSY(A3)
 	ENDC
+; (4.3) CETime: a block command's busy time, from openMSX 21's per-access
+; costs (VDP cycles, 1368 a line, 6 per Z80 cycle): HMMV 48 a byte, HMMM 88,
+; YMMM 64, LMMV 96 a dot, LMMM 120, LINE 112 a dot + 32 a minor step, plus
+; 56-64 a row. In the display window (BL on, lines 0..191/211) the VDP gets
+; fewer access slots: x3/2 with sprites on, x5/4 with them off (Jailbreak's
+; HMMM measured in openMSX). The end is kept as frame, line and cycles left
+; for the S#2 reads (CEPOLL). No stack (A7 is the Restas table).
+	IFND	NOCETIME
+	MOVEM.L	D0-D6/A4,CESave
+	SF	CEPend
+	MOVE.L	MSXVideoMode(A3),A4
+	CMP.L	#MODO5DATS,A4
+	BEQ.S	CETmMd
+	CMP.L	#MODO5WDATS,A4
+	BEQ.S	CETmMd
+	CMP.L	#MODO5PDATS,A4
+	BEQ.S	CETmMd
+	CMP.L	#MODO6DATS,A4
+	BEQ.S	CETmMd
+	CMP.L	#MODO7DATS,A4
+	BEQ.S	CETmMd
+	CMP.L	#MODO8DATS,A4
+	BNE	CETmX
+CETmMd:	MOVEQ	#0,D3
+	MOVE.B	D2,D3
+	LSR.B	#4,D3			; Command 0-15.
+	MOVE.W	DVDPNX(A3),D4		; NX (dots), 0 = 512, at most the width.
+	AND.W	#511,D4
+	BNE.S	CETmNX
+	MOVE.W	#512,D4
+CETmNX:	CMP.W	$0C(A4),D4
+	BLS.S	CETmNX2
+	MOVE.W	$0C(A4),D4
+CETmNX2:MOVE.W	DVDPNY(A3),D5		; NY, 0 = 1024.
+	AND.W	#1023,D5
+	BNE.S	CETmNY
+	MOVE.W	#1024,D5
+CETmNY:	MOVEQ	#0,D6
+	MOVE.W	D4,D6
+	CMP.B	#$C,D3
+	BEQ.S	CETmHV
+	CMP.B	#$D,D3
+	BEQ.S	CETmHM
+	CMP.B	#$E,D3
+	BEQ.S	CETmYM
+	CMP.B	#$8,D3
+	BEQ.S	CETmLV
+	CMP.B	#$9,D3
+	BEQ.S	CETmLM
+	CMP.B	#$7,D3
+	BNE	CETmX			; Others: no busy time (as before).
+	ADDQ.W	#1,D6			; LINE: NX+1 dots, NY minor steps.
+	MULU.W	#112,D6
+	MULU.W	#32,D5
+	ADD.L	D5,D6
+	BRA.S	CETmGo
+CETmYM:	MOVE.W	DVDPDX(A3),D4		; YMMM: DX to the edge (DIX: to 0).
+	AND.W	$04(A4),D4
+	BTST	#2,DVDPARG(A3)
+	BNE.S	CETmYL
+	NEG.W	D4
+	ADD.W	$0C(A4),D4
+	SUBQ.W	#1,D4
+CETmYL:	ADDQ.W	#1,D4
+	MOVE.W	D4,D6
+	DIVU.W	$1C(A4),D6		; Bytes.
+	MULU.W	#64,D6
+	ADD.W	#64,D6
+	BRA.S	CETmRw
+CETmHV:	DIVU.W	$1C(A4),D6		; HMMV: bytes x 48 + 56.
+	MULU.W	#48,D6
+	ADD.W	#56,D6
+	BRA.S	CETmRw
+CETmHM:	DIVU.W	$1C(A4),D6		; HMMM: bytes x 88 + 64.
+	MULU.W	#88,D6
+	ADD.W	#64,D6
+	BRA.S	CETmRw
+CETmLV:	MULU.W	#96,D6			; LMMV: dots x 96 + 64.
+	ADD.W	#64,D6
+	BRA.S	CETmRw
+CETmLM:	MULU.W	#120,D6			; LMMM: dots x 120 + 64.
+	ADD.W	#64,D6
+CETmRw:	MULU.W	D5,D6			; x rows.
+CETmGo:					; D6 = VDP cycles at the blank rate.
+	MOVE.W	CurLine(A3),D3		; T = now in the frame (VDP cycles).
+	MOVE.L	#VPeriodPAL*HPeriod,A4
+	BTST	#1,DVDP9(A3)
+	BNE.S	CETmP
+	MOVE.L	#VPeriodNTSC*HPeriod,A4
+CETmP:	CMP.W	#255,D3
+	BNE.S	CETmP2
+	MOVE.L	A4,D3
+	BRA.S	CETmP3
+CETmP2:	ADDQ.W	#1,D3
+	MULU.W	#HPeriod,D3
+CETmP3:	MOVE.W	(A3),D4
+	EXT.L	D4
+	SUB.L	D4,D3
+	MULU.L	#6,D3
+	MOVE.L	A4,D4			; Frame length (VDP cycles).
+	MULU.L	#6,D4
+	MOVE.L	D4,A4
+	MOVEQ	#0,D5			; Display window end, 0 with BL off.
+	BTST	#6,DVDP1(A3)
+	BEQ.S	CETmBL
+	MOVE.L	#192*HPeriod*6,D5
+	BTST	#7,DVDP9(A3)
+	BEQ.S	CETmBL
+	MOVE.L	#212*HPeriod*6,D5
+CETmBL:	MOVEQ	#3,D1			; Display rate num/den: 3/2 sprites on,
+	MOVEQ	#2,D2			; 5/4 off (R#8 SPD).
+	BTST	#1,DVDP8(A3)
+	BEQ.S	CETmSp
+	MOVEQ	#5,D1
+	MOVEQ	#4,D2
+CETmSp:	MOVEQ	#0,D0			; Frames ahead.
+CETmLp:	CMP.L	D5,D3
+	BCC.S	CETmBk
+	MOVE.L	D5,D4			; In the display: room = (end - T) x den / num.
+	SUB.L	D3,D4
+	MULU.L	D2,D4
+	DIVU.L	D1,D4
+	CMP.L	D4,D6
+	BHI.S	CETmDM
+	MULU.L	D1,D6			; Ends here: T += N x num / den.
+	DIVU.L	D2,D6
+	ADD.L	D6,D3
+	BRA.S	CETmEnd
+CETmDM:	SUB.L	D4,D6
+	MOVE.L	D5,D3
+CETmBk:	MOVE.L	A4,D4			; In the blank: room = frame end - T.
+	SUB.L	D3,D4
+	CMP.L	D4,D6
+	BHI.S	CETmBM
+	ADD.L	D6,D3
+	BRA.S	CETmEnd
+CETmBM:	SUB.L	D4,D6
+	MOVEQ	#0,D3
+	ADDQ.W	#1,D0
+	CMP.W	#100,D0			; (A runaway guard: 2 s.)
+	BCS.S	CETmLp
+CETmEnd:DIVU.L	#6,D3			; End: Z80 cycles in its frame.
+	ADD.W	CmdFrN,D0
+	MOVE.W	D0,CEEndFr
+	MOVE.L	D3,D4			; Line, and the cycles left there.
+	DIVU.L	#HPeriod,D4
+	CMP.L	#255,D4
+	BCS.S	CETmL
+	MOVE.L	A4,D4			; Line 255 runs to the frame end.
+	DIVU.L	#6,D4
+	SUB.L	D3,D4
+	MOVE.W	D4,CEEndLeft
+	MOVE.W	#255,CEEndL
+	BRA.S	CETmOn
+CETmL:	MOVE.W	D4,CEEndL
+	ADDQ.L	#1,D4
+	MULU.L	#HPeriod,D4
+	SUB.L	D3,D4
+	MOVE.W	D4,CEEndLeft
+CETmOn:	ST	CEPend
+CETmX:	MOVEM.L	CESave,D0-D6/A4
+	ENDC
 	ST	CmdAny			; (4.0) a command drew (any mode)
 	ST	BMSCmd			; (4.0) pair split: the top page whole again
 	ST	SCRTDirty
@@ -17289,7 +18014,11 @@ P5MkN:	BTST	#3,DVDPARG(A3)		; DIY: upwards.
 	SUB.W	D4,D3
 	ADDQ.W	#1,D3
 	AND.W	#1023,D3
-P5MkDn:	MOVEQ	#0,D5			; First band, last band (wrapping).
+P5MkDn:	CMP.L	#Modo7Dats,MSXVideoMode(A3)	; (4.3) SCREEN 7: 256-byte lines,
+	BNE.S	P5MkD5			; so a band (2 KB, Pl5Band) is 8 of
+	ADD.W	D3,D3			; them: count in half lines.
+	ADD.W	D4,D4
+P5MkD5:	MOVEQ	#0,D5			; First band, last band (wrapping).
 	MOVE.W	D3,D5			; (D5's high word must be 0: the
 	LSR.W	#4,D5			; bit-field offset is the whole long.)
 	ADD.W	D4,D3
@@ -18159,7 +18888,7 @@ TIMP:
 	BRA.S	TIMPES
 	CNOP	0,8
 TAND:
-	MOVE.B	#$80,D0
+	MOVE.B	#$8A,D0	; (4.3) A ? B AND C : C (was $80: cleared outside the mask)
 	BRA.S	TIMPES
 	CNOP	0,8
 TOR:
@@ -18167,11 +18896,11 @@ TOR:
 	BRA.S	TIMPES
 	CNOP	0,8
 TXOR:
-	MOVE.B	#$5A,D0
+	MOVE.B	#$6A,D0	; (4.3) C XOR (A AND B) (was $5A: ignored the colour)
 	BRA.S	TIMPES
 	CNOP	0,8
 TNOT:
-	MOVE.B	#$CA,D0
+	MOVE.B	#$3A,D0	; (4.3) A ? NOT B : C (was $CA, the same as IMP)
 	BRA.S	TIMPES
 
 	CNOP	0,8
@@ -18246,7 +18975,7 @@ IMP:
 	BRA.S	IMPES
 	CNOP	0,8
 AND:
-	MOVE.B	#$80,D0
+	MOVE.B	#$8A,D0	; (4.3) A ? B AND C : C (was $80: cleared outside the mask)
 	BRA.S	IMPES
 	CNOP	0,8
 OR:
@@ -18254,11 +18983,11 @@ OR:
 	BRA.S	IMPES
 	CNOP	0,8
 XOR:
-	MOVE.B	#$5A,D0
+	MOVE.B	#$6A,D0	; (4.3) C XOR (A AND B) (was $5A: ignored the colour)
 	BRA.S	IMPES
 	CNOP	0,8
 NOT:
-	MOVE.B	#$CA,D0
+	MOVE.B	#$3A,D0	; (4.3) A ? NOT B : C (was $CA, the same as IMP)
 	BRA.S	IMPES
 
 	CNOP	0,8
@@ -19033,7 +19762,11 @@ TRETARDOB:
 	TST.L	KeyScrPtr		; live, Help included.) Scripted test
 	BNE.S	MTESAL			; run: only the key script types
 	ENDC				; (handshake done, matrix untouched).
-	ADDQ.W	#1,D2
+; (4.3) MTECRAW: D0.L = a key byte as the keyboard sends it (the raw code
+; shifted left, bit 0 = released, inverted). The key script's AKEY records
+; come in here too, so the mapping test runs this exact translation.
+MTECRAW:
+	MOVEQ	#0,D2
 	NOT.B	D0
 	LSR.B	#$01,D0
 	BCS.S	NOTECLA
@@ -19454,7 +20187,8 @@ IMPSPR2n:
 NoBase20:
 	AND.W	#$03FC,D1
 	MULU	#$80,D1
-	LEA	(DIRVRAM.L,D1.L),A4
+	MOVE.L	SprVB,A4		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
+	ADD.L	D1,A4
 	LEA	-512(A4),A0
 IMPSPR2c:				; (IMPSPR2B: A4/A0 = a band snapshot.)
 	MOVE.L	A4,A3
@@ -19486,7 +20220,8 @@ NoBandLinY:
 	BEQ.S	NoBase22
 	MOVE.L	AntPVDP6(PC),D6		; *.*
 NoBase22:
-	ADD.L	#DIRVRAM+16,D6		; Sprites en formato Amiga.
+	ADD.L	SprVB,D6		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
+	ADD.L	#16,D6			; Sprites en formato Amiga.
 ; ---
 	MOVE.W	#LINSPR,D5
 
@@ -24627,8 +25362,9 @@ BMSC8Inc:
 	LEA	DirVRAM,A6
 	MOVEQ	#0,D1
 	MOVE.W	D0,D1
-	LSL.L	#3,D1			; Its VRAM: 0 or 64 KB.
-	ADD.L	D1,A6
+	LSL.L	#2,D1			; (4.3) Its VRAM: logical 0 or 64 KB, bank 0
+	ADD.L	D1,A6			; at 0 or 32 KB (even bytes), bank 1
+	LEA	($10000,A6),A3		; (odd) in A3 (VMAP).
 	LEA	SCREENP,A0
 	LEA	PasPun8Fast,A2
 	LEA	TablaPun8Bpl,A5
@@ -24640,7 +25376,8 @@ BMSC8Buc1:
 	TST.L	(A4)+
 	BNE.S	BMSC8Rut
 	ADDQ	#4,A0
-	ADD.W	D3,A6
+	LEA	16(A6),A6		; (4.3) 16 bytes a bank.
+	LEA	16(A3),A3
 	DBF	D5,BMSC8Buc1
 	MOVEM.L	(SP)+,D0-D7/A0-A6
 	RTS
@@ -24653,9 +25390,13 @@ BMSC8Buc:
 	MOVE.B	(A6)+,D7
 	MOVE.L	(A5,D7.W*8),D0
 	MOVE.L	4(A5,D7.W*8),D1
-	REPT	7
-	PaPuMac
-	ENDR
+	PaPuMa8	A3			; (4.3) Odd bytes from bank 1, even
+	PaPuMa8	A6			; from bank 0.
+	PaPuMa8	A3
+	PaPuMa8	A6
+	PaPuMa8	A3
+	PaPuMa8	A6
+	PaPuMa8	A3
 	MOVEQ	#0,D7
 	MOVE.B	D0,(A2)+
 	LSR.W	#8,D0
@@ -24785,6 +25526,8 @@ KeyScrBuc:
 	BEQ.S	KeyScrNx
 	CMP.B	#$FC,D1			; Row $FC: state dump (STATEDUMP).
 	BEQ.S	KeyScrDump
+	CMP.B	#$FB,D1			; (4.3) Row $FB: an Amiga raw key (AKEY).
+	BEQ	KeyScrAKey
 	CMP.L	D0,D3			; Not yet.
 	BCS.S	KeyScrBuc
 	SUB.L	D0,D3			; Frames since the press...
@@ -24823,6 +25566,28 @@ KeyScrDump:
 	BNE.S	KeyScrNx
 	ST	DumpPend		; Copy the state after the key script.
 	BRA.S	KeyScrNx
+; (4.3) AKEY: press the Amiga raw key D2 at its frame and release it after
+; 'hold' frames, through MTECRAW (the Amiga-to-MSX keyboard table).
+KeyScrAKey:
+	MOVE.L	D3,D1
+	SUB.L	D0,D1			; Frames since the press.
+	BEQ.S	KeyScrAKDn
+	MOVEQ	#0,D0
+	MOVE.W	-2(A0),D0
+	CMP.L	D0,D1
+	BNE	KeyScrNx
+	MOVEQ	#1,D1			; Released: bit 0 set.
+	BRA.S	KeyScrAKGo
+KeyScrAKDn:
+	MOVEQ	#0,D1
+KeyScrAKGo:
+	MOVEQ	#0,D0
+	MOVE.B	D2,D0
+	ADD.B	D0,D0
+	OR.B	D1,D0
+	NOT.B	D0			; As the keyboard sends it.
+	JSR	MTECRAW
+	BRA	KeyScrNx
 ; SNAP freeze, after the render: hold the finished frame for SnapPend Amiga
 ; frames with the power LED on (CIA-A PRA bit 1 low), so the harness captures
 ; exactly this MSX frame (it watches the LED in WinUAE's status bar).
@@ -24933,13 +25698,18 @@ SnapLvLed:	DC.B	0
 ; STATEDUMP (PERF builds, debug): a key-script DUMP copies the MSX state into
 ; StDump (up to 4: MSX frame, MSX RAM RAM00-$100.., VRAM, REGS-$400..+$800);
 ; PerfDump writes StDumpN and StDump. To find where two runs diverge.
+	IFD	STDPLANES
+; (4.3 debug) STDPLANES: each dump also holds SCR0 (256 KB) and SCREENP.
+STDSIZE=4+(8*($4000+$100))+(128*1024)+$C00+(1024*256)+(8*BMSPAGE)+260+(260*8)+16+32+(2*CoppLineSize*215)+(2*2*1024*8)+8+(4*BANDMAX)
+	ELSE
 STDSIZE=4+(8*($4000+$100))+(128*1024)+$C00
+	ENDC
 StDumpGo:
 	SF	DumpPend
 	MOVEM.L	D0/A0-A1,StDSv
 	MOVE.L	StDumpN,D0
 	CMP.L	#4,D0
-	BCC.S	StDX
+	BCC	StDX
 	MULU.L	#STDSIZE,D0
 	LEA	StDump,A1
 	ADD.L	D0,A1
@@ -24959,6 +25729,80 @@ StDV:	MOVE.L	(A0)+,(A1)+
 StDG:	MOVE.L	(A0)+,(A1)+
 	SUBQ.L	#1,D0
 	BPL.S	StDG
+	IFD	STDPLANES
+	LEA	SCR0,A0
+	MOVE.L	#(1024*256)/4-1,D0
+StDP:	MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	StDP
+	LEA	SCREENP,A0
+	MOVE.L	#(8*BMSPAGE)/4-1,D0
+StDQ:	MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	StDQ
+	LEA	TabRasCMDS,A0		; (and the line events, the split state)
+	MOVE.W	#260-1,D0
+StDT:	MOVE.B	(A0)+,(A1)+
+	DBF	D0,StDT
+	LEA	TabRasDATA,A0
+	MOVE.W	#260*8-1,D0
+StDU:	MOVE.B	(A0)+,(A1)+
+	DBF	D0,StDU
+	MOVE.B	BMSOn,(A1)+
+	MOVE.B	BMSTop,(A1)+
+	MOVE.B	BMSBot,(A1)+
+	MOVE.B	BMSPair,(A1)+
+	MOVE.W	BMSLine,(A1)+
+	MOVE.W	MSplitL,(A1)+
+	MOVE.W	REGS+CurLine,(A1)+
+	MOVE.B	REGS+ScrModo,(A1)+
+	MOVE.B	REGS+DVDP2,(A1)+
+	MOVE.B	REGS+VDPLinY,(A1)+
+	MOVE.B	MS_DVDP2,(A1)+
+	MOVE.W	REGS+DesLinY,(A1)+
+	MOVE.L	CopperLineDos,(A1)+	; (copper: pointers, addresses, buffers)
+	MOVE.L	CopperLineUno,(A1)+
+	MOVE.L	CopperOptsDos,(A1)+
+	MOVE.L	CopperOptsUno,(A1)+
+	MOVE.L	#CopperLine0,(A1)+
+	MOVE.L	#CopperLine1,(A1)+
+	MOVE.L	#CopperOpts0,(A1)+
+	MOVE.L	#CopperOpts1,(A1)+
+	LEA	CopperLine0,A0
+	MOVE.W	#(CoppLineSize*215)/2-1,D0
+StDW:	MOVE.W	(A0)+,(A1)+
+	DBF	D0,StDW
+	LEA	CopperLine1,A0
+	MOVE.W	#(CoppLineSize*215)/2-1,D0
+StDW1:	MOVE.W	(A0)+,(A1)+
+	DBF	D0,StDW1
+	LEA	CopperOpts0,A0
+	MOVE.W	#(1024*8)-1,D0
+StDO:	MOVE.W	(A0)+,(A1)+
+	DBF	D0,StDO
+	LEA	CopperOpts1,A0
+	MOVE.W	#(1024*8)-1,D0
+StDO1:	MOVE.W	(A0)+,(A1)+
+	DBF	D0,StDO1
+	MOVE.B	TopR8,(A1)+		; (bands)
+	MOVE.B	MidLinY,(A1)+
+	MOVE.B	BandOn,(A1)+
+	MOVE.B	BandSprOn,(A1)+
+	MOVE.W	BandN,(A1)+
+	MOVE.W	SegBest,(A1)+
+	LEA	BandLine,A0
+	MOVE.W	#BANDMAX-1,D0
+StDB1:	MOVE.W	(A0)+,(A1)+
+	DBF	D0,StDB1
+	LEA	BandR8,A0
+	MOVE.W	#BANDMAX-1,D0
+StDB2:	MOVE.B	(A0)+,(A1)+
+	DBF	D0,StDB2
+	LEA	BandLinY,A0
+	MOVE.W	#BANDMAX-1,D0
+StDB3:	MOVE.B	(A0)+,(A1)+
+	DBF	D0,StDB3
+	ENDC
 	ADDQ.L	#1,StDumpN
 StDX:	MOVEM.L	StDSv,D0/A0-A1
 	RTS
@@ -25462,7 +26306,7 @@ SpSlNoT:
 	SF	(A2,D3.W)		; Was from the top table: back.
 	MOVE.L	PVDP6(A3),D1
 SpSlDo:	MOVEM.L	D3/A0-A2,-(SP)
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	D1,A0
 	MOVE.W	D2,D1
 	LSL.W	#5,D1
@@ -25520,7 +26364,7 @@ SpSlOBuc:
 	BNE	SpSlONxt
 	ST	(A2,D3.W)
 	MOVEM.L	D0/D2/A1-A2,-(SP)
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	SnapT6,A0
 	MOVE.W	D3,D1
 	LSL.W	#5,D1
@@ -25805,7 +26649,7 @@ SpMPtrR:
 TRANSSPR16M:
 	MOVE.L	MagBank,A1
 	ADD.W	#MAGLEAD,A1
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	PVDP6(A3),A0
 	MOVEM.L	A5-A6,-(SP)
 	LEA	SCDbl,A5
@@ -25870,7 +26714,7 @@ SpM16Row:
 TRANSSPR8M:
 	MOVE.L	MagBank,A1
 	ADD.W	#MAGLEAD,A1
-	LEA	DIRVRAM,A0
+	MOVE.L	SprVB,A0		; (4.3) VRAM, or SPRSH in SCREEN 7/8.
 	ADD.L	PVDP6(A3),A0
 	MOVEM.L	A5-A6,-(SP)
 	LEA	SCDbl,A5
@@ -26817,6 +27661,9 @@ RAM13:	DS.B	(16*1024)
 ; --------------------------------
 	CNOP	0,8
 DIRVRAM:DS.B	(1024*128)
+	DS.B	$20
+	CNOP	0,8
+SPRSH:	DS.B	(1024*128)		; (4.3) G6/G7: VRAM's logical view (VMAP).
 	DS.B	$20
 
 	CNOP	0,8

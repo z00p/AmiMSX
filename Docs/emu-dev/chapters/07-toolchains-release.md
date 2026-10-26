@@ -91,7 +91,33 @@ Every debug aid is chosen on the vasm command line (`-DTRACE=1`, `-DPERF=1`, `-D
 
 ## amiga-gcc
 
-*To be written (Arnold).*
+*Arnold.* Arnold is written in C and built with gcc 6.5 from the amiga-gcc toolchain, running under a Linux environment (WSL) on the PC. The 68k assembler tools of the AmiMSX chapters are not used.
+
+### Five builds from one source, and a build that is the same except for its time stamp
+
+Arnold ships five binaries: `Arnold` (68040, `-O2`), `Arnold-040-Max`, `Arnold-060`, `Arnold-060-Max` and `Arnold-030`. All come from one source tree through one script, built with the same profile (chapter 10). Things worth knowing:
+
+- **Compare builds by content, not by hash.** Two builds of the same source differ in the `__TIME__` string and the `$VER` date, nothing else. The size of the build is a quick check (for example 403,732 bytes for the 1.0 `Arnold`).
+- **Profile-guided builds need `libgcov` linked explicitly** for the 68020 multilib, and the profile directory is part of the option because `GCOV_PREFIX` is ignored (chapter 10). Use `-Wno-error=coverage-mismatch` for builds that only changed cold code.
+- **Do not use `-falign-functions=64` for shipping.** It is a comparison tool (chapter 10).
+- **`long` is 32 bits on the Amiga and 64 bits on the x86 test host.** A 32-bit overflow and a table read past its end were both invisible on the PC (chapter 04). Consider building the test host as a 32-bit program, and add range checks to tables.
+
+### Keep a patch series that equals the tree
+
+Arnold for Amiga is a set of changes on top of the original Arnold, and the original's author is the first person who should be able to read them. The development repository keeps a branch of patches (34 patches for 1.0) made from the original's last commit. Two checks keep it honest:
+
+1. **The series equals the tree.** A scratch checkout of the original is reset and the patches applied in order; "remaining changes" (a final patch for everything not yet split out) must be empty, and the diff against the development tree's source folder must be empty.
+2. **Each patch builds alone** with the headless host, and the cartridges that a patch should not change give the same checksums as before it (system cartridge, Sonic GX, Ghouls'n Ghosts GX, a small game and Puzzle Bobble at 600 frames). This found nothing in 1.0 and is cheap; it makes a bisect possible.
+
+A patch that touches a file later changed again has to take the file from the right moment: the Emu68 speed patch is made from the 0.9 snapshot, not from the newest tree, because the CRTC file has changed since. When a release adds patches the branch is rebuilt, not appended to, and pushed with `--force-with-lease` against the old head.
+
+### Windows shell traps for scripts that drive the Amiga
+
+- A path argument that starts with `/` is rewritten by the MSYS shell on Windows into a Windows path. A run was started with a mangled key-script path; the program opened, found no key script and sat waiting on the Amiga until someone closed it (chapter 08).
+- Environment variables set in the Windows shell do not reach the Linux environment unless they are listed in `WSLENV`. A build script that took `VARIANTS=` from the caller silently built all five.
+- Lock and clean up around WinUAE runs (chapter 08).
+
+**Look up.** `tools/perf50/mkpgo.sh`, `tools/perf50/build_variants_pgo.sh`, `tools/package/make_series.sh` in the development repository; release notes `Docs/agent_notes/release-1.0.md`.
 
 ## Building the LHA inside WinUAE
 

@@ -56,18 +56,13 @@ Each entry gives the symptom, what openMSX shows, the theory, how to confirm it,
 - **Evidence (openMSX, 36 s):** four attribute tables in use (R#5 = E7h/EFh and F7h/FFh, a pair per frame). The table used above the split holds the sprites at Y = 80-150, the one below holds Y = 170-204; unused sprites sit at Y = 40. A renderer using one table per frame draws one half's enemies only.
 - **Fix:** extend the mode-1 split to IMPSPR2: snapshot the mode-2 attribute and colour tables at the R#5 change line, and draw two passes (or bands) split at that line.
 
-## Jailbreak (M_Jailbreak_Kon, Konami)
+## Jailbreak (M_Jailbreak_Kon, Konami): 2-line strip at the bottom, fixed 24 Oct 2026 (4.3)
 
-**Symptom.** In play, rows of the wrong scenery flash at the top of the playfield (the 60 s capture varies from run to run).
+**Cause.** VDP command timing, not the copper. From line 200 (line interrupt) the game starts three commands (HMMM, HMMM, LMMM) and polls S#2 until CE clears before each next one, then restores the HUD (R#2, R#23, palette colours 8-11). openMSX (build/jb43, per-frame palette log): the restore lands at display line ~231 every frame, in the bottom border; the copies are busy 12.6 and 10.3 lines. AmiMSX ran commands at once and never set CE, so the restore came at line ~210 and the last display line showed the HUD palette (the palette event at line 211 seen by pal_probe).
 
-**openMSX:**
-- SCREEN 5, 212 lines (R#9 = 82h).
-- Each frame, at line interrupts, it flips between page 1 scrolled (R#2 = 3Fh, R#23 = 82h) and page 0 unscrolled (R#2 = 1Fh, R#23 = 0) for the HUD.
-- The map scrolls with HMMM copies and an LMMM with TIMP.
+**Fix.** `CETime` (at R#46) gives block commands a busy time from openMSX 21's per-access costs (HMMV 48 a byte, HMMM 88, YMMM 64, LMMV 96 a dot, LMMM 120, LINE 112 + 32 a minor step, plus 56-64 a row), x3/2 inside the display window with sprites on and x5/4 with them off; `CEPOLL` reports CE in all four S#2 handlers until then. Commands still draw at once. Model vs openMSX for Jailbreak's copies: 216.7 vs 216.6 and 228.3 vs 228.6 (end lines). Burst 58/60/62 s: flicker 170 -> 0 (openMSX 0). `-DNOCETIME=1` builds without it.
 
-**Theory (superseded 15 Oct).** The handler this theory named, VDP17m5, was never installed: SCREEN 5 uses VDP17, which records R#2/R#23 writes as events at the MSX line, and ActCopperLine builds them into the per-line copper list, which the copper runs from the next frame start. See `Docs/bitmap_line_events.md` for what is still beam-dependent (the list rebuilt in place on a late frame) and the draft fix.
-- **Confirm:** log the MSX line of each R#23/R#2 write (CurLine) next to the Amiga line used. They will differ, and the difference will vary.
-- **Fix:** handle bitmap-mode R#23 and R#2 splits like the mid-frame palette and mode splits: record them as events at the emulated MSX line (TabRasCMDS) and build the copper split from those. That's deterministic, and it doesn't busy-wait on the beam (which also costs time).
+**Side effect.** Every game that waits for CE now waits as long as on an MSX, including the BIOS's own power-on clear (a 256x212 HMMV: openMSX ~982 lines, the model ~961 with the screen blank). Ten of the 15 smoke titles shift in time against the 4.2 baselines (no corruption; Ianna's 50 s capture now matches openMSX); without CETime all ten are the same. Baselines to re-accept once reviewed.
 
 ## Uridium 2 (M_Uridium2_SCC, KonamiSCC): fixed 3 Oct 2026
 

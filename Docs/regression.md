@@ -85,3 +85,14 @@ Known start sequences:
   - `-WaitFile perf.bin` for PERF builds.
 - **`winuae/strips.ps1`:** film strips. Build sheets with `tools/strip_sheet.py`.
 - **`winuae/perf_ab.ps1`:** PERF A/B on several configs. Decode with `tools/read_perf.py` and `tools/read_prof.py`.
+
+## Keyboard mapping test (4.3)
+
+`sh tools/keytest.sh` checks the whole Amiga-to-MSX keyboard path, which the key scripts skip (they write the MSX matrix directly):
+
+- **AmiMSX side:** a key-script action `AKEY:<hex>` feeds an Amiga raw key code into `MTECRAW`, the same translation the keyboard handler (`MTECLADO`) runs after reading the CIA, with the table's start-up patches.
+- **MSX side:** the cartridge from `tools/make_keytest.py` scans rows 0-10 through the PPI every frame, as a game does, and logs every change (frame, row, value) into VRAM.
+- **The run:** every raw code 00-67 except Help (5F, which quits to AmiMSX's menu), 12 frames apart, on the 030 config; a TRACE build freezes at the cartridge's end loop and trace.bin carries the VRAM.
+- **The check:** `tools/read_keytest.py` aligns the log with the script and expects, per code, exactly the table's MSX key down and up again (Caps Lock: a CAPS pulse; AmiMSX's own row 14 hot keys: nothing in the MSX matrix), nothing held at the end, and the table equal to `tests/keymap_golden.json` (update the golden file when the mapping changes on purpose).
+- **Result (24 Oct 2026, v43):** 103 of 103 keys as expected, nothing held. Codes with no key on Amiga keyboards (0E, 1C, 2C, 3B, 47-49, 4B) press MSX `0` (the table's filler); harmless.
+- **Not covered:** the CD32-pad and joystick options (the 17 Oct "keys off" report suspected them), the "Shift as Space" and pause options, and the MSX1 machine's swap of the two keys at 00 and 29. Run the test again with a prefs file that sets them (`-ExtraArg P=...`) when those paths change.
