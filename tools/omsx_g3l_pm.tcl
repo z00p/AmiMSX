@@ -6,11 +6,12 @@
 # (omsx_cmdlog.tcl format), screenshots every 0.5 s and a VRAM dump before each key.
 # ::t0 < 0: start at the first non-black screen after -::t0 s. Output in ::d (mkdir it first).
 # Usage: openmsx -machine AmiMSX_MSX2P_Disk_NoFM -diska <dsk> -script tools/omsx_g3l_pm.tcl
-if {![info exists ::d]} { set ::d "C:/AMD/amimsx/build/g3pm/omsx" }
+set ::repo [file dirname [file dirname [file normalize [info script]]]]
+if {![info exists ::d]} { set ::d "$::repo/build/g3pm/omsx" }
 set ::out "$::d/pm"
 set ::from 4
 set ::frames 100000
-source "C:/AMD/amimsx/tools/omsx_vdpio.tcl"
+source "$::repo/tools/omsx_vdpio.tcl"
 set ::clog [open "$::d/pm.cmd.txt" w]
 set ::lg [open "$::d/pm_log.txt" w]
 if {![info exists ::t0]} { set ::t0 24.0 }

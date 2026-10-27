@@ -7,11 +7,12 @@
 # Gradius III Legends: explore the title menu. Space every 2 s until the title shows (raw
 # screenshot > 6 KB), then a key sequence with 1.5 s between keys, screenshots every 0.5 s,
 # and the VDP I/O logged from the title on (omsx_vdpio.tcl, activated here).
-set ::d "C:/AMD/amimsx/build/g3l_menu"
+set ::repo [file dirname [file dirname [file normalize [info script]]]]
+set ::d "$::repo/build/g3l_menu"
 set ::out "$::d/pm2"
 set ::from 100000
 set ::frames 100000
-source "C:/AMD/amimsx/tools/omsx_vdpio.tcl"
+source "$::repo/tools/omsx_vdpio.tcl"
 set ::lg [open "$::d/pm2_log.txt" w]
 set ::phase 0
 set ::tlast 0.0
