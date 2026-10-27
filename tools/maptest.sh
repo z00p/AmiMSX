@@ -17,10 +17,11 @@ echo "option sprites 1" > $D/maptest.keys
 sh tools/buildid.sh >/dev/null
 ./tools/vasmm68k_mot.exe -devpac -nocase -m68020 -Fhunkexe -nosym -maxerrors=0 -DTRACE=1 -DTRACEPC=\$$PC "$@" \
   -o build/AmiMSX_maptest AmiMSX_Main_v3.1.asm > $D/build.log 2>&1 || { echo "build failed"; grep -E "^(error|fatal)" $D/build.log; exit 1; }
-until ! tasklist | grep -qi -E "winuae|arnold-uae" && mkdir build/winuae.lock 2>/dev/null; do sleep 15; done
+LOCK="$(git rev-parse --path-format=absolute --git-common-dir)/../build/winuae.lock"   # the shared lock (worktrees too)
+until ! tasklist | grep -qi -E "winuae|arnold-uae" && mkdir "$LOCK" 2>/dev/null; do sleep 15; done
 rm -f run/trace.bin
 powershell -NoProfile -ExecutionPolicy Bypass -File winuae/batch_test.ps1 -Exe AmiMSX_maptest -Config AmiMSX-030.uae \
   -Roms T_MapTest.rom -Keys "$W/maptest.keys" -Shots 30 -WaitFile trace.bin -MaxWait 120 > $D/run.log 2>&1
 cp run/trace.bin $D/trace_maptest.bin 2>/dev/null
-rmdir build/winuae.lock
+rmdir "$LOCK"
 python -I tools/read_maptest.py $D/trace_maptest.bin $D/omsx_vram.bin | tee $D/result.txt

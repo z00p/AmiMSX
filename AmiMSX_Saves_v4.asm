@@ -145,6 +145,114 @@ FlNm2:	MOVE.B	(A0)+,(A1)+
 	BNE.S	FlNm2
 	RTS
 
+; Cartridge SRAM (4.4): ASCII8/ASCII16 SRAM cartridges (the ROM database's
+; flags, RomDbSram) keep it in "<cartridge>.sram" next to the ROM: the raw
+; 2 or 8 KB, as openMSX's .SRAM files. Read when the cartridge goes in Slot 1
+; (blank: FFh), written back in the menu when a game has changed it.
+	CNOP	0,4
+SramLoad:				; (InsertSl1, after FlashLoad)
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	SF	SramDirty
+	CLR.B	SramKind
+	TST.B	CartLoadOK
+	BEQ	SrLdX
+	TST.B	CartPathS1
+	BEQ	SrLdX
+	MOVE.B	RomDbSram,D0
+	MOVEQ	#3,D1
+	AND.B	D0,D1
+	MOVE.W	#$800,D2		; 1: 2 KB
+	CMP.B	#1,D1
+	BEQ.S	SrLdSz
+	MOVE.W	#$2000,D2		; 2: 8 KB
+	CMP.B	#2,D1
+	BNE	SrLdX
+SrLdSz:	MOVE.W	D2,SramSize
+	SUBQ.W	#1,D2
+	MOVE.W	D2,SramMask
+	MOVE.W	#$4000,SramSpan		; ASCII16: a 16 KB page,
+	BTST	#2,D0
+	BNE.S	SrLdOk
+	MOVE.W	#$2000,SramSpan		; ASCII8: 8 KB, and the bit above the
+	MOVE.W	PagCartS1,D1		; 8 KB bank number selects it.
+	ADD.W	D1,D1
+	SUBQ.W	#1,D1
+	MOVEQ	#0,D3
+SrLdB:	TST.W	D1
+	BEQ.S	SrLdB2
+	LSR.W	#1,D1
+	ADDQ.W	#1,D3
+	BRA.S	SrLdB
+SrLdB2:	CMP.W	#7,D3
+	BHI	SrLdX
+	MOVE.B	D3,SramBit
+SrLdOk:	AND.B	#7,D0
+	MOVE.B	D0,SramKind
+	LEA	SramRaw,A0		; Blank, then the file if there is one.
+	MOVE.W	#$2000/4-1,D1
+SrLdF:	MOVE.L	#-1,(A0)+
+	DBF	D1,SrLdF
+	BSR	SrName
+	MOVE.L	#FlNameBuf,D1
+	MOVE.L	#$3ED,D2
+	JSR	OPENFILE
+	BEQ.S	SrLdV
+	MOVE.L	#SramRaw,D2
+	MOVEQ	#0,D3
+	MOVE.W	SramSize,D3
+	JSR	READFILE
+	JSR	CLOSEFILE
+SrLdV:	LEA	SramView+$80,A1		; The page: SramRaw mirrored.
+	LEA	SramRaw,A0
+	MOVEQ	#0,D1
+SrLdV1:	MOVE.W	D1,D2
+	AND.W	SramMask,D2
+	MOVE.B	(A0,D2.W),D3
+	MOVE.W	D1,D2
+	CMP.W	#$2000,D2
+	BCS.S	SrLdV2
+	ADD.W	#$80,D2
+SrLdV2:	MOVE.B	D3,(A1,D2.W)
+	ADDQ.W	#1,D1
+	CMP.W	#$4000,D1
+	BCS.S	SrLdV1
+SrLdX:	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+
+	CNOP	0,4
+SramSave:				; (back from the emulation)
+	TST.B	SramDirty
+	BEQ.S	SrSvR
+	TST.B	SramKind
+	BEQ.S	SrSvR
+	TST.B	CartPathS1
+	BEQ.S	SrSvR
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	SF	SramDirty
+	BSR	SrName
+	MOVE.L	#FlNameBuf,D1
+	MOVE.L	#$3EE,D2
+	JSR	OPENFILE
+	BEQ.S	SrSvX
+	MOVE.L	#SramRaw,D2
+	MOVEQ	#0,D3
+	MOVE.W	SramSize,D3
+	JSR	WRITEFILE
+	JSR	CLOSEFILE
+SrSvX:	MOVEM.L	(SP)+,D0-D7/A0-A6
+SrSvR:	RTS
+
+; FlNameBuf = CartPathS1 + ".sram"
+SrName:	LEA	CartPathS1,A0
+	LEA	FlNameBuf,A1
+SrNm1:	MOVE.B	(A0)+,(A1)+
+	BNE.S	SrNm1
+	SUBQ.L	#1,A1
+	LEA	SrExt,A0
+SrNm2:	MOVE.B	(A0)+,(A1)+
+	BNE.S	SrNm2
+	RTS
+
 	CNOP	0,4
 DiskBSave:				; (back from the emulation)
 	TST.B	DskDirtyB
@@ -173,4 +281,5 @@ FlBanks:	DC.W	0
 CartPathS1:	DS.B	256		; the Slot 1 cartridge's file
 FlNameBuf:	DS.B	264
 FlExt:		DC.B	".flash",0
+SrExt:		DC.B	".sram",0
 	EVEN

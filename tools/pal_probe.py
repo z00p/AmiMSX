@@ -30,6 +30,8 @@ def row(rid):
 
 def blocks(d):
     out, end = {}, len(d)
+    if d[end - 12292:end - 12288] == b"SPRL":    # (4.4) hardware-test log after AclN
+        end -= 12292
     for name, n in TAIL:
         out[name] = d[end - n:end]
         end -= n

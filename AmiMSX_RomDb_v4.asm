@@ -20,13 +20,14 @@ RDB_CACHEMAX=512		; cache entries (8 bytes: CheckId.L, PagCart.W,
 	CNOP	0,4
 RomDbCheck:
 	SF	RomDbHit
-	CMP.L	#($2080*5),BucCart	; MegaROMs only (as MiraCheckCart).
-	BCS	RomDbRts
-	MOVEM.L	D0-D7/A0-A6,-(SP)
-	JSR	MiConMapper		; A saved mapper wins.
-	TST.B	SiNewMapp
-	BEQ	RomDbX
-	BSR	RomCacheLoad
+	CLR.B	RomDbSram		; (4.4)
+	CLR.B	RomDbMach		; (4.4) Every ROM now (the machine, for
+	MOVEM.L	D0-D7/A0-A6,-(SP)	; the per-game defaults; the mapper for
+					; MegaROMs only, as MiraCheckCart).
+	JSR	MiConMapper		; A saved mapper wins (4.4: the lookup
+					; still runs, for the SRAM flags).
+	BSR	RomDbLoadFile		; (4.4) The database first: the cache
+	BSR	RomCacheLoad		; must come from the same one.
 	MOVE.L	RomCacheDir,D0		; Cached answer?
 	BEQ.S	RomDbHash
 	MOVE.L	D0,A0
@@ -39,7 +40,10 @@ RomDbC1:
 	MOVE.W	4(A0),D0
 	CMP.W	PagCart,D0
 	BNE.S	RomDbC3
+	BTST	#7,7(A0)		; (4.4) No flags (cached before 4.4):
+	BEQ.S	RomDbC3			; look it up again.
 	MOVE.B	6(A0),RomDbCode
+	MOVE.B	7(A0),RomDbFlags
 	BRA	RomDbGot
 RomDbC3:
 	ADDQ.L	#8,A0
@@ -52,6 +56,7 @@ RomDbHash:
 	MOVE.L	BucFileCart,D0
 	BSR	Sha1
 	MOVE.B	#$FF,RomDbCode		; ($FF: not in the database)
+	CLR.B	RomDbFlags
 	MOVE.L	RomDbDir,D0
 	BEQ.S	RomDbAdd
 	MOVE.L	D0,A0
@@ -77,9 +82,22 @@ RomDbLo:
 RomDbFound:
 	MOVE.B	4(A0,D5.L*8),RomDbCode
 	MOVE.B	5(A0,D5.L*8),RomDbType
+	MOVE.B	6(A0,D5.L*8),RomDbFlags
 RomDbAdd:
 	BSR	RomCacheAdd
 RomDbGot:
+	MOVE.B	RomDbFlags,D0		; (4.4) SRAM: bits 4-6 (size, ASCII16).
+	LSR.B	#4,D0
+	AND.B	#7,D0
+	MOVE.B	D0,RomDbSram
+	MOVE.B	RomDbFlags,D0		; (4.4) The machine: bits 2-3 (1 MSX2,
+	LSR.B	#2,D0			; 2 MSX2+, 3 turbo R).
+	AND.B	#3,D0
+	MOVE.B	D0,RomDbMach
+	CMP.L	#($2080*5),BucCart	; (4.4) The mapper: MegaROMs only.
+	BCS.S	RomDbX
+	TST.B	SiNewMapp		; A saved mapper: not the database's.
+	BEQ.S	RomDbX
 	CMP.B	#4,RomDbCode		; $FE (not emulated) / $FF (unknown):
 	BHI.S	RomDbX			; the tag and the guess decide.
 	ST	RomDbHit
@@ -87,6 +105,128 @@ RomDbX:
 	MOVEM.L	(SP)+,D0-D7/A0-A6
 RomDbRts:
 	RTS
+
+; -------------------------------------> Disks (4.4).
+; AmiMSX4.diskdb (tools/make_diskdb.py): the machine for disk games by a cheap
+; fingerprint of the image (no SHA-1: a 720 KB image takes seconds on a
+; 68020), the 16-bit word sum of the whole image (29 bits, as CalCheckCart)
+; and its size in KB. "AMXDD1",0,0, count.L, then 8-byte entries: sum.L,
+; KB.W, machine.B (1 MSX2, 2 MSX2+, 3 turbo R), 0. DiskDbCheck runs as drive A
+; loads an image (DIRFILE, BUCFILE - 1 KB): a game in it gets that machine,
+; over the settings in force (kept aside as for a cartridge's own file).
+DiskDbCheck:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	MOVE.L	BUCFILE,D3
+	SUB.L	#1024,D3		; The image's size.
+	MOVE.L	D3,D0
+	LSR.L	#1,D0
+	BEQ	DkDbX
+	MOVE.L	DIRFILE,A0
+	MOVEQ	#0,D1
+	MOVEQ	#0,D2
+DkDbS:	MOVE.W	(A0)+,D1
+	ADD.L	D1,D2
+	SUBQ.L	#1,D0
+	BNE.S	DkDbS
+	AND.L	#$1FFFFFFF,D2
+	LSR.L	#8,D3
+	LSR.L	#2,D3			; KB
+	IFD	DKDBLOG			; (debug: the key into AmiMSX:diskdb.log)
+	MOVEM.L	D2-D3,DkDbLogB
+	MOVEM.L	D2-D3,-(SP)
+	MOVE.L	#DkDbLogN,D1
+	MOVE.L	#$3EE,D2
+	JSR	OpenFile
+	BEQ.S	DkDbLg1
+	MOVE.L	#DkDbLogB,D2
+	MOVEQ	#8,D3
+	JSR	WriteFile
+	JSR	CloseFile
+DkDbLg1:MOVEM.L	(SP)+,D2-D3
+	ENDC
+	MOVEM.L	D2-D3,-(SP)		; (DiskDbLoad uses them)
+	BSR	DiskDbLoad
+	MOVEM.L	(SP)+,D2-D3
+	MOVE.L	DiskDbDir,D0
+	BEQ	DkDbX
+	MOVE.L	D0,A0
+	MOVE.L	DiskDbN,D1
+	BRA.S	DkDbL2
+DkDbL1:	CMP.L	(A0),D2
+	BNE.S	DkDbL3
+	CMP.W	4(A0),D3
+	BEQ.S	DkDbHit
+DkDbL3:	ADDQ.L	#8,A0
+DkDbL2:	SUBQ.L	#1,D1
+	BPL.S	DkDbL1
+	BRA.S	DkDbX
+DkDbHit:MOVEQ	#0,D0
+	MOVE.B	6(A0),D0
+	BEQ.S	DkDbX
+	MOVE.L	D0,-(SP)
+	TST.B	GPActive		; The settings in force aside (once),
+	BNE.S	DkDbH1
+	JSR	GPGUIToPrefs
+	LEA	GPSaved,A1
+	JSR	GPFromPrefs
+	ST	GPActive
+DkDbH1:	JSR	GPGUIToPrefs		; then the machine over them.
+	MOVE.L	(SP)+,D0
+	JSR	GDMach
+	JSR	GPShowGUI
+	IFD	DKDBLOG
+	MOVE.B	DirPrefs+$10,DkDbLogB+6
+	MOVE.B	#$EE,DkDbLogB+7
+	MOVE.L	#DkDbLogN,D1
+	MOVE.L	#$3EE,D2
+	JSR	OpenFile
+	BEQ.S	DkDbX
+	MOVE.L	#DkDbLogB,D2
+	MOVEQ	#8,D3
+	JSR	WriteFile
+	JSR	CloseFile
+	ENDC
+DkDbX:	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+
+	IFD	DKDBLOG
+DkDbLogB:	DS.L	2
+DkDbLogN:	DC.B	"AmiMSX:diskdb.log",0
+	EVEN
+	ENDC
+
+DiskDbLoad:
+	TST.B	DiskDbTried
+	BNE	DkDbLR
+	ST	DiskDbTried
+	MOVE.L	#tDiskDb,D1
+	MOVE.L	#$3ED,D2
+	JSR	OpenFile
+	BEQ	DkDbLR
+	MOVE.L	#RomDbHdr,D2
+	MOVE.L	#12,D3
+	JSR	ReadFile
+	CMP.L	#"AMXD",RomDbHdr
+	BNE.S	DkDbLC
+	CMP.W	#"D1",RomDbHdr+4
+	BNE.S	DkDbLC
+	MOVE.L	RomDbHdr+8,D0
+	BEQ.S	DkDbLC
+	CMP.L	#65536,D0		; (sanity)
+	BHI.S	DkDbLC
+	LSL.L	#3,D0
+	MOVE.L	D0,DiskDbSize
+	MOVE.L	#$00010000,D1
+	MOVE.L	4.W,A6
+	JSR	-$C6(A6)		; AllocMem
+	MOVE.L	D0,DiskDbDir
+	BEQ.S	DkDbLC
+	MOVE.L	D0,D2
+	MOVE.L	DiskDbSize,D3
+	JSR	ReadFile
+	MOVE.L	RomDbHdr+8,DiskDbN
+DkDbLC:	JSR	CloseFile
+DkDbLR:	RTS
 
 ; -------------------------------------> The database file (once).
 RomDbLoadFile:
@@ -115,6 +255,15 @@ RomDbLoadFile:
 	MOVE.L	RomDbSize,D3
 	JSR	ReadFile
 	MOVE.L	RomDbHdr+8,RomDbN
+	MOVE.L	RomDbDir,A0		; (4.4) Its sum, for the cache's stamp.
+	MOVE.L	RomDbN,D0
+	MOVE.L	D0,D1
+	ADD.L	D0,D0			; longs
+	BRA.S	RomDbSm2
+RomDbSm1:ADD.L	(A0)+,D1
+RomDbSm2:SUBQ.L	#1,D0
+	BPL.S	RomDbSm1
+	MOVE.L	D1,RomDbSum
 RomDbLfC:
 	JSR	CloseFile
 RomDbLfR:
@@ -151,6 +300,12 @@ RomCaL1:
 	LSL.L	#3,D3
 	JSR	ReadFile
 	JSR	CloseFile
+	MOVE.L	RomCacheDir,A0		; (4.4) Entry 0 stamps the database the
+	CMP.L	#"RDB4",(A0)		; answers came from (RomDbSum); another
+	BNE.S	RomCaLN			; one (or a cache from before 4.4):
+	MOVE.L	4(A0),D0		; start again.
+	CMP.L	RomDbSum,D0
+	BNE.S	RomCaLN
 	RTS
 RomCaLN:
 	CLR.W	RomCacheN
@@ -159,13 +314,21 @@ RomCaLR:
 
 RomCacheAdd:
 	MOVE.L	RomCacheDir,D0
-	BEQ.S	RomCaAR
+	BEQ	RomCaAR
 	MOVE.L	D0,A0
-	MOVEQ	#0,D0
+	TST.W	RomCacheN		; (4.4) A new cache: the stamp first
+	BNE.S	RomCaA0			; ("RDB4", the database's sum; it never
+	MOVE.L	#"RDB4",(A0)		; matches a CheckId, 29 bits).
+	MOVE.L	RomDbSum,4(A0)
+	MOVE.W	#1,RomCacheN
+RomCaA0:MOVEQ	#0,D0
 	MOVE.W	RomCacheN,D0
-	CMP.W	#RDB_CACHEMAX,D0	; Full: overwrite the oldest (ring).
-	BCS.S	RomCaA1
+	CMP.W	#RDB_CACHEMAX,D0	; Full: overwrite the oldest (ring,
+	BCS.S	RomCaA1			; not the stamp).
 	MOVE.W	RomCacheRing,D0
+	BNE.S	RomCaRg
+	MOVEQ	#1,D0
+RomCaRg:MOVE.W	D0,RomCacheRing
 	ADDQ.W	#1,RomCacheRing
 	AND.W	#RDB_CACHEMAX-1,RomCacheRing
 	BRA.S	RomCaA2
@@ -176,7 +339,9 @@ RomCaA2:
 	MOVE.L	CheckId,(A1)+
 	MOVE.W	PagCart,(A1)+
 	MOVE.B	RomDbCode,(A1)+
-	CLR.B	(A1)
+	MOVE.B	RomDbFlags,D0		; (4.4) the flags, bit 7: they're there
+	BSET	#7,D0
+	MOVE.B	D0,(A1)
 	MOVE.L	#tRomCache,D1
 	MOVE.L	#$3EE,D2
 	JSR	OpenFile
@@ -207,6 +372,13 @@ RomDbF1:
 	JSR	-$D2(A6)
 	CLR.L	RomCacheDir
 RomDbF2:
+	MOVE.L	DiskDbDir,D0		; (4.4)
+	BEQ.S	RomDbF3
+	MOVE.L	D0,A1
+	MOVE.L	DiskDbSize,D0
+	JSR	-$D2(A6)
+	CLR.L	DiskDbDir
+RomDbF3:
 	RTS
 
 ; -------------------------------------> SHA-1.
@@ -362,9 +534,20 @@ RomCacheRing:	DC.W	0
 RomDbHit:	DC.B	0		; RomDbCheck found a mapper for this load
 RomDbCode:	DC.B	0
 RomDbType:	DC.B	0		; openMSX type number (AmiMSX4_types.txt)
+RomDbFlags:	DC.B	0		; (4.4) its flags (make_romdb.py)
+	EVEN
+RomDbSum:	DC.L	0		; (4.4) the database's sum (the cache's stamp)
+RomDbSram:	DC.B	0		; (4.4) SRAM: bits 0-1 size, bit 2 ASCII16
+RomDbMach:	DC.B	0		; (4.4) machine: 0 MSX/unknown, 1 MSX2, 2 MSX2+, 3 turbo R
 RomDbTried:	DC.B	0
 Cart8K:		DC.B	0		; (8-16 Kb file: one 16 Kb page)
 	EVEN
 tRomDb:		DC.B	"PROGDIR:AmiMSX4.romdb",0
 tRomCache:	DC.B	"PROGDIR:AmiMSX4.romcache",0
+tDiskDb:	DC.B	"PROGDIR:AmiMSX4.diskdb",0
+	EVEN
+DiskDbDir:	DC.L	0		; (4.4) the disk database, its size, entries
+DiskDbSize:	DC.L	0
+DiskDbN:	DC.L	0
+DiskDbTried:	DC.B	0
 	EVEN

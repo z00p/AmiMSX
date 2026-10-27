@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.3
+Short:        MSX/MSX2/MSX2+ emulator, 4.4
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.3
+Version:      4.4
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -80,6 +80,24 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 4.4
+----------
+- Per-game machine: an MSX2, MSX2+ or turbo R game without its own
+  settings starts on that machine (turbo R games on the MSX2+), from
+  the ROM database and a new disk database. File Hunter's MSXdev and
+  homebrew games are in both. A game's own settings keep the machine.
+- Cartridge SRAM: save memory for the ASCII8/ASCII16 SRAM cartridges
+  (Hydlide 2, A-Train, Xanadu, Deep Dungeon...), kept as
+  <cartridge>.sram next to the ROM, the same format as openMSX's.
+- VDP commands: SRCH (BASIC's PAINT in SCREEN 5 and up); HMMV keeps
+  both colours of a byte (Pampas & Selene's health bars); SCREEN 8
+  PSET, LINE, YMMM, HMMC and LMMC draw into video memory.
+- SCREEN 8 on a 68030/50 is back to its speed before 4.3 (Uridium 2:
+  about 74% of MSX speed, 4.3 about 68%).
+- 68040/060 (PiStorm, BigMig): SCREEN 2 and 4 tiles are drawn by the
+  CPU. Lotus F3's road no longer judders. Bombaman's sprites no
+  longer ghost on fast machines.
 
 New in 4.3
 ----------
@@ -180,11 +198,8 @@ Known limits
   (Gradius 2, Pampas & Selene); run MSX2 games as MSX2.
 - Nemesis 2: the stars are drawn cyan instead of white, and the ship
   can be missing for a frame in the hangar intro.
-- Bombaman: moving characters look ghosted on fast machines (seen on
-  PiStorm and BigMig), though each frame is correct.
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
-- Lotus F3: the car jitters while it moves (seen on PiStorm).
 - CD32 pads: on Standard a pad is read as a plain two-button joystick
   (red = fire 1, blue = fire 2); set the port to CD32 pad for the
   other buttons, and set a switchable adapter to its CD32 mode too.

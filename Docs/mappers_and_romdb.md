@@ -118,10 +118,10 @@ The code returned is the index minus 1 (0 = Konami 1 ... 5 = SCC 2). Per-game `<
 | 16kb (Generic 16 KB) | 25 | 21 | 19 / 2 | 0 | Konami 1 does the 8000h half | Andorogynus, Acrojet, Fantasy Zone 2, King's Knight, Magical Stones |
 | 8kB (Generic 8 KB) | 23 | 12 | 8 / 2 | 3 | Konami 2 covers 6000h-BFFFh | Vampire Killer, Zanac A.I., Hydlide 3, Uchu Yohei (2023), Flight Deck |
 | KoeiSRAM32 | 24 | 17 | 17 / 0 | 16 | None (banks are ASCII8-like, SRAM 8 KB pages) | Nobunaga no Yabou series, Genghis Khan, Sangokushi, Royal Blood, Daikoukai Jidai, Inindo |
-| ASCII8SRAM8 | 16 | 10 | 10 / 0 | 6 | Banks only (ASCII 1), no SRAM | Xanadu, Heroes of the Lance, Ultima III, Deep Dungeon 2, Game Master 2 (one dump) |
-| ASCII16SRAM2 | 12 | 5 | 5 / 0 | 4 | Banks only (ASCII 2) | Hydlide 2, Daisenryaku, Super Daisenryaku, Harry Fox MSX Special |
-| ASCII8SRAM2 | 5 | 5 | 5 / 0 | 4 | Banks only (ASCII 1) | Deep Dungeon 1/2, Dires, Kisei, Elthlead |
-| ASCII16SRAM8 | 3 | 1 | 1 / 0 | 1 | Banks only | A-Train |
+| ASCII8SRAM8 | 16 | 10 | 10 / 0 | 6 | Full since 4.4 (SRAM in `.sram`) | Xanadu, Heroes of the Lance, Ultima III, Deep Dungeon 2, Game Master 2 (one dump) |
+| ASCII16SRAM2 | 12 | 5 | 5 / 0 | 4 | Full since 4.4 (SRAM in `.sram`) | Hydlide 2, Daisenryaku, Super Daisenryaku, Harry Fox MSX Special |
+| ASCII8SRAM2 | 5 | 5 | 5 / 0 | 4 | Full since 4.4 (SRAM in `.sram`) | Deep Dungeon 1/2, Dires, Kisei, Elthlead |
+| ASCII16SRAM8 | 3 | 1 | 1 / 0 | 1 | Full since 4.4 (SRAM in `.sram`) | A-Train |
 | manbow2 / Manbow2_2 | 12 | 3 | 0 / 3 | 1 | SCC 1 runs them; flash off at ≤ 512 KB | Manbow 2, Lotus F3, Pengo |
 | KonamiUltimateCollection | 5 | 2 | 0 / 2 | 0 | Partial (flash mode, no offset register) | Konami Ultimate Collection, Pampas and Selene |
 | RBSC_Flash_KonamiSCC | 1 | 1 | 0 / 1 | 1 | Works (flash mode) | Angelic Warrior DEVA |
@@ -327,6 +327,7 @@ Per-game `.prefs` files already hold the sound chip (`DirPrefs+$1D`: 0 PSG, 1 SC
   - **Conflicts:** Head over Heels, Batman, DEVA and Vectroids are also Konami SCC carts. Keep SCC for those unless the maintainer's `.prefs` file says otherwise.
 - **Machine:** the database's `<system>` (MSX2 needed). Show it as a warning when the machine is MSX1. MSX2+ isn't marked in the database.
 - **SRAM:** when the SRAM types exist, keep it in `<cartridge>.sram` next to the ROM, in the same way as `.prefs`. Flash carts could save their changed 64 KB sectors to the same file.
+- **As built (4.4):** the shipped `AmiMSX4.romdb` is the simpler SHA-1 format of tools/make_romdb.py (8-byte entries: key, AmiMSX mapper code, openMSX type, flags, 0). Flags: bit 0 SRAM, bit 1 flash, bits 2-3 machine (1 MSX2, 2 MSX2+, 3 turbo R: the per-game defaults), bits 4-5 SRAM size AmiMSX emulates (1 = 2 KB, 2 = 8 KB), bit 6 ASCII16. Plain types (code $FD) are in only for MSX2 and later games, for the machine. Disks have their own `AmiMSX4.diskdb` (tools/make_diskdb.py: word sum + size). Notes: Docs/agent_notes/v44_sram.md, v44_defaults.md.
 
 ## 6. Implementation order
 
@@ -344,7 +345,7 @@ Effort: tiny = table entries only; small = up to half a day; medium = 1-2 days.
 | 2 | ROM database, SHA-1, `AmiMSX4.mapper` and the "needs mapper X" message | Removes the tag dependence of #14, #54, #78; fixes the untagged Uwol in `run/Roms` | Fixes 79 of 314 wrong guesses | Medium |
 | 3 | Generic 8 KB, Generic 16 KB (make Konami 1 the full version) and GenericKonami, done with step 2 so database codes map one to one | - | 67 titles (7 have no other dump) | Tiny |
 | 4 | Page-2 BASIC ROMs: map at 8000h when INIT is 0 and TEXT ≥ 8000h, or when the database says page2 | #96, #97 (need the original `AmiMSX2.data`: C-BIOS has no BASIC) | 246 titles, 45 images in the sets | Small |
-| 5 | SRAM: ASCII8SRAM2/8, ASCII16SRAM2/8, Koei; `.sram` file | #56 | 38 titles (Xanadu, Hydlide 2, A-Train, Koei) | Small-medium |
+| 5 | SRAM: ASCII8SRAM2/8, ASCII16SRAM2/8 (done in 4.4), Koei; `.sram` file | #56 | 38 titles (Xanadu, Hydlide 2, A-Train, Koei) | Small-medium |
 | 6 | ASCII16-X and ROMs over 4 MB (12-bit banks from data plus address bits; larger size and bank limits) | #3, #67 | 2 titles (both 2025) | Medium-large. Needs about 9 MB of RAM, so in practice only PiStorm/BigMig |
 | 7 | Flash: gate it on the database type, not size (so Manbow 2 at 512 KB gets it too); add Slot 2; save sectors to disk; the KonamiUltimateCollection offset register | #1, #2, #18, #40 saves | 6 titles | Medium |
 | 8 | Rare commercial mappers: R-Type, Cross Blaim, Harry Fox, Super Lode Runner, Wonder Kid, Super Swangi, Zemina, Dooly, Mirrored4000 | - | 1-3 titles each | Small each |

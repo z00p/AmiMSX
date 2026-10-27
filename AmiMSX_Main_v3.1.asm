@@ -279,6 +279,26 @@ PERFSUB:	MACRO
 	ENDC
 	ENDM
 
+; (4.4) Hardware-test log, PERF builds: when the sprite pass of this MSX
+; frame ended, as the Amiga frame (PerfTick, low byte) and beam line / 2, by
+; MSX frame (DispN); DispTick has the same for the end of the frame. No stack.
+SPRLOG:	MACRO
+	IFD	PERF
+	MOVEM.L	D0-D1/A0,PerfSv
+	MOVE.L	DispN,D1
+	AND.W	#4095,D1
+	LEA	SprTick,A0
+	MOVE.B	PerfTick+3,(A0,D1.W)
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	LSR.W	#1,D0
+	LEA	SprLine,A0
+	MOVE.B	D0,(A0,D1.W)
+	MOVEM.L	PerfSv,D0-D1/A0
+	ENDC
+	ENDM
+
 ; Table split (SCREEN 4, see PRINT4S): the first change of R#2, R#3, R#10 or
 ; R#4 during the display. \1 = the register's byte in REGS, D2.B = the new
 ; value. Saves the tables in use until then (the playfield) and asks the
@@ -561,7 +581,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.3 ("
+	DC.B	"$VER:AmiMSX Emulator v4.4 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -2711,6 +2731,7 @@ NOES2Plus:
 
 Slt1EsPowerOn:
 	SF	Slot1Cart
+	CLR.L	SramR				; (4.4) The SRAM banks: ROM again.
 
 ;-;	MOVE.L	#NOMEM-$0000,SLOT1		; Para P�gina 0
 ;-;	MOVE.L	#NOMEM-$0000,SubSLOT1		; Para P�gina 0
@@ -2924,7 +2945,18 @@ NoStdMappS1:
 MaskOkS1:
 	MOVE.W	D0,MaskROM(A3)
 
-
+	TST.B	SramKind		; (4.4) Cartridge SRAM (SramLoad): the
+	BEQ.S	MapS1Go			; SRAM tables, if the mapper is the
+	BTST	#2,SramKind		; cartridge's type.
+	BNE.S	MapS1S6
+	CMP.L	#Mapper3,A0
+	BNE.S	MapS1Go
+	LEA	Mapper3S,A0
+	BRA.S	MapS1Go
+MapS1S6:CMP.L	#Mapper4,A0
+	BNE.S	MapS1Go
+	LEA	Mapper4S,A0
+MapS1Go:
 	LEA	$660(A3),A1		; Mapper en Slot 1
 	REPT	8
 	MOVE.L	(A0)+,(A1)+
@@ -8001,12 +8033,8 @@ CRAM98B:ADDQ.L	#1,A2			; (4.3) A2: the logical address. The
 	VMAP	D1			; conversion reads logical runs).
 	MOVE.B	D2,(DIRVRAM.L,D1.L)
 	MOVE.L	A4,D1
-
-	MOVE.B	(PasScr8Out-$100.W,PC,D2.W),D2
-
-	ROR.L	#3,D1
-	LEA	(SCR0+(32*512*7),D1.W),A4
-	ST	(TAB98-REGS.W,A3,D1.W)
+	ROR.L	#3,D1			; (4.4: the plane lookups before this
+	ST	(TAB98-REGS.W,A3,D1.W)	; were left over from 3.1)
 	ST	(TAB98B-REGS.W,A3,D1.W)	; (Cache bank 2.)
 
 
@@ -8089,8 +8117,8 @@ IVDPPUNT:
 	DC.L	IVDP5
 	DC.L	IVDPN
 	DC.L	IVDP7
-	DC.L	IVDPN		; 8
-	DC.L	IVDPN
+	DC.L	IVDP8		; 8	(4.4) SRCH's X
+	DC.L	IVDP9
 	DC.L	IVDPN
 	DC.L	IVDPN
 	DC.L	IVDPN
@@ -8690,7 +8718,7 @@ Asc26:
 	MULU	#$4100,D1
 	ADD.L	MapROMBase1(A3),D1
 	SUB.L	#$4000,D1
-
+Asc26J:					; (4.4) (Asc26S: the SRAM page)
 	MOVE.L	D1,PagRead+8+0(A3)
 	MOVE.L	D1,SLOTS+(32*1)+8(A3)
 
@@ -8728,7 +8756,7 @@ KON18:
 	MULU	#$4100,D1
 	ADD.L	MapROMBase1(A3),D1
 	SUB.L	#$8000,D1
-
+KON18J:					; (4.4) (Asc26S: the SRAM page)
 	MOVE.L	D1,PagRead+16+0(A3)
 	MOVE.L	D1,SLOTS+(32*1)+16(A3)
 
@@ -8985,6 +9013,7 @@ Pag0S1:
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
 	SUB.L	#$4000,D1
+Pag0J:					; (4.4) (Asc16S: the SRAM page)
 
 	MOVE.L	D1,PagRead+8(A3)
 	MOVE.L	D1,SLOTS+(32*1)+8(A3)
@@ -9027,6 +9056,7 @@ Pag1S1:
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
 	SUB.L	#$6000,D1
+Pag1J:					; (4.4) (Asc16S: the SRAM page)
 
 	MOVE.L	D1,PagRead+12(A3)
 	MOVE.L	D1,SubSLOTS+(32*1)+8(A3)
@@ -9069,6 +9099,7 @@ Pag2S1:
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
 	SUB.L	#$8000,D1
+Pag2J:					; (4.4) (Asc16S: the SRAM page)
 
 	MOVE.L	D1,PagRead+16(A3)
 	MOVE.L	D1,SLOTS+(32*1)+16(A3)
@@ -9111,6 +9142,7 @@ Pag3S1:
 	MULU	#$2080,D1
 	ADD.L	MapROMBase1(A3),D1
 	SUB.L	#$A000,D1
+Pag3J:					; (4.4) (Asc16S: the SRAM page)
 
 	MOVE.L	D1,PagRead+20(A3)
 	MOVE.L	D1,SubSLOTS+(32*1)+16(A3)
@@ -9145,6 +9177,118 @@ Asc16:
 	BCS	Pag2S1
 
 	BRA.S	Pag3S1
+
+; (4.4) Cartridge SRAM: the ASCII8/ASCII16 SRAM types (openMSX ASCII8SRAM2/8,
+; ASCII16SRAM2/8: RomAscii8_8, RomAscii16_2). Mapper3S/Mapper4S replace the
+; Slot 1 tables when SramKind is set (SramLoad, from the ROM database).
+; SramRaw holds the SRAM (2 or 8 KB, saved to <cartridge>.sram); SramView is
+; a 16 KB page laid out as the ROM's ($80 after each 8 KB) with SramRaw
+; mirrored in it, for the read pointers. ASCII16: bank value 10h selects it
+; (page 1 read only, page 2 read and write). ASCII8: the bit above the 8 KB
+; bank number (SramBit) selects it, writable at 8000h-BFFFh only. SramR:
+; SRAM in 4000h, 6000h, 8000h, A000h; the write handlers (8000h-BFFFh) take
+; the byte from where the write landed (the slot's spare write page) and
+; store it in SramRaw and every mirror in SramView.
+	CNOP	0,8
+Mapper3S:				; ASCII 1 + SRAM
+	DC.L	OtraInstr,OtraInstr,OtraInstr,Asc16S
+	DC.L	SramW8,SramWA,OtraInstr,OtraInstr
+Mapper4S:				; ASCII 2 + SRAM
+	DC.L	OtraInstr,OtraInstr,OtraInstr,Asc26S
+	DC.L	SramW8,SramWA,OtraInstr,OtraInstr
+
+Asc26S:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+12(A3),D1
+	AND.W	#$1000,D1
+	BNE.S	Asc26S2
+	CMP.B	#$10,(A4)		; Page 1: SRAM, read only.
+	SEQ	SramR+0
+	SEQ	SramR+1
+	BNE	Asc26
+	SUB.W	(A7),A5
+	MOVE.L	#SramView+$80-$4000,D1
+	BRA	Asc26J
+Asc26S2:CMP.B	#$10,(A4)		; Page 2: SRAM, read and write.
+	SEQ	SramR+2
+	SEQ	SramR+3
+	BNE	KON18
+	SUB.W	(A7),A5
+	MOVE.L	#SramView+$80-$8000,D1
+	BRA	KON18J
+
+Asc16S:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+12(A3),D1
+	LSR.W	#8,D1
+	LSR.W	#3,D1
+	AND.W	#3,D1			; 0-3: 4000h, 6000h, 8000h, A000h.
+	MOVE.L	D3,SramSv		; (no stack: A7 is the Restas table)
+	MOVE.B	SramBit,D3
+	BTST	D3,(A4)
+	MOVEM.L	SramSv,D3		; (MOVEM keeps the flags)
+	SNE	(SramR.L,D1.W)
+	BEQ	Asc16
+	SUB.W	(A7),A5
+	TST.W	D1
+	BEQ.S	Asc16S0
+	SUBQ.W	#1,D1
+	BEQ.S	Asc16S1
+	SUBQ.W	#1,D1
+	BEQ.S	Asc16S2
+	MOVE.L	#SramView+$80-$A000,D1
+	BRA	Pag3J
+Asc16S0:MOVE.L	#SramView+$80-$4000,D1
+	BRA	Pag0J
+Asc16S1:MOVE.L	#SramView+$80-$6000,D1
+	BRA	Pag1J
+Asc16S2:MOVE.L	#SramView+$80-$8000,D1
+	BRA	Pag2J
+
+SramW8:	TST.B	SramR+2
+	BNE.S	SramW8a
+	Otra2
+SramW8a:MOVE.L	A4,D1
+	SUB.L	PagWrite+16(A3),D1
+	BRA.S	SramW
+SramWA:	TST.B	SramR+3
+	BNE.S	SramWAa
+	Otra2
+SramWAa:MOVE.L	A4,D1
+	SUB.L	PagWrite+20(A3),D1
+SramW:	MOVEM.L	D3-D5/A0,SramSv		; D1 = the Z80 address, (A4) = the byte.
+	MOVE.B	(A4),D3
+	MOVE.W	SramMask,D4
+	AND.W	D1,D4			; Its SRAM offset.
+	LEA	SramRaw,A0
+	CMP.B	(A0,D4.W),D3
+	BEQ.S	SramWX
+	MOVE.B	D3,(A0,D4.W)
+	ST	SramDirty
+	LEA	SramView+$80,A0
+	MOVE.W	D4,D5			; Every mirror in the page (16 KB for
+SramWm:	MOVE.W	D5,D1			; ASCII16, 8 KB for ASCII8).
+	CMP.W	#$2000,D1
+	BCS.S	SramW1
+	ADD.W	#$80,D1
+SramW1:	MOVE.B	D3,(A0,D1.W)
+	ADD.W	SramSize,D5
+	CMP.W	SramSpan,D5
+	BCS.S	SramWm
+SramWX:	MOVEM.L	SramSv,D3-D5/A0
+	MOVEQ	#0,D1
+	Otra2
+
+SramSv:		DS.L	4
+SramR:		DC.B	0,0,0,0		; SRAM in 4000h, 6000h, 8000h, A000h
+SramKind:	DC.B	0		; 0: none; bits 0-1 size (1: 2 KB, 2: 8 KB), bit 2 ASCII16
+SramBit:	DC.B	0		; ASCII8: the bank bit that selects it
+SramDirty:	DC.B	0		; changed since the last save
+	EVEN
+SramMask:	DC.W	0		; size - 1
+SramSize:	DC.W	0
+SramSpan:	DC.W	0		; the mirrored page: $4000 (ASCII16), $2000
+	CNOP	0,8
 
 ; -------------------------------------<=
 ; -------------------------------------<=
@@ -10303,7 +10447,8 @@ M7LayN:
 	ST	SCRTDirty
 	MOVE.L	#OUT98A7,DREGOUT98(A3)	; (4.3) The planar mapping.
 	MOVE.L	#SPRSH,SprVB		; (4.3) The sprites read the logical view
-	JSR	SprShRef		; (SPRSH), the tables refreshed now.
+	ST	SprShSt			; (SPRSH), the tables refreshed now
+	JSR	SprShChk		; (4.4: all of it may be stale).
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -10369,7 +10514,8 @@ M8Chap:	MOVE.L	#VDP17,VDPPUNT+($17*4)	; *m8
 	MOVE.L	#OUT98XM8,DREGOUT98(A3)	; (Pair split: VRAM, TAB98, VBlk5.)
 M8OutB:
 	MOVE.L	#SPRSH,SprVB		; (4.3) The sprites read the logical view
-	JSR	SprShRef		; (SPRSH), the tables refreshed now.
+	ST	SprShSt			; (SPRSH), the tables refreshed now
+	JSR	SprShChk		; (4.4: all of it may be stale).
 	SWAP	D2
 	MOVEQ	#$17,D1
 	MOVE.B	VDPLINY(A3),D2
@@ -10887,9 +11033,9 @@ VDP7ecs:
 ;;	MOVE.W	(MSXPAL.W,PC,D1.W*2),$DFF180	; Borde.
 ;;	MOVE.W	(MSXPAL.W,PC,D2.W*2),$DFF182	; Lapiz. (solo scr 0)
 
-	LEA	(MSX2Pal.W,PC,D1.W*2),A4
+	LEA	(MSX2Pal.L,D1.W*2),A4
 	MOVE.L	A4,COL00
-	LEA	(MSX2Pal.W,PC,D2.W*2),A4
+	LEA	(MSX2Pal.L,D2.W*2),A4
 	MOVE.L	A4,COL01
 
 	SWAP	D2
@@ -10904,9 +11050,9 @@ VDP7:
 ;;	MOVE.W	(MSXPAL.W,PC,D1.W*2),$DFF180	; Borde.
 ;;	MOVE.W	(MSXPAL.W,PC,D2.W*2),$DFF182	; Lapiz. (solo scr 0)
 
-	LEA	(MSX2Pal.W,PC,D1.W*2),A4
+	LEA	(MSX2Pal.L,D1.W*2),A4
 	MOVE.L	A4,COL00
-	LEA	(MSX2Pal.W,PC,D2.W*2),A4
+	LEA	(MSX2Pal.L,D2.W*2),A4
 	MOVE.L	A4,COL01
 
 
@@ -11023,9 +11169,9 @@ VDPC:
 	MOVE.W	D2,D1
 	AND.B	#$0F,D1
 	LSR.B	#4,D2
-	LEA	(MSX2Pal.W,PC,D2.W*2),A4
+	LEA	(MSX2Pal.L,D2.W*2),A4
 	MOVE.L	A4,COL02
-	LEA	(MSX2Pal.W,PC,D1.W*2),A4
+	LEA	(MSX2Pal.L,D1.W*2),A4
 	MOVE.L	A4,COL03
 	SWAP	D2
 	RTS
@@ -11927,58 +12073,63 @@ PaPuMa8:MACRO				; (4.3) PaPuMac from bank \1 (VMAP).
 PasPun8Fast:	DS.L	8
 P8SvA3:		DC.L	0
 
-; (4.3) SprShChk: SPRSH's sprite tables again when a VDP command drew
-; (SprShSt) or R#5/R#6/R#11 moved them. A3 = REGS. Keeps every register.
+; (4.4) SprShChk: SPRSH is the logical view of VRAM that the sprite code
+; reads in G6/G7. The port writes (OUT98A7, OUT98B, OUT98XM8) and SCREEN 7's
+; bands keep it; SCREEN 8's VDP commands write VRAM only and mark the 1 KB
+; logical blocks they write in SprStale. Here the stale blocks under the
+; sprite tables come from VRAM: colours and attributes (R#5/R#11, 1.5 KB
+; around them), the patterns (R#6, 2 KB) and, with "sprites a frame late"
+; (DirPrefs+$64), the previous frame's. SprShSt (set on entering G6/G7,
+; where anything may have changed) marks every block first. Uridium 2 swaps
+; its attribute table every frame (R#5 F7h/FFh); 4.3 copied all 3.5 KB at
+; each swap. A3 = REGS. Keeps every register; a leaf (the mode handlers
+; call it, with A7 the Restas table).
+SPRBLK:	MACRO				; D0 = logical start, D1.W = bytes.
+	AND.L	#$1FFFF,D0		; Uses D2, D3, A0, A1.
+	MOVEQ	#0,D2
+	MOVE.W	D1,D2
+	ADD.L	D0,D2
+	SUBQ.L	#1,D2
+	LSR.L	#8,D0
+	LSR.L	#2,D0			; first block
+	LSR.L	#8,D2
+	LSR.L	#2,D2			; last (past 127: wraps to 0)
+\@b:	MOVE.L	D0,D3
+	AND.W	#127,D3
+	TST.B	(SprStale.L,D3.W)
+	BEQ.S	\@n
+	SF	(SprStale.L,D3.W)
+	MOVE.L	D3,D1
+	LSL.L	#8,D1
+	ADD.L	D1,D1			; block x 512: its bytes in each bank,
+	LEA	(DIRVRAM.L,D1.L),A0
+	ADD.L	D1,D1			; x 1024: its logical start.
+	LEA	(SPRSH.L,D1.L),A1
+	MOVE.W	#512-1,D1
+\@c:	MOVE.B	(A0)+,(A1)+
+	MOVE.B	($FFFF,A0),(A1)+
+	DBF	D1,\@c
+\@n:	ADDQ.L	#1,D0
+	CMP.L	D2,D0
+	BLS.S	\@b
+	ENDM
 	CNOP	0,4
 SprShChk:
-	TST.B	SprShSt
-	BNE	SprShRef
-	MOVE.L	D0,SprShD0
-	MOVE.L	PVDP5(A3),D0
-	CMP.L	SprShK5,D0
-	BNE.S	SprShCkG
-	MOVE.L	PVDP6(A3),D0
-	CMP.L	SprShK6,D0
-	BNE.S	SprShCkG
-	MOVE.L	SprShD0,D0
-	RTS
-SprShCkG:
-	MOVE.L	SprShD0,D0
-; (4.3) SprShRef: the sprite tables into SPRSH (the logical view) from the
-; physical VRAM: colours and attributes (R#5/R#11, 1.5 KB around them), the
-; patterns (R#6, 2 KB) and, with "sprites a frame late" (DirPrefs+$64),
-; the previous frame's. A3 = REGS. A leaf (the mode handlers call it).
-SPRSHCP:MACRO				; D0 = logical start, D1 = bytes - 1:
-	AND.L	#$1FFFE,D0		; logical pairs (bank 0, bank 1), up to
-	ADDQ.W	#2,D1			; the end of VRAM. Uses D2, A0, A1.
-	LSR.W	#1,D1
-	SUBQ.W	#1,D1			; pairs - 1
-	MOVE.L	#$20000,D2
-	SUB.L	D0,D2
-	LSR.L	#1,D2			; room (pairs)
-	CMP.W	D2,D1
-	BCS.S	\@n
-	MOVE.W	D2,D1
-	SUBQ.W	#1,D1
-\@n:	LEA	(SPRSH.L,D0.L),A1
-	LSR.L	#1,D0
-	LEA	(DIRVRAM.L,D0.L),A0
-\@l:	MOVE.B	(A0)+,(A1)+
-	MOVE.B	($FFFF,A0),(A1)+
-	DBF	D1,\@l
-	ENDM
-SprShRef:
 	MOVEM.L	D0-D3/A0-A1,SprShSv
+	TST.B	SprShSt
+	BEQ.S	SprShC1
 	SF	SprShSt
-	MOVE.L	PVDP5(A3),D0
-	MOVE.L	D0,SprShK5
+	LEA	SprStale,A0
+	MOVEQ	#128/4-1,D0
+SprShA:	MOVE.L	#-1,(A0)+
+	DBF	D0,SprShA
+SprShC1:MOVE.L	PVDP5(A3),D0
 	SUB.L	#$400,D0
-	MOVE.W	#$600-1,D1
-	SPRSHCP
+	MOVE.W	#$600,D1
+	SPRBLK
 	MOVE.L	PVDP6(A3),D0
-	MOVE.L	D0,SprShK6
-	MOVE.W	#$800-1,D1
-	SPRSHCP
+	MOVE.W	#$800,D1
+	SPRBLK
 	TST.B	DirPrefs+$64
 	BEQ	SprShR1
 	MOVEQ	#0,D0
@@ -11986,18 +12137,16 @@ SprShRef:
 	AND.W	#$03FC,D0
 	LSL.L	#7,D0
 	SUB.L	#$400,D0
-	MOVE.W	#$600-1,D1
-	SPRSHCP
+	MOVE.W	#$600,D1
+	SPRBLK
 	MOVE.L	AntPVDP6,D0
-	MOVE.W	#$800-1,D1
-	SPRSHCP
+	MOVE.W	#$800,D1
+	SPRBLK
 SprShR1:
 	MOVEM.L	SprShSv,D0-D3/A0-A1
 	RTS
 SprShSv:	DS.L	6
-SprShD0:	DC.L	0
-SprShK5:	DC.L	-1
-SprShK6:	DC.L	-1
+SprStale:	DCB.B	128,$FF		; (4.4) SPRSH's stale 1 KB blocks.
 SprVB:		DC.L	DIRVRAM		; (4.3) The sprite code's VRAM: SPRSH in G6/G7.
 
 ; -------------------------------<=
@@ -12011,6 +12160,7 @@ VDP2Escr8:
 	MOVEM.L	D0-D7/A0-A6,BUFER(A3)
 
 	MOVE.B	D2,DVDPREG(A3)
+	SF	V8CAct		; (4.4) A new command: no HMMC/LMMC bytes.
 
 	LSR.B	#4,D2
 
@@ -12027,7 +12177,26 @@ VDP2Escr8:
 	CMP.B	#$08,D2		; LMMV
 	BEQ	COPYVDP8
 
-
+	CMP.B	#$0E,D2		; (4.4) YMMM
+	BNE.S	V8J1
+	JMP	YMMM8
+V8J1:
+	CMP.B	#$05,D2		; (4.4) PSET
+	BNE.S	V8J2
+	JMP	PSET8
+V8J2:
+	CMP.B	#$07,D2		; (4.4) LINE
+	BNE.S	V8J3
+	JMP	LINE8
+V8J3:
+	CMP.B	#$0F,D2		; (4.4) HMMC
+	BNE.S	V8J4
+	JMP	CPU8
+V8J4:
+	CMP.B	#$0B,D2		; (4.4) LMMC
+	BNE.S	V8J5
+	JMP	CPU8
+V8J5:
 
 	MOVEM.L	BUFER(A3),D0-D7/A0-A6
 	JMP	Torna8
@@ -12078,17 +12247,29 @@ V8Src:	MOVE.L	(V8Loops.L,D4.W*4),A2
 	MULU	#256,D5
 	ADD.W	DVDPDX(A3),D5
 
+	MOVEQ	#0,D0			; (4.4) PSET: one dot.
+	MOVEQ	#0,D1
+	CMP.B	#$05,D2
+	BEQ.S	V8NY
 	MOVE.W	DVDPNX(A3),D0
 	AND.W	#$00FF,D0
 	BNE.S	V8NX
 	MOVE.W	#$100,D0
 V8NX:	SUBQ.W	#1,D0
-	EXT.L	D0
+	CMP.B	#$0E,D2			; (4.4) YMMM: DX to the edge (DIX: to 0).
+	BNE.S	V8NXY
+	MOVE.W	DVDPDX(A3),D0
+	AND.W	#$00FF,D0
+	BTST	#2,DVDPARG(A3)
+	BNE.S	V8NXY
+	NOT.B	D0
+V8NXY:	EXT.L	D0
 	MOVE.W	DVDPNY(A3),D1
 	AND.W	#$01FF,D1
-	BNE.S	V8NY
+	BNE.S	V8NY0
 	MOVE.W	#$200,D1
-V8NY:	SUBQ.W	#1,D1
+V8NY0:	SUBQ.W	#1,D1
+V8NY:
 
 	MOVE.W	#1,A0			; X step (DIX: -1),
 	BTST	#2,DVDPARG(A3)
@@ -12099,36 +12280,59 @@ V8DX:	MOVE.W	#256,A1			; Y step (DIY: -256).
 	BEQ.S	V8DY
 	MOVE.W	#-256,A1
 V8DY:	MOVE.B	DVDPCL(A3),D3		; (The colour, for HMMV/LMMV.)
-	JMP	(A2)
+	CMPA.W	#1,A0			; (4.4) IMP rightwards: V8Fast if no
+	BNE.S	V8Slow			; row wraps past the end of VRAM.
+	SF	V8FCol
+	CMPA.L	#V8L0,A2
+	BEQ.S	V8FTry
+	ST	V8FCol
+	CMPA.L	#V8L10,A2
+	BNE.S	V8Slow
+V8FTry:	MOVE.L	D1,D6
+	LSL.L	#8,D6			; (rows - 1) x 256
+	MOVE.L	D5,D2			; The destination's lowest and highest
+	MOVE.L	D5,D4			; logical bytes.
+	CMPA.W	#0,A1
+	BPL.S	V8FD1
+	SUB.L	D6,D2
+	BRA.S	V8FD2
+V8FD1:	ADD.L	D6,D4
+V8FD2:	ADD.L	D0,D4
+	TST.L	D2
+	BMI.S	V8Slow
+	CMP.L	#$1FFFF,D4
+	BHI.S	V8Slow
+	TST.B	V8FCol
+	BEQ.S	V8FSrc
+	JMP	V8Fast
+V8FSrc:
+	MOVE.L	D7,D2			; The source's.
+	MOVE.L	D7,D4
+	CMPA.W	#0,A1
+	BPL.S	V8FS1
+	SUB.L	D6,D2
+	BRA.S	V8FS2
+V8FS1:	ADD.L	D6,D4
+V8FS2:	ADD.L	D0,D4
+	TST.L	D2
+	BMI.S	V8Slow
+	CMP.L	#$1FFFF,D4
+	BHI.S	V8Slow
+	MOVE.L	D5,D2			; Not overlapping within a row (the
+	SUB.L	D7,D2			; byte order would differ).
+	BPL.S	V8FO
+	NEG.L	D2
+V8FO:	CMP.L	D0,D2
+	BLS.S	V8Slow
+	JMP	V8Fast
+V8Slow:	JMP	(A2)
 
-V8Done:	MOVE.W	DVDPDY(A3),D0		; SPRSH stale only if the rows drawn may
-	AND.L	#$3FF,D0		; touch the sprite tables (Uridium 2 draws
-	MOVE.W	DVDPNY(A3),D1		; every frame: no refresh each time).
-	AND.L	#$3FF,D1
-	ADDQ.L	#1,D1
-	MOVE.L	D0,D2
-	SUB.L	D1,D2			; Rows DY-NY .. DY+NY (either DIY),
-	ADD.L	D1,D0
-	LSL.L	#8,D2			; as logical addresses.
-	LSL.L	#8,D0
-	MOVE.L	PVDP5(A3),D1		; Colours and attributes (SprShRef's).
-	SUB.L	#$400,D1
-	CMP.L	D0,D1
-	BGE.S	V8DnP
-	ADD.L	#$600,D1
-	CMP.L	D2,D1
-	BLE.S	V8DnP
-	ST	SprShSt
-V8DnP:	MOVE.L	PVDP6(A3),D1		; Patterns.
-	CMP.L	D0,D1
-	BGE.S	V8DnX
-	ADD.L	#$800,D1
-	CMP.L	D2,D1
-	BLE.S	V8DnX
-	ST	SprShSt
+
+V8Done:					; (4.4: SPRSH by SprStale, marked per row)
 V8DnX:	MOVEM.L	BUFER(A3),D0-D7/A0-A6
 	SWAP	D2
 	RTS
+
 
 ; The destination row's dirty flags: TAB98 over its logical bytes, VBlk5
 ; for the 1 KB physical blocks of both banks at its two ends. D5 = the
@@ -12144,12 +12348,16 @@ V8RMK:	MACRO
 	AND.L	#$1FFFF,D2
 	MOVE.L	D6,D4
 	LSR.L	#8,D4
-	LSR.L	#3,D4
+	LSR.L	#2,D4
+	ST	(SprStale.L,D4.L)	; (4.4) (a row: 1 or 2 KB blocks)
+	LSR.L	#1,D4
 	ST	(VBlk5.L,D4.L)
 	ST	(VBlk5+64,D4.L)
 	MOVE.L	D2,D4
 	LSR.L	#8,D4
-	LSR.L	#3,D4
+	LSR.L	#2,D4
+	ST	(SprStale.L,D4.L)
+	LSR.L	#1,D4
 	ST	(VBlk5.L,D4.L)
 	ST	(VBlk5+64,D4.L)
 	LSR.L	#3,D6
@@ -12409,6 +12617,7 @@ SPR1DBL:	MACRO
 	SF	SprBufB
 	MOVE.W	FMXVbl,SprSwV
 \@x:
+	SPRLOG
 	ENDM
 SprBufB:	DC.B	0
 		EVEN
@@ -12565,6 +12774,7 @@ SISPRASC:
 	MOVE.L	-4(A4),A0
 	JSR	CREASPRITES
 	PERFSUB	2			; 2: CREASPRITES
+	SPRLOG
 
 	LEA	REGS(PC),A3
 	TST.B	COSPR2(A3)
@@ -13083,7 +13293,7 @@ BSpColNx:
 PRINT6:
 	MOVE.B	DVDP7(A3),D1
 	AND.W	#$0003,D1
-	MOVE.W	(MSX2Pal.W,PC,D1.W*2),D0
+	MOVE.W	(MSX2Pal.L,D1.W*2),D0
 	MOVE.W	D0,COLORMSX2+2		; Color del Borde.
 
 PRINT6ecs:
@@ -13694,7 +13904,6 @@ NoTimming_X:
 ;d;	BCHG	#7,DVDPS2(A3)		; TR Realizada
 	BFINS	D2,DVDPS2(A3){0:1}	; Copia 'Blt bit' en 'TR bit'
 
-	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
 	CEPOLL
@@ -13721,7 +13930,6 @@ NoTimming_Ytr:
 	BCLR	#5,D2			; Pone timing X
 NoTimming_Xtr:
 
-	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
 	CEPOLL
@@ -13761,7 +13969,6 @@ NoTimming_X060:
 ;d;	BCHG	#7,DVDPS2(A3)		; TR Realizada
 	BFINS	D2,DVDPS2(A3){0:1}	; Copia 'Blt bit' en 'TR bit'
 
-	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
 	CEPOLL
@@ -13792,7 +13999,6 @@ NoTimming_Ytr060:
 	BCLR	#5,D2			; Pone timing X
 NoTimming_Xtr060:
 
-	BCHG	#4,DVDPS2(A3)		; Detectado color.
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
 	CEPOLL
@@ -13825,6 +14031,15 @@ IVDP5:
 	RTS
 
 ; -------------------------------------------------
+
+IVDP8:					; (4.4) S#8/S#9: SRCH's X (SrchBX).
+	MOVEQ	#0,D1
+	MOVE.B	SrchBX+1,D1
+	RTS
+IVDP9:
+	MOVEQ	#0,D1
+	MOVE.B	SrchBX,D1
+	RTS
 
 IVDP7:
 	BTST	#0,DVDPS2(A3)		; �Ejecuci�n terminada?
@@ -15807,6 +16022,8 @@ COPYBUF:
 
 	MOVEQ	#(3)-1,D7
 COPIATXT4:
+	TST.B	CpuTiles		; (4.4) 68040/060: tiles by the CPU.
+	BNE	COPIATXTF
 
 	MOVE.L	Txt2Ptr,A1		; Name shadow of the bank (RendTabCheck).
 	MOVE.L	ScreenPtr,A4		; Screen of the bank (RendTabCheck).
@@ -15925,6 +16142,8 @@ ACT4NoDb:
 	MOVE.L	Txt2Ptr,A1		; Name shadow of the bank (RendTabCheck).
 	MOVE.L	ScreenPtr,A4		; Screen of the bank (RendTabCheck).
 	MOVE.L	GfxCaPtr,A5		; Cache bank in use (RendTabCheck).
+	TST.B	CpuTiles		; (4.4) 68040/060: tiles by the CPU.
+	BNE	ACTUALIZAF
 
 	LEA	$DFF002,A6
 ESPBLTA2:BTST	#$E,(A6)
@@ -15969,6 +16188,95 @@ ESPBLTPBZ:
 	ADD.W	SumaBpl(PC),A5
 	DBF	D6,COPIABUCB2
 	RTS
+
+; (4.4) SCREEN 2/4 tiles by the CPU on a 68040/060 (CpuTiles): the
+; character cache is in fast RAM (GFXCAF/GFXCA2F, same layout) and each
+; pair of characters is written to the screen as 32 words, as the blit
+; above makes it (A = the left character, B = the right one shifted 8 dots,
+; D = A|B). A blit per pair with a wait for each was most of the time in
+; Lotus F3's name-table shift frames on the PiStorm (late every 4th frame:
+; jitter). COPIATXTF is COPIATXT4, ACTUALIZAF the rest of ACTUALIZA4.
+CPUBLTW:	MACRO			; Wait until a blit (screen copies,
+	BTST	#6,$DFF002		; DbCatch) is done before the CPU writes.
+\@w:	BTST	#6,$DFF002
+	BNE.S	\@w
+	ENDM
+
+	CNOP	0,8
+COPIATXTF:
+	MOVE.L	Txt2Ptr,A1
+	MOVE.L	ScreenPtr,A4
+	MOVE.L	GfxCaPtr,A5
+	CPUBLTW
+	MOVE.W	#(32*4*8)-32,D5
+CTFB2:	MOVE.W	#(8)-1,D0
+CTFB1:	MOVE.W	#(32/4)-1,D4
+CTFB:	CMP.L	(A0)+,(A1)+
+	BEQ.S	CTFNo
+	MOVE.L	-4(A0),D2
+	MOVE.L	D2,D6
+	SWAP	D2
+	CMP.W	-4(A1),D2
+	BEQ.S	CTF2
+	BSR	CpuPair
+	DBROW
+CTF2:	SWAP	D2
+	CMP.W	-2(A1),D2
+	BEQ.S	CTFDone
+	ADDQ.W	#2,A4
+	BSR	CpuPair
+	DBROW
+	SUBQ.W	#2,A4
+CTFDone:MOVE.L	D6,-4(A1)
+CTFNo:	ADDQ.W	#4,A4
+	DBF	D4,CTFB
+	ADD.W	D5,A4
+	DBF	D0,CTFB1
+	ADD.W	SumaBpl(PC),A5
+	DBF	D7,CTFB2
+	RTS
+
+	CNOP	0,8
+ACTUALIZAF:
+	CPUBLTW
+	MOVE.W	#(32*4*8)-32,D5
+ACTFB2:	MOVEQ	#(8)-1,D0
+ACTFB1:	MOVE.W	#(32/2)-1,D4
+ACTFB:	MOVE.W	(A0)+,D2
+	MOVE.W	D2,(A1)+
+	BSR	CpuPair
+	ADDQ.W	#2,A4
+	DBF	D4,ACTFB
+	ADD.W	D5,A4
+	DBF	D0,ACTFB1
+	ADD.W	SumaBpl(PC),A5
+	DBF	D6,ACTFB2
+	RTS
+
+; The pair D2.W (high byte the left character, low byte the right one) from
+; the cache at A5 to the screen at A4: 8 rows of 4 interleaved planes, 32
+; bytes apart. Cache words hold a row's plane in the high byte, 0 in the low
+; one. Uses D1/A2/A3.
+	CNOP	0,8
+CpuPair:
+	MOVEQ	#0,D1
+	MOVE.B	D2,D1
+	LSL.W	#6,D1
+	LEA	(A5,D1.L),A2		; Right character.
+	MOVE.W	D2,D1
+	LSR.W	#8,D1
+	LSL.W	#6,D1
+	LEA	(A5,D1.L),A3		; Left character.
+CpTk	SET	0
+	REPT	32
+	MOVE.W	CpTk*2(A3),D1
+	MOVE.B	CpTk*2(A2),D1
+	MOVE.W	D1,CpTk*32(A4)
+CpTk	SET	CpTk+1
+	ENDR
+	RTS
+CpuTiles:	DC.B	0		; (4.4) 68040/060: SCREEN 2/4 tiles by
+		EVEN			; the CPU, from GFXCAF/GFXCA2F (MC68020).
 ; -----------------------------<
 
 	CNOP	0,8
@@ -16184,7 +16492,7 @@ RESTASPR:
 	ADD.L	D4,D3
 	DBF	D3,RESTASPR
 SPRBIEN:
-	MOVE.W	(MSX2Pal.W,PC,D5.W*2),D3
+	MOVE.W	(MSX2Pal.L,D5.W*2),D3
 	MOVE.W	A3,D2
 	MOVEM.L	D0-D3,(A4)
 	DBF	D6,SPR16BUC
@@ -16405,7 +16713,7 @@ RESTASPR8:
 	ADD.L	D4,D3
 	DBF	D3,RESTASPR8
 SPRBIEN8:
-	MOVE.W	(MSX2Pal.W,PC,D5.W*2),D3
+	MOVE.W	(MSX2Pal.L,D5.W*2),D3
 	MOVE.W	A3,D2
 	MOVEM.L	D0-D3,(A4)
 	DBF	D6,SPR8BUC
@@ -17420,6 +17728,8 @@ DispLg1:
 	LSR.W	#1,D0
 	LEA	DispLine,A0
 	MOVE.B	D0,(A0,D1.W)
+	LEA	DispTick,A0
+	MOVE.B	PerfTick+3,(A0,D1.W)
 	ADDQ.L	#1,DispN
 	MOVEM.L	(SP)+,D0-D1/A0
 	ENDC
@@ -17776,6 +18086,10 @@ VDP2C:
 	MOVEM.L	D0-D7/A0-A6,BUFER(A3)
 
 	MOVE.L	MSXVideoMode(A3),A4
+	TST.B	V8CAct			; (4.4) SCREEN 8 HMMC/LMMC: to VRAM.
+	BEQ.S	C8J
+	JMP	C8In
+C8J:
 
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
@@ -18038,6 +18352,7 @@ P5MkX:
 
 	MOVE.B	D2,DVDPREG(A3)
 	BCLR	#0,DVDPS2(A3)		; Ejecuci�n terminada.
+	SF	V8CAct			; (4.4) (no SCREEN 8 HMMC/LMMC bytes)
 	CLR.W	CONTA2C(A3)
 
 	MOVE.L	DVDPSX(A3),DVDPSX2(A3)
@@ -18066,7 +18381,7 @@ COMANDOS:
 	DC.L	STOP	; 3
 	DC.L	POINT	; 4	POINT
 	DC.L	PSET	; 5	PSET
-	DC.L	STOP	; 6	SRCH
+	DC.L	SRCH	; 6	SRCH (4.4)
 	DC.L	LINE	; 7	LINE
 	DC.L	LMMV	; 8	Paint Punto.
 	DC.L	LMMM	; 9	Copia de VRAM a punto.
@@ -18129,12 +18444,60 @@ NoYMMMMaskX:
 
 	CNOP	0,8
 HMMV:
-	AND.W	#$FFFE,DVDPNX2(A3)		; Mascara de X dots.
-	AND.W	#$FFFE,DVDPDX2(A3)		; Mascara de X dots.
+	MOVE.W	$1A(A4),D1		; (4.4) Whole bytes: the mode's X mask
+	AND.W	D1,DVDPNX2(A3)		; (SCREEN 6: 4 dots a byte).
+	AND.W	D1,DVDPDX2(A3)
 	BTST	#2,DVDPARG(A3)
 	BEQ.S	NoHMMVMaskX
-	OR.W	#$0001,DVDPDX2(A3)		; Mascara de X dots.
+	NOT.W	D1
+	OR.W	D1,DVDPDX2(A3)
 NoHMMVMaskX:
+; (4.4) HMMV fills bytes, so each dot of the byte keeps its own colour (a
+; SCREEN 5/7 byte 7Ch is the dots 7 and C; before 4.4 every dot took the
+; low nibble, as in LMMV). HVPDat: the blitter's B data for 16 dots, per
+; plane (the mask plane, then the colour planes). The pattern repeats
+; every byte and DX is a whole byte, so the B shift keeps it. HMMV has no
+; logical op (IMP).
+	MOVE.W	$1C(A4),D1		; Dots a byte.
+	CMP.W	#2,D1
+	BCS.S	LMMV
+	LEA	HVPDat,A0
+	CLR.L	(A0)
+	CLR.L	4(A0)
+	CLR.L	8(A0)
+	CLR.L	12(A0)
+	MOVE.W	$20(A4),D3		; Bits a dot.
+	MOVEQ	#0,D6			; Dot k = 0..15: bit 15-k of each word.
+HVPk:	MOVE.W	D1,D4
+	SUBQ.W	#1,D4
+	MOVE.W	D6,D5
+	AND.W	D4,D5
+	SUB.W	D5,D4			; Dots after it in its byte: its
+	MULU	D3,D4			; colour's shift.
+	MOVEQ	#0,D5
+	MOVE.B	DVDPCL(A3),D5
+	LSR.W	D4,D5
+	AND.B	$22(A4),D5
+	BEQ.S	HVPn
+	MOVE.L	D6,D4
+	BFSET	(A0){D4:1}		; The mask plane: not colour 0.
+	MOVE.W	$10(A4),D2
+	SUBQ.W	#1,D2
+HVPj:	ADD.W	#16,D4
+	LSR.B	#1,D5
+	BCC.S	HVPc
+	BFSET	(A0){D4:1}
+HVPc:	DBF	D2,HVPj
+HVPn:	ADDQ.W	#1,D6
+	CMP.W	#16,D6
+	BCS.S	HVPk
+	CLR.W	DVDPSX2(A3)
+	MOVE.L	(A7)+,RetOut(A3)
+	BSR	CALCULAR
+	MOVE.L	RetOut(A3),-(A7)
+	OR.W	#$03CA,D0
+	AND.W	#$0FFF,D1
+	BRA	HVPAT
 
 LMMV:
 	CLR.W	DVDPSX2(A3)
@@ -18173,6 +18536,59 @@ POINT:
 	BRA	V2EMAL
 
 ; ------------------------------------------------
+
+; (4.4) SRCH: from (SX, SY) along X (DIX: leftwards) for a dot of the
+; colour CLR (ARG's EQ: for a dot of another colour), as in openMSX. Found:
+; S#2 BD (bit 4) set, S#8/S#9 its X; not found (past the edge): BD clear,
+; S#8/S#9 the X past the edge (FE00h | X, as openMSX's getBorderX). Before
+; 4.4 SRCH did nothing and BD toggled at each S#2 read. The dots are read
+; as POINT reads them (the mode's $24 routine, which uses D0-D2 and A4).
+	CNOP	0,8
+SRCH:
+	MOVE.L	A4,A5
+	MOVEQ	#0,D5
+	MOVE.W	DVDPSX2(A3),D5		; X.
+	MOVEQ	#1,D6
+	BTST	#2,DVDPARG(A3)
+	BEQ.S	SrchTX
+	MOVEQ	#-1,D6
+SrchTX:	MOVE.B	DVDPCL(A3),D7
+	AND.B	$22(A4),D7		; The colour.
+	MOVE.W	$0C(A4),A6		; The width (256 or 512).
+SrchLp:	MOVE.L	A5,A4
+	MOVE.W	DVDPSY2(A3),D1
+	MULU	$2A(A4),D1
+	MOVEQ	#0,D0
+	MOVE.W	D5,D0
+	MOVE.W	D0,D4
+	MOVE.W	$28(A4),D2
+	LSR.W	D2,D0
+	ADD.L	D0,D1
+	NOT.W	D4
+	AND.W	$28(A4),D4
+	MULU	$20(A4),D4
+	MOVE.B	$22(A4),D3
+	JSR	([$24.W,A4])
+	LSR.B	D4,D1
+	AND.B	D3,D1
+	CMP.B	D7,D1
+	SEQ	D2
+	BTST	#1,DVDPARG(A3)		; EQ: stop at another colour.
+	BEQ.S	SrchEq
+	NOT.B	D2
+SrchEq:	TST.B	D2
+	BNE.S	SrchHit
+	ADD.W	D6,D5
+	MOVE.W	A6,D2
+	AND.W	D5,D2			; Past the edge (either side)?
+	BEQ.S	SrchLp
+	BCLR	#4,DVDPS2(A3)
+	BRA.S	SrchEnd
+SrchHit:BSET	#4,DVDPS2(A3)
+SrchEnd:OR.W	#$FE00,D5
+	MOVE.W	D5,SrchBX
+	BRA	V2EMAL
+SrchBX:	DC.W	$FFFF			; S#9 (high byte), S#8 (low byte).
 
 	CNOP	0,8
 PSET:
@@ -19057,6 +19473,437 @@ ESPBLTMQB:BTST	#$E,(A2)
 	RTS
 ; <=---------------------------------------------------------=>
 
+
+; (4.4) V8Fast: V8L0/V8L10 (IMP rightwards, from VRAM or the colour) for a
+; rectangle that doesn't wrap past the end of VRAM. Each row is two runs,
+; one per bank (VMAP), and a row down is 128 bytes on in both banks, so the
+; runs' addresses and the TAB98 marks are stepped instead of worked out per
+; row (Uridium 2's 176-row copies and column fills every frame). The marks
+; are V8RMK's: TAB98 over the row's logical bytes, VBlk5 at both ends.
+; D0 = NX-1, D1 = rows-1, D5/D7 = the destination/source row (logical),
+; A1 = +-256, D3 = the colour. A0/A2 source runs, A6/A4 destination runs,
+; A5 TAB98, D7 the runs' step (+-128).
+V8Fast:	TST.B	V8FCol
+	BNE.S	V8FnS
+	MOVE.L	D7,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A0
+	MOVE.L	D7,D6
+	ADDQ.L	#1,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A2
+V8FnS:	MOVE.L	D5,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A6
+	MOVE.L	D5,D6
+	ADDQ.L	#1,D6
+	VMAP	D6
+	LEA	(DIRVRAM.L,D6.L),A4
+	MOVE.L	A1,V8FStp
+	MOVE.L	A1,D7
+	ASR.L	#3,D7
+	MOVE.L	D7,V8FtS		; TAB98: +-32 a row,
+	MOVE.L	A1,D7
+	ASR.L	#1,D7			; the runs: +-128.
+	MOVE.W	D0,D2			; Even offsets: (NX + 1) / 2 bytes,
+	ADDQ.W	#2,D2
+	LSR.W	#1,D2
+	MOVE.W	D2,D4			; copied as longs (the 68020 takes
+	LSR.W	#2,D4			; them unaligned), then bytes.
+	SUBQ.W	#1,D4
+	MOVE.W	D4,V8FL1
+	AND.W	#3,D2
+	SUBQ.W	#1,D2
+	MOVE.W	D2,V8FB1
+	MOVE.W	D0,D2			; Odd offsets: NX / 2.
+	ADDQ.W	#1,D2
+	LSR.W	#1,D2
+	MOVE.W	D2,D4
+	LSR.W	#2,D4
+	SUBQ.W	#1,D4
+	MOVE.W	D4,V8FL2
+	AND.W	#3,D2
+	SUBQ.W	#1,D2
+	MOVE.W	D2,V8FB2
+	AND.L	#$FF,D3			; The colour in all four bytes.
+	MOVE.L	D3,D2
+	LSL.L	#8,D2
+	OR.L	D2,D3
+	MOVE.L	D3,D2
+	SWAP	D2
+	OR.L	D2,D3
+	MOVE.L	D5,D2			; Does a row run into the next one
+	AND.L	#$FF,D2			; (NX past the edge)? Then its end
+	ADD.L	D0,D2			; gets its own marks.
+	CMP.L	#$FF,D2
+	SHI	V8F2M
+	MOVE.L	D5,D6
+	LSR.L	#3,D6
+	LEA	(TAB98.L,D6.L),A5
+	MOVE.L	D5,D2
+	ADD.L	D0,D2
+	LSR.L	#3,D2
+	SUB.L	D6,D2
+	MOVE.W	D2,V8Ftg
+V8FRow:	MOVEQ	#0,D6
+	TST.B	V8FCol
+	BNE.S	V8FC1
+	MOVE.W	V8FL1,D4		; Run 1 (from VRAM),
+	BMI.S	V8FM1b
+V8FM1:	MOVE.L	(A0,D6.W),(A6,D6.W)
+	ADDQ.W	#4,D6
+	DBF	D4,V8FM1
+V8FM1b:	MOVE.W	V8FB1,D4
+	BMI.S	V8FM2a
+V8FM1c:	MOVE.B	(A0,D6.W),(A6,D6.W)
+	ADDQ.W	#1,D6
+	DBF	D4,V8FM1c
+V8FM2a:	MOVEQ	#0,D6			; run 2.
+	MOVE.W	V8FL2,D4
+	BMI.S	V8FM2b
+V8FM2:	MOVE.L	(A2,D6.W),(A4,D6.W)
+	ADDQ.W	#4,D6
+	DBF	D4,V8FM2
+V8FM2b:	MOVE.W	V8FB2,D4
+	BMI.S	V8FMk
+V8FM2c:	MOVE.B	(A2,D6.W),(A4,D6.W)
+	ADDQ.W	#1,D6
+	DBF	D4,V8FM2c
+	BRA.S	V8FMk
+V8FC1:	MOVE.W	V8FL1,D4		; Run 1 (the colour),
+	BMI.S	V8FC1b
+V8FC1a:	MOVE.L	D3,(A6,D6.W)
+	ADDQ.W	#4,D6
+	DBF	D4,V8FC1a
+V8FC1b:	MOVE.W	V8FB1,D4
+	BMI.S	V8FC2a
+V8FC1c:	MOVE.B	D3,(A6,D6.W)
+	ADDQ.W	#1,D6
+	DBF	D4,V8FC1c
+V8FC2a:	MOVEQ	#0,D6			; run 2.
+	MOVE.W	V8FL2,D4
+	BMI.S	V8FC2b
+V8FC2:	MOVE.L	D3,(A4,D6.W)
+	ADDQ.W	#4,D6
+	DBF	D4,V8FC2
+V8FC2b:	MOVE.W	V8FB2,D4
+	BMI.S	V8FMk
+V8FC2c:	MOVE.B	D3,(A4,D6.W)
+	ADDQ.W	#1,D6
+	DBF	D4,V8FC2c
+V8FMk:	MOVE.L	A5,A1
+	MOVE.W	V8Ftg,D4
+V8FT:	ST	(A1)+
+	DBF	D4,V8FT
+	ADDA.L	V8FtS,A5
+	MOVE.L	D5,D6
+	LSR.L	#8,D6
+	LSR.L	#2,D6
+	ST	(SprStale.L,D6.L)
+	LSR.L	#1,D6
+	ST	(VBlk5.L,D6.L)
+	ST	(VBlk5+64,D6.L)
+	TST.B	V8F2M			; (Its end: in the same row, so the same
+	BEQ.S	V8FNx			; blocks, unless NX runs past the edge.)
+	MOVE.L	D5,D6
+	ADD.L	D0,D6
+	LSR.L	#8,D6
+	LSR.L	#2,D6
+	ST	(SprStale.L,D6.L)
+	LSR.L	#1,D6
+	ST	(VBlk5.L,D6.L)
+	ST	(VBlk5+64,D6.L)
+V8FNx:	ADD.L	V8FStp,D5
+	ADDA.L	D7,A0
+	ADDA.L	D7,A2
+	ADDA.L	D7,A4
+	ADDA.L	D7,A6
+	DBF	D1,V8FRow
+	JMP	V8Done
+V8FStp:	DC.L	0
+V8FtS:	DC.L	0
+V8FL1:	DC.W	0
+V8FB1:	DC.W	0
+V8FL2:	DC.W	0
+V8FB2:	DC.W	0
+V8Ftg:	DC.W	0
+V8FCol:	DC.B	0
+V8F2M:	DC.B	0
+	EVEN
+
+; (4.4) PSET, YMMM, LINE, HMMC and LMMC in SCREEN 8 draw in VRAM too,
+; through VMAP (before 4.4 they drew in the planes only, which the next
+; conversion from VRAM undid). The dirty flags as V8RMK, per row or dot.
+; The registers are left as they were (DY, NY: as the plane commands).
+	CNOP	0,8
+YMMM8:	BCLR	#0,DVDPS2(A3)
+	MOVE.W	DVDPSY(A3),D7		; Source: (DX, SY), IMP.
+	MULU	#256,D7
+	ADD.W	DVDPDX(A3),D7
+	MOVEQ	#0,D6
+	MOVEQ	#0,D3
+	JMP	V8Go
+PSET8:	BCLR	#0,DVDPS2(A3)
+	MOVEQ	#4,D6			; The colour, with the op.
+	MOVE.B	DVDPREG(A3),D3
+	AND.W	#$000F,D3
+	JMP	V8Go
+
+; LINE as openMSX's: NX the long side, NY the short one, NX+1 dots, ends
+; early if X leaves the line. D0 NX, D1 NY, D2 dots done, D4 the error
+; (ASX), D5 X, D6 Y, D7 the colour; A0/A1 the X/Y steps.
+	CNOP	0,8
+LINE8:	BCLR	#0,DVDPS2(A3)
+	MOVE.B	DVDPCL(A3),D7		; The colour,
+	MOVE.B	DVDPREG(A3),D3
+	AND.W	#$000F,D3		; the op.
+	BCLR	#3,D3			; T: colour 0 draws nothing.
+	BEQ.S	L8NT
+	TST.B	D7
+	BEQ	L8End
+L8NT:	CMP.W	#5,D3
+	BCS.S	L8Op
+	MOVEQ	#0,D3
+L8Op:	CMP.W	#4,D3			; NOT: write the inverse.
+	BNE.S	L8Op2
+	NOT.B	D7
+	MOVEQ	#0,D3
+L8Op2:	BTST	#0,DVDPARG(A3)		; MAJ: Y the long side.
+	BEQ.S	L8Mj
+	ADDQ.W	#4,D3
+L8Mj:	MOVE.L	(L8Loops.L,D3.W*4),A2
+	MOVE.W	DVDPNX(A3),D0
+	AND.W	#$03FF,D0
+	MOVE.W	DVDPNY(A3),D1
+	AND.W	#$03FF,D1
+	MOVE.W	D0,D4			; ASX = (NX - 1) / 2.
+	SUBQ.W	#1,D4
+	LSR.W	#1,D4
+	MOVE.W	DVDPDX(A3),D5
+	MOVE.W	DVDPDY(A3),D6
+	MOVE.W	#1,A0
+	BTST	#2,DVDPARG(A3)
+	BEQ.S	L8TX
+	MOVE.W	#-1,A0
+L8TX:	MOVE.W	#1,A1
+	BTST	#3,DVDPARG(A3)
+	BEQ.S	L8TY
+	MOVE.W	#-1,A1
+L8TY:	MOVEQ	#0,D2
+	JMP	(A2)
+
+; One dot at (D5, D6) with the op \1 (0 IMP, 1 AND, 2 OR, 3 XOR); \2 = 1:
+; Y the long side. Uses D3, A5.
+L8LP:	MACRO
+\@l:	MOVEQ	#0,D3
+	MOVE.W	D6,D3
+	AND.W	#$01FF,D3
+	LSL.L	#8,D3
+	MOVE.B	D5,D3
+	MOVE.L	D3,A5
+	LSR.L	#3,D3
+	ST	(TAB98.L,D3.L)
+	LSR.L	#7,D3
+	ST	(SprStale.L,D3.L)
+	LSR.L	#1,D3
+	ST	(VBlk5.L,D3.L)
+	ST	(VBlk5+64,D3.L)
+	MOVE.L	A5,D3
+	VMAP	D3
+	IFEQ	\1
+	MOVE.B	D7,(DIRVRAM.L,D3.L)
+	ENDC
+	IFEQ	\1-1
+	AND.B	D7,(DIRVRAM.L,D3.L)
+	ENDC
+	IFEQ	\1-2
+	OR.B	D7,(DIRVRAM.L,D3.L)
+	ENDC
+	IFEQ	\1-3
+	EOR.B	D7,(DIRVRAM.L,D3.L)
+	ENDC
+	IFEQ	\2
+	ADD.W	A0,D5			; The long side's step each dot,
+	ELSE
+	ADD.W	A1,D6
+	ENDC
+	CMP.W	D1,D4			; the short side's when ASX < NY.
+	BCC.S	\@n
+	ADD.W	D0,D4
+	IFEQ	\2
+	ADD.W	A1,D6
+	ELSE
+	ADD.W	A0,D5
+	ENDC
+\@n:	SUB.W	D1,D4
+	AND.W	#$03FF,D4
+	CMP.W	D0,D2			; NX+1 dots, or X past the edge.
+	BEQ.S	\@x
+	ADDQ.W	#1,D2
+	BTST	#8,D5
+	BEQ	\@l
+\@x:	BRA	L8End
+	ENDM
+
+	CNOP	0,4
+L8Loops:DC.L	L8L0,L8L1,L8L2,L8L3,L8L4,L8L5,L8L6,L8L7
+L8L0:	L8LP	0,0
+L8L1:	L8LP	1,0
+L8L2:	L8LP	2,0
+L8L3:	L8LP	3,0
+L8L4:	L8LP	0,1
+L8L5:	L8LP	1,1
+L8L6:	L8LP	2,1
+L8L7:	L8LP	3,1
+L8End:	JMP	V8Done
+
+; HMMC/LMMC: the first byte (R#44) now, the others as the CPU writes R#44
+; (VDP2C: C8In while V8CAct). NX clipped at the edge as openMSX does
+; (0: 256), NY 0 = 1024; ends after NY rows or at row -1 (DIY).
+	CNOP	0,8
+CPU8:	MOVE.B	DVDPREG(A3),D3		; LMMC: the op; HMMC: IMP.
+	AND.W	#$000F,D3
+	CMP.B	#$0F,D2
+	BNE.S	C8Op
+	MOVEQ	#0,D3
+C8Op:	MOVE.W	D3,V8COp
+	MOVE.W	DVDPDX(A3),D0
+	AND.W	#$00FF,D0
+	MOVE.W	D0,V8CDX
+	MOVE.W	D0,V8CX
+	MOVE.W	DVDPDY(A3),D1
+	AND.W	#$03FF,D1
+	MOVE.W	D1,V8CY
+	MOVE.W	DVDPNX(A3),D1
+	AND.W	#$01FF,D1
+	BNE.S	C8NX
+	MOVE.W	#$100,D1
+C8NX:	BTST	#2,DVDPARG(A3)		; At most to the edge.
+	BEQ.S	C8NR
+	ADDQ.W	#1,D0			; DIX: DX+1 dots.
+	BRA.S	C8NC
+C8NR:	NEG.W	D0
+	ADD.W	#$100,D0		; 256-DX dots.
+C8NC:	CMP.W	D0,D1
+	BLS.S	C8NOk
+	MOVE.W	D0,D1
+C8NOk:	MOVE.W	D1,V8CNX
+	MOVE.W	D1,V8CN
+	MOVE.W	DVDPNY(A3),D1
+	AND.W	#$03FF,D1
+	BNE.S	C8NY
+	MOVE.W	#$400,D1
+C8NY:	MOVE.W	D1,V8CNY
+	BSET	#0,DVDPS2(A3)		; Busy until the last byte.
+	ST	V8CAct
+	MOVE.B	DVDPCL(A3),D7
+	BRA.S	C8Byte
+C8In:	MOVE.B	DVDPCL(A3),D7		; (VDP2C) The next byte.
+C8Byte:	MOVE.W	V8COp,D3
+	BCLR	#3,D3			; T: colour 0 leaves the dot.
+	BEQ.S	C8NT
+	TST.B	D7
+	BEQ.S	C8Next
+C8NT:	MOVEQ	#0,D5
+	MOVE.W	V8CY,D5
+	AND.W	#$01FF,D5
+	LSL.L	#8,D5
+	MOVE.B	V8CX+1,D5
+	MOVE.L	D5,D6			; Dirty: TAB98, SprStale, VBlk5 (both
+	LSR.L	#3,D6			; banks).
+	ST	(TAB98.L,D6.L)
+	LSR.L	#7,D6
+	ST	(SprStale.L,D6.L)
+	LSR.L	#1,D6
+	ST	(VBlk5.L,D6.L)
+	ST	(VBlk5+64,D6.L)
+	VMAP	D5
+	LEA	(DIRVRAM.L,D5.L),A0
+	CMP.W	#1,D3
+	BEQ.S	C8And
+	CMP.W	#2,D3
+	BEQ.S	C8Or
+	CMP.W	#3,D3
+	BEQ.S	C8Eor
+	CMP.W	#4,D3
+	BNE.S	C8Imp
+	NOT.B	D7
+C8Imp:	MOVE.B	D7,(A0)
+	BRA.S	C8Next
+C8And:	AND.B	D7,(A0)
+	BRA.S	C8Next
+C8Or:	OR.B	D7,(A0)
+	BRA.S	C8Next
+C8Eor:	EOR.B	D7,(A0)
+C8Next:	MOVEQ	#1,D0
+	BTST	#2,DVDPARG(A3)
+	BEQ.S	C8TX
+	MOVEQ	#-1,D0
+C8TX:	ADD.W	D0,V8CX
+	SUBQ.W	#1,V8CN
+	BNE.S	C8Ret
+	MOVE.W	V8CDX,V8CX		; The next row.
+	MOVE.W	V8CNX,V8CN
+	MOVEQ	#1,D0
+	BTST	#3,DVDPARG(A3)
+	BEQ.S	C8TY
+	MOVEQ	#-1,D0
+C8TY:	ADD.W	D0,V8CY
+	SUBQ.W	#1,V8CNY
+	BEQ.S	C8End
+	TST.W	V8CY
+	BPL.S	C8Ret
+C8End:	BCLR	#0,DVDPS2(A3)
+	SF	V8CAct
+C8Ret:	MOVEM.L	BUFER(A3),D0-D7/A0-A6
+	FInsBuc
+	SWAP	D2
+	RTS
+V8CAct:	DC.B	0		; HMMC/LMMC running in SCREEN 8 (CPU8).
+	EVEN
+V8COp:	DC.W	0		; Its op (HMMC: 0), X, start X, Y, dots
+V8CX:	DC.W	0		; left in the row, dots a row, rows left.
+V8CDX:	DC.W	0
+V8CY:	DC.W	0
+V8CN:	DC.W	0
+V8CNX:	DC.W	0
+V8CNY:	DC.W	0
+
+; (4.4) HMMV's fill (IMPES and COPIA with HVPDat as each plane's B data).
+	CNOP	0,8
+HVPAT:	MOVE.B	#$CA,D0
+HVPW:	BTST	#$E,(A2)
+	BNE.S	HVPW
+	NEG.W	D6
+	MOVE.W	D6,$64-2(A2)	; A	Mascara.
+	MOVE.L	#MASKFF,A5
+	MOVE.W	D3,$66-2(A2)	; D	Destino!
+	MOVEQ	#-1,D6
+	MOVE.W	D0,$40-2(A2)
+	MOVE.W	D1,$42-2(A2)
+	MOVE.L	D5,$44-2(A2)	; A (Mascara)
+	MOVE.W	D3,$62-2(A2)	; B	Origen.
+	MOVE.W	D3,$60-2(A2)	; C	Destino.
+	MOVE.W	$10(A4),D0
+	MOVE.W	D6,$74-2(A2)	; A DAT
+	LEA	HVPDat,A6
+HVPLp:	MOVE.W	(A6)+,$72-2(A2)	; B DAT: this plane's dots.
+	MOVE.L	A5,$50-2(A2)	; A
+	MOVE.L	A0,$4C-2(A2)	; B
+	MOVE.L	A1,$48-2(A2)	; C
+	MOVE.L	A1,$54-2(A2)	; D
+	BLTSZ	D4		; Size
+	ADD.L	$16(A4),A0
+	ADD.L	$16(A4),A1
+	BTST	#$E,(A2)		; (a dummy read, as in COPIA)
+HVPB:	BTST	#$E,(A2)
+	BNE.S	HVPB
+	DBF	D0,HVPLp
+	MOVEM.L	BUFER(A3),D0-D7/A0-A6
+	FInsBuc
+	SWAP	D2
+	RTS
+HVPDat:	DS.W	16
 
 	CNOP	0,8
 LINE:
@@ -24937,13 +25784,13 @@ RTCSet:	MOVE.L	PVDP3B(A3),(A0,D0.W)
 	MOVE.B	DVDP3+1(A3),8(A0,D0.W)
 	MOVE.B	DVDP4+1(A3),9(A0,D0.W)
 	MOVE.W	D0,BankAct
-	MOVE.L	#GFXCA,GfxCaPtr
+	MOVE.L	GfxCaAdr,GfxCaPtr	; (4.4: GFXCAF with CpuTiles)
 	MOVE.L	#TAB98,TabFlagPtr
 	MOVE.L	DbScr,ScreenPtr		; (4.0: the back buffer when double)
 	MOVE.L	#TXT2,Txt2Ptr
 	TST.W	D0
 	BEQ	RTCFin
-	MOVE.L	#GFXCA2,GfxCaPtr
+	MOVE.L	GfxCaAdr+4,GfxCaPtr
 	MOVE.L	#TAB98B,TabFlagPtr
 	CMP.B	#1,ScrModo(A3)		; SCREEN 2: the bank has its own screen
 	BNE	RTCFin			; and name shadow (Planos2).
@@ -24972,6 +25819,7 @@ TXT2B:		DS.B	80*30		; Name shadow of bank 2 (SCREEN 2).
 BankSw:		DC.B	0		; Switched to the other bank this frame.
 		EVEN
 GfxCaPtr:	DC.L	GFXCA		; Cache bank in use,
+GfxCaAdr:	DC.L	GFXCA,GFXCA2	; (4.4) the two banks (GFXCAF/GFXCA2F: CpuTiles)
 TabFlagPtr:	DC.L	TAB98		; its dirty flags,
 ScreenPtr:	DC.L	SCREEN		; screen
 Txt2Ptr:	DC.L	TXT2		; and name shadow (SCREEN 2 only).
@@ -27597,6 +28445,8 @@ DirDOS:	DS.B	4*($4000)+$100
 NOMEM:	DS.B	(16*1024)
 	DS.B	$100
 MMUSIC:	DS.B	(16*1024)		; (4.0) MSX-Music signature page.
+SramRaw:	DS.B	$2000		; (4.4) Cartridge SRAM (2 or 8 KB),
+SramView:	DS.B	$4180		; and its 16 KB page (see Mapper4S).
 ESROM=NOMEM+1
 
 ROM10=DirROM
@@ -27742,6 +28592,14 @@ BandBuf:	DS.B	640*BANDMAX	; Sprite mode 2 band snapshots.
 PerfPCBuf:	DS.L	16384		; Interrupted PCs (PERF profile).
 PerfPCEnd:
 	ENDC
+
+; --------------------------------
+	SECTION	CACHEF,BSS		; (4.4) the caches in fast RAM (CpuTiles)
+; --------------------------------
+	CNOP	0,8
+GFXCAF:		DS.B	64*1024
+GFXCA2F:	DS.B	64*1024
+	DS.L	10
 
 ; --------------------------------
 	SECTION	CACHE2,BSS_C
@@ -27900,6 +28758,10 @@ DispLast:	DS.L	1
 DispN:		DS.L	1
 DispLog:	DS.B	4096		; Amiga frames since the MSX frame before
 DispLine:	DS.B	4096		; beam line / 2 when each frame ended
+SprHwHdr:	DS.L	1		; (4.4) "SPRL" (set by PerfDump), then
+DispTick:	DS.B	4096		; PerfTick (low byte) when each frame ended,
+SprTick:	DS.B	4096		; and when its sprite pass ended (SPRLOG),
+SprLine:	DS.B	4096		; with the beam line / 2.
 AclN:		DS.L	1		; ActCopperLine runs, and those begun
 AclLate:	DS.L	1		; with the beam inside the display.
 	IFD	STATEDUMP

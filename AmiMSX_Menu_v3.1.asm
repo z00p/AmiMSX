@@ -585,6 +585,10 @@ PerfDump:
 	MOVE.L	#AclN,D2		; (4.0) copper line list rebuilds, late ones.
 	MOVE.L	#8,D3
 	BSR	WRITEFILE
+	MOVE.L	#"SPRL",SprHwHdr	; (4.4) hardware-test log: frame and sprite
+	MOVE.L	#SprHwHdr,D2		; pass timing (SPRLOG).
+	MOVE.L	#4+3*4096,D3
+	BSR	WRITEFILE
 	IFD	STATEDUMP
 	MOVE.L	#StDumpN,D2		; (state dumps: count, then 4 slots)
 	MOVE.L	#4+4*STDSIZE,D3
@@ -621,7 +625,6 @@ PerfName:	DC.B	"perf.bin",0		; directory, no AmiMSX: assign)
 PerfName:	DC.B	"AmiMSX:perf.bin",0
 	ENDC
 		EVEN
-GfxCaAdr:	DC.L	GFXCA,GFXCA2
 	EVEN
 	ENDC
 	IFD	TRACE
@@ -1025,6 +1028,21 @@ MC68020:
 	MOVE.L	$4.w,A0
 	MOVE.B	$129(A0),D0
 	SMI	EsUn060
+	MOVE.B	D0,D1			; (4.4) 68040 or 68060: SCREEN 2/4 tiles
+	AND.B	#$88,D1			; by the CPU from caches in fast RAM.
+	SNE	CpuTiles
+	IFD	CPUTFORCE		; (test builds: -DCPUTFORCE=0 or 1)
+	SF	CpuTiles
+	IFNE	CPUTFORCE
+	ST	CpuTiles
+	ENDC
+	ENDC
+	TST.B	CpuTiles
+	BEQ.S	MCNoCpuT
+	MOVE.L	#GFXCAF,GfxCaAdr
+	MOVE.L	#GFXCA2F,GfxCaAdr+4
+	MOVE.L	#GFXCAF,GfxCaPtr
+MCNoCpuT:
 
 	AND.B	#$8E,D0
 	BNE.S	MC68020RET
@@ -2944,6 +2962,7 @@ InsertSl1:
 	MOVE.W	PagCart(PC),PagCartS1
 	MOVE.L	CheckId(PC),CheckIdS1
 	JSR	FlashLoad		; (4.0) a flash cartridge's saved sectors
+	JSR	SramLoad		; (4.4) and an SRAM cartridge's SRAM
 	TST.B	CartLoadOK		; The cartridge's own settings, if it
 	BEQ.S	InsSl1NoGP		; has any (GPLoad).
 	BSR	GPLoad
@@ -2957,13 +2976,15 @@ InsSl1NoGP:
 ; (DirPrefs+$16), sprite collisions (DirPrefs+$6C), mask screen edges
 ; (PrefMask: 0, 8 or 16 dots since 4.2; FFh in older files = 8), audio
 ; filter, a byte that was 4.0-4.1's auto mask (written 0 and ignored since
-; 4.2) and (4.1.1, bytes 12-13) the CD32 pad setting of each joystick port. Inserting a cartridge applies its
+; 4.2) and (4.1.1, bytes 12-13) the CD32 pad setting of each joystick port,
+; and (4.4, byte 14) the machine (DirPrefs+$10; byte 15 is FFh). Inserting a cartridge applies its
 ; file (GUI included, as GO copies the GUI over DirPrefs); a cartridge
 ; without one brings the global settings back, with the SCC sound chip
-; for a Konami SCC cartridge. Save Prefs always writes the global
+; for a Konami SCC cartridge and (4.4) the ROM database's machine for an
+; MSX2, MSX2+ or turbo R game (RomDbMach; per-game defaults). Save Prefs always writes the global
 ; settings. A 4.0/4.1 file is 12 bytes: the pad bytes read as 0
-; (Standard).
-GP_LEN=14
+; (Standard); a 4.1.1-4.3 file is 14: the machine is left as it is.
+GP_LEN=16
 GP_LEN41=12				; A 4.0/4.1 file's length.
 
 ; DirPrefs -> the 12-byte block at A1, and back.
@@ -2978,6 +2999,8 @@ GPFromPrefs:
 	CLR.B	11(A1)			; (4.0-4.1 auto mask: unused since 4.2)
 	MOVE.B	PrefCD32,12(A1)		; (4.1.1; 0 in older files: Standard)
 	MOVE.B	PrefCD32M,13(A1)
+	MOVE.B	DirPrefs+$10,14(A1)	; (4.4) the machine
+	ST	15(A1)
 	RTS
 GPToPrefs:
 	MOVE.B	5(A1),DirPrefs+$1D
@@ -2988,12 +3011,16 @@ GPToPrefs:
 	MOVE.B	10(A1),PrefFilter
 	MOVE.B	12(A1),PrefCD32
 	MOVE.B	13(A1),PrefCD32M
-	RTS
+	CMP.B	#$FF,14(A1)		; (4.4) the machine, unless FFh (a file
+	BEQ.S	GPToP1			; from before 4.4)
+	MOVE.B	14(A1),DirPrefs+$10
+GPToP1:	RTS
 
 ; Those settings from the GUI into DirPrefs (ACTUPREFS for just these: all
 ; of ACTUPREFS also rewrote the Slot 1 mapper the load had just set, and
 ; Nemesis 2 boot-looped).
 GPGUIToPrefs:
+	MOVE.B	([MSX2Gadgets+(GD_ROM*4)],$57.w),DirPrefs+$10	; (4.4)
 	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
 	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
@@ -3014,6 +3041,12 @@ GPGUIToPrefs:
 
 ; The GUI from DirPrefs for those settings (gadgets and menu checkmarks).
 GPShowGUI:
+	LEA	MSX2Gadgets+(GD_ROM*4),A0	; (4.4) the machine
+	MOVE.L	MSX2WND,A1
+	MOVE.L	#$8008000F,D0
+	MOVEQ	#0,D1
+	MOVE.B	DirPrefs+$10,D1
+	BSR	CanviTags
 	LEA	MSX2Gadgets+(GD_SOUND*4),A0
 	MOVE.L	MSX2WND,A1
 	MOVE.L	#$8008000F,D0
@@ -3138,7 +3171,8 @@ GPLoad:
 	BSR	OPENFILE
 	BEQ.S	GPLoadNone
 	CLR.W	GPBuf+12		; (4.1.1) The pad bytes: 0 unless the
-	MOVE.L	#GPBuf,D2		; file has them.
+	MOVE.W	#$FFFF,GPBuf+14		; file has them; (4.4) the machine: FFh
+	MOVE.L	#GPBuf,D2		; (keep) unless it has it.
 	MOVEQ	#GP_LEN,D3
 	BSR	READFILE
 	CMP.L	#GP_LEN41,D0		; A 12-byte (4.0/4.1) file is fine too.
@@ -3159,6 +3193,36 @@ GPLoadSet:
 	BSR	GPToPrefs
 	BRA	GPShowGUI
 GPLoadNone:
+	MOVE.B	RomDbMach,D0		; (4.4) No game file: an MSX2/MSX2+/turbo
+	BEQ.S	GPNoMach		; R game in the ROM database gets that
+	TST.B	GPActive		; machine over the global settings (MSX1
+	BNE.S	GPMach1			; games and unknown ones keep them).
+	BSR	GPGUIToPrefs
+	LEA	GPSaved,A1
+	BSR	GPFromPrefs
+	ST	GPActive
+GPMach1:LEA	GPSaved,A1
+	BSR	GPToPrefs
+	MOVE.B	RomDbMach,D0		; (D0 went in the calls above)
+	BSR	GDMach
+	CMP.B	#5,DirPrefs+$76		; (and the SCC rule below)
+	BCS	GPShowGUI
+	CMP.B	#6,DirPrefs+$76
+	BHI	GPShowGUI
+	TST.B	DirPrefs+$1D
+	BEQ.S	GPMach2
+	CMP.B	#3,DirPrefs+$1D
+	BCS	GPShowGUI
+GPMach2:MOVE.B	#1,DirPrefs+$1D
+	BRA	GPShowGUI
+; (4.4) D0 = the database's machine (1 MSX2, 2 MSX2+, 3 turbo R: MSX2+, the
+; nearest AmiMSX has) into DirPrefs+$10.
+GDMach:	CMP.B	#3,D0
+	BCS.S	GDMach1
+	MOVEQ	#2,D0
+GDMach1:MOVE.B	D0,DirPrefs+$10
+	RTS
+GPNoMach:
 	CMP.B	#5,DirPrefs+$76		; No game file, but a Konami SCC mapper
 	BCS.S	GPNoScc			; (5 = SCC 1, 6 = SCC 2): the global
 	CMP.B	#6,DirPrefs+$76		; settings with the SCC sound chip, if
@@ -4196,6 +4260,7 @@ NORL:
 	BSR	Explode
 ; ---------------------------------
 CONTINEW2:
+	JSR	DiskDbCheck		; (4.4) The disk database's machine.
 
 ; <=----------------
 	MOVE.L	DIRFILE,A0
@@ -7393,6 +7458,7 @@ SIREINTM:
 					; later games get the keyboard and
 					; joystick back (Measure on BigMig).
 	JSR	FlashSave		; (4.0) back in the menu: flash sectors
+	JSR	SramSave		; (4.4) cartridge SRAM,
 	JSR	DiskBSave		; and drive B's image, if changed.
 
 	MOVE.L	D7,-(SP)

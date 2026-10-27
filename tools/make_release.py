@@ -125,7 +125,7 @@ def main():
     subprocess.run([sys.executable, os.path.join(BASE, "tools", "make_presets.py"), binary, d], check=True)
     os.remove(os.path.join(d, "presets.png"))
     shutil.copy(binary, os.path.join(d, "AmiMSX"))
-    for f in ("AmiMSX2.data", "AmiMSX2.mapper", "AmiMSX4.romdb"):
+    for f in ("AmiMSX2.data", "AmiMSX2.mapper", "AmiMSX4.romdb", "AmiMSX4.diskdb"):
         shutil.copy(os.path.join(BASE, f), os.path.join(d, f))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX.guide"), os.path.join(d, "AmiMSX.guide"))
     amiga_text(os.path.join(BASE, "Docs", "CHANGES_4.x.md"), os.path.join(d, "Docs", "CHANGES_4.x.txt"), wrap=76)

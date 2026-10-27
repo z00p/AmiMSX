@@ -4,6 +4,16 @@ AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 4.4 (27 Oct 2026)
+
+- **Per-game machine:** an MSX2, MSX2+ or turbo R game without its own settings file starts on that machine (turbo R games on the MSX2+). ROMs are recognised by the ROM database (openMSX's software database, by SHA-1), disks by a new disk database (`AmiMSX4.diskdb`, by a quick sum of the image). File Hunter's MSXdev and homebrew games are in both databases, as MSX2 at most (File Hunter's machine is the player's choice, not a requirement). A game's own settings file now keeps the machine too. FM sound and the Japanese ID stay with the presets.
+- **Cartridge SRAM:** the battery-backed save memory of the ASCII8 and ASCII16 SRAM cartridges (36 in the ROM database: Hydlide 2, A-Train, Xanadu, Deep Dungeon, Daisenryaku...), kept in `<cartridge>.sram` next to the ROM. The file is the raw 2 or 8 KB, the same as openMSX's, so a save can move between the two. Koei's SRAM cartridges are not done yet. (Lilly's Saga isn't one of them: the free MSXdev version has no saves; they are in the boxed edition.)
+- **VDP commands:** SRCH is implemented (MSX-BASIC's PAINT in SCREEN 5 and up uses it), with S#2's BD bit and S#8/S#9. HMMV in SCREEN 5/6/7 keeps each dot's colour of the byte instead of filling with the low nibble (Pampas & Selene's health bars now match openMSX). SCREEN 8 PSET, LINE, YMMM, HMMC and LMMC write video memory; they used to draw on the screen only, and the next conversion undid them. The SCREEN 7/8 memory test (`tools/maptest.sh`) covers them all and matches openMSX byte for byte.
+- **Speed:** SCREEN 8 on a 68030/50 is back to its speed before 4.3's memory layout (Uridium 2: about 74% of MSX speed in WinUAE's cycle-exact 030; 4.3 about 68%). VDP command copies work out their addresses once per row and copy by longs, and the sprite tables are copied only where a command changed them.
+- **68040/060 (PiStorm, BigMig):** SCREEN 2 and 4 tiles are drawn by the CPU from a character cache in fast RAM, instead of one blit per pair of tiles with a wait for each. Lotus F3's road no longer judders on the PiStorm: every 4th frame, when the game shifts the whole name table, used to finish late. 68030 machines keep the blitter; the pictures are identical.
+- **Bombaman:** the sprite ghosting on fast machines is gone (checked on an A1200 PiStorm and BigMig).
+- **Tests:** a cartridge SRAM test (`tools/sramtest.sh`), and a frame-timing log in PERF builds for tests on real machines (`tools/read_hw.py`).
+
 ## 4.3 (26 Oct 2026)
 
 - **SCREEN 7/8 video memory** is now stored as on the V9938, which interleaves its two 64 KB banks in SCREEN 7 and 8 (logical A at physical (A >> 1) | (A & 1) << 16). Data written in one kind of mode now reads back right in the other. Manbow 2's title screen draws in SCREEN 5 and shows a SCREEN 8 picture above it: the boxes over its logo and the stray line at the top left are gone.
