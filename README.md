@@ -6,7 +6,7 @@ AmiMSX is an MSX, MSX2 and MSX2+ emulator for the Amiga, written in 68020 assemb
 
 ## Running it
 
-The release archive (Aminet `misc/emu`) holds the AmiMSX drawer: the program, `AmiMSX2.data` (MSX system ROMs), `AmiMSX2.mapper`, `AmiMSX4.romdb`, the AmigaGuide and two preset icons. "AmiMSX 030" is for a 68030/50; "AmiMSX PiStorm" is for PiStorm, BigMig and other fast CPUs.
+The release archive (Aminet `misc/emu`) holds the AmiMSX drawer: the program, `AmiMSX2.data` (MSX system ROMs), `AmiMSX2.mapper`, `AmiMSX4.romdb`, the AmigaGuide and three preset icons. "AmiMSX 030" is for a 68030/50; "AmiMSX PiStorm" is for PiStorm, BigMig and other fast CPUs; "AmiMSX RTG" (beta, since 4.5) is the PiStorm preset on a Picasso96 screen, such as the PiStorm's HDMI output, with optional scanlines.
 
 ## Games it runs well
 

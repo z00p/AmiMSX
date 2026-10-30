@@ -19,10 +19,11 @@ from PIL import Image, ImageChops, ImageDraw
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE, "tools"))
-from regress import picture  # noqa: E402
+from regress import picture, slot2_args  # noqa: E402
 
 OMSX = os.path.join(BASE, "tools", "openmsx", "openmsx.exe")
 FPS = 50
+CONFIG = ""                  # --config: WinUAE config instead of the title's
 MACHINE = "C-BIOS_MSX2_EU"   # --machine: openMSX machine (e.g. C-BIOS_MSX2+_EU)
 
 
@@ -54,8 +55,11 @@ def amimsx(r, times, n, exe, out):
     last = max(times)
     cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
            os.path.join(BASE, "winuae", "batch_test.ps1"), "-Exe", exe, "-Roms", r["file"],
-           "-Keys", keys, "-Config", "AmiMSX-" + r["config"] + ".uae",
+           "-Keys", keys, "-Config", "AmiMSX-" + (CONFIG or r["config"]) + ".uae",
            "-Shots", str(int(last) + 30), "-SnapWait", str(int(last * 3) + 90 + n * 8 * len(times))]
+    cmd += slot2_args(r)                 # (4.5) features slot2:<file>
+    if "rtg" in CONFIG:
+        cmd += ["-Wb", "wbrtg"]          # the RTG configs boot their own Workbench
     p = subprocess.run(cmd, capture_output=True, text=True)
     print("amimsx:", (p.stdout.strip().splitlines() or ["?"])[0])
     got = {}
@@ -104,6 +108,9 @@ def omsx(r, times, n, out):
         cmd += ["-cart", os.path.join(BASE, "run", "Roms", r["file"])]
         if r["romtype"]:
             cmd += ["-romtype", r["romtype"]]
+        for f in r.get("features", "").split():   # (4.5) slot2:<file>: -cartb
+            if f.startswith("slot2:"):
+                cmd += ["-cartb", os.path.join(BASE, "run", "Roms", f[6:])]
     cmd += ["-script", tcl]
     try:
         subprocess.run(cmd, cwd=os.path.dirname(OMSX), timeout=int(last) + 300, capture_output=True)
@@ -156,10 +163,12 @@ def main():
     ap.add_argument("--no-omsx", action="store_true")
     ap.add_argument("--no-amimsx", action="store_true")
     ap.add_argument("--keys", help="key script in tests/keys instead of the title's (e.g. none)")
+    ap.add_argument("--config", default="", help="WinUAE config (e.g. rtgrt) instead of the title's")
     ap.add_argument("--machine", default="C-BIOS_MSX2_EU", help="openMSX machine (C-BIOS_MSX2+_EU for MSX2+ titles)")
     a = ap.parse_args()
-    global MACHINE
+    global MACHINE, CONFIG
     MACHINE = a.machine
+    CONFIG = a.config
     r = row(a.id)
     if a.keys:
         r = dict(r, keys=a.keys)

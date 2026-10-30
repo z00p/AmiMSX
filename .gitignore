@@ -10,3 +10,4 @@ reports/
 buildid.i
 tools/vasm-wasm/
 tools/__pycache__/
+winuae/wbrtg/

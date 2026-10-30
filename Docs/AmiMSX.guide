@@ -1,11 +1,11 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.4 (27.10.2026)
+@version $VER: AmiMSX.guide 4.5 (30.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                             AmiMSX Emulator v4.4
-                          ( 26.10.2026 - Freeware )
+                          AmiMSX Emulator v4.5 beta
+                          ( 30.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 
@@ -96,7 +96,7 @@ https://github.com/z00p/AmiMSX/issues
 @{fg highlight}    Presets:
 @{fg text}    --------
 
-    Start AmiMSX from one of the two preset icons.  Each one has its own
+    Start AmiMSX from one of the three preset icons.  Each one has its own
 settings file, and Save Prefs writes to the preset you started.
 
 @{fg highlight}    <*> AmiMSX 030:
@@ -111,6 +111,28 @@ Fast memory.  PSG, PAL, sprites every frame.
     PiStorm (Emu68), BigMig and other fast CPUs.  PSG+FM, Frequence
 [From VDP] (60 Hz games in NTSC, at full speed), Use Japanese ID (60 Hz),
 Audio filter and Smooth display.
+
+@{fg highlight}    <*> AmiMSX RTG:  (beta)
+@{fg text}    ---------------
+
+    The PiStorm preset on a Picasso96 (RTG) screen, such as the PiStorm's
+HDMI output:  every MSX dot is 2x2 pixels (960x540 is an exact 2x on a
+1080p display), the menu is drawn at double height, and every second row
+is 50% darker (scanlines).  SCREEN 1, 2, 4, 5 and 8 are drawn on RTG;
+frames in other modes, and screens split between SCREEN 5 and 8, still go
+to the Amiga's own video output, and the RTG screen keeps its last
+picture (black after a second).  Needs Picasso96 and a 16 or 32-bit mode.
+
+@{fg highlight}    <*> ToolType RTG:
+@{fg text}    -----------------
+
+    Shows the MSX and the menu on a Picasso96 screen.
+
+@{fg highlight}    <*> ToolType SCANLINES=<n>:
+@{fg text}    ---------------------------
+
+    With RTG:  every second row of the picture n% darker (0 to 90;
+SCANLINES alone is 50).  The Options menu changes it until AmiMSX quits.
 
 @{fg highlight}    <*> ToolType PREFS=<file>:
 @{fg text}    --------------------------
@@ -204,6 +226,9 @@ THIS SOFTWARE...
     - PiStorm (Emu68), BigMig or another fast CPU for MSX-Music (FM),
       60 Hz games at full speed and Smooth display  (the "AmiMSX PiStorm"
       preset)
+
+    - For the RTG preset:  Picasso96 and a 16 or 32-bit screen mode of at
+      least 544x460  (960x540 on a 1080p display), and a fast CPU
 
     A stock 68020 A1200 runs AmiMSX, but slowly.  (See @{"Presets" link Presets}.)
 
@@ -394,6 +419,10 @@ lit.
 frame is shown complete.  Needs a fast CPU and about 90Kb more Chip
 memory.  Other screen modes are not changed.
 
+    - RTG scanlines:  Off, 25%, 50% or 75%:  with the RTG preset, every
+second row of the picture that much darker.  Starts from the icon's
+SCANLINES ToolType and is kept until AmiMSX quits.  (See @{"Presets" link Presets}.)
+
     The edge mask and the audio filter are kept in the per-game settings
 too.  (See @{"Cartridges Menu" link MenuCar}.)
 
@@ -488,13 +517,17 @@ the global settings.
 
     MSX cartridges bigger than 32Kb uses a custom mapper to work.
 
-    There are six types of mappers emulated in AmiMSX.  You need find the
+    There are seven types of mappers emulated in AmiMSX.  You need find the
 correct mapper for a Cartridge testing every one.
 
     4.0:  most MegaROMs get their mapper without testing.  A saved Mapper
 ID comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
 mapper tag in the file name, then a guess.  The answers are kept in
 AmiMSX4.romcache, so each ROM is checked once.
+
+    4.5:  R-Type has its own mapper, chosen by the ROM database or with
+Mapper > R-Type.  With the R-Type FM loader in Slot 1 and R-Type in Slot 2,
+set MSX Disk ROM to None first.
 
 
 @{fg highlight}    Slot 3:

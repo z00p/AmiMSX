@@ -42,7 +42,11 @@ BLOCK40 = 6         # bytes after the credits string (PrefMask .. PrefCD32M)
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1), MASK: ("B", 0), NOAUTO: ("B", 0)}),
     ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("AmiMSX RTG",     "RTG",  (30, 100, 200),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
 ]
+# (4.5) Extra ToolTypes: the RTG preset is the PiStorm one on an RTG screen (ToolType RTG,
+# WBToolTypes; the picture through Picasso96, the menu too).
+TOOLTYPES = {"AmiMSX RTG": ["RTG", "SCANLINES=50"]}
 
 W, H = 46, 46
 # Classic (planar) image uses the 4 Workbench pens: grey, black, white, blue.
@@ -162,7 +166,7 @@ def main():
         open(os.path.join(out, name), "wb").write(p)
         im = draw(badge, colour)
         open(os.path.join(out, name + ".info"), "wb").write(
-            diskobject(im, a.tool, ["PREFS=" + name] + a.tooltype))
+            diskobject(im, a.tool, ["PREFS=" + name] + TOOLTYPES.get(name, []) + a.tooltype))
         big = im.resize((W * 2, H * 2), Image.NEAREST)
         mask = Image.new("L", big.size)
         mask.putdata([0 if c == (255, 0, 255) else 255 for c in (big.get_flattened_data() if hasattr(big, "get_flattened_data") else big.getdata())])

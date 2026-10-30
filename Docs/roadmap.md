@@ -15,8 +15,14 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 
 Koei's SRAM cartridges, Shoulder Blade OVERDRIVE title logo, Nemesis 2 cyan stars and a missing ship frame, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, CPIR/CPDR per-repeat timing, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). The YJK modes (SCREEN 10-12) wait for a game that uses them.
 
+Menu tidy-up (a tester, 28 Oct): remove the Project menu's Register item (it has done nothing since 4.0, AmiMSX is freeware), the About window's disabled More button (the old contact addresses) and the unused registration windows and texts; and keep the About window's date in step with each release (4.4 still shows October 11th, 2026).
+
+Cartridges (a tester, 30 Oct): Slot 2 is greyed out while an MSX Disk ROM is chosen, so a two-cartridge set-up (a loader in Slot 1 and the game in Slot 2, such as the R-Type FM loader) needs the Disk ROM set to None first; choosing a Slot 2 cartridge should do that, or the disk ROM should move out of the way. The R-Type mapper is done (4.5, branch rtype: Docs/agent_notes/v45_rtype.md). Ashguine 2's FM/MSX-Audio patch (English translation) plays its sound effects but no music.
+
+RTG scanlines (a tester, 30 Oct): their own item in the Options menu, saved with the prefs, and blended scanlines (the row between two lines a dimmed mix of both) beside the hard ones.
+
 ## Later
 
 - Speed work on the native AGA display.
-- An optional RTG (Picasso96/CyberGraphX) display, shared with other Amiga emulators (design in progress with Arnold).
+- The RTG display (4.5 beta): SCREEN 0, 3, 6 and 7 and the SCREEN 5/8 split screens on RTG, a 60 Hz output for 60 Hz games, blended scanlines and the scanline choice in the prefs.
 - Sound output options (Paula 8/14-bit, 16-bit AHI).

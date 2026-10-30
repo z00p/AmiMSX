@@ -1,0 +1,9 @@
+# R-Type (Irem, 1988; R-Type mapper): the title (BLAST 0, R-TYPE logo) comes up at about
+# 15 s, "PUSH START BUTTON" at about 18 s; Space starts a 1-player game (about 24 s).
+# Then fire and move a little (the ship dies if it flies into the scenery).
+19s   SPACE 5 every 100 until 23s
+28s   SPACE 5 every 30 until 50s
+30s   UP    15
+33s   RIGHT 25
+36s   DOWN  15
+40s   LEFT  20

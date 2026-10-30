@@ -1966,7 +1966,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.4 (Pro) '
+    DC.B    'AmiMSX Emulator v4.5 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -4243,10 +4243,10 @@ PasswordIText0:
     CNOP    0,2
 
 AboutIText0:
-    DC.B    'AmiMSX Emulator v4.4',0
+    DC.B    'AmiMSX Emulator v4.5',0
 
 AboutIText1:
-    DC.B    '(October 11th, 2026)',0
+    DC.B    '(October 30th, 2026)',0
 
 AboutIText2:
     DC.B    'Full Program & Emulation Systems:',0
@@ -4671,6 +4671,34 @@ MSX2NewMenu41d:
     DC.W    $0009
     DC.L    0,0
 
+MSX2NewMenu41g:                     ; (4.5) sub-items 8-11: RTG scanlines
+    DC.B    3,0
+    DC.L    MSX2MName41g
+    DC.L    0
+    DC.W    $0101
+    DC.L    $E00,0
+
+MSX2NewMenu41h:
+    DC.B    3,0
+    DC.L    MSX2MName41h
+    DC.L    0
+    DC.W    $0001
+    DC.L    $D00,0
+
+MSX2NewMenu41i:
+    DC.B    3,0
+    DC.L    MSX2MName41i
+    DC.L    0
+    DC.W    $0001
+    DC.L    $B00,0
+
+MSX2NewMenu41j:
+    DC.B    3,0
+    DC.L    MSX2MName41j
+    DC.L    0
+    DC.W    $0001
+    DC.L    $700,0
+
 MSX2NewMenu42:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
@@ -4956,6 +4984,13 @@ MSX2NewMenu78:
     DC.W    $0001
     DC.L    0,0
 
+MSX2NewMenu78r:
+    DC.B    3,0
+    DC.L    MSX2MName78r
+    DC.L    0
+    DC.W    $0001
+    DC.L    0,0
+
 MSX2NewMenu79:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
@@ -5048,6 +5083,13 @@ MSX2NewMenu91:
 MSX2NewMenu92:
     DC.B    3,0
     DC.L    MSX2MName92
+    DC.L    0
+    DC.W    $0001
+    DC.L    0,0
+
+MSX2NewMenu92r:
+    DC.B    3,0
+    DC.L    MSX2MName92r
     DC.L    0
     DC.W    $0001
     DC.L    0,0
@@ -5316,6 +5358,18 @@ MSX2MName41e:
 MSX2MName41f:
     DC.B    'Mask screen edges: 16 dots',0
 
+MSX2MName41g:
+    DC.B    'RTG scanlines: Off',0
+
+MSX2MName41h:
+    DC.B    'RTG scanlines: 25%',0
+
+MSX2MName41i:
+    DC.B    'RTG scanlines: 50%',0
+
+MSX2MName41j:
+    DC.B    'RTG scanlines: 75%',0
+
 MSX2MName43:
     DC.B    'Disable Cheats',0
 
@@ -5448,6 +5502,9 @@ MSX2MName77:
 MSX2MName78:
     DC.B    'SCC 2',0
 
+MSX2MName78r:
+    DC.B    'R-Type',0
+
 MSX2MName80:
     DC.B    'Slot 2',0
 
@@ -5483,6 +5540,9 @@ MSX2MName91:
 
 MSX2MName92:
     DC.B    'SCC 2',0
+
+MSX2MName92r:
+    DC.B    'R-Type',0
 
 MSX2MName94:
     DC.B    'Slot 3',0
@@ -5625,7 +5685,7 @@ MC68020Render:
     add.w   d5,d1
     move.w  #258,d2
     move.w  #20,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #6,d0
@@ -5634,14 +5694,14 @@ MC68020Render:
     add.w   d5,d1
     move.w  #262,d2
     move.w  #22,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  MC68020Wnd,a0
     move.l  50(a0),a0
     lea.l   MC68020Text0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -5683,6 +5743,7 @@ MC68020GL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -5796,7 +5857,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #214,d2
     move.w  #13,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #392,d0
@@ -5805,7 +5866,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #214,d2
     move.w  #13,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #82,d0
@@ -5814,7 +5875,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #228,d2
     move.w  #13,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #27,d0
@@ -5823,7 +5884,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #143,d2
     move.w  #13,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #241,d0
@@ -5832,7 +5893,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #149,d2
     move.w  #56,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #239,d0
@@ -5841,7 +5902,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #153,d2
     move.w  #58,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #26,d0
@@ -5850,7 +5911,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #203,d2
     move.w  #56,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #402,d0
@@ -5859,7 +5920,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #203,d2
     move.w  #56,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #400,d0
@@ -5868,7 +5929,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #207,d2
     move.w  #58,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #24,d0
@@ -5877,7 +5938,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #207,d2
     move.w  #58,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #390,d0
@@ -5886,7 +5947,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #226,d2
     move.w  #51,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #394,d0
@@ -5895,7 +5956,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #218,d2
     move.w  #47,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #15,d0
@@ -5904,7 +5965,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #365,d2
     move.w  #51,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #9,d0
@@ -5913,7 +5974,7 @@ MSX2Render:
     add.w   d5,d1
     move.w  #613,d2
     move.w  #105,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #13,d0
@@ -5922,14 +5983,14 @@ MSX2Render:
     add.w   d5,d1
     move.w  #605,d2
     move.w  #101,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  MSX2Wnd,a0
     move.l  50(a0),a0
     lea.l   MSX2Text0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -5971,6 +6032,7 @@ MSX2GL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -6112,7 +6174,7 @@ InfoRender:
     add.w   d5,d1
     move.w  #326,d2
     move.w  #68,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #26,d0
@@ -6121,7 +6183,7 @@ InfoRender:
     add.w   d5,d1
     move.w  #330,d2
     move.w  #70,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #9,d0
@@ -6130,7 +6192,7 @@ InfoRender:
     add.w   d5,d1
     move.w  #363,d2
     move.w  #123,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #13,d0
@@ -6139,14 +6201,14 @@ InfoRender:
     add.w   d5,d1
     move.w  #355,d2
     move.w  #119,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  InfoWnd,a0
     move.l  50(a0),a0
     lea.l   InfoText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -6188,6 +6250,7 @@ InfoGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -6301,7 +6364,7 @@ ErrormfmRender:
     add.w   d5,d1
     move.w  #229,d2
     move.w  #31,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #10,d0
@@ -6310,14 +6373,14 @@ ErrormfmRender:
     add.w   d5,d1
     move.w  #233,d2
     move.w  #33,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  ErrormfmWnd,a0
     move.l  50(a0),a0
     lea.l   ErrormfmText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -6359,6 +6422,7 @@ ErrormfmGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -6472,7 +6536,7 @@ ErrorRender:
     add.w   d5,d1
     move.w  #258,d2
     move.w  #24,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #7,d0
@@ -6481,14 +6545,14 @@ ErrorRender:
     add.w   d5,d1
     move.w  #262,d2
     move.w  #26,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  ErrorWnd,a0
     move.l  50(a0),a0
     lea.l   ErrorText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -6530,6 +6594,7 @@ ErrorGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -6643,7 +6708,7 @@ QuitRender:
     add.w   d5,d1
     move.w  #183,d2
     move.w  #15,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #8,d0
@@ -6652,14 +6717,14 @@ QuitRender:
     add.w   d5,d1
     move.w  #187,d2
     move.w  #17,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  QuitWnd,a0
     move.l  50(a0),a0
     lea.l   QuitText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -6701,6 +6766,7 @@ QuitGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -6814,7 +6880,7 @@ NOMEMRender:
     add.w   d5,d1
     move.w  #257,d2
     move.w  #34,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #7,d0
@@ -6823,14 +6889,14 @@ NOMEMRender:
     add.w   d5,d1
     move.w  #261,d2
     move.w  #36,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  NOMEMWnd,a0
     move.l  50(a0),a0
     lea.l   NOMEMText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -6872,6 +6938,7 @@ NOMEMGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -6985,7 +7052,7 @@ REGORender:
     add.w   d5,d1
     move.w  #191,d2
     move.w  #15,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #8,d0
@@ -6994,14 +7061,14 @@ REGORender:
     add.w   d5,d1
     move.w  #195,d2
     move.w  #17,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  REGOWnd,a0
     move.l  50(a0),a0
     lea.l   REGOText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7043,6 +7110,7 @@ REGOGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -7156,7 +7224,7 @@ LoaddecRender:
     add.w   d5,d1
     move.w  #185,d2
     move.w  #18,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #7,d0
@@ -7165,14 +7233,14 @@ LoaddecRender:
     add.w   d5,d1
     move.w  #189,d2
     move.w  #20,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  LoaddecWnd,a0
     move.l  50(a0),a0
     lea.l   LoaddecText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7253,7 +7321,7 @@ MSXvirtualRender:
     add.w   d5,d1
     move.w  #256,d2
     move.w  #19,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #11,d0
@@ -7262,14 +7330,14 @@ MSXvirtualRender:
     add.w   d5,d1
     move.w  #260,d2
     move.w  #21,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  MSXvirtualWnd,a0
     move.l  50(a0),a0
     lea.l   MSXvirtualText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7311,6 +7379,7 @@ MSXvirtualGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -7424,7 +7493,7 @@ ImploderRender:
     add.w   d5,d1
     move.w  #273,d2
     move.w  #14,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #13,d0
@@ -7433,14 +7502,14 @@ ImploderRender:
     add.w   d5,d1
     move.w  #277,d2
     move.w  #16,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  ImploderWnd,a0
     move.l  50(a0),a0
     lea.l   ImploderText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7482,6 +7551,7 @@ ImploderGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -7595,7 +7665,7 @@ QuitMVDRender:
     add.w   d5,d1
     move.w  #198,d2
     move.w  #30,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #8,d0
@@ -7604,14 +7674,14 @@ QuitMVDRender:
     add.w   d5,d1
     move.w  #194,d2
     move.w  #28,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  QuitMVDWnd,a0
     move.l  50(a0),a0
     lea.l   QuitMVDText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7653,6 +7723,7 @@ QuitMVDGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -7766,7 +7837,7 @@ DelMVDRender:
     add.w   d5,d1
     move.w  #198,d2
     move.w  #30,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #8,d0
@@ -7775,14 +7846,14 @@ DelMVDRender:
     add.w   d5,d1
     move.w  #194,d2
     move.w  #28,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  DelMVDWnd,a0
     move.l  50(a0),a0
     lea.l   DelMVDText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7824,6 +7895,7 @@ DelMVDGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -7937,7 +8009,7 @@ OutTimeRender:
     add.w   d5,d1
     move.w  #245,d2
     move.w  #59,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #7,d0
@@ -7946,14 +8018,14 @@ OutTimeRender:
     add.w   d5,d1
     move.w  #249,d2
     move.w  #61,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  OutTimeWnd,a0
     move.l  50(a0),a0
     lea.l   OutTimeText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -7995,6 +8067,7 @@ OutTimeGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -8108,7 +8181,7 @@ ShareInfoRender:
     add.w   d5,d1
     move.w  #304,d2
     move.w  #44,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #22,d0
@@ -8117,7 +8190,7 @@ ShareInfoRender:
     add.w   d5,d1
     move.w  #308,d2
     move.w  #46,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #9,d0
@@ -8126,7 +8199,7 @@ ShareInfoRender:
     add.w   d5,d1
     move.w  #334,d2
     move.w  #122,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #13,d0
@@ -8135,14 +8208,14 @@ ShareInfoRender:
     add.w   d5,d1
     move.w  #326,d2
     move.w  #118,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  ShareInfoWnd,a0
     move.l  50(a0),a0
     lea.l   ShareInfoText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -8184,6 +8257,7 @@ ShareInfoGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -8297,7 +8371,7 @@ AGAChipRender:
     add.w   d5,d1
     move.w  #258,d2
     move.w  #20,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #6,d0
@@ -8306,14 +8380,14 @@ AGAChipRender:
     add.w   d5,d1
     move.w  #262,d2
     move.w  #22,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  AGAChipWnd,a0
     move.l  50(a0),a0
     lea.l   AGAChipText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -8355,6 +8429,7 @@ AGAChipGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -8468,7 +8543,7 @@ PokeRender:
     add.w   d5,d1
     move.w  #163,d2
     move.w  #36,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #243,d0
@@ -8477,7 +8552,7 @@ PokeRender:
     add.w   d5,d1
     move.w  #167,d2
     move.w  #38,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #11,d0
@@ -8486,7 +8561,7 @@ PokeRender:
     add.w   d5,d1
     move.w  #222,d2
     move.w  #36,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #9,d0
@@ -8495,7 +8570,7 @@ PokeRender:
     add.w   d5,d1
     move.w  #226,d2
     move.w  #38,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #11,d0
@@ -8504,7 +8579,7 @@ PokeRender:
     add.w   d5,d1
     move.w  #397,d2
     move.w  #48,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #9,d0
@@ -8513,14 +8588,14 @@ PokeRender:
     add.w   d5,d1
     move.w  #401,d2
     move.w  #50,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  PokeWnd,a0
     move.l  50(a0),a0
     lea.l   PokeText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -8562,6 +8637,7 @@ PokeGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -8675,7 +8751,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #218,d2
     move.w  #52,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #322,d0
@@ -8684,7 +8760,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #222,d2
     move.w  #54,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #15,d0
@@ -8693,7 +8769,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #527,d2
     move.w  #23,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #13,d0
@@ -8702,7 +8778,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #531,d2
     move.w  #25,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #14,d0
@@ -8711,7 +8787,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #299,d2
     move.w  #73,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #12,d0
@@ -8720,7 +8796,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #303,d2
     move.w  #75,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #13,d0
@@ -8729,7 +8805,7 @@ RegisterRender:
     add.w   d5,d1
     move.w  #529,d2
     move.w  #75,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #11,d0
@@ -8738,14 +8814,14 @@ RegisterRender:
     add.w   d5,d1
     move.w  #533,d2
     move.w  #77,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  RegisterWnd,a0
     move.l  50(a0),a0
     lea.l   RegisterText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -8787,6 +8863,7 @@ RegisterGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -8900,7 +8977,7 @@ CartNotIDRender:
     add.w   d5,d1
     move.w  #258,d2
     move.w  #24,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #7,d0
@@ -8909,14 +8986,14 @@ CartNotIDRender:
     add.w   d5,d1
     move.w  #262,d2
     move.w  #26,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  CartNotIDWnd,a0
     move.l  50(a0),a0
     lea.l   CartNotIDText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -8958,6 +9035,7 @@ CartNotIDGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -9071,7 +9149,7 @@ DebugRender:
     add.w   d5,d1
     move.w  #308,d2
     move.w  #54,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #312,d0
@@ -9080,7 +9158,7 @@ DebugRender:
     add.w   d5,d1
     move.w  #312,d2
     move.w  #56,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #14,d0
@@ -9089,7 +9167,7 @@ DebugRender:
     add.w   d5,d1
     move.w  #282,d2
     move.w  #54,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #12,d0
@@ -9098,7 +9176,7 @@ DebugRender:
     add.w   d5,d1
     move.w  #286,d2
     move.w  #56,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #21,d0
@@ -9107,7 +9185,7 @@ DebugRender:
     add.w   d5,d1
     move.w  #577,d2
     move.w  #94,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #15,d0
@@ -9116,7 +9194,7 @@ DebugRender:
     add.w   d5,d1
     move.w  #609,d2
     move.w  #115,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #13,d0
@@ -9125,14 +9203,14 @@ DebugRender:
     add.w   d5,d1
     move.w  #613,d2
     move.w  #117,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  DebugWnd,a0
     move.l  50(a0),a0
     lea.l   DebugText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -9174,6 +9252,7 @@ DebugGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -9287,7 +9366,7 @@ OverwriteRender:
     add.w   d5,d1
     move.w  #234,d2
     move.w  #30,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   NR,a1
     move.w  #10,d0
@@ -9296,14 +9375,14 @@ OverwriteRender:
     add.w   d5,d1
     move.w  #230,d2
     move.w  #28,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  OverwriteWnd,a0
     move.l  50(a0),a0
     lea.l   OverwriteText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -9345,6 +9424,7 @@ OverwriteGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -9458,7 +9538,7 @@ AddressesRender:
     add.w   d5,d1
     move.w  #146,d2
     move.w  #61,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #9,d0
@@ -9467,14 +9547,14 @@ AddressesRender:
     add.w   d5,d1
     move.w  #150,d2
     move.w  #63,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  AddressesWnd,a0
     move.l  50(a0),a0
     lea.l   AddressesText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -9516,6 +9596,7 @@ AddressesGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -9629,7 +9710,7 @@ UnProtectRender:
     add.w   d5,d1
     move.w  #258,d2
     move.w  #24,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #7,d0
@@ -9638,14 +9719,14 @@ UnProtectRender:
     add.w   d5,d1
     move.w  #262,d2
     move.w  #26,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  UnProtectWnd,a0
     move.l  50(a0),a0
     lea.l   UnProtectText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -9687,6 +9768,7 @@ UnProtectGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -9800,7 +9882,7 @@ PasswordRender:
     add.w   d5,d1
     move.w  #241,d2
     move.w  #43,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #9,d0
@@ -9809,14 +9891,14 @@ PasswordRender:
     add.w   d5,d1
     move.w  #245,d2
     move.w  #45,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  PasswordWnd,a0
     move.l  50(a0),a0
     lea.l   PasswordText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -9858,6 +9940,7 @@ PasswordGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -9971,7 +10054,7 @@ AboutRender:
     add.w   d5,d1
     move.w  #302,d2
     move.w  #160,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #9,d0
@@ -9980,14 +10063,14 @@ AboutRender:
     add.w   d5,d1
     move.w  #306,d2
     move.w  #162,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  AboutWnd,a0
     move.l  50(a0),a0
     lea.l   AboutText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -10029,6 +10112,7 @@ AboutGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -10142,7 +10226,7 @@ AddressRender:
     add.w   d5,d1
     move.w  #334,d2
     move.w  #159,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #17,d0
@@ -10151,14 +10235,14 @@ AddressRender:
     add.w   d5,d1
     move.w  #326,d2
     move.w  #155,d3
-    jsr     DrawBevelBoxA(a6)
+    jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  AddressWnd,a0
     move.l  50(a0),a0
     lea.l   AddressText0,a1
     move.l  d4,d0
     move.l  d5,d1
-    jsr     PrintIText(a6)
+    jsr     TallIText
     movem.l (sp)+,d0-d5/a0-a2/a6
     rts
 
@@ -10200,6 +10284,7 @@ AddressGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)
@@ -10331,6 +10416,7 @@ MatraGL:
     move.w  (a0),d0
     add.w   (sp),d0
     move.w  d0,(a0)
+    jsr     TallNG
     move.w  2(a0),d0
     add.w   2(sp),d0
     move.w  d0,2(a0)

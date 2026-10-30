@@ -10,7 +10,8 @@ File format (big-endian):
   entries, 8 bytes each, sorted by key (unsigned):
     key.L               first 4 bytes of the SHA-1
     code.B              AmiMSX mapper: 0 standard, 1 Konami, 2 ASCII8, 3 ASCII16,
-                        4 Konami SCC (also its flash variants), $FE not emulated
+                        4 Konami SCC (also its flash variants), 6 R-Type (4.5;
+                        menu index 7, 5 is unused), $FE not emulated
     type.B              openMSX type number (TYPES list below; for messages)
     flags.B             bit 0: has SRAM, bit 1: flash; bits 2-3: machine (4.4: 0 MSX or
                         unknown, 1 MSX2, 2 MSX2+, 3 turbo R; the per-game defaults);
@@ -38,7 +39,7 @@ MSX_SYSTEMS = {"MSX", "MSX2", "MSX2+", "MSX turbo R", "MSXturboR", "TURBO-R", ""
 
 CODES = {"Normal": 0, "Konami": 1, "GenericKonami": 1, "ASCII8": 2, "ASCII16": 3,
          "KonamiSCC": 4, "manbow2": 4, "Manbow2_2": 4, "KonamiUltimateCollection": 4,
-         "RBSC_Flash_KonamiSCC": 4}
+         "RBSC_Flash_KonamiSCC": 4, "R-Type": 6}
 SRAM = re.compile(r"SRAM")
 FLASH = {"manbow2", "Manbow2_2", "KonamiUltimateCollection", "RBSC_Flash_KonamiSCC"}
 PLAIN = {"Mirrored", "page2", "page23", "page12", "page1", "page3", "16kb", "8kB", "Mirrored4000",

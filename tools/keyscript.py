@@ -36,6 +36,7 @@ for r, line in enumerate(ROWS):
     for b, k in enumerate(line.split()):
         KEYS[k] = (r, 1 << b)
 KEYS["ENTER"] = KEYS["RETURN"]
+KEYS["HELP"] = (14, 0x04)        # Amiga Help (AmiMSX: back to the menu; openMSX ignores it)
 KEYS["SNAP"] = (0xFF, 0)          # snapshot marker (hold = freeze, Amiga frames)
 KEYS["DUMP"] = (0xFC, 0)          # state dump (STATEDUMP builds: RAM, VRAM, REGS into perf.bin)
 FPS = 50
@@ -118,7 +119,7 @@ def main():
         with open(a.tcl, "w", encoding="ascii") as f:
             f.write("set maxframeskip 0\n")
             for fr, row, mask, hold in recs:
-                if row in (0xFE, 0xFC, 0xFB):
+                if row in (0xFE, 0xFC, 0xFB, 14):
                     continue
                 if row == 0xFF:
                     f.write(f'after time {fr / FPS:.3f} {{screenshot {{{a.shots_prefix}_{fr / FPS:g}s.png}}}}\n')

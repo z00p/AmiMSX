@@ -321,6 +321,14 @@ TSPLITCHK:	MACRO
 \@t:	MOVE.W	D1,TSplit
 	SEGEND				; (The playfield may be below it.)
 	OR.B	#$01,(TabRasCMDS.L,D1.W)
+	TST.B	RtgOn			; (4.5) RTG reads the line's R#2/R#23 from
+	BEQ.S	\@r			; TabRasDATA: this line's, not a stale one.
+	MOVE.B	DVDP2(A3),(TabRasDATA+1.L,D1.W*8)
+	IFC	'\1','DVDP2'		; (R#2's own split: D2, the new value;
+	MOVE.B	D2,(TabRasDATA+1.L,D1.W*8)	; DVDP2 is written after)
+	ENDC
+	MOVE.B	VDPLinY(A3),(TabRasDATA+4.L,D1.W*8)
+\@r:
 	IFD	TRACE
 	TRVLOG	$FA,D2
 	ENDC
@@ -504,14 +512,19 @@ MODESW:	MACRO
 	SF	V9Fm32			; (4.1.2) And its 32-bit fetch state: the
 	SF	V9Fm32Ok		; copper events test V9Fm32 in any mode.
 	MOVE.W	CurLine(A3),D1
-	BEQ.S	\@ns
+	BEQ	\@ns
 	CMP.W	#191,D1
-	BCC.S	\@ns
+	BCC	\@ns
 	TST.W	MSplitL
-	BNE.S	\@ns
+	BNE	\@ns
 	ADDQ.W	#1,D1
 	MOVE.W	D1,MSplitL
 	OR.B	#$01,(TabRasCMDS.L,D1.W)
+	TST.B	RtgOn			; (4.5) The line's R#2/R#23 for RTG.
+	BEQ.S	\@r
+	MOVE.B	DVDP2(A3),(TabRasDATA+1.L,D1.W*8)
+	MOVE.B	VDPLinY(A3),(TabRasDATA+4.L,D1.W*8)
+\@r:
 	MOVE.B	MsOld,MSplitTop
 	MOVE.B	DVDP2(A3),MS_DVDP2
 	MOVE.B	VDPLinY(A3),MS_LinY
@@ -581,7 +594,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.4 ("
+	DC.B	"$VER:AmiMSX Emulator v4.5 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -995,6 +1008,28 @@ AutoDkbC2:
 	MOVE.B	(A0)+,(A1)+
 	BNE.S	AutoDkbC2
 AutoDkbX:
+	CMP.W	#"R2",DISKBNOM		; (4.5) 'R2=<cartridge>' as the third
+	BNE.S	AutoR2X			; argument: after the first run (key script
+	CMP.B	#"=",DISKBNOM+2		; HELP), this cartridge goes in Slot 1
+	BNE.S	AutoR2X			; and powers on with the same script (test
+	LEA	DISKBNOM+3,A0		; of a second run, Rom2Next).
+	LEA	ROM2NOM,A1
+AutoR2C:
+	MOVE.B	(A0)+,(A1)+
+	BNE.S	AutoR2C
+	CLR.B	DISKBNOM
+AutoR2X:
+	CMP.W	#"S2",DISKBNOM		; (4.5) 'S2=<cartridge>' as the third
+	BNE.S	AutoS2X			; argument: after the Slot 1 cartridge,
+	CMP.B	#"=",DISKBNOM+2		; this one goes in Slot 2, with the Disk
+	BNE.S	AutoS2X			; ROM set to None (test of a two-cartridge
+	LEA	DISKBNOM+3,A0		; set-up: the R-Type FM loader in Slot 1,
+	LEA	ROMS2NOM,A1		; R-Type in Slot 2; AutoSlot2).
+AutoS2C:
+	MOVE.B	(A0)+,(A1)+
+	BNE.S	AutoS2C
+	CLR.B	DISKBNOM
+AutoS2X:
 	LEA	DISKBNOM,A0		; (4.0) 'P=<prefs file>' as the second or
 	CMP.W	#"P=",(A0)		; third argument: load (and save) that
 	BEQ.S	AutoPrfC		; file, as the icons' PREFS ToolType.
@@ -1710,6 +1745,7 @@ NODRIVES:
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Prepara Amiga Hardware para MSX2.
+	JSR	RtgPlayOpen		; (4.5) RTG: the play screen, OS still alive.
 	LEA	DAMEVBR,A5
 	MOVE.L	$4.W,A6
 	JSR	-$1E(A6)
@@ -2798,7 +2834,7 @@ PonCarConS1:
 	ADD.W	#$0080,A0
 	MOVE.L	A0,(A2)
 
-	BRA.S	NoSlot1Cart
+	BRA	NoSlot1Cart			; (4.5: .S out of range)
 
 EsMegaROMS1:
 	MOVE.L	DirCartS1,A0			; Pone Cartucho de 32Kb o m�s.
@@ -2812,6 +2848,27 @@ EsMegaROMS1:
 	MOVE.L	A0,SLOT1+16
 	ADD.W	#$80,A0
 	MOVE.L	A0,SubSLOT1+16
+	CMP.B	#7,DirPrefs+$76			; (4.5) R-Type mapper: 4000h-7FFFh is
+	BNE.S	NoRTypeS1			; bank 17h (or the last bank of a
+	MOVE.L	DirCartS1,A0			; smaller ROM), 8000h-BFFFh bank 0, as
+	ADD.W	#$0080,A0			; openMSX's RomRType at reset.
+	LEA	-$8000(A0),A1
+	MOVE.L	A1,SLOT1+16
+	LEA	-$8000+$80(A0),A1
+	MOVE.L	A1,SubSLOT1+16
+	MOVEQ	#$17,D0
+	CMP.W	PagCartS1,D0
+	BCS.S	RTypS1a
+	MOVE.W	PagCartS1,D0
+	SUBQ.W	#1,D0
+RTypS1a:
+	MULU	#$4100,D0
+	ADD.L	D0,A0
+	SUB.W	#$4000,A0
+	MOVE.L	A0,SLOT1+8
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT1+8
+NoRTypeS1:
 
 NoSlot1Cart:
 ; ===
@@ -2886,7 +2943,7 @@ PonCarConS2:
 	ADD.W	#$0080,A0
 	MOVE.L	A0,(A2)
 
-	BRA.S	NoSlot2Cart
+	BRA	NoSlot2Cart			; (4.5: .S out of range)
 
 EsMegaROMS2:
 	MOVE.L	DirCartS2,A0
@@ -2900,6 +2957,27 @@ EsMegaROMS2:
 	MOVE.L	A0,SLOT2+16
 	ADD.W	#$80,A0
 	MOVE.L	A0,SubSLOT2+16
+	CMP.B	#7,DirPrefs+$77			; (4.5) R-Type mapper: 4000h-7FFFh is
+	BNE.S	NoRTypeS2			; bank 17h (or the last bank of a
+	MOVE.L	DirCartS2,A0			; smaller ROM), 8000h-BFFFh bank 0, as
+	ADD.W	#$0080,A0			; openMSX's RomRType at reset.
+	LEA	-$8000(A0),A1
+	MOVE.L	A1,SLOT2+16
+	LEA	-$8000+$80(A0),A1
+	MOVE.L	A1,SubSLOT2+16
+	MOVEQ	#$17,D0
+	CMP.W	PagCartS2,D0
+	BCS.S	RTypS2a
+	MOVE.W	PagCartS2,D0
+	SUBQ.W	#1,D0
+RTypS2a:
+	MULU	#$4100,D0
+	ADD.L	D0,A0
+	SUB.W	#$4000,A0
+	MOVE.L	A0,SLOT2+8
+	ADD.W	#$80,A0
+	MOVE.L	A0,SubSLOT2+8
+NoRTypeS2:
 
 NoSlot2Cart:
 
@@ -7707,6 +7785,9 @@ IN98A:
 IVRAM98A:
 	ADDQ.W	#1,A2
 POINTA:
+	TST.B	Rtg5Dir			; (4.5) RTG: SCREEN 5 reads VRAM (POINTV).
+	BNE.L	POINTV
+POINTA2:
 	ROR.L	#2,D1
 	LEA	(SCR0+1+(64*512*3),D1.W),A4
 	LSL.L	#1,D1
@@ -7813,6 +7894,8 @@ OUT98A:
 	BEQ.S	VRAM98A
 	ENDC
 CRAM98A:MOVE.B	D2,(A2)+
+	TST.B	Rtg5Dir			; (4.5) RTG, SCREEN 5 on VRAM: the planes
+	BNE.L	OUT98V			; later (VBlk5; AmiMSX_Rtg_v4.asm).
 PL98A:	ADD.L	D1,D1
 INIOUTSC5:
 	MOVE.W	(INIOUTSC5+2,PC,D2.W*2),D2	; d8=0: Devpac form was (PC,D2.W*2)
@@ -8696,6 +8779,16 @@ Mapper6:			; SCC 2
 	DC.L	OtraInstr
 	DC.L	OtraInstr
 
+Mapper7:			; R-Type (4.5)
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+	DC.L	RTyp1
+	DC.L	RTyp1
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+
 ;	--=--=--=--=--=--
 
 	CNOP	0,8
@@ -8752,6 +8845,7 @@ KON18:
 	SUB.W	(A7),A5
 
 	BankNum	MaskROM2,NumROM2
+KON18N:					; (4.5) (RTyp1: the bank in D1)
 
 	MULU	#$4100,D1
 	ADD.L	MapROMBase1(A3),D1
@@ -8786,6 +8880,24 @@ KON18J:					; (4.4) (Asc26S: the SRAM page)
 	CogePag	D1,A5
 
 	Otra2
+
+; (4.5) R-Type mapper (openMSX RomRType, checked in openMSX 21: any write in
+; 4000h-7FFFh, Mapper7 entries 2-3): the written value selects the 16 KB bank
+; at 8000h-BFFFh: value AND 17h if bit 4 is set, else value AND 0Fh.
+; 4000h-7FFFh stays on bank 17h (set at power on, Slt1EsPowerOn).
+RTyp1:
+	SUB.W	(A7),A5
+	MOVEQ	#0,D1
+	MOVE.B	(A4),D1
+	BTST	#4,D1
+	BEQ.S	RTyp1L
+	AND.B	#$17,D1
+	BRA.S	RTyp1C
+RTyp1L:	AND.B	#$0F,D1
+RTyp1C:	CMP.W	NumROM2,D1		; (a smaller ROM: masked as BankNum)
+	BCS	KON18N
+	AND.W	MaskROM2(A3),D1
+	BRA	KON18N
 
 ; (4.0) Flash Konami SCC cartridges (Konami Ultimate Collection style, e.g.
 ; Pampas & Selene, 2 MB): Konami SCC banking plus an AMD flash chip for game
@@ -9365,6 +9477,16 @@ Mapper6b:			; SCC 2
 	DC.L	OtraInstr
 	DC.L	OtraInstr
 
+Mapper7b:			; R-Type (4.5)
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+	DC.L	RTyp2
+	DC.L	RTyp2
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+	DC.L	OtraInstr
+
 ;	--=--=--=--=--=--
 
 Asc26b:
@@ -9415,6 +9537,7 @@ KON18b:
 	SUB.W	(A7),A5
 
 	BankNum	MaskROM4,NumROM4
+KON18bN:				; (4.5) (RTyp2: the bank in D1)
 
 	MULU	#$4100,D1
 	ADD.L	MapROMBase2(A3),D1
@@ -9449,6 +9572,24 @@ KON18b:
 	CogePag	D1,A5
 
 	Otra2
+
+; (4.5) R-Type mapper (openMSX RomRType, checked in openMSX 21: any write in
+; 4000h-7FFFh, Mapper7 entries 2-3): the written value selects the 16 KB bank
+; at 8000h-BFFFh: value AND 17h if bit 4 is set, else value AND 0Fh.
+; 4000h-7FFFh stays on bank 17h (set at power on, Slt2EsPowerOn).
+RTyp2:
+	SUB.W	(A7),A5
+	MOVEQ	#0,D1
+	MOVE.B	(A4),D1
+	BTST	#4,D1
+	BEQ.S	RTyp2L
+	AND.B	#$17,D1
+	BRA.S	RTyp2C
+RTyp2L:	AND.B	#$0F,D1
+RTyp2C:	CMP.W	NumROM4,D1		; (a smaller ROM: masked as BankNum)
+	BCS	KON18bN
+	AND.W	MaskROM4(A3),D1
+	BRA	KON18bN
 
 ; -------------------------------------<=
 ; -------------------------------------<=
@@ -17734,12 +17875,15 @@ DispLg1:
 	MOVEM.L	(SP)+,D0-D1/A0
 	ENDC
 
+	JSR	RtgUse			; (4.5) An RTG frame: RtgFrame reads the
+	BNE.S	E1FRtgL			; line events, no copper list is built.
 	JSR	DbLineSafe		; (4.0) not the copper list on screen
 	IFD	COPLINEDB
 	JSR	CopLineSafe		; (review R5) nor after a late flip
 	ENDC
 	JSR	BMSPrep			; (4.0) bitmap-pair mode split: the top page
 	JSR	ActCopperLine	; *Z0*
+E1FRtgL:
 
 	LEA	Regs(PC),A3
 	JSR	Act_Hardware
@@ -17854,6 +17998,11 @@ PerfDnFin:
 	ST	ACTODO(A3)
 	ST	ACTODOB(A3)
 RendSame:
+	TST.B	RtgNow			; (4.5) On RTG: drawn there, nothing for
+	BEQ.S	RendAga			; the AGA screen.
+	JSR	RtgFrame
+	BRA.S	RendDone
+RendAga:
 	TST.B	DbOn			; (4.0) Double buffer: SCREEN 4 only.
 	BEQ.S	RendDbOk
 	CMP.L	#PRINT4S,RVDP(A3)
@@ -17874,6 +18023,7 @@ RendNoSt:
 	IFD	COPLINEDB
 	JSR	CopLineFlip		; (4.0 draft) the list just built shows next
 	ENDC
+RendDone:
 	TST.W	SnapPend		; Key-script SNAP: hold this frame.
 	BEQ.S	NoSnapDo
 	JSR	KeySnapDo
@@ -17887,6 +18037,10 @@ NoSnapDo:
 	RTS
 RefrCon:
 	SUBQ.W	#1,Refresh
+	TST.B	RtgNow			; (4.5) RTG frame skipped: its line
+	BEQ.S	RefrNoRtg		; events used up all the same.
+	JSR	RtgClrEv
+RefrNoRtg:
 	IFD	COPLINEDB
 	JSR	CopLineFlip
 	ENDC
@@ -18004,6 +18158,9 @@ Wait60fps:
 
 	MOVE.B	#2,fps60Dat(A3)
 Wait60fpsBuc:
+	IFD	RTGDBG
+	ADDQ.L	#1,RtgDbSpin		; (debug: time to spare, RTG speed row)
+	ENDC
 	CMP.B	#2,fps60Dat(A3)
 	BEQ.S	Wait60fpsBuc
 NoWait60fps:
@@ -18090,6 +18247,10 @@ VDP2C:
 	BEQ.S	C8J
 	JMP	C8In
 C8J:
+	TST.B	V5CAct			; (4.5) SCREEN 5 HMMC/LMMC on VRAM (RTG).
+	BEQ.S	C5J
+	JMP	C5In
+C5J:
 
 	MOVEQ	#0,D1
 	MOVE.B	D2,D1
@@ -18284,6 +18445,10 @@ CETmX:	MOVEM.L	CESave,D0-D6/A4
 	BNE.S	Torna8
 	JMP	VDP2Escr8
 Torna8:
+	TST.B	Rtg5Dir			; (4.5) RTG: SCREEN 5 commands on VRAM
+	BEQ.S	Torna5			; (AmiMSX_Rtg_v4.asm, VDP2E5V).
+	JMP	VDP2E5V
+Torna5:
 
 	IInsBuc
 	MOVEM.L	D0-D7/A0-A6,BUFER(A3)
@@ -18353,6 +18518,7 @@ P5MkX:
 	MOVE.B	D2,DVDPREG(A3)
 	BCLR	#0,DVDPS2(A3)		; Ejecuci�n terminada.
 	SF	V8CAct			; (4.4) (no SCREEN 8 HMMC/LMMC bytes)
+	SF	V5CAct			; (4.5) (nor SCREEN 5 ones to VRAM)
 	CLR.W	CONTA2C(A3)
 
 	MOVE.L	DVDPSX(A3),DVDPSX2(A3)
@@ -26665,9 +26831,13 @@ KeyScr:		DS.B	KEYSCRMAX*8
 		DC.L	-1		; (Guard.)
 KEYNOM:		DS.B	256		; CLI key script file name.
 DISKBNOM:	DS.B	256		; (4.0) CLI 'B=' disk image for drive B.
+ROM2NOM:	DS.B	256		; (4.5) CLI 'R2=' second cartridge (test).
+ROMS2NOM:	DS.B	256		; (4.5) CLI 'S2=' Slot 2 cartridge (test).
 		EVEN
 
 	INCLUDE	"AmiMSX_Dbuf_v4.asm"	; (4.0) double-buffered SCREEN 4
+	CNOP	0,4
+	INCLUDE	"AmiMSX_Rtg_v4.asm"	; (4.5) RTG display (SCREEN 1, 2, 4)
 
 ; Display lines TSplit..191 (211 in 212-line mode) from the current tables (R#2, R#3/R#10, R#4,
 ; R#23), straight from VRAM into SCREENB (128 bytes a line, 4 interleaved

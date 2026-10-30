@@ -5,7 +5,9 @@ param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX"
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
       [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "",
       [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "", [string]$ExtraArg = "",
-      [string]$RtBurst = "")
+      [string]$RtBurst = "", [string]$Wb = "wb", [int]$SnapRepeat = 1)
+# -SnapRepeat n: the key script runs n times (AmiMSX test hook R2=, a second cartridge after
+#   a HELP in the script): expect its SNAPs n times, named <s>_r2... after the first
 # -RtBurst t:n : at t s, grab n frames back to back while the game runs (no freeze;
 #   use a warp=false config, e.g. AmiMSX-060rt.uae) into build\rt\<rom>\NNN.png
 # -ExtraArg text: appended to AmiMSX's command line (e.g. "P=AmiMSX:Measure/Measure.prefs")
@@ -83,7 +85,7 @@ public class WU {
 }
 "@ -ReferencedAssemblies System.Drawing
 [void][WU]::SetProcessDPIAware()   # physical pixels for both GetWindowRect and CopyFromScreen
-$seq = "$base\winuae\wb\S\Startup-Sequence"
+$seq = "$base\winuae\$Wb\S\Startup-Sequence"   # -Wb wbrtg: the RTG config's Workbench (AmiMSX-rtg.uae)
 $latin1 = [Text.Encoding]::GetEncoding(28591)
 # The AmiMSX Tester (winuae\AmiMSX-Tester.ps1) shares this Workbench and WinUAE:
 # wait for a play session to end rather than closing the user's WinUAE.
@@ -112,6 +114,7 @@ foreach ($rom in $Roms) {
     if ($LASTEXITCODE -ne 0) { throw "key script $Keys" }
     $keyArg = " `"AmiMSX:Keys/$kn.key`""
     $snaps = @(Get-Content $snapf | Where-Object { $_ })
+    if ($SnapRepeat -gt 1) { $one = $snaps; $snaps = @($one); for ($r = 2; $r -le $SnapRepeat; $r++) { $snaps += @($one | ForEach-Object { "${_}_r$r" }) } }
   }
   if ($DiskB) { $keyArg += " B=AmiMSX:Disks/$DiskB" }   # -DiskB x.dsk: drive B's image (disk games)
   if ($ExtraArg) { $keyArg += " `"$ExtraArg`"" }

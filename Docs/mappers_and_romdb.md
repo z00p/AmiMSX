@@ -127,7 +127,7 @@ The code returned is the index minus 1 (0 = Konami 1 ... 5 = SCC 2). Per-game `<
 | RBSC_Flash_KonamiSCC | 1 | 1 | 0 / 1 | 1 | Works (flash mode) | Angelic Warrior DEVA |
 | ASCII16-X | 3 | 2 | 1 / 1 | 1 | None; also over 4 MB | MSX Legends (2025), an Illusion City dump |
 | Synthesizer | 10 | 1 | 1 / 0 | 1 | None (DAC) | Konami's Synthesizer |
-| R-Type | 8 | 2 | 2 / 0 | 0 | None | R-Type, Quinpl |
+| R-Type | 8 | 2 | 2 / 0 | 0 | Full since 4.5 (menu index 7, database code 6) | R-Type, Quinpl |
 | MatraCompilation | 6 | 5 | 0 / 5 | 0 | None | Konami / Casio compilations (2010), Cardwork Orange |
 | Zemina 25/80/90/126-in-1 | 12 | 7 | 1 / 1 | 3 | None | Game World multicarts |
 | Mirrored4000 | 3 | 2 | 2 / 0 | 1 | None | Flash Point, Super Chess |

@@ -1,0 +1,8 @@
+# R-Type FM loader (rtype-fm.rom, Slot 1) + R-Type (Slot 2; titles.csv feature slot2:):
+# the loader's SELECTION MENU (START GAME, SYSTEM, SOUND, HERTZ, SPEED) is up by about
+# 19 s in openMSX; Space on START GAME runs R-Type from Slot 2 straight into a game.
+# Then fire.
+21s   SPACE 5 every 100 until 27s
+32s   SPACE 5 every 30 until 50s
+34s   UP    15
+38s   DOWN  15

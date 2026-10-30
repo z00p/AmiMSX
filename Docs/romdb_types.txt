@@ -33,7 +33,7 @@
 32	ReproCartridgeV1	254
 33	NettouYakyuu	254
 34	Playball	254
-35	R-Type	254
+35	R-Type	6
 36	SuperLodeRunner	254
 37	Wizardry	254
 38	dooly	254

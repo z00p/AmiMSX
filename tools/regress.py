@@ -55,6 +55,13 @@ CONFIG = ""             # --config: one WinUAE config for every title
 OPTS = []              # --opt name=value: key-script options for every run
 
 
+def slot2_args(r):
+    """(4.5) features "slot2:<file>": that cartridge (run/Roms) in Slot 2 too, through
+    AmiMSX's test hook 'S2=' (Disk ROM None), e.g. the R-Type FM loader pair."""
+    s2 = [f[6:] for f in r.get("features", "").split() if f.startswith("slot2:")]
+    return ["-ExtraArg", f"S2=AmiMSX:Roms/{s2[0]}"] if s2 else []
+
+
 def run_title(r, exe, outdir):
     """One WinUAE run per title, all its SNAPs in it (12 Oct 2026: 24 of 24
     captures of 8 titles matched the one-run-per-capture baselines, and MSX
@@ -81,6 +88,7 @@ def run_title(r, exe, outdir):
                os.path.join(BASE, "winuae", "batch_test.ps1"), "-Exe", exe, "-Roms", r["file"],
                "-Keys", keys, "-Config", cfg, "-Shots", str(int(last) + 5),
                "-SnapWait", str(int(last * 3) + 90 * len(grp))]
+        cmd += slot2_args(r)
         p = subprocess.run(cmd, capture_output=True, text=True)
         msgs.append(p.stdout.strip().splitlines()[0] if p.stdout.strip() else p.stderr.strip()[:200])
         for s in grp:

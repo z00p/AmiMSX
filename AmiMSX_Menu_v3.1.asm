@@ -716,6 +716,8 @@ PROGRAMA:
 
 	BSR	LoadMapperId
 
+	JSR	RtgInit			; (4.5) RTG ToolType: the modes; the menu
+					; screen then opens on RTG too.
 	JSR	SETUPSCREEN
 	TST.L	D0			; (4.0) No screen (low chip RAM): out.
 	BNE	QUITAR
@@ -816,8 +818,13 @@ NoShowMatra:
 	move.l  40(a0),a1
 	move.w  4(a1),D1
 	MOVE.L	MSX2Wnd,A0
-	MOVE.L	50(A0),A0
 	LEA	DATMSXPIC,A1
+	TST.B	RtgTall			; (4.5) RTG menu: the tall logo,
+	BEQ.S	MsxPicN
+	LEA	RtgTallPic,A1
+	MOVE.B	55(A0),D1		; under the window's title bar.
+MsxPicN:
+	MOVE.L	50(A0),A0
 	MOVE.L	_INTUITIONBASE,A6
 	JSR	-114(A6)
 
@@ -855,6 +862,7 @@ NOHAYASL2:
 	TST.B	AutoCart		; Test hook: Slot 1 cartridge, then GO.
 	BEQ.S	NoAutoCart2
 	BSR	InsertSl1
+	BSR	AutoSlot2		; (4.5) and S2=: Slot 2.
 	CMP.L	#"MENU",KEYNOM		; 'AmiMSX <cartridge> MENU': inserted, but
 	BNE.S	AutoCartGo		; stay in the menu (the PC tester's
 	TST.B	KEYNOM+4		; 'Open in AmiMSX menu'), no key script.
@@ -903,7 +911,7 @@ BUCLEMENU:
 ; --------------------------
 
 	LEA	MSX2PUNTS,A1
-	BSR	CONTROL
+	BSR.L	CONTROL
 QUIT:
 	TST.B	MVDMODIFI
 	BNE	QUITMVD
@@ -912,12 +920,13 @@ QUIT:
 	MOVEM.L	MCEROS,D0-D7/A0-A6
 	JSR	OPENQUITWINDOW
 	LEA	QUITPUNTS,A1
-	BSR	CONTROL
+	JSR	CONTROL			; (4.5: BSR out of range)
 	JSR	CLOSEQUITWINDOW
 	BSR	ENAMOUSE
 
 	JSR	CLOSEMSX2WINDOW
 QUITAR:
+	JSR	RtgPlayClose		; (4.5) (none open: nothing)
 ; --------------------------
 ; --------------------------		; Screen mode on Exit.
 	MOVE.B	DirPrefs+$7C(PC),D0
@@ -1366,7 +1375,7 @@ TxtPrint:
 	move.b  55(a0),d1
 	ext.w   d1
 	move.l  50(a0),a0
-	jsr     PrintIText(a6)
+	jsr     TallIText
 	RTS
 ; -----------------------------------	; D0.l = 0 Off
 	CNOP	0,4			; D0.l = 1 On
@@ -1687,7 +1696,7 @@ NoEsIgual:
 	extb.l	D1
 	move.l	50(a0),a0
 	lea	PokeText3,a1
-	jsr     PrintIText(a6)
+	jsr     TallIText
 
 	MOVE.L	PokeWND,A0	; A0=Window
 	BSR	PNORM
@@ -1783,7 +1792,7 @@ CheatFinal:
 	extb.l	D1
 	move.l	50(a0),a0
 	lea	PokeText3,a1
-	jsr     PrintIText(a6)
+	jsr     TallIText
 
 	MOVE.L	PokeWND,A0	; A0=Window
 	BSR	PNORM
@@ -2047,7 +2056,7 @@ DebugScrollCon:
 	extb.l	D1
 	move.l	50(a0),a0
 	LEA	DebugText11,a1
-	jsr     PrintIText(a6)
+	jsr     TallIText
 	RTS
 ; -=-=-
 	CNOP	0,4
@@ -2689,10 +2698,14 @@ Sl1MapOp5:
 Sl1MapOp6:
 	MOVE.B	#$06,DirPrefs+$76
 	MOVEQ	#$40,D3
+	BRA.S	Sl1MapRut
+Sl1MapOp7:				; (4.5) R-Type
+	MOVE.B	#$07,DirPrefs+$76
+	MOVE.L	#$80,D3
 Sl1MapRut:
 	MOVE.L	#(0*$40)+1,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#3,D1			; N� menu.
-	MOVEQ	#7-1,D4
+	MOVEQ	#8-1,D4			; (4.5: 8 items, R-Type)
 
 	BRA.S	PoneOptMenus
 
@@ -2726,10 +2739,14 @@ Sl2MapOp5:
 Sl2MapOp6:
 	MOVE.B	#$06,DirPrefs+$77
 	MOVEQ	#$40,D3
+	BRA.S	Sl2MapRut
+Sl2MapOp7:				; (4.5) R-Type
+	MOVE.B	#$07,DirPrefs+$77
+	MOVE.L	#$80,D3
 Sl2MapRut:
 	MOVE.L	#(0*$40)+4,D0		; N� L�nea. (Sub-Item+Item)
 	MOVEQ	#3,D1			; N� menu.
-	MOVEQ	#7-1,D4
+	MOVEQ	#8-1,D4			; (4.5: 8 items, R-Type)
 
 	NOP			; was: BRA.S	PoneOptMenus (zero-length short branch)
 
@@ -3311,6 +3328,29 @@ GPBuf:		DS.B	GP_LEN		; A game's settings (file image).
 GPSaved:	DS.B	GP_LEN		; The global ones while it is in force.
 GPName:		DS.B	$200+8
 
+; (4.5) Test hook 'S2=<cartridge>' (Main: ROMS2NOM): the Disk ROM gadget to
+; None (Slot 2 is off while a Disk ROM is chosen), then that cartridge in
+; Slot 2, as Insert Cartridge would with the file requester.
+AutoSlot2:
+	TST.B	ROMS2NOM
+	BEQ.S	AutoS2R
+	LEA	ROMS2NOM,A0
+	LEA	FILENOM,A1
+AutoS2Cp:
+	MOVE.B	(A0)+,(A1)+
+	BNE.S	AutoS2Cp
+	CLR.B	ROMS2NOM
+	LEA	MSX2Gadgets+(GD_DiskVer*4),A0
+	MOVE.L	MSX2WND,A1
+	MOVE.L	#$8008000F,D0		; GTCY_Active: 2 = None
+	MOVEQ	#2,D1
+	BSR	CanviTags
+	BSR	DiskROMVer
+	ST	AutoCart
+	BSR	InsertSl2
+AutoS2R:
+	RTS
+
 	CNOP	0,8
 InsertSl2:
 	MOVE.L	#MSX2IText9,DatTxt
@@ -3567,6 +3607,8 @@ NoCart8K:
 	CMP.W	#"AB",$80+$4000(A0)
 	BEQ.S	IDCorrecta
 NoIDLineal:
+	BSR	RTypeID			; (4.5) R-Type: "AB" in its fixed bank?
+	BEQ.S	IDCorrecta
 	BSR	NoCartrID
 	BNE.S	IDCorrecta
 
@@ -3642,7 +3684,7 @@ NoInsert:
 	ext.w   d1
 	move.l  50(a0),a0
 	lea	MSX2Text8,a1
-	jsr     PrintIText(a6)
+	jsr     TallIText
 
 
 ;	LEA	GameBoyGadgets+(GD_Continue*4),A0
@@ -3655,6 +3697,37 @@ NoInsert:
 	BSR	EnaMouse
 	RTS
 
+
+; (4.5) An R-Type mapper cartridge (the ROM database's code 6, or a saved
+; R-Type mapper) has its "AB" header in the bank fixed at 4000h (17h, or the
+; last bank of a smaller ROM; 5C000h in the 384 KB R-Type), not at 0.
+; The file is still linear here. Out: Z set if the header is there.
+RTypeID:
+	MOVEM.L	D0-D2/A0,-(SP)
+	CMP.B	#6,RomDbCode
+	BEQ.S	RTypeID1
+	BSR	MiConMapper		; A saved mapper (code 6: R-Type)?
+	TST.B	SiNewMapp(PC)
+	BNE.S	RTypeIDN
+	CMP.B	#6,D0
+	BNE.S	RTypeIDN
+RTypeID1:
+	MOVEQ	#$17,D0
+	CMP.W	PagCart(PC),D0
+	BCS.S	RTypeID2
+	MOVE.W	PagCart(PC),D0
+	SUBQ.W	#1,D0
+RTypeID2:
+	MULU	#$4000,D0
+	MOVE.L	DirCart(PC),A0
+	ADD.L	D0,A0
+	CMP.W	#"AB",$80(A0)
+	BRA.S	RTypeIDX
+RTypeIDN:
+	MOVEQ	#1,D0			; (Z clear)
+RTypeIDX:
+	MOVEM.L	(SP)+,D0-D2/A0		; (MOVEM keeps the flags)
+	RTS
 
 MiraMSXCartSize:
 	SF	Cart8K
@@ -4299,7 +4372,7 @@ FINALOAD:
 	ext.w   d1
 	move.l  50(a0),a0
 	lea	MSX2Text7,a1
-	jsr     PrintIText(a6)
+	jsr     TallIText
 SLCANCEL:
 	RTS
 
@@ -5352,7 +5425,7 @@ IMPCOPYBUC:
 	move.l  50(a0),a0
 	lea     IMPLODERTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 
 
 	MOVE.L	DIRIMPFILE,A0
@@ -5419,7 +5492,7 @@ IMPLOERROR:
 	move.l  50(a0),a0
 	lea     IMPLODERTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 
 	MOVE.L	IMPLODERWND,A0
 	BSR	PNORM
@@ -5733,7 +5806,7 @@ LODIBUC2:
 	move.l  50(a0),a0
 	lea     LOADDECTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 	MOVEM.L	(SP)+,D0-D5/A0
 
 	MOVE.W	D4,D2
@@ -5879,7 +5952,7 @@ SADIBUC2:
 	move.l  50(a0),a0
 	lea     LOADDECTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 	MOVEM.L	(SP)+,D0-D5/A0
 
 	MOVE.W	D4,D2
@@ -6044,7 +6117,7 @@ IMPERROR:
 	move.l  50(a0),a0
 	lea     ErrorTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 	LEA	ERRORPUNTS,A1
 	BSR	CONTROL
 	JSR	CLOSEERRORWINDOW
@@ -6124,7 +6197,7 @@ IMPDISK:
 	move.l  50(a0),a0
 	lea     LOADDECTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 	RTS
 
 	CNOP	0,4
@@ -6448,7 +6521,42 @@ WBToolTypes:
 	MOVE.L	D5,A6
 	JSR	-$4E(A6)		; GetDiskObject
 	MOVE.L	D0,D4
-	BEQ.S	WBTTClose
+	BEQ	WBTTClose
+	MOVE.L	D4,A0			; (4.5) RTG: the RTG display (RtgInit).
+	MOVE.L	$36(A0),A0
+	LEA	TTRTG(PC),A1
+	JSR	-$60(A6)		; FindToolType
+	TST.L	D0
+	BEQ.S	WBTTNoRtg
+	ST	RtgWant
+WBTTNoRtg:
+	MOVE.L	D4,A0			; (4.5) SCANLINES[=n]: on the RTG play
+	MOVE.L	$36(A0),A0		; screen at 2x every second row n%
+	LEA	TTSCAN(PC),A1		; darker (no value: 50; at most 90).
+	JSR	-$60(A6)		; FindToolType
+	TST.L	D0
+	BEQ.S	WBTTNoSc
+	MOVE.L	D0,A0
+	MOVEQ	#0,D0
+	MOVEQ	#0,D1
+	MOVEQ	#0,D2
+WBTTSc:	MOVE.B	(A0)+,D1
+	SUB.B	#'0',D1
+	CMP.B	#9,D1
+	BHI.S	WBTTScE
+	MULU.W	#10,D0
+	ADD.W	D1,D0
+	ADDQ.W	#1,D2
+	CMP.W	#3,D2
+	BCS.S	WBTTSc
+WBTTScE:TST.W	D2
+	BNE.S	WBTTScN
+	MOVEQ	#50,D0
+WBTTScN:CMP.W	#90,D0
+	BLS.S	WBTTScS
+	MOVEQ	#90,D0
+WBTTScS:MOVE.B	D0,RtgScan
+WBTTNoSc:
 	MOVE.L	D4,A0
 	MOVE.L	$36(A0),A0		; do_ToolTypes
 	LEA	TTPREFS(PC),A1
@@ -6497,6 +6605,8 @@ ICONNOM:
 	DC.B	"icon.library",0
 TTPREFS:
 	DC.B	"PREFS",0
+TTRTG:	DC.B	"RTG",0
+TTSCAN:	DC.B	"SCANLINES",0
 
 ; -----------------------------------
 	CNOP	0,4
@@ -6896,6 +7006,28 @@ PONPREFS:
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
 	MOVE.B	PrefDbuf,D0
 	BFINS	D0,MSX2NewMenu41d+10{7:1}	; Smooth display (4.0)
+	MOVEQ	#0,D1				; (4.5) RTG scanlines: Off / 25 /
+	MOVE.B	RtgScan,D0			; 50 / 75% (ToolType SCANLINES,
+	BEQ.S	PPScn				; nearest of the four).
+	MOVEQ	#1,D1
+	CMP.B	#38,D0
+	BCS.S	PPScn
+	MOVEQ	#2,D1
+	CMP.B	#63,D0
+	BCS.S	PPScn
+	MOVEQ	#3,D1
+PPScn:	CMP.B	#0,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41g+10{7:1}
+	CMP.B	#1,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41h+10{7:1}
+	CMP.B	#2,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41i+10{7:1}
+	CMP.B	#3,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu41j+10{7:1}
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -7116,6 +7248,23 @@ ACTUPREFS:
 	MOVEQ	#1,D1
 	BSR	COGECHECK
 	SNE	PrefDbuf
+	CLR.B	RtgScan			; Sub-items 8-11: RTG scanlines Off /
+	MOVE.L	#(9*$40)+15,D0		; 25 / 50 / 75% (4.5).
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BEQ.S	ScnFG1
+	MOVE.B	#25,RtgScan
+ScnFG1:	MOVE.L	#(10*$40)+15,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BEQ.S	ScnFG2
+	MOVE.B	#50,RtgScan
+ScnFG2:	MOVE.L	#(11*$40)+15,D0
+	MOVEQ	#1,D1
+	BSR	COGECHECK
+	BEQ.S	ScnFG3
+	MOVE.B	#75,RtgScan
+ScnFG3:
 ; -=-
 	MOVEQ	#17,D0			; N� L�nea.
 	MOVEQ	#1,D1			; N� menu.
@@ -7450,6 +7599,7 @@ SIREINTM:
 	MOVE.L	DIRFILEB,DIRVD1		; (4.0) drive B's virtual disk.
 	IFD	MENU
 	JSR	MSXEMUL			; A5=Dir Prefs.
+	JSR	RtgPlayClose		; (4.5) the RTG play screen, OS back.
 	ENDC
 	IFD	PERF
 	JSR	PerfDump		; (4.0) also after a Power ON run
@@ -7853,9 +8003,9 @@ CONTROL:
 	MOVE.L	-12(A1),A0
 	MOVE.L	(A0),-(SP)
 	TST.B	AutoGo			; Test hook: press GO once.
-	BEQ.S	BUCONTROL
+	BEQ	BUCONTROL
 	CMP.L	#MSX2PUNTS,4(SP)
-	BNE.S	BUCONTROL
+	BNE	BUCONTROL
 	SF	AutoGo
 	TST.L	KeyScrPtr		; Scripted test run: start at the top of
 	BEQ.S	AutoGoNow		; an Amiga frame, so the run is the same
@@ -7878,6 +8028,20 @@ AutoGoNow:
 	IFD	PERF
 	JSR	PerfDump		; Frame timing windows.
 	ENDC
+	TST.B	ROM2NOM			; (4.5) Test hook 'R2=': a second run, the
+	BEQ.S	BUCONTROL		; next cartridge with the same key script.
+	LEA	ROM2NOM,A0
+	LEA	FILENOM,A1
+Rom2Cp:	MOVE.B	(A0)+,(A1)+
+	BNE.S	Rom2Cp
+	CLR.B	ROM2NOM
+	ST	AutoCart
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	BSR	InsertSl1
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	CLR.L	KeyFrN
+	MOVE.L	#KeyScr,KeyScrPtr
+	BRA	AutoGoNow
 BUCONTROL:
 	MOVE.L	(SP),A0
 	MOVE.L	$56(A0),A0
@@ -8115,6 +8279,10 @@ MenuInternal:
 	DC.L	CONTROLRET		; 16 dots  the three ticked)
 	DC.L	CONTROLRET		; Audio filter (4.2: entries for sub-items
 	DC.L	CONTROLRET		; Smooth display 4-7; they ran MENUSCREEN's)
+	DC.L	CONTROLRET		; RTG scanlines: Off (4.5; Intuition's mutual
+	DC.L	CONTROLRET		; 25%   exclusion keeps one of the four
+	DC.L	CONTROLRET		; 50%   ticked; without these entries they
+	DC.L	CONTROLRET		; 75%   ran SETPAL, SETNTSC, LOADVD0)
 
 MENUSCREEN:
 	DC.L	SETPAL			; Set PAL
@@ -8166,6 +8334,7 @@ MenuMapper1:
 	DC.L	Sl1MapOp4		; ASCII 2
 	DC.L	Sl1MapOp5		; SCC 1
 	DC.L	Sl1MapOp6		; SCC 2
+	DC.L	Sl1MapOp7		; R-Type (4.5)
 	DC.L	CONTROLRET		; -----
 
 MenuMapper2:
@@ -8176,6 +8345,7 @@ MenuMapper2:
 	DC.L	Sl2MapOp4		; ASCII 2
 	DC.L	Sl2MapOp5		; SCC 1
 	DC.L	Sl2MapOp6		; SCC 2
+	DC.L	Sl2MapOp7		; R-Type (4.5)
 	DC.L	CONTROLRET		; -----
 
 SMSlot1:
@@ -10240,7 +10410,7 @@ IMPCONTROLC:
 	move.l  50(a0),a0
 	lea     IMPLODERTextO(PC),a1
 	move.l  _IntuitionBase,a6
-	JSR     PrintIText(a6)
+	JSR     TallIText
 
 	MOVEM.L	(SP)+,D1/D3-D7/A0-A6
 	MOVE.L	(SP)+,D2

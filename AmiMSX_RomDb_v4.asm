@@ -5,7 +5,8 @@
 ; AmiMSX4.romdb (tools/make_romdb.py, from openMSX's software database plus
 ; local extras): 8-byte entries sorted by the first 4 bytes of the ROM's
 ; SHA-1, with the AmiMSX mapper code (0 standard, 1 Konami, 2 ASCII8,
-; 3 ASCII16, 4 Konami SCC; $FE: a type AmiMSX doesn't emulate).
+; 3 ASCII16, 4 Konami SCC, 6 R-Type (4.5); $FE: a type AmiMSX doesn't
+; emulate).
 ;
 ; At load (RomDbCheck, while the file is still linear in memory), for
 ; MegaROMs that have no saved mapper: look in the cache (AmiMSX4.romcache:
@@ -98,8 +99,9 @@ RomDbGot:
 	BCS.S	RomDbX
 	TST.B	SiNewMapp		; A saved mapper: not the database's.
 	BEQ.S	RomDbX
-	CMP.B	#4,RomDbCode		; $FE (not emulated) / $FF (unknown):
-	BHI.S	RomDbX			; the tag and the guess decide.
+	CMP.B	#6,RomDbCode		; $FE (not emulated) / $FF (unknown):
+	BHI.S	RomDbX			; the tag and the guess decide. (4.5:
+					; 6 = R-Type, menu index 7; 5 unused)
 	ST	RomDbHit
 RomDbX:
 	MOVEM.L	(SP)+,D0-D7/A0-A6
