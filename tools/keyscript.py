@@ -63,7 +63,7 @@ def parse(path, seen=None):
             continue
         t = line.split()
         if t[0].lower() == "option":
-            opts = {"sprites": 1, "collisions": 2, "mask": 3, "sound": 4, "machine": 5, "freq": 6, "filter": 7, "dbuf": 8}   # sprites <n>: sprite frames (1 = every frame); mask 1: edges; sound 0/1/2/3: PSG/SCC/SCC+/PSG+FM; machine 0/1/2: MSX/MSX2/MSX2+; freq 0/1/2/3: From VDP/No Change/NTSC/PAL; filter 0/1: audio filter; dbuf 0/1: smooth display (double buffer)
+            opts = {"sprites": 1, "collisions": 2, "mask": 3, "sound": 4, "machine": 5, "freq": 6, "filter": 7, "dbuf": 8, "scan": 9}   # sprites <n>: sprite frames (1 = every frame); mask 1: edges; sound 0/1/2/3: PSG/SCC/SCC+/PSG+FM; machine 0/1/2: MSX/MSX2/MSX2+; freq 0/1/2/3: From VDP/No Change/NTSC/PAL; filter 0/1: audio filter; dbuf 0/1: smooth display (double buffer); scan 1-7: RTG scanlines (PrefScan: 1 Off, 2-4 hard 25/50/75, 5-7 blended light/normal/strong)
             out.append((0, 0xFE, opts[t[1].lower()], int(t[2])))
             continue
         if t[0].lower() == "include":

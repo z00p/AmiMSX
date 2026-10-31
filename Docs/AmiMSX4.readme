@@ -1,4 +1,4 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.5 beta
+Short:        MSX/MSX2/MSX2+ emulator, 4.5
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
@@ -50,8 +50,8 @@ Copy the AmiMSX drawer anywhere and start one of the preset icons:
   AmiMSX RTG      the PiStorm preset on a Picasso96 (RTG) screen, with
                   50% scanlines (ToolTypes RTG and SCANLINES=50)
 
-Each preset keeps its own settings file (ToolType PREFS=<file>), and Save
-Prefs in the menu writes to the preset you started.
+Each preset keeps its own settings file (ToolType PREFS=<file>), and
+Project > Save Settings writes to the preset you started.
 
 AmiMSX4.romcache is created next to the program on first use: each
 MegaROM is hashed once and its mapper looked up in AmiMSX4.romdb. Leave
@@ -85,25 +85,53 @@ What's new
 
 See Docs/CHANGES_4.x.txt for the full list.
 
+New since 4.5 beta
+------------------
+- The menus are rearranged into seven: Project, Emulation, Input,
+  Disks, Cartridges, Tape and Tools, with plainer names (the guide gives
+  the old name of each line, and says more about what the settings do).
+  Main window: Machine:, Display: (Auto), Draw: (1 to 5 Frames),
+  Sprites ECS / 1 Frame, drives Off / Empty, and Drive A: and Drive B: rows.
+  Slot 2 can always be chosen: with an MSX Disk ROM set, it asks to
+  switch it off.
+- Emulation > Speed: Normal, Overclock, No Limit (was Real MSX, Fast CPU,
+  Turbo Mode, in the main window).
+- Disks by drive: Drive A (Load, Save, Eject), Drive B (Load, Eject).
+  Tools > New Blank Disk asks which drive.
+- Gone: the On Quit settings (quitting always puts back the Amiga's own
+  display), Save RAM (Slot 3), the Register item, the Imploder compressor
+  and other dead windows (packed disk images still load). Settings files
+  keep their layout; an old On Quit setting is ignored.
+
 New in 4.5 beta
 ---------------
 - RTG display (beta): the new "AmiMSX RTG" preset shows the MSX on a
   Picasso96 screen, such as a PiStorm's HDMI output: a sharp picture,
   every MSX dot 2x2 pixels (960x540, an exact 2x on a 1080p display).
-  The menu opens there too, at double height. SCREEN 1, 2, 4, 5 and 8
-  are drawn on RTG; other frames still go to the Amiga's own video
-  output (see Known limits).
-- Scanlines on the RTG screen: every second row darker. The ToolType
-  SCANLINES=<n> sets the level (n% darker; the RTG preset has 50), and
-  Options > Internal Emulation > RTG scanlines (Off, 25%, 50%, 75%)
-  changes it until AmiMSX quits.
+  The menu opens there too, at double height. SCREEN 0 (40 and 80
+  columns, with blink), 1 to 8 are drawn on RTG, so the MSX2 boot
+  animation (SCREEN 6) and MSX-BASIC show there too, and so are screens
+  split between two of them (Manbow 2's title: SCREEN 8 over SCREEN 5);
+  other frames still go to the Amiga's own video output (see Known
+  limits).
+- Scanlines on the RTG screen, hard or blended. Hard: every second row
+  25, 50 or 75% darker. Blended (as in Arnold): the row between two lines
+  is the mix of both, 25, 50 or 75% darker (light, normal, strong), which
+  looks softer on a big display. The choice is in its own menu item,
+  Emulation > RTG Scanlines (Off, Hard 25%, Hard 50%, Hard 75%, Blended
+  light, Blended, Blended strong); it takes effect at the next Continue
+  or Power ON and Save Settings keeps it. The ToolType SCANLINES=<n> (n%
+  darker, hard; the RTG preset has 50) or SCANLINES=blendlight, blend or
+  blendstrong is used when the settings file has no choice saved yet.
+  Blended scanlines need the 2x picture (a 1x screen gets hard ones) and
+  about 230 KB more memory.
 - SCREEN 5 on RTG: VDP commands draw straight into the MSX video memory,
   without copying the picture back from the AGA screen each frame.
 - R-Type's cartridge type (Irem): R-Type plays, alone or in Slot 2
   behind the R-Type FM loader in Slot 1 (set MSX Disk ROM to None).
-  Chosen by the ROM database, or Cartridges > Slot x > Mapper > R-Type.
+  Chosen by the ROM database, or Cartridges > Slot x Mapper > R-Type.
 - The menu's About window shows the release date again.
-This is a beta: please report what you find on GitHub (see Reporting
+RTG is still new: please report what you find on GitHub (see Reporting
 problems), with the preset you used and your RTG board.
 
 New in 4.4
@@ -232,13 +260,19 @@ Known limits
   button 2.
 - Rarely, a game doesn't start on the first Power ON after the
   cartridge was changed (a black screen): press Power ON again.
-- RTG (beta): SCREEN 0 (text), 3, 6 and 7, and screens split between
-  SCREEN 5 and 8 (Manbow 2's title), are still drawn on the Amiga's
-  own output; the RTG screen keeps its last picture and goes black
-  after a second. 60 Hz games on a 50 Hz display show 5 frames in 6.
-  The scanline choice in the menu is not saved yet (use the ToolType).
-- Slot 2 can't be used while an MSX Disk ROM is chosen: set MSX Disk
-  ROM to None first.
+- RTG (beta): SCREEN 5 and 7 are drawn on RTG only with "100% Refresh
+  in Screen Changes" on (the default); without it those frames go to
+  the Amiga's own output, and the RTG screen keeps its last picture and
+  goes black after a second. On a screen too small for the 2x picture
+  (under 544x460), SCREEN 6, 7 and 80-column text show every other
+  dot. 60 Hz games on a 50 Hz display show 5 frames in 6.
+- Slot 2 can't be used while an MSX Disk ROM is chosen: AmiMSX offers
+  to switch it off.
+- Drive B takes plain 360K and 720K images, not .MVD files.
+- The R-Type FM loader doesn't offer MSX-MUSIC, so R-Type plays with
+  the PSG; on the MSX2+ machine the pair shows a black screen. Use
+  MSX2.
+- Uridium 2 has no sound.
 
 
 Credits

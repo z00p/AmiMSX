@@ -15,10 +15,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Prefs offsets (DIRPrefs in AmiMSX_Menu_v3.1.asm)
 SPRITES = 0x16      # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 2nd frame, 3 = every 3rd
-FREQ = 0x11         # byte: display frequency: 0 From VDP (follow R#9: 60 Hz games get an NTSC
-                    # display, at full speed), 1 No Change (stay PAL), 2 NTSC, 3 PAL. From VDP
+FREQ = 0x11         # byte: Display Hz gadget: 0 Auto (was From VDP, Follow MSX; R#9: 60 Hz games get an NTSC
+                    # display, at full speed), 1 No Change (stay PAL), 2 NTSC, 3 PAL. Auto
                     # costs 20% more emulation per second for 60 Hz games: PiStorm only.
-JAPAN = 0x7A        # byte: Use Japanese ID (60 Hz): FFh = Japanese BIOS ID, 60 Hz boot (the machines
+JAPAN = 0x7A        # byte: Emulation > Japanese Machine (60 Hz): FFh = Japanese BIOS ID, 60 Hz boot (the machines
                     # most games were written for). PiStorm only: 20% more emulation per second.
 SOUND = 0x1D        # byte: sound chip: 0 PSG, 1 SCC, 2 SCC+, 3 PSG+FM (MSX-Music by FMX; Konami SCC
                     # ROMs still get the SCC). FM is on only where there's CPU to spare.
@@ -41,7 +41,7 @@ BLOCK40 = 6         # bytes after the credits string (PrefMask .. PrefCD32M)
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1), MASK: ("B", 0), NOAUTO: ("B", 0)}),
-    ("AmiMSX PiStorm", "Pi",   (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("AmiMSX PiStorm", "Pi AGA", (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
     ("AmiMSX RTG",     "RTG",  (30, 100, 200),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
 ]
 # (4.5) Extra ToolTypes: the RTG preset is the PiStorm one on an RTG screen (ToolType RTG,

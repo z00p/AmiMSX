@@ -1,0 +1,11 @@
+# As scancyc.keys, SNAPs from 24 s (titles in play by then, e.g. Chikubi Ninja).
+include play.keys
+24s SNAP 60
+26s SNAP 60
+28s SNAP 60
+30s SNAP 60
+32s SNAP 60
+34s SNAP 60
+36s SNAP 60
+38s SNAP 60
+40s HELP

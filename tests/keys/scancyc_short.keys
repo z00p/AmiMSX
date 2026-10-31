@@ -1,0 +1,11 @@
+# As scancyc.keys, for test ROMs that need no keys (T_scan8.rom, tools/make_scr8_test.py):
+# a SNAP every 2 s from 8 s, then HELP.
+8s SNAP 60
+10s SNAP 60
+12s SNAP 60
+14s SNAP 60
+16s SNAP 60
+18s SNAP 60
+20s SNAP 60
+22s SNAP 60
+24s HELP

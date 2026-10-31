@@ -524,6 +524,7 @@ MODESW:	MACRO
 	BEQ.S	\@r
 	MOVE.B	DVDP2(A3),(TabRasDATA+1.L,D1.W*8)
 	MOVE.B	VDPLinY(A3),(TabRasDATA+4.L,D1.W*8)
+	MOVE.B	MsNewW+1,RtgMsBot	; (4.6) The mode below the split.
 \@r:
 	MOVE.B	MsOld,MSplitTop
 	MOVE.B	DVDP2(A3),MS_DVDP2

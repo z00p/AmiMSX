@@ -20,6 +20,8 @@ Usuario=0
 Key_ON=0			; 1=Off
 	ENDC
 
+	INCLUDE	"AmiMSX_MenuPos.i"	; (4.6) named menu positions
+
 ; <=-----------------------=>
 
 	MOVEQ	#0,D0
@@ -288,13 +290,6 @@ MIRACEROB:
 
 	CNOP	0,4
 DIRINFOTEXT:
-	DC.L	INFOTEXT0,382
-	DC.L	INFOTEXT1,382
-	DC.L	INFOTEXT2,382
-	DC.L	INFOTEXT3,382
-	DC.L	INFOTEXT4,382
-	DC.L	INFOTEXT5,382
-	DC.L	INFOTEXT6,382
 	DC.L	ABOUTTEXT0,324
 	DC.L	ABOUTTEXT1,324
 	DC.L	ABOUTTEXT2,324
@@ -306,29 +301,6 @@ DIRINFOTEXT:
 	DC.L	ABOUTTEXT8,324
 	DC.L	ABOUTTEXT9,324
 	DC.L	ABOUTTEXT10,324
-	DC.L	ShareInfoText0,352+2
-	DC.L	ShareInfoText1,352
-	DC.L	ShareInfoText2,352
-	DC.L	ShareInfoText3,352
-	DC.L	ShareInfoText4,352
-	DC.L	ShareInfoText5,352
-	DC.L	ShareInfoText6,352
-	DC.L	ShareInfoText7,352
-	DC.L	ShareInfoText8,352+2
-	DC.L	ShareInfoText9,352
-	DC.L	OutTimeText0,264
-	DC.L	OutTimeText1,264
-	DC.L	OutTimeText2,264
-	DC.L	OutTimeText3,264+2
-	DC.L	OutTimeText4,264
-	DC.L	RegisterText0,558
-	DC.L	RegisterText1,558
-	DC.L	RegisterText2,558
-	DC.L	RegisterText3,558
-	DC.L	RegisterText4,558
-	DC.L	RegisterText5,558
-	DC.L	RegisterText18,558
-	DC.L	RegisterText19,558
 	DC.L	0,0
 
 ; <=-----------------------=>
@@ -385,7 +357,7 @@ DISBASE:	DC.L	0
 _GADTOOLSBASE:	DC.L	0
 		DC.W	USUARIO*3
 MFMDEVICE:	DC.B	0
-EFFICIEN:	DC.B	0
+		DC.B	0		; (was the Imploder's efficiency)
 DISKERRORES:	DC.B	0
 EsUn060:	DC.B	0
 		CNOP	0,4
@@ -453,8 +425,6 @@ DirKeyBuff:	DC.L	0
 BYTEFILE:	DC.L	0
 SLBUCFILE:	DC.L	0
 TapeBUCFILE:	DC.L	0
-BUCPROG:	DC.L	0
-DIRIMPFILE:	DC.L	0
 DirCaset:	DC.L	0
 LoadCaset:	DC.L	0
 SaveCaset:	DC.L	0
@@ -463,7 +433,6 @@ ModoCaset:	DC.B	0,0
 SizeCaset:	DC.W	0
 CheatDir:	DC.W	0
 DirMonitor:	DC.W	0
-IMPFILE:	DC.L	0
 SpeedTest:	DC.L	0
 		DC.L	0
 FILENOM:	DS.B	$208
@@ -718,6 +687,10 @@ PROGRAMA:
 
 	JSR	RtgInit			; (4.5) RTG ToolType: the modes; the menu
 					; screen then opens on RTG too.
+	TST.B	RtgWant			; (4.6) Not on RTG: RTG Scanlines greyed
+	BNE.S	RtgScanMenuOn		; (NM_ITEMDISABLED, before the menus are
+	OR.W	#$0010,MSX2NewMenu45b+10	; made).
+RtgScanMenuOn:
 	JSR	SETUPSCREEN
 	TST.L	D0			; (4.0) No screen (low chip RAM): out.
 	BNE	QUITAR
@@ -760,9 +733,6 @@ SiEstaData2:
 ; ------------------------------------------
 
 ; ------------------------------------------
-;	BSR	Password
-; ------------------------------------------
-
 	BSR	ABREDEVICE
 
 ;;;	BSR	MiraSpeed
@@ -779,19 +749,6 @@ NoShowMatra:
 	ENDC
 
 ; ------------------------------------------
-
-	IFNE	Usuario=-99
-	BSR	ShowShareInfo		; Modo Shareware.
-	OR.W	#$0010,MSX2NEWMENU14+$A
-	ELSEIF
-	IFEQ	Key_ON
-;	BSR	ShowInfo		; Modo Key ON.
-	ELSEIF
-	IFNE	Usuario
-	BSR	ShowInfo		; Modo Registrado.
-	ENDC
-	ENDC
-	ENDC
 
 ; ------------------------------------------
 
@@ -929,23 +886,12 @@ QUITAR:
 	JSR	RtgPlayClose		; (4.5) (none open: nothing)
 ; --------------------------
 ; --------------------------		; Screen mode on Exit.
-	MOVE.B	DirPrefs+$7C(PC),D0
-	LSR.B	#1,D0
-	BEQ.S	NoChangeCon
-	MOVEQ	#0,D1
-	LSR.B	#1,D0
-	BNE.S	EsNTSC2
-	MOVE.W	#$20,D1
-EsNTSC2:MOVE.W	D1,$DFF1DC
-	BRA.S	ScrExitSet
-NoChangeCon:
-	MOVE.L	4.W,A0			; (4.2) 'No Change' puts the system's own
+	MOVE.L	4.W,A0			; (4.2) Quitting puts the system's own
 	MOVEQ	#0,D1			; beam timing back (ExecBase VBlankFrequency:
 	CMP.B	#50,$212(A0)		; 50 = PAL). A 60 Hz MSX game left BEAMCON0
 	BNE.S	SysNTSC			; at NTSC, and AmigaOS doesn't restore it:
 	MOVE.W	#$20,D1			; PAL screens opened afterwards ran at
 SysNTSC:MOVE.W	D1,$DFF1DC		; 59.3 Hz and lost their bottom lines.
-ScrExitSet:
 ; --------------------------
 	JSR	CLOSEDOWNSCREEN
 	MOVE.L	_INTUITIONBASE,A6	; (4.2) Rebuild the display for the
@@ -977,7 +923,7 @@ QUITMVD:
 	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
 	JSR	OPENQUITMVDWINDOW
 	LEA	QUITMVDPUNTS,A1
-	BSR	CONTROL
+	JSR	CONTROL		; (JSR: past BSR.W's reach)
 	JSR	CLOSEQUITMVDWINDOW
 	BSR	ENAMOUSE
 
@@ -1172,15 +1118,6 @@ NOERRORMFM:
 	BSR	ENAMOUSE
 	RTS
 ; -----------------------------------
-SHOWINFO:
-	BSR	DisMouse
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
-	JSR	OPENINFOWINDOW
-	LEA	INFOPUNTS,A1
-	BSR	CONTROL
-	JSR	CLOSEINFOWINDOW
-	BSR	EnaMouse
-	RTS
 ; -----------------------------------
 ShowMatra:
 	BSR	DisMouse
@@ -1204,53 +1141,9 @@ ShowMatra:
 	BSR	EnaMouse
 	RTS
 ; -----------------------------------
-ShowShareInfo:
-	BSR	DisMouse
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
-	JSR	OPENShareInfoWINDOW
-	LEA	ShareInfoPUNTS,A1
-	BSR	CONTROL
-	JSR	CLOSEShareInfoWINDOW
-	BSR	EnaMouse
-	RTS
-ShowRegisterShare:
-	JSR	CLOSEShareInfoWINDOW
-	BSR	EnaMouse
-	ADD.W	#16+4,SP
-	BRA.S	ShowRegister
-; -----------------------------------
-ShowOutTime:
-	BSR	DisMouse
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
-	JSR	OPENOutTimeWINDOW
-	LEA	OutTimePUNTS,A1
-	BSR	CONTROL
-	JSR	CLOSEOutTimeWINDOW
-	BSR	ENAMOUSE
-	RTS
-ShowRegisterOut:
-	JSR	CLOSEOutTimeWINDOW
-	BSR	EnaMouse
-	ADD.W	#16+4,SP
-	NOP			; was: BRA.S	ShowRegister (zero-length short branch)
-; -----------------------------------
-ShowRegister:
-	BSR	DisMouse
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
-	JSR	OPENRegisterWINDOW
-	LEA	RegisterPUNTS,A1
-	BSR	CONTROL
-	JSR	CLOSERegisterWINDOW
-	BSR	EnaMouse
-	RTS
-; -----------------------------------
-NOIMP:
-	BSR	DISMOUSE
-	LEA	TLEEnoimp(PC),A0
-	BRA	IMPERROR
-	BSR	ENAMOUSE
-	RTS
-; -----------------------------------
+REINTMODETAGS:				; (GA_Disabled)
+	DC.L    $8003000E,1
+	DC.L	0
 GOCONTOFF:
 	LEA	MSX2Gadgets,A0
 	ADD.W	#(GD_GO*4),A0
@@ -1273,27 +1166,6 @@ GOCONTOFF:
 	JSR	-$2A(A6)
 	RTS
 ; -----------------------------------
-REINTMODE:
-	CLR.L	REINTMODETAGS+4
-	MOVEQ	#14,D0			; N� L�nea. (4.1.1: was 12)
-	MOVEQ	#1,D1			; N� menu.
-	BSR	COGECHECK
-	BNE.S	REINTMOFF
-	MOVE.L	#1,REINTMODETAGS+4
-REINTMOFF:
-	LEA	MSX2Gadgets,A0
-	ADD.W	#(GD_MSX2Spr*4),A0
-	MOVE.L	(A0),A0
-	MOVE.L	MSX2WND,A1
-	SUB.L	A2,A2
-	LEA	REINTMODETAGS,A3
-	MOVE.L	_GadToolsBase,A6
-	JSR	-$2A(A6)
-	RTS
-
-REINTMODETAGS:
-	DC.L    $8003000E,1
-	DC.L	0
 ; -----------------------------------
 	CNOP	0,8
 MiraSpeed:
@@ -1337,16 +1209,7 @@ EsDosRomC:
 	MOVE.L	D0,$0C(A1)
 	BSR	TxtPrint
 
-	MOVEQ	#(0*$40)+3,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
-	BSR	COGECHECK
-	AND.W	#$FFEF,$C(A0)
-
-	LEA	MSX2Gadgets+(GD_Slot2*4),A0
-	MOVE.L	MSX2WND,A1
-	MOVEQ	#1,D0
-	BSR	GadsOnOff
-	RTS
+	RTS				; (4.6: Slot 2 stays available, InsertSl2Ask)
 
 DiskROMVerOff:
 	move.l  MSX2Wnd,a0
@@ -1354,15 +1217,6 @@ DiskROMVerOff:
 	MOVE.L	#MSX2IText9,$0C(A1)
 	BSR	TxtPrint
 
-	MOVEQ	#(0*$40)+3,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
-	BSR	COGECHECK
-	OR.W	#$0010,$C(A0)
-
-	LEA	MSX2Gadgets+(GD_Slot2*4),A0
-	MOVE.L	MSX2WND,A1
-	MOVEQ	#0,D0
-	BSR	GadsOnOff
 	RTS
 
 TexDOS:	DC.B    'MSX Disk ROM  (DOS)      ',0
@@ -2362,16 +2216,6 @@ NoOverwrite:
 
 ; -----------------------------------
 ; -----------------------------------
-	CNOP	0,4
-Password:
-	BSR	DisMouse
-	MOVEM.L	MCeros(PC),D0-D7/A0-A6
-	JSR	OpenPasswordWindow
-	LEA	PasswordPunts,A1
-	BSR	Control
-	JSR	ClosePasswordWindow
-	BSR	EnaMouse
-	RTS
 ; -----------------------------------
 ; -----------------------------------
 
@@ -2399,8 +2243,7 @@ EsUnProtect:
 
 	SUBQ.L	#3,Debug+((8+5)*4)		; Registro PC.
 
-	MOVE.L	#(0*$40)+13,D0		; N� L�nea. (Sub-Item+Item; 4.1.1: was 11)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_WProt,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)		; MVD: Write UnProtected
 
@@ -2417,12 +2260,6 @@ ABOUT:
 	JSR	OPENABOUTWINDOW
 	TST.L	D0			; (4.0) Window not open: no gadgets.
 	BNE.S	ABOUTNoW
-	LEA	AboutGadgets+(GD_Aboutmore*4),A0	; (4.0, as v3.2) 'More'
-	MOVE.L	AboutWnd,A1		; (the old contact addresses) disabled.
-	MOVE.L	#$8003000E,D0		; GA_Disabled
-	MOVEQ	#1,D1
-	BSR	CanviTags
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
 	LEA	ABOUTPUNTS,A1
 	BSR	CONTROL
 ABOUTNoW:
@@ -2448,23 +2285,6 @@ NoCartrIDIgnore:
 	JSR	CLOSECartNotIDWINDOW
 	BSR	ENAMOUSE
 	MOVEQ	#-1,D0
-	RTS
-; -----------------------------------
-ADDRESS2:
-	ADD.W	#16+4,SP
-	JSR	CLOSEABOUTWINDOW
-	BRA.S	ADDRESSC
-ADDRESS:
-	ADD.W	#16+4,SP
-	JSR	CLOSEABOUTWINDOW
-ADDRESSC:
-;;;	BSR	DISMOUSE		; ya lo hace About (sino bug)
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
-	JSR	OPENADDRESSWINDOW
-	LEA	ADDRESSPUNTS,A1
-	BSR	CONTROL
-	JSR	CLOSEADDRESSWINDOW
-	BSR	ENAMOUSE
 	RTS
 ; -----------------------------------
 	CNOP	0,4
@@ -2507,13 +2327,11 @@ InitSaveTape:
 	CLR.W	SizeCaset
 	SF	ModoCaset
 
-	MOVEQ	#(0*$40)+0,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; N� menu.
+	MOVE.L	#MN_RewindTape,D0
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
-	MOVEQ	#(0*$40)+4,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; N� menu.
+	MOVE.L	#MN_SaveRec,D0
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 	RTS
@@ -2591,13 +2409,11 @@ LoadTape:
 	MOVE.W	BucCaset,SizeCaset
 	ST	ModoCaset
 
-	MOVEQ	#(0*$40)+0,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; N� menu.
+	MOVE.L	#MN_RewindTape,D0
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 
-	MOVEQ	#(0*$40)+4,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#4,D1			; N� menu.
+	MOVE.L	#MN_SaveRec,D0
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 	RTS
@@ -2703,9 +2519,8 @@ Sl1MapOp7:				; (4.5) R-Type
 	MOVE.B	#$07,DirPrefs+$76
 	MOVE.L	#$80,D3
 Sl1MapRut:
-	MOVE.L	#(0*$40)+1,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
-	MOVEQ	#8-1,D4			; (4.5: 8 items, R-Type)
+	MOVE.L	#MN_Map1None,D0		; the first of its sub-items
+	MOVEQ	#NS_Map1-1,D4		; (4.5: 8 items, R-Type)
 
 	BRA.S	PoneOptMenus
 
@@ -2744,9 +2559,8 @@ Sl2MapOp7:				; (4.5) R-Type
 	MOVE.B	#$07,DirPrefs+$77
 	MOVE.L	#$80,D3
 Sl2MapRut:
-	MOVE.L	#(0*$40)+4,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
-	MOVEQ	#8-1,D4			; (4.5: 8 items, R-Type)
+	MOVE.L	#MN_Map2None,D0		; the first of its sub-items
+	MOVEQ	#NS_Map2-1,D4		; (4.5: 8 items, R-Type)
 
 	NOP			; was: BRA.S	PoneOptMenus (zero-length short branch)
 
@@ -2770,31 +2584,13 @@ PoOpMeBuc:
 	BCC.S	PoOpMeCon
 	BSET	#0,$C(A0)
 PoOpMeCon:
-	ADD.W	#(1*$40),D0
+	ADD.W	#(1<<11),D0		; the next sub-item
 	DBF	D4,PoOpMeBuc
 	RTS
 
 ; -----------------------------------
 
 
-NoChange:
-	MOVEQ	#$01,D3
-	MOVE.B	D3,DirPrefs+$7C
-	BRA.S	SetScrExit
-ForcePAL:
-	MOVEQ	#$02,D3
-	MOVE.B	D3,DirPrefs+$7C
-	BRA.S	SetScrExit
-ForceNTSC:
-	MOVEQ	#$04,D3
-	MOVE.B	D3,DirPrefs+$7C
-SetScrExit:
-	MOVE.L	#(0*$40)+14,D0		; N� L�nea. (Sub-Item+Item; 4.1.1: was 12)
-	MOVEQ	#1,D1			; N� menu.
-	MOVEQ	#3-1,D4
-
-	BRA.S	PoneOptMenus
-	
 ; -----------------------------------
 ; -----------------------------------
 
@@ -2892,8 +2688,7 @@ MapperNuevo:	DC.L	0
 
 	CNOP	0,8
 EjectSl1:
-	MOVEQ	#(1*$40)+0,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
+	MOVE.L	#MN_Sl1Eject,D0
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
@@ -2918,8 +2713,7 @@ EjectSl1:
 	BSR	GPRestore		; a disk game loaded next: Bombaman).
 	BRA.S	Eject
 EjectSl2:
-	MOVEQ	#(1*$40)+3,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
+	MOVE.L	#MN_Sl2Eject,D0
 	BSR	COGECHECK
 	AND.W	#$FFEF,$C(A0)
 
@@ -2955,7 +2749,7 @@ NoHayCartEj:
 	CNOP	0,8
 InsertSl1:
 	MOVE.L	#MSX2IText8,DatTxt
-	MOVE.L	#(1*$40)+0,DatItem
+	MOVE.L	#MN_Sl1Eject,DatItem
 
 	MOVE.L	DirCartS1(PC),DirCart
 	MOVE.L	BucCartS1(PC),BucCart
@@ -3042,16 +2836,13 @@ GPGUIToPrefs:
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
 	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
 	BSR	MaskFromGUI		; Mask screen edges (4.2: 3 sub-items).
-	MOVE.L	#(6*$40)+15,D0		; Audio filter.
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Filter,D0		; Audio filter.
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#(1*$40)+2,D0		; JoyPort 2 pad: CD32 pad (4.1.1).
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Pad2CD32,D0		; JoyPort 2 pad: CD32 pad (4.1.1).
 	BSR	COGECHECK
 	SNE	PrefCD32
-	MOVE.L	#(1*$40)+3,D0		; JoyPort 1 pad.
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Pad1CD32,D0		; JoyPort 1 pad.
 	BSR	COGECHECK
 	SNE	PrefCD32M
 	RTS
@@ -3076,32 +2867,29 @@ GPShowGUI:
 	MOVEQ	#0,D1
 	MOVE.W	DirPrefs+$16,D1
 	BSR	CanviTags
-	MOVE.L	#(3*$40)+15,D0		; Mask screen edges (4.2): Off,
-	MOVEQ	#1,D1			; 8 dots or 16 dots ticked.
+	MOVE.L	#MN_MaskOff,D0		; Mask screen edges (4.2): Off,
+					; 8 dots or 16 dots ticked.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	TST.B	PrefMask
 	BNE.S	GPShow2
 	BSET	#0,$C(A0)
 GPShow2:
-	MOVE.L	#(4*$40)+15,D0
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Mask8,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	CMP.B	#8,PrefMask
 	BNE.S	GPShow2b
 	BSET	#0,$C(A0)
 GPShow2b:
-	MOVE.L	#(5*$40)+15,D0
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Mask16,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	CMP.B	#16,PrefMask
 	BNE.S	GPShow2c
 	BSET	#0,$C(A0)
 GPShow2c:
-	MOVE.L	#(6*$40)+15,D0		; Audio filter.
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Filter,D0		; Audio filter.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	TST.B	PrefFilter
@@ -3109,26 +2897,39 @@ GPShow2c:
 	BSET	#0,$C(A0)
 GPShow4:
 	MOVEM.L	D2/D3,-(SP)
-	MOVEQ	#2,D2			; JoyPort 2 pad (4.1.1): one of its
+	MOVE.L	#MN_Pad2Std,D2		; JoyPort 2 pad (4.1.1): one of its
 	MOVE.B	PrefCD32,D3		; two sub-items ticked.
-	BSR.S	GPShowPad
-	MOVEQ	#3,D2			; JoyPort 1 pad.
+	BSR	GPShowPad
+	MOVE.L	#MN_Pad1Std,D2		; JoyPort 1 pad.
 	MOVE.B	PrefCD32M,D3
-	BSR.S	GPShowPad
+	BSR	GPShowPad
 	MOVEM.L	(SP)+,D2/D3
+	RTS
+; (4.6) Emulation > Speed from the menu: prefs $7E, 0 Normal, 1 Overclock,
+; 2 No Limit.
+SpeedFromGUI:
+	CLR.B	DIRPrefs+$7E
+	MOVE.L	#MN_SpeedOC,D0
+	BSR	COGECHECK
+	BEQ.S	SpeedFG1
+	MOVE.B	#1,DIRPrefs+$7E
+SpeedFG1:
+	MOVE.L	#MN_SpeedNoLimit,D0
+	BSR	COGECHECK
+	BEQ.S	SpeedFG2
+	MOVE.B	#2,DIRPrefs+$7E
+SpeedFG2:
 	RTS
 ; (4.2) Mask screen edges from the menu: sub-item 4 of item 15 = 8 dots,
 ; 5 = 16 dots, else (3) Off.
 MaskFromGUI:
 	CLR.B	PrefMask
-	MOVE.L	#(4*$40)+15,D0
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Mask8,D0
 	BSR	COGECHECK
 	BEQ.S	MaskFG1
 	MOVE.B	#8,PrefMask
 MaskFG1:
-	MOVE.L	#(5*$40)+15,D0
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Mask16,D0
 	BSR	COGECHECK
 	BEQ.S	MaskFG2
 	MOVE.B	#16,PrefMask
@@ -3144,12 +2945,11 @@ MaskNorm:
 	MOVE.B	#8,PrefMask
 MaskNormR:
 	RTS
-; Item D2 of the Options menu: sub-item 1 (CD32 pad) ticked when D3 is
-; not 0, sub-item 0 (Standard) otherwise.
+; D2 = a pad's Standard sub-item: the CD32 pad sub-item after it ticked when
+; D3 is not 0, Standard otherwise.
 GPShowPad:
 	MOVE.L	D2,D0
-	ADD.W	#(1*$40),D0
-	MOVEQ	#1,D1
+	ADD.W	#MN_Pad2CD32-MN_Pad2Std,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	TST.B	D3
@@ -3157,7 +2957,6 @@ GPShowPad:
 	BSET	#0,$C(A0)
 GPShowPad1:
 	MOVE.L	D2,D0
-	MOVEQ	#1,D1
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
 	TST.B	D3
@@ -3351,10 +3150,42 @@ AutoS2Cp:
 AutoS2R:
 	RTS
 
+; (4.6) Slot 2 > Insert and the Slot 2 button are always there. A Disk ROM
+; takes Slot 2: with one chosen, ask first. Yes: Disk ROM None (as AutoSlot2),
+; then the insert; No: nothing.
+	CNOP	0,4
+InsertSl2Ask:
+	LEA	MSX2Gadgets+(GD_DiskVer*4),A0
+	MOVE.L	(A0),A1
+	CMP.B	#2,$57(A1)
+	BEQ	InsertSl2
+	MOVE.L	MSX2Wnd,A0
+	LEA	Sl2AskES(PC),A1
+	SUB.L	A2,A2
+	SUB.L	A3,A3
+	MOVE.L	_IntuitionBase,A6
+	JSR	-$24C(A6)		; EasyRequestArgs: 1 = Yes, 0 = No
+	TST.L	D0
+	BEQ.S	InsertSl2AskNo
+	LEA	MSX2Gadgets+(GD_DiskVer*4),A0
+	MOVE.L	MSX2WND,A1
+	MOVE.L	#$8008000F,D0		; GTCY_Active: 2 = None
+	MOVEQ	#2,D1
+	BSR	CanviTags
+	BSR	DiskROMVer
+	BRA	InsertSl2
+InsertSl2AskNo:
+	RTS
+Sl2AskES:	DC.L	20,0,Sl2AskTitle,Sl2AskText,Sl2AskGads
+Sl2AskTitle:	DC.B	"AmiMSX",0
+Sl2AskText:	DC.B	"Slot 2 is used by the Disk ROM.",10
+		DC.B	"Switch the Disk ROM off?",0
+Sl2AskGads:	DC.B	"Yes|No",0
+
 	CNOP	0,8
 InsertSl2:
 	MOVE.L	#MSX2IText9,DatTxt
-	MOVE.L	#(1*$40)+3,DatItem
+	MOVE.L	#MN_Sl2Eject,DatItem
 
 	MOVE.L	DirCartS2(PC),DirCart
 	MOVE.L	BucCartS2(PC),BucCart
@@ -3649,8 +3480,7 @@ ArrROMPagBuc2:
 					; Todo Correcto!
 
 	ST	CartLoadOK		; (Per-game settings: loaded.)
-	MOVE.L	DatItem,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#3,D1			; N� menu.
+	MOVE.L	DatItem,D0		; the slot's Eject
 	BSR	COGECHECK
 	OR.W	#$0010,$C(A0)
 
@@ -4126,14 +3956,13 @@ LOADVDB:
 LdVBNm:	MOVE.W	#$100-1,D0
 	MOVE.L	4(A2),A0
 	BSR	COPYNOM
-	MOVE.L	BUCFILEB,D0		; The one before goes.
-	BEQ.S	LdVBNo
-	MOVE.L	DIRFILEB,A1
-	MOVE.L	4.W,A6
-	JSR	-$D2(A6)
-	CLR.L	BUCFILEB
-	CLR.L	DIRFILEB
-LdVBNo:	JMP	LoadDiskB
+	BSR	FreeDiskB		; The one before goes.
+	JSR	LoadDiskB
+	TST.B	DISKBNOM		; Refused (an MVD, an odd size): say so.
+	BNE.S	LdVBOk
+	LEA	TLEEDKB,A0
+	BSR	IMPERROR
+LdVBOk:	RTS
 
 LOADVD0:
 	TST.L	_ASLBase(PC)
@@ -4386,13 +4215,28 @@ DISERROR:
 ; --------------------------------------
 	CNOP	0,4
 FORMAT1DD:
-	SF	MVDMODIFI			; MVD cambiado.
-	MOVE.L	#361*1024,-(SP)
-	BRA.S	FOR2DDCON2
+	MOVE.L	#361*1024,FmtSize
+	BRA.S	FmtAsk
 FORMAT2DD:
+	MOVE.L	#721*1024,FmtSize
+; (4.6) Tools > New Blank Disk: which drive? Drive A: as ever. Drive B: its
+; own image, with no file behind it (no Save for B yet: writes last until
+; it's ejected, replaced or AmiMSX quits).
+FmtAsk:
+	MOVE.L	MSX2Wnd,A0
+	LEA	FmtAskES(PC),A1
+	SUB.L	A2,A2
+	SUB.L	A3,A3
+	MOVE.L	_IntuitionBase,A6
+	JSR	-$24C(A6)		; EasyRequestArgs: 1 A, 2 B, 0 Cancel
+	CMP.L	#2,D0
+	BEQ	FmtDriveB
+	TST.L	D0
+	BNE.S	FmtDriveA
+	RTS
+FmtDriveA:
 	SF	MVDMODIFI			; MVD cambiado.
-	MOVE.L	#721*1024,-(SP)
-FOR2DDCON2:
+	MOVE.L	FmtSize(PC),-(SP)
 	MOVE.L	DIRFILE,A1
 	MOVE.L	BUCFILE,D0
 	BEQ.S	NOHAYMEM2D
@@ -4459,6 +4303,50 @@ FOR2DBUC:
 
 TFORMAT2DD:	DC.B	"MSX 2DD Format.            ",0
 TFORMAT1DD:	DC.B	"MSX 1DD Format.            ",0
+	CNOP	0,4
+FmtSize:	DC.L	0		; bytes, a little spare as ever
+FmtAskES:	DC.L	20,0,FmtAskTitle,FmtAskText,FmtAskGads
+FmtAskTitle:	DC.B	"AmiMSX",0
+FmtAskText:	DC.B	"Put the blank disk in which drive?",0
+FmtAskGads:	DC.B	"Drive A|Drive B|Cancel",0
+
+	CNOP	0,4
+FmtDriveB:
+	BSR	FreeDiskB
+	CLR.B	DISKBNOM		; (no file behind it)
+	MOVE.L	FmtSize(PC),D0
+	MOVE.L	D0,BUCFILEB
+	MOVE.L	#$10000,D1
+	MOVE.L	4.W,A6
+	JSR	-$C6(A6)		; AllocMem (cleared)
+	MOVE.L	D0,DIRFILEB
+	BNE.S	FmtBOk
+	CLR.L	BUCFILEB
+	LEA	TLEEMEMORY,A0
+	BSR	IMPERROR
+	JMP	ShowDiskB
+FmtBOk:	MOVE.L	D0,A1
+	MOVE.L	FmtSize(PC),D0
+	SUB.L	#1024,D0
+	MOVE.L	D0,DskBSize
+	SF	DskDirtyB
+	LEA	BOOT2DD,A2
+	LEA	TFORMAT2DD(PC),A0
+	MOVE.L	#$F9FFFF00,D0
+	CMP.L	#721*1024,FmtSize
+	BEQ.S	FmtBFat
+	LEA	BOOT1DD,A2
+	LEA	TFORMAT1DD(PC),A0
+	MOVE.L	#$F8FFFF00,D0
+FmtBFat:
+	MOVE.L	D0,$200(A1)
+	MOVE.L	D0,$800(A1)
+	MOVE.W	#($B8/4)-1,D0
+FmtBBoot:
+	MOVE.L	(A2)+,(A1)+
+	DBF	D0,FmtBBoot
+	JSR	DiskBGad
+	JMP	ShowDiskBT
 
 ; --------------------------------------
 	CNOP	0,4
@@ -4481,6 +4369,24 @@ NOHAYMEM3:
 
 	CNOP	0,4
 TVD0BEM:DC.B    'Buffer Empty.              ',0
+
+; (4.6) Disks > Drive B > Eject.
+	CNOP	0,4
+CLEARVDB:
+	BSR	FreeDiskB
+	CLR.B	DISKBNOM
+	SF	DskDirtyB
+	JMP	ShowDiskB
+FreeDiskB:
+	MOVE.L	BUCFILEB,D0
+	BEQ.S	FreeDkBR
+	MOVE.L	DIRFILEB,A1
+	MOVE.L	4.W,A6
+	JSR	-$D2(A6)		; FreeMem
+	CLR.L	BUCFILEB
+	CLR.L	DIRFILEB
+FreeDkBR:
+	RTS
 
 ; -----------------------------------
 	CNOP	0,4
@@ -5059,116 +4965,6 @@ ILBMraw:DS.B	4*1024
 
 ; -----------------------------------
 	CNOP 	0,4
-SaveCartridge:
-	IFD	MENU
-	TST.B	GoDat(PC)
-	BEQ	ErPowerON
-	ENDC
-
-	MOVE.L	Slot3+8,A0
-	ADD.L	#$4000,A0
-	CMP.W	#"AB",(A0)
-	BEQ.S	SavePage12
-
-	MOVE.L	Slot3+16,A0
-	ADD.L	#$8000,A0
-	CMP.W	#"AB",(A0)
-	BEQ.S	SavePage2
-
-	LEA	TLEENOCarID,A0
-	JMP	IMPERROR
-
-	CNOP 	0,4
-SavePage1:
-	IFD	MENU
-	TST.B	GoDat(PC)
-	BEQ	ErPowerON
-	ENDC
-
-	MOVE.L	Slot3+8,IniSlot3s
-	ADD.L	#$4000,IniSlot3s
-	SF	MulSavePage
-	BRA.S	SavePageCon
-SavePage2:
-	IFD	MENU
-	TST.B	GoDat(PC)
-	BEQ	ErPowerON
-	ENDC
-
-	MOVE.L	Slot3+16,IniSlot3s
-	ADD.L	#$8000,IniSlot3s
-	SF	MulSavePage
-	BRA.S	SavePageCon
-SavePage12:
-	IFD	MENU
-	TST.B	GoDat(PC)
-	BEQ	ErPowerON
-	ENDC
-
-	MOVE.L	Slot3+8,IniSlot3s
-	ADD.L	#$4000,IniSlot3s
-	ST	MulSavePage
-SavePageCon:
-	BSR	DISMOUSE
-
-	MOVE.L	ReqBaseSlot,A0
-	LEA	TAGSavPage,A1
-	MOVE.L	_ASLBASE,A6
-	JSR	-$3C(A6)	; RequestFile.
-
-	MOVE.L	D0,-(SP)
-	BSR	ENAMOUSE
-	MOVE.L	(SP)+,D0
-
-	TST.L	D0
-	BEQ	SLCANCEL
-
-	MOVE.L	ReqBaseSlot,A2
-	LEA	FILENOM(PC),A1
-	MOVE.W	#$100-1,D0
-	MOVE.L	8(A2),A0
-	TST.B	(A0)
-	BEQ.S	CHAPUZ2p
-	BSR	COPYNOM
-	SUBQ	#1,A1
-	CMP.B	#":",-1(A1)
-	BEQ.S	CHAPUZ2p
-	MOVE.B	#"/",(A1)+
-CHAPUZ2p:
-	MOVE.W	#$100-1,D0
-	MOVE.L	4(A2),A0
-	BSR	COPYNOM
-
-	BSR	OverWrite
-	BEQ	NoOverwrite
-
-	MOVE.L	#FILENOM,D1
-	MOVE.L	#$3EE,D2
-	BSR	OPENFILE
-	BEQ	DISERROR
-
-	BSR	DISMOUSE
-
-	MOVE.L	#(16*1024),D3
-	MOVE.L	IniSlot3s,D2
-	BSR	WRITEFILE
-
-	TST.B	MulSavePage(PC)
-	BEQ.S	SavePageCon0
-
-	MOVE.L	#(16*1024),D3
-	MOVE.L	Slot3+16,D2
-	ADD.L	#$8000,D2
-	BSR	WRITEFILE
-SavePageCon0:
-
-	BSR	CLOSEFILE
-	BSR	ENAMOUSE
-	RTS
-
-	CNOP	0,4
-IniSlot3s:	DC.L	0
-MulSavePage:	DC.B	0,0
 ; -----------------------------------
 
 	CNOP	0,4
@@ -5281,18 +5077,6 @@ TAGSSaveTape:
 	DC.L	$8008002C,1		; 1=Modo Save.
 	DC.L	0
 
-TAGSSaveImp:
-	DC.L	$80080012,tSave
-	DC.L	$80080001,tSavImp
-	DC.L	$8008002C,1		; 1=Modo Save.
-	DC.L	0
-
-TAGSavPage:
-	DC.L	$80080012,tSave
-	DC.L	$80080001,tSavPage
-	DC.L	$8008002C,1		; 1=Modo Save.
-	DC.L	0
-
 
 	CNOP	0,4
 DirMVD:	DC.B	"MVD_Files",0,0
@@ -5310,288 +5094,10 @@ tSlot:	DC.B	"Load MSX Cartridge File.",0,0
 tSavVRAM:DC.B	"Save VRAM/Screen.",0,0
 tSavRAM:DC.B	"Save MSX RAM.",0,0
 tSavSpr:DC.B	"Save Sprites.",0,0
-tSavImp:DC.B	"Save Imploded MVD File.",0,0
-tSavPage:DC.B	"Save MSX Cartridge File.",0,0
 tLoadTape:DC.B	"Load Tape File.",0,0
 tSaveTape:DC.B	"Save Tape File.",0,0
 
 ; --------------------------------------
-	CNOP	0,4
-IMPLODER:
-	TST.L	BUCFILE
-	BNE.S	IMPLODERC
-
-	LEA	TLEENOFILE,A0
-	BSR	IMPERROR
-	RTS
-
-	CNOP	0,4
-IMPLODERC:
-	ST	EFFICIEN
-	BSR	DISMOUSE
-
-	LEA	IMPLODERGTags,A0
-	MOVE.W	#GD_EFFIMP,D0
-	MOVE.L	#$8008000F,D1
-	MOVEQ	#0,D2
-	LEA	DIRPrefs(PC),a5
-	MOVE.B	$66(A5),D2
-	BSR	ACTUTAGS
-
-	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
-	JSR	OPENIMPLODERWINDOW
-
-	LEA	IMPLODERPUNTS,A1
-	BSR	CONTROL
-
-	LEA	IMPLODERGadgets,A0
-	ADD.W	#(GD_EFFIMP*4),A0
-	MOVE.L	(A0),A1
-	LEA	DIRPrefs(PC),a5
-	MOVE.B	$57(A1),$66(A5)
-
-	MOVE.L	DIRIMPFILE,D0
-	BEQ.S	NOHAYMEM2DX
-	MOVE.L	D0,A1
-	MOVE.L	BUCFILE,D0
-	MOVE.L	4.W,A6
-	JSR	-$D2(A6)		; Libera memoria.
-	CLR.L	DIRIMPFILE
-NOHAYMEM2DX:
-
-	JSR	CLOSEIMPLODERWINDOW
-	BSR	ENAMOUSE
-	RTS
-
-
-	CNOP	0,4
-IMPLODING:
-	LEA	IMPLODERGadgets,A0
-	ADD.W	#(GD_EFFIMP*4),A0
-	MOVE.L	(A0),A1
-	MOVEQ	#0,D1
-	MOVE.B	$57(A1),D1
-	MOVE.B	(EFFICI.W,PC,D1.W),D1
-	MOVE.B	D1,DIRPrefs+$66
-
-	CMP.B	EFFICIEN,D1
-	BNE.S	IMPLODINGCON
-	RTS
-
-IMPLODINGCON:
-	ST	EFFICIEN
-
-	MOVE.L	IMPLODERWND,A0
-	BSR	PBUSY
-
-	MOVE.L	DIRIMPFILE,D0
-	BEQ.S	NOHAYMEM2DXH
-	MOVE.L	D0,A1
-	MOVE.L	BUCFILE,D0
-	MOVE.L	4.W,A6
-	JSR	-$D2(A6)		; Libera memoria.
-	CLR.L	DIRIMPFILE
-NOHAYMEM2DXH:
-	MOVE.L	#$10000,D1
-	MOVE.L	BUCFILE,D0
-	MOVE.L	4.W,A6
-	JSR	-$C6(A6)		; Requiere memoria.
-	MOVE.L	D0,DIRIMPFILE
-	BNE.S	IMPLODINGC
-
-	MOVE.L	#TIMPTXT4,IMPLODERDIRTXT
-	MOVE.L	#1,SAIMPLOTAGS+4
-	BRA	IMPLOERROR
-
-IMPLODINGC:
-	MOVE.L	DIRFILE,A0
-	MOVE.L	DIRIMPFILE,A1
-	MOVE.L	BUCFILE,D0
-	LSR.L	#2,D0
-IMPCOPYBUC:
-	MOVE.L	(A0)+,(A1)+
-	SUBQ.L	#1,D0
-	BNE.S	IMPCOPYBUC
-
-	MOVE.L	#"   0",TIMPTXT1+$0D
-	MOVE.W	#"  ",TIMPTXT1+$19
-	MOVE.L	#"   0",TIMPTXT1+$1B
-	MOVE.L	#TIMPTXT1,IMPLODERDIRTXT
-	move.l  IMPLODERWnd,a0
-	move.b  54(a0),d0
-	ext.w   d0
-	move.b  55(a0),d1
-	ext.w   d1
-	move.l  50(a0),a0
-	lea     IMPLODERTextO(PC),a1
-	move.l  _IntuitionBase,a6
-	JSR     TallIText
-
-
-	MOVE.L	DIRIMPFILE,A0
-	MOVE.L	BUCFILE,D0
-	SUB.L	#(1024),D0
-	MOVE.L	D0,BUCPROG
-	LEA	IMPCONTROL,A1
-
-	MOVEQ	#0,D1
-	MOVE.B	DIRPrefs+$66,D1
-
-	MOVE.L	#1,SAIMPLOTAGS+4
-	BSR	CAMBIAGADS
-; ---
-	BSR	IMPLODE
-; ---
-	CLR.L	SAIMPLOTAGS+4
-	BSR	CAMBIAGADS
-
-
-	MOVE.L	#TIMPTXT3,IMPLODERDIRTXT
-	MOVE.L	#1,SAIMPLOTAGS+4
-
-	MOVE.L	D0,IMPFILE
-	BEQ	IMPLOERROR
-	BMI	IMPLOERROR
-
-	BSR	PASDEC
-	MOVE.W	4(A0),TIMPTXT2+$9
-	MOVE.L	6(A0),TIMPTXT2+$B
-
-	MOVE.L	BUCPROG,D0
-	MOVE.L	D0,D2
-	MOVE.L	IMPFILE,D1
-	SUB.L	D1,D0
-	MOVE.L	BUCPROG,D2
-	DIVU	#100,D2
-	DIVU	D2,D0
-	AND.L	#$FFFF,D0
-	BSR	PASDEC
-	MOVE.B	8(A0),TIMPTXT2+$12
-	MOVE.B	9(A0),TIMPTXT2+$13
-
-	MOVE.L	#TIMPTXT2,IMPLODERDIRTXT
-	CLR.L	SAIMPLOTAGS+4
-
-	MOVE.B	DIRPrefs+$66,EFFICIEN
-
-IMPLOERROR:
-	LEA	IMPLODERGadgets,A0
-	ADD.W	#(GD_SAVEIMP*4),A0
-	MOVE.L	(A0),A0
-	MOVE.L	IMPLODERWND,A1
-	SUB.L	A2,A2
-	LEA	SAIMPLOTAGS(PC),A3
-	MOVE.L	_GadToolsBase,A6
-	JSR	-$2A(A6)
-
-	move.l  IMPLODERWnd,a0
-	move.b  54(a0),d0
-	ext.w   d0
-	move.b  55(a0),d1
-	ext.w   d1
-	move.l  50(a0),a0
-	lea     IMPLODERTextO(PC),a1
-	move.l  _IntuitionBase,a6
-	JSR     TallIText
-
-	MOVE.L	IMPLODERWND,A0
-	BSR	PNORM
-	RTS
-
-SAIMPLOTAGS:
-	DC.L    $8003000E,0
-	DC.L	0
-
-	CNOP	0,4
-EFFICI:	DC.B	1,4,7,9,10,11,11
-	CNOP	0,4
-TIMPTXT0:DC.B	"       The File Imploder.       ",0
-TIMPTXT1:DC.B	" Imploding...  26% Done, 737280 ",0,0
-TIMPTXT2:DC.B	"   Size: 000000,   0% gained.   ",0
-TIMPTXT3:DC.B	"      I cannot implode it!      ",0
-TIMPTXT4:DC.B	"    -=>  Out of Memory!  <=-    ",0
-
-; -----------------------------------
-	ds.l	10
-; -----------------------------------
-
-; -----------------------------------
-	CNOP	0,4
-SAVEIMPLODED:
-	TST.L	_ASLBase(PC)
-	BEQ	NeedASL
-
-	MOVE.L	REQBASE,A0
-	LEA	TAGSSaveImp(PC),A1
-	MOVE.L	_ASLBASE,A6
-	JSR	-$3C(A6)	; RequestFile.
-
-	TST.L	D0
-	BEQ	SLCANCEL
-
-	MOVE.L	REQBASE,A2
-	LEA	FILENOM(PC),A1
-	MOVE.W	#$100-1,D0
-	MOVE.L	8(A2),A0
-	TST.B	(A0)
-	BEQ.S	CHAPUZ2V
-	BSR	COPYNOM
-	SUBQ	#1,A1
-	CMP.B	#":",-1(A1)
-	BEQ.S	CHAPUZ2V
-	MOVE.B	#"/",(A1)+
-CHAPUZ2V:
-	MOVE.W	#$100-1,D0
-	MOVE.L	4(A2),A0
-	BSR	COPYNOM
-
-	BSR	OverWrite
-	BEQ	NoOverwrite
-
-	MOVE.L	#FILENOM,D1
-	MOVE.L	#$3EE,D2
-	BSR	OPENFILE
-	BEQ	DISERROR
-
-	LEA	TSAVEIMP,A0
-	BSR	IMPDISK
-
-	MOVE.L	IMPFILE,D3
-	MOVE.L	DIRIMPFILE,D2
-	BSR	WRITEFILE
-	BSR	CLOSEFILE
-
-	move.l  LOADDECWnd,a0
-	BSR	PNORM
-	JSR	CLOSELOADDECWINDOW
-
-	SF	MVDMODIFI		; MVD ya grabado.
-
-	RTS
-
-	CNOP	0,4
-CAMBIAGADS:
-	MOVEM.L	D0-D7/A0-A6,-(SP)
-	MOVE.W	#(GD_IMPLODE*4),D0
-	BSR	CAMHAZLO
-	MOVE.W	#(GD_CANCELIMP*4),D0
-	BSR	CAMHAZLO
-	MOVE.W	#(GD_EFFIMP*4),D0
-	BSR	CAMHAZLO
-	MOVE.W	#(GD_SAVEIMP*4),D0
-	BSR	CAMHAZLO
-	MOVEM.L	(SP)+,D0-D7/A0-A6
-	RTS
-
-CAMHAZLO:
-	LEA	IMPLODERGadgets,A0
-	MOVE.L	(A0,D0.W),A0
-	MOVE.L	IMPLODERWND,A1
-	SUB.L	A2,A2
-	LEA	SAIMPLOTAGS(PC),A3
-	MOVE.L	_GadToolsBase,A6
-	JMP	-$2A(A6)
-
 ; -----------------------------------
 
 
@@ -6144,10 +5650,10 @@ TLEETIEMPO:	DC.B	"  --=>  OUT  OF  TIME!  <=--  ",0
 TLEEMEMORY:	DC.B	"  --=>  Out of memory!  <=--  ",0
 TLEECHECK:	DC.B	"   MSX ROM  Checksum error!   ",0
 TLEESTACK:	DC.B	"    MSX's Stack gets crazy!   ",0
-TLEEnoimp:	DC.B	"       Not implemented!       ",0
 TLEEprefs:	DC.B	"    Preferences not saved!    ",0
 TLEENOTMD:	DC.B	"     Not a MSX Disk File.     ",0
 TLEECANTO:	DC.B	"      I Can't open file.      ",0
+TLEEDKB:	DC.B	" Drive B: 360K/720K DSK only. ",0
 TLEEREAD:	DC.B	"   File read error: aborted.  ",0
 TLEENOFILE:	DC.B	"     MVD: buffer is empty.    ",0
 TLEENOASL:	DC.B	"   I can't open ASL.library.  ",0
@@ -6217,7 +5723,6 @@ TLOADDEC:	DC.B	"Loading & Decrunching",0
 TSAVEDEC:	DC.B	"Saving MSX Disk File.",0
 TSAVEVRAM:	DC.B	" Saving VRAM/Screen  ",0
 TSAVESprites:	DC.B	"   Saving Sprites    ",0
-TSAVEIMP:	DC.B	" Saving Imploded MVD ",0
 TLOADTRA:	DC.B	"  Loading Track: 00  ",0
 TSAVETRA:	DC.B	"  Saving  Track: 00  ",0
 TVERITRA:	DC.B	" Verifing Track: 00  ",0
@@ -6532,12 +6037,17 @@ WBToolTypes:
 WBTTNoRtg:
 	MOVE.L	D4,A0			; (4.5) SCANLINES[=n]: on the RTG play
 	MOVE.L	$36(A0),A0		; screen at 2x every second row n%
-	LEA	TTSCAN(PC),A1		; darker (no value: 50; at most 90).
-	JSR	-$60(A6)		; FindToolType
-	TST.L	D0
-	BEQ.S	WBTTNoSc
-	MOVE.L	D0,A0
-	MOVEQ	#0,D0
+	LEA	TTSCAN(PC),A1		; darker (no value: 50; at most 90),
+	JSR	-$60(A6)		; or blended: SCANLINES=blendlight,
+	TST.L	D0			; blend or blendstrong (any case).
+	BEQ.S	WBTTNoSc		; (A choice in the prefs, PrefScan,
+	MOVE.L	D0,A0			; wins: PONPREFS.)
+	JSR	ScanWord
+	TST.B	D0
+	BEQ.S	WBTTScW
+	JSR	ScanSet
+	BRA.S	WBTTNoSc
+WBTTScW:MOVEQ	#0,D0
 	MOVEQ	#0,D1
 	MOVEQ	#0,D2
 WBTTSc:	MOVE.B	(A0)+,D1
@@ -6556,6 +6066,7 @@ WBTTScN:CMP.W	#90,D0
 	BLS.S	WBTTScS
 	MOVEQ	#90,D0
 WBTTScS:MOVE.B	D0,RtgScan
+	SF	RtgBlnd
 WBTTNoSc:
 	MOVE.L	D4,A0
 	MOVE.L	$36(A0),A0		; do_ToolTypes
@@ -6807,46 +6318,37 @@ CHAPUZRut:
 ; -----------------------------------
 BootTypeCheck:
 	MOVE.B	#$01,DirPrefs+$6D
-	MOVE.L	#(0*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_BootAuto,D0
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
-	MOVE.L	#(1*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_Boot1DD,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(2*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_Boot2DD,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	RTS
 BootType1DD:
 	MOVE.B	#$02,DirPrefs+$6D
-	MOVE.L	#(0*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_BootAuto,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(1*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_Boot1DD,D0
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
-	MOVE.L	#(2*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_Boot2DD,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
 	RTS
 BootType2DD:
 	MOVE.B	#$04,DirPrefs+$6D
-	MOVE.L	#(0*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_BootAuto,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(1*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_Boot1DD,D0
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
-	MOVE.L	#(2*$40)+7,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#2,D1			; N� menu.
+	MOVE.L	#MN_Boot2DD,D0
 	BSR	COGECHECK
 	BSET	#0,$C(A0)
 	RTS
@@ -6933,12 +6435,6 @@ PONPREFS:
 	MOVE.B	$60(A5),D2
 	BSR	ACTUTAGS
 
-	LEA	MSX2GTags,A0
-	MOVE.W	#GD_CPUspd,D0
-	MOVE.L	#$8008000F,D1
-	MOVEQ	#0,D2
-	MOVE.B	$7E(A5),D2
-	BSR	ACTUTAGS
 
 
 	MOVE.B	$13(A5),D0
@@ -7006,28 +6502,31 @@ PONPREFS:
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
 	MOVE.B	PrefDbuf,D0
 	BFINS	D0,MSX2NewMenu41d+10{7:1}	; Smooth display (4.0)
-	MOVEQ	#0,D1				; (4.5) RTG scanlines: Off / 25 /
-	MOVE.B	RtgScan,D0			; 50 / 75% (ToolType SCANLINES,
-	BEQ.S	PPScn				; nearest of the four).
-	MOVEQ	#1,D1
-	CMP.B	#38,D0
-	BCS.S	PPScn
-	MOVEQ	#2,D1
-	CMP.B	#63,D0
-	BCS.S	PPScn
-	MOVEQ	#3,D1
-PPScn:	CMP.B	#0,D1
+	MOVE.B	PrefScan,D0			; RTG scanlines (Emulation > RTG Scanlines):
+	JSR	ScanSet				; the prefs' choice, if one, wins
+	JSR	ScanCode			; over the ToolType SCANLINES;
+	MOVE.L	D0,D1				; one of the seven ticked, or none
+	CMP.B	#1,D1				; (another percentage).
 	SEQ	D0
-	BFINS	D0,MSX2NewMenu41g+10{7:1}
-	CMP.B	#1,D1
-	SEQ	D0
-	BFINS	D0,MSX2NewMenu41h+10{7:1}
+	BFINS	D0,MSX2NewMenu45c+10{7:1}	; Off
 	CMP.B	#2,D1
 	SEQ	D0
-	BFINS	D0,MSX2NewMenu41i+10{7:1}
+	BFINS	D0,MSX2NewMenu45d+10{7:1}	; Hard 25%
 	CMP.B	#3,D1
 	SEQ	D0
-	BFINS	D0,MSX2NewMenu41j+10{7:1}
+	BFINS	D0,MSX2NewMenu45e+10{7:1}	; Hard 50%
+	CMP.B	#4,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu45f+10{7:1}	; Hard 75%
+	CMP.B	#5,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu45g+10{7:1}	; Blended light
+	CMP.B	#6,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu45h+10{7:1}	; Blended
+	CMP.B	#7,D1
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu45i+10{7:1}	; Blended strong
 ; -=-
 	MOVE.B	$7D(A5),D0
 	BFINS	D0,MSX2NewMenu43+10{7:1}	; Disable Cheats
@@ -7049,12 +6548,15 @@ PPScn:	CMP.B	#0,D1
 
 ; -=-
 
-	MOVE.B	$7C(A5),D0
-	BFINS	D0,MSX2NewMenu34+10{7:1}	; Set Screen on Exit 'No Change'
-	LSR.B	#1,D0
-	BFINS	D0,MSX2NewMenu35+10{7:1}	; Set Screen on Exit 'Force PAL'
-	LSR.B	#1,D0
-	BFINS	D0,MSX2NewMenu36+10{7:1}	; Set Screen on Exit 'Force NTSC'
+	TST.B	$7E(A5)				; Emulation > Speed: 0 Normal,
+	SEQ	D0				; 1 Overclock, 2 No Limit.
+	BFINS	D0,MSX2NewMenu_SpeedN+10{7:1}
+	CMP.B	#1,$7E(A5)
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_SpeedO+10{7:1}
+	CMP.B	#2,$7E(A5)
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_SpeedL+10{7:1}
 
 ; -=-
 
@@ -7073,7 +6575,6 @@ PONPREFS2:
 	BSR	DiskROMVer
 	BSR	VELOZRUT
 
-;;;	BSR	REINTMODE
 	RTS
 ; -----------------------------------
 	CNOP	0,4
@@ -7123,9 +6624,16 @@ KeyOpt7:
 	SNE	PrefFilter
 KeyOpt8:
 	CMP.B	#8,5(A0)		; 8 = smooth display (PrefDbuf).
-	BNE.S	KeyOptNx
+	BNE.S	KeyOpt9
 	TST.B	7(A0)
 	SNE	PrefDbuf
+KeyOpt9:
+	CMP.B	#9,5(A0)		; 9 = RTG scanlines, a PrefScan code
+	BNE.S	KeyOptNx		; (this run only).
+	MOVE.L	D0,-(SP)
+	MOVE.B	7(A0),D0
+	JSR	ScanSet
+	MOVE.L	(SP)+,D0
 KeyOptNx:
 	ADDQ.W	#8,A0
 	BRA	KeyOptBuc
@@ -7151,81 +6659,67 @@ ACTUPREFS:
 	MOVE.B	([MSX2Gadgets+(GD_RAM*4)],$57.w),$1C(A5)	; Cantidad de RAM.
 ;;	MOVE.W	([MSX2Gadgets+(GD_Veloz*4)],$54.w),$1A(A5)	; Retardo.
 	MOVE.B	([MSX2Gadgets+(GD_DiskVer*4)],$57.w),$65(A5)	; Disk ROM.
-	MOVE.B	([MSX2Gadgets+(GD_CPUspd*4)],$57.w),$7E(A5)	; Emulation Speed.
+	BSR	SpeedFromGUI		; Emulation > Speed.
 
 
-	MOVEQ	#0,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_Joy2,D0
 	BSR	COGECHECK
 	SNE	$13(A5)			; JoyStick 2 ON
 
-	MOVEQ	#1,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_SwapJoy,D0
 	BSR	COGECHECK
 	SNE	$6A(A5)			; Swap JoyPorts
 
-	MOVE.L	#(1*$40)+2,D0		; (4.1.1) JoyPort 2 pad: sub-item 1 =
-	MOVEQ	#1,D1			; CD32 pad (0 = Standard).
+	MOVE.L	#MN_Pad2CD32,D0		; (4.1.1) JoyPort 2 pad: CD32 pad
+					; ticked (else Standard).
 	BSR	COGECHECK
 	SNE	PrefCD32
 
-	MOVE.L	#(1*$40)+3,D0		; JoyPort 1 pad.
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Pad1CD32,D0		; JoyPort 1 pad.
 	BSR	COGECHECK
 	SNE	PrefCD32M
 ; -=- (4.1.1: the items from here on are two further down the menu)
-	MOVEQ	#5,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_MultiKey,D0
 	BSR	COGECHECK
 	SNE	$12(A5)			; Multi-Key ON
 
-	MOVEQ	#6,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_DelPause,D0
 	BSR	COGECHECK
 	SNE	$1E(A5)			; DEL como Pausa
 
-	MOVEQ	#7,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_LShift,D0
 	BSR	COGECHECK
 	SNE	$62(A5)			; L.Shift as Space
 
-	MOVEQ	#8,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_RShift,D0
 	BSR	COGECHECK
 	SNE	$63(A5)			; R.Shift as Space
 ; -=-
-	MOVE.L	#(0*$40)+10,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_JapID,D0
 	BSR	COGECHECK
 	SNE	$7A(A5)			; Use Japanese ID
 
-	MOVE.L	#(0*$40)+11,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_Kanji,D0
 	BSR	COGECHECK
 	SNE	$7B(A5)			; Use Kanji ROM.
 ; -=-
-	MOVE.L	#(0*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_WProt,D0
 	BSR	COGECHECK
 	SNE	$61(A5)			; Write Protected
 
-	MOVE.L	#(2*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_WarnProt,D0
 	BSR	COGECHECK
 	SNE	$78(A5)			; Avisar al intentar Escribir.
 
-	MOVE.L	#(3*$40)+13,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_WarnChg,D0
 	BSR	COGECHECK
 	SNE	$79(A5)			; Avisar al Salir si MVD modificado.
 ; -=-
-	MOVE.L	#(0*$40)+15,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_SprLate,D0
 	BSR	COGECHECK
 	SNE	$64(A5)			; Sprites Base 2
 
-	MOVE.L	#(1*$40)+15,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_FullRedraw,D0
 	BSR	COGECHECK
 	SNE	$6B(A5)			; 100% Refresh Screen
 
@@ -7233,51 +6727,41 @@ ACTUPREFS:
 					; menu item is gone in 4.0 (the real
 					; collision check always runs, and the
 					; old forced flag broke most games).
-	MOVE.L	#(2*$40)+15,D0		; N� L�nea. (Sub-Item+Item)
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_TRBit,D0
 	BSR	COGECHECK
 	SNE	$6E(A5)			; VDP 'TR bit'
 
 	BSR	MaskFromGUI		; Sub-items 3-5 of item 15: mask screen
 					; edges Off / 8 / 16 dots (4.2).
-	MOVE.L	#(6*$40)+15,D0		; Sub-item 6: audio filter (4.0).
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Filter,D0		; Sub-item 6: audio filter (4.0).
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#(7*$40)+15,D0		; Sub-item 7: smooth display (4.0).
-	MOVEQ	#1,D1
+	MOVE.L	#MN_Smooth,D0		; Sub-item 7: smooth display (4.0).
 	BSR	COGECHECK
 	SNE	PrefDbuf
-	CLR.B	RtgScan			; Sub-items 8-11: RTG scanlines Off /
-	MOVE.L	#(9*$40)+15,D0		; 25 / 50 / 75% (4.5).
-	MOVEQ	#1,D1
+	MOVEQ	#0,D2			; RTG scanlines: sub-items 0-6 =
+ScnFG:	MOVE.L	D2,D0			; PrefScan 1-7 (none ticked: as it
+	ROR.W	#5,D0			; was, PrefScan 0 and the ToolType's
+	ADD.W	#MN_ScanOff,D0		; percentage). (D2 << 11: sub-item.)
 	BSR	COGECHECK
-	BEQ.S	ScnFG1
-	MOVE.B	#25,RtgScan
-ScnFG1:	MOVE.L	#(10*$40)+15,D0
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	BEQ.S	ScnFG2
-	MOVE.B	#50,RtgScan
-ScnFG2:	MOVE.L	#(11*$40)+15,D0
-	MOVEQ	#1,D1
-	BSR	COGECHECK
-	BEQ.S	ScnFG3
-	MOVE.B	#75,RtgScan
-ScnFG3:
+	BEQ.S	ScnFGN
+	MOVE.L	D2,D0
+	ADDQ.B	#1,D0
+	MOVE.B	D0,PrefScan
+	JSR	ScanSet
+ScnFGN:	ADDQ.W	#1,D2
+	CMP.W	#NS_Scan,D2
+	BCS.S	ScnFG
 ; -=-
-	MOVEQ	#17,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_LockCheats,D0
 	BSR	COGECHECK
 	SNE	$7D(A5)			; Disable Cheats
 
-	MOVEQ	#18,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_AskReset,D0
 	BSR	COGECHECK
 	SNE	$1F(A5)			; Ask for Reset
 
-	MOVEQ	#19,D0			; N� L�nea.
-	MOVEQ	#1,D1			; N� menu.
+	MOVE.L	#MN_Overwrite,D0
 	BSR	COGECHECK
 	SNE	$6F(A5)			; Overwrite
 ; -=-
@@ -7318,12 +6802,12 @@ ActPreBuc0:
 
 ; -----------------------------------
 	CNOP	0,4
+; D0 = a menu line's number (MN_ names, AmiMSX_MenuPos.i): A0 = its MenuItem,
+; Z clear when it is ticked.
 COGECHECK:
 	MOVE.L	MSX2MENUS,A0
 	MOVE.L	_intuitionbase,A6
-	LSL.W	#5,D0	
-	OR.W	D1,D0
-	JSR	-$90(A6)		; ItemAdress (A0,d0)
+	JSR	-$90(A6)		; ItemAddress (A0,d0)
 	MOVE.L	D0,A0
 	BTST	#0,$C(A0)
 	RTS
@@ -7359,7 +6843,7 @@ TABLAB4:
 	DC.B	0	; $63 - L.Shift as Space.
 	DC.B	0	; $64 - Sprites Base 2
 	DC.B	0	; $65 - Disk ROM.
-	DC.B	2	; $66 - Imploding Efficiency.
+	DC.B	2	; $66 - (the Imploder's efficiency until 4.5: unused)
 	DC.B	0	; $67 - Modo AntiCrack 1.
 	DC.B	$FF	; $68 - Slot 1 ROM/RAM
 	DC.B	$FF	; $69 - Slot 2 ROM/RAM
@@ -7416,6 +6900,10 @@ PrefCD32:	DC.B	0		; (4.1.1) CD32 pad in the joystick port
 					; (Amiga port 2): FFh. 0 = Standard.
 PrefCD32M:	DC.B	0		; (4.1.1) CD32 pad in the mouse port
 					; (Amiga port 1): FFh. 0 = Standard.
+PrefScan:	DC.B	0		; RTG scanlines (Emulation > RTG Scanlines): 0 =
+					; not set (the ToolType SCANLINES, else
+					; Off), 1 = Off, 2-4 = hard 25/50/75%,
+					; 5-7 = blended light/normal/strong.
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 
@@ -7604,7 +7092,12 @@ SIREINTM:
 	IFD	PERF
 	JSR	PerfDump		; (4.0) also after a Power ON run
 	ENDC
+	IFD	KEYKEEP			; (test builds) The key script runs again
+	CLR.L	KeyFrN			; from its start at each Continue/Power ON
+	BSET	#2,REGS+KEY+14		; (its Help released)
+	ELSE				; (menu tests: its HELP comes back each time).
 	CLR.L	KeyScrPtr		; (4.0) A key script drives one run:
+	ENDC
 					; later games get the keyboard and
 					; joystick back (Measure on BigMig).
 	JSR	FlashSave		; (4.0) back in the menu: flash sectors
@@ -7626,13 +7119,6 @@ SIREINTM:
 NoEsProtect:
 ;  -------------------------
 
-;  -------------------------
-	IFNE	Usuario=-99
-	MOVE.L	D7,-(SP)
-	BSR	ShowOutTime
-	MOVE.L	(SP)+,D7
-	ENDC
-;  -------------------------
 
 ;  -------------------------		; Mira Si el MVD se ha modificado.
 	TST.B	DirPrefs+$79		; �Activada la opci�n en menu?
@@ -8194,191 +7680,204 @@ EJECMENU:
 
 
 	CNOP	0,4
+; Menu picks (ESMENU): one table per menu, one entry per line, separators
+; included; an item with sub-items points at its own table, one entry per
+; sub-item. MJ/MJS check each entry's place against its name and MJEND the
+; length (AmiMSX_MenuPos.i), so the build stops if a table and the menu differ.
+; Tick lines do nothing when picked: ACTUPREFS reads the ticks (Continue, Power
+; ON, Save Settings).
 PUNTEROSMENU:
-	DC.L	MPROJECT
-	DC.L	MOPTIONS
-	DC.L	MMSXVD0
-	DC.L	MCartridges
-	DC.L	MTape
-	DC.L	0
+	DC.L	MM_Project
+	DC.L	MM_Emulation
+	DC.L	MM_Input
+	DC.L	MM_Disks
+	DC.L	MM_Carts
+	DC.L	MM_Tape
+	DC.L	MM_Tools
+	MJEND	PUNTEROSMENU,NM_Menus
 
-MPROJECT:
-	DC.L	ABOUT			; About
-	DC.L	CONTROLRET		; Register (4.0, as v3.2: freeware, nothing)
-	DC.L	CONTROLRET		; -----
-;;	DC.L	CONTROLRET		; Load Freezed
-;;	DC.L	CONTROLRET		; Save Freezed
-;;	DC.L	CONTROLRET		; -----
-	DC.L	MENUSCREEN		; Set Screen
-	DC.L	MenuPoke		; Poke mode
-	DC.L	MenuDebug		; Debug mode
-	DC.L	CONTROLRET		; -----
-;;	DC.L	CONTROLRET		; Resident ROMs
-;;	DC.L	CONTROLRET		; MSX2 Clock
-;;	DC.L	CONTROLRET		; -----
-	DC.L	SAVEVRAM		; Save VRAM.
-	DC.L	SAVESprites		; Save Sprites.
-	DC.L	CONTROLRET		; -----
-	DC.L	SAVEPREFS		; Save Prefs.
-	DC.L	CONTROLRET		; -----
-	DC.L	CONTROLSALIR		; Quit
+MM_Project:
+	MJ	MM_Project,MN_About,ABOUT
+	MJ	MM_Project,MN_ProjectBar0,CONTROLRET
+	MJ	MM_Project,MN_SavePrefs,SAVEPREFS
+	MJ	MM_Project,MN_GameSave,GameSave
+	MJ	MM_Project,MN_GameForget,GameForget
+	MJ	MM_Project,MN_ProjectBar1,CONTROLRET
+	MJ	MM_Project,MN_AskReset,CONTROLRET
+	MJ	MM_Project,MN_Overwrite,ActuPrefs
+	MJ	MM_Project,MN_ProjectBar2,CONTROLRET
+	MJ	MM_Project,MN_Quit,CONTROLSALIR
+	MJEND	MM_Project,NI_Project
 
-	DC.L	CONTROLRET
-	DC.L	CONTROLRET
-	DC.L	CONTROLRET
-	DC.L	CONTROLRET
-	DC.L	0
+MM_Emulation:
+	MJ	MM_Emulation,MN_Speed,MS_Speed
+	MJ	MM_Emulation,MN_JapID,CONTROLRET
+	MJ	MM_Emulation,MN_Kanji,CONTROLRET
+	MJ	MM_Emulation,MN_Filter,CONTROLRET
+	MJ	MM_Emulation,MN_EmulationBar0,CONTROLRET
+	MJ	MM_Emulation,MN_Mask,MS_Mask
+	MJ	MM_Emulation,MN_Smooth,CONTROLRET
+	MJ	MM_Emulation,MN_Scan,MS_Scan
+	MJ	MM_Emulation,MN_ScrMode,MS_ScrMode
+	MJ	MM_Emulation,MN_Internal,MS_Internal
+	MJEND	MM_Emulation,NI_Emulation
 
-MOPTIONS:
-	DC.L	CONTROLRET		; JoyStick 2 ON
-	DC.L	CONTROLRET		; Swap JoyPorts
-	DC.L	MenuPad			; JoyPort 2 pad (4.1.1)
-	DC.L	MenuPad			; JoyPort 1 pad (4.1.1)
-	DC.L	CONTROLRET		; -----
-	DC.L	CONTROLRET		; Multi-Key
-	DC.L	CONTROLRET		; DEL for Pause
-	DC.L	CONTROLRET		; L.Shift as Space
-	DC.L	CONTROLRET		; R.Shift as Space
-	DC.L	CONTROLRET		; -----
-	DC.L	CONTROLRET		; Use Japanese ID
-	DC.L	CONTROLRET		; Use Kanji ROM
-	DC.L	CONTROLRET		; -----
-	DC.L	MenuMVD			; MSX Virtual Disk
-	DC.L	MenuScrExit		; Screen mode on exit
-	DC.L	MenuInternal		; Internal Emulation
-	DC.L	CONTROLRET		; -----
-	DC.L	CONTROLRET		; Disable Cheats
-	DC.L	CONTROLRET		; Ask for Reset
-	DC.L	ActuPrefs		; Overwrite
-	DC.L	CONTROLRET		; -----
+MM_Input:
+	MJ	MM_Input,MN_Joy2,CONTROLRET
+	MJ	MM_Input,MN_SwapJoy,CONTROLRET
+	MJ	MM_Input,MN_Pad2,MS_Pad2
+	MJ	MM_Input,MN_Pad1,MS_Pad1
+	MJ	MM_Input,MN_InputBar0,CONTROLRET
+	MJ	MM_Input,MN_MultiKey,CONTROLRET
+	MJ	MM_Input,MN_DelPause,CONTROLRET
+	MJ	MM_Input,MN_LShift,CONTROLRET
+	MJ	MM_Input,MN_RShift,CONTROLRET
+	MJEND	MM_Input,NI_Input
 
-MenuPad:
-	DC.L	CONTROLRET		; Standard (2 buttons)
-	DC.L	CONTROLRET		; CD32 pad (Intuition's mutual exclusion
-	DC.L	CONTROLRET		; keeps one of the two ticked)
+MM_Disks:
+	MJ	MM_Disks,MN_DriveA,MS_DriveA
+	MJ	MM_Disks,MN_DriveB,MS_DriveB
+	MJ	MM_Disks,MN_DisksBar0,CONTROLRET
+	MJ	MM_Disks,MN_WProt,CONTROLRET
+	MJ	MM_Disks,MN_WarnProt,CONTROLRET
+	MJ	MM_Disks,MN_WarnChg,CONTROLRET
+	MJ	MM_Disks,MN_DisksBar1,CONTROLRET
+	MJ	MM_Disks,MN_Floppy,MS_Floppy
+	MJEND	MM_Disks,NI_Disks
 
-MenuScrExit:
-	DC.L	NoChange		; No Change.
-	DC.L	ForcePAL		; Force to PAL
-	DC.L	ForceNTSC		; Force to NTSC
-	DC.L	CONTROLRET		; ----
+MM_Carts:
+	MJ	MM_Carts,MN_Slot1,MS_Slot1
+	MJ	MM_Carts,MN_Map1,MS_Map1
+	MJ	MM_Carts,MN_CartsBar0,CONTROLRET
+	MJ	MM_Carts,MN_Slot2,MS_Slot2
+	MJ	MM_Carts,MN_Map2,MS_Map2
+	MJEND	MM_Carts,NI_Carts
 
-MenuMVD:
-	DC.L	CONTROLRET		; Write Protected
-	DC.L	CONTROLRET		; ----
-	DC.L	CONTROLRET		; Autoexit on atten to save
-	DC.L	CONTROLRET		; Warm on writes to exit
-	DC.L	CONTROLRET		; ----
+MM_Tape:
+	MJ	MM_Tape,MN_LoadTape,LoadTape
+	MJ	MM_Tape,MN_RewindTape,InitLoadTape
+	MJ	MM_Tape,MN_TapeBar0,CONTROLRET
+	MJ	MM_Tape,MN_NewRec,InitSaveTape
+	MJ	MM_Tape,MN_SaveRec,SaveTape
+	MJEND	MM_Tape,NI_Tape
 
-MenuInternal:
-	DC.L	CONTROLRET		; Sprites Y coor. from Line Interrupt
-	DC.L	CONTROLRET		; 100% refresh in screen changes
-	DC.L	CONTROLRET		; VDP 'TR bit' always ready
-	DC.L	CONTROLRET		; Mask screen edges: Off (4.2: Intuition's
-	DC.L	CONTROLRET		; 8 dots   mutual exclusion keeps one of
-	DC.L	CONTROLRET		; 16 dots  the three ticked)
-	DC.L	CONTROLRET		; Audio filter (4.2: entries for sub-items
-	DC.L	CONTROLRET		; Smooth display 4-7; they ran MENUSCREEN's)
-	DC.L	CONTROLRET		; RTG scanlines: Off (4.5; Intuition's mutual
-	DC.L	CONTROLRET		; 25%   exclusion keeps one of the four
-	DC.L	CONTROLRET		; 50%   ticked; without these entries they
-	DC.L	CONTROLRET		; 75%   ran SETPAL, SETNTSC, LOADVD0)
+MM_Tools:
+	MJ	MM_Tools,MN_Cheat,MenuPoke
+	MJ	MM_Tools,MN_Debug,MenuDebug
+	MJ	MM_Tools,MN_LockCheats,CONTROLRET
+	MJ	MM_Tools,MN_ToolsBar0,CONTROLRET
+	MJ	MM_Tools,MN_SaveScreen,SAVEVRAM
+	MJ	MM_Tools,MN_SaveSprites,SAVESprites
+	MJ	MM_Tools,MN_ToolsBar1,CONTROLRET
+	MJ	MM_Tools,MN_NewDisk,MS_NewDisk
+	MJEND	MM_Tools,NI_Tools
 
-MENUSCREEN:
-	DC.L	SETPAL			; Set PAL
-	DC.L	SETNTSC			; Set NTSC
-	DC.L	CONTROLRET
+MS_Mask:
+	MJS	MS_Mask,MN_MaskOff,CONTROLRET
+	MJS	MS_Mask,MN_Mask8,CONTROLRET
+	MJS	MS_Mask,MN_Mask16,CONTROLRET
+	MJEND	MS_Mask,NS_Mask
 
-MMSXVD0:
-	DC.L	LOADVD0			; Load MSX Disk File
-	DC.L	SAVEVD0			; Save MSX Disk File
-	DC.L	CONTROLRET		; -----
-	DC.L	LOADDISK		; Load MSX Disk
-	DC.L	SAVEDISK		; Save MSX Disk
-	DC.L	CONTROLRET		; -----
-	DC.L	INSTALAR		; Instalar
-	DC.L	SUBINSTALAR		; MSX Boot Type.
-	DC.L	CONTROLRET		; -----
-	DC.L	IMPLODER		; Imploder
-	DC.L	CONTROLRET		; -----
-	DC.L	FORMAT2DD		; Format as 2DD
-	DC.L	FORMAT1DD		; Format as 1DD
-	DC.L	CONTROLRET		; -----
-	DC.L	CLEARVD0		; Clear bufer
-	DC.L	CONTROLRET		; ----- (4.0)
-	DC.L	LOADVDB			; Load Disk File into drive B (4.0)
+MS_Scan:
+	MJS	MS_Scan,MN_ScanOff,CONTROLRET
+	MJS	MS_Scan,MN_ScanH25,CONTROLRET
+	MJS	MS_Scan,MN_ScanH50,CONTROLRET
+	MJS	MS_Scan,MN_ScanH75,CONTROLRET
+	MJS	MS_Scan,MN_ScanBL,CONTROLRET
+	MJS	MS_Scan,MN_ScanB,CONTROLRET
+	MJS	MS_Scan,MN_ScanBS,CONTROLRET
+	MJEND	MS_Scan,NS_Scan
 
-SUBINSTALAR:
-	DC.L	BootTypeCheck		; Check
-	DC.L	BootType1DD		; 1DD Side
-	DC.L	BootType2DD		; 2DD Side
-	DC.L	CONTROLRET
-	DC.L	0
+MS_Speed:
+	MJS	MS_Speed,MN_SpeedNormal,CONTROLRET
+	MJS	MS_Speed,MN_SpeedOC,CONTROLRET
+	MJS	MS_Speed,MN_SpeedNoLimit,CONTROLRET
+	MJEND	MS_Speed,NS_Speed
 
-MCartridges:
-	DC.L	SMSlot1			; Slot 1
-	DC.L	MenuMapper1		; Mapper
-	DC.L	CONTROLRET		; -----
-	DC.L	SMSlot2			; Slot 2
-	DC.L	MenuMapper2		; Mapper
-	DC.L	CONTROLRET		; -----
-	DC.L	SMSlot3			; Slot 3
-	DC.L	CONTROLRET
-	DC.L	0
+MS_ScrMode:
+	MJS	MS_ScrMode,MN_SetPAL,SETPAL
+	MJS	MS_ScrMode,MN_SetNTSC,SETNTSC
+	MJEND	MS_ScrMode,NS_ScrMode
 
-MenuMapper1:
-	DC.L	Sl1MapOp0		; Standard
-	DC.L	Sl1MapOp1		; Konami 1
-	DC.L	Sl1MapOp2		; Konami 2
-	DC.L	Sl1MapOp3		; ASCII 1
-	DC.L	Sl1MapOp4		; ASCII 2
-	DC.L	Sl1MapOp5		; SCC 1
-	DC.L	Sl1MapOp6		; SCC 2
-	DC.L	Sl1MapOp7		; R-Type (4.5)
-	DC.L	CONTROLRET		; -----
+MS_Internal:
+	MJS	MS_Internal,MN_SprLate,CONTROLRET
+	MJS	MS_Internal,MN_FullRedraw,CONTROLRET
+	MJS	MS_Internal,MN_TRBit,CONTROLRET
+	MJEND	MS_Internal,NS_Internal
 
-MenuMapper2:
-	DC.L	Sl2MapOp0		; Standard
-	DC.L	Sl2MapOp1		; Konami 1
-	DC.L	Sl2MapOp2		; Konami 2
-	DC.L	Sl2MapOp3		; ASCII 1
-	DC.L	Sl2MapOp4		; ASCII 2
-	DC.L	Sl2MapOp5		; SCC 1
-	DC.L	Sl2MapOp6		; SCC 2
-	DC.L	Sl2MapOp7		; R-Type (4.5)
-	DC.L	CONTROLRET		; -----
+MS_Pad2:
+	MJS	MS_Pad2,MN_Pad2Std,CONTROLRET
+	MJS	MS_Pad2,MN_Pad2CD32,CONTROLRET
+	MJEND	MS_Pad2,NS_Pad2
 
-SMSlot1:
-	DC.L	InsertSl1		; Insert Cartridge
-	DC.L	EjectSl1		; Eject  Cartridge
-	DC.L	CONTROLRET		; -----
-	DC.L	SaveMappID1		; Save Mapper ID
-	DC.L	CONTROLRET		; -----
-	DC.L	GameSave		; Save game settings (4.0)
-	DC.L	GameForget		; Forget game settings (4.0)
+MS_Pad1:
+	MJS	MS_Pad1,MN_Pad1Std,CONTROLRET
+	MJS	MS_Pad1,MN_Pad1CD32,CONTROLRET
+	MJEND	MS_Pad1,NS_Pad1
 
-SMSlot2:
-	DC.L	InsertSl2		; Insert Cartridge
-	DC.L	EjectSl2		; Eject  Cartridge
-	DC.L	CONTROLRET		; -----
-	DC.L	SaveMappID2		; Save Mapper ID
-	DC.L	CONTROLRET		; -----
+MS_DriveA:
+	MJS	MS_DriveA,MN_LoadImg,LOADVD0
+	MJS	MS_DriveA,MN_SaveImg,SAVEVD0
+	MJS	MS_DriveA,MN_EjectImg,CLEARVD0
+	MJEND	MS_DriveA,NS_DriveA
 
-SMSlot3:
-	DC.L	SaveCartridge		; Save Cartridge
-	DC.L	CONTROLRET
-	DC.L	SavePage1		; Save Page 1
-	DC.L	SavePage2		; Save Page 2
-	DC.L	SavePage12		; Save Page 1 & 2
-	DC.L	CONTROLRET
+MS_DriveB:
+	MJS	MS_DriveB,MN_LoadImgB,LOADVDB
+	MJS	MS_DriveB,MN_EjectImgB,CLEARVDB
+	MJEND	MS_DriveB,NS_DriveB
 
-MTape:
-	DC.L	InitLoadTape		; Init Tape File
-	DC.L	LoadTape		; Load Tape File
-	DC.L	CONTROLRET		; -----
-	DC.L	InitSaveTape		; Init Tape buffer
-	DC.L	SaveTape		; Save Tape buffer
-	DC.L	CONTROLRET
+MS_NewDisk:
+	MJS	MS_NewDisk,MN_Fmt2DD,FORMAT2DD
+	MJS	MS_NewDisk,MN_Fmt1DD,FORMAT1DD
+	MJEND	MS_NewDisk,NS_NewDisk
+
+MS_Floppy:
+	MJS	MS_Floppy,MN_ReadFloppy,LOADDISK
+	MJS	MS_Floppy,MN_WriteFloppy,SAVEDISK
+	MJS	MS_Floppy,MN_FloppyBar0,CONTROLRET
+	MJS	MS_Floppy,MN_InstBoot,INSTALAR
+	MJS	MS_Floppy,MN_FloppyBar1,CONTROLRET
+	MJS	MS_Floppy,MN_BootAuto,BootTypeCheck
+	MJS	MS_Floppy,MN_Boot1DD,BootType1DD
+	MJS	MS_Floppy,MN_Boot2DD,BootType2DD
+	MJEND	MS_Floppy,NS_Floppy
+
+MS_Slot1:
+	MJS	MS_Slot1,MN_Sl1Insert,InsertSl1
+	MJS	MS_Slot1,MN_Sl1Eject,EjectSl1
+	MJS	MS_Slot1,MN_Slot1Bar0,CONTROLRET
+	MJS	MS_Slot1,MN_Sl1SaveMap,SaveMappID1
+	MJEND	MS_Slot1,NS_Slot1
+
+MS_Map1:
+	MJS	MS_Map1,MN_Map1None,Sl1MapOp0
+	MJS	MS_Map1,MN_Map1Gen16,Sl1MapOp1
+	MJS	MS_Map1,MN_Map1Konami,Sl1MapOp2
+	MJS	MS_Map1,MN_Map1Asc8,Sl1MapOp3
+	MJS	MS_Map1,MN_Map1Asc16,Sl1MapOp4
+	MJS	MS_Map1,MN_Map1SCC,Sl1MapOp5
+	MJS	MS_Map1,MN_Map1SCCs,Sl1MapOp6
+	MJS	MS_Map1,MN_Map1RType,Sl1MapOp7
+	MJEND	MS_Map1,NS_Map1
+
+MS_Slot2:
+	MJS	MS_Slot2,MN_Sl2Insert,InsertSl2Ask
+	MJS	MS_Slot2,MN_Sl2Eject,EjectSl2
+	MJS	MS_Slot2,MN_Slot2Bar0,CONTROLRET
+	MJS	MS_Slot2,MN_Sl2SaveMap,SaveMappID2
+	MJEND	MS_Slot2,NS_Slot2
+
+MS_Map2:
+	MJS	MS_Map2,MN_Map2None,Sl2MapOp0
+	MJS	MS_Map2,MN_Map2Gen16,Sl2MapOp1
+	MJS	MS_Map2,MN_Map2Konami,Sl2MapOp2
+	MJS	MS_Map2,MN_Map2Asc8,Sl2MapOp3
+	MJS	MS_Map2,MN_Map2Asc16,Sl2MapOp4
+	MJS	MS_Map2,MN_Map2SCC,Sl2MapOp5
+	MJS	MS_Map2,MN_Map2SCCs,Sl2MapOp6
+	MJS	MS_Map2,MN_Map2RType,Sl2MapOp7
+	MJEND	MS_Map2,NS_Map2
+
 
 
 ; <=-------------------------------------------------------=>
@@ -9127,64 +8626,9 @@ MSX2PUNTS:
 	DC.L	GD_RAM,CONTROLRET
 	DC.L	GD_SOUND,CONTROLRET
 	DC.L	GD_MSXVD0,LOADVD0
+	DC.L	GD_MVD2,LOADVDB
 	DC.L	GD_Slot1,InsertSl1
-	DC.L	GD_Slot2,InsertSl2
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
-	DC.L	INFOWND
-	DC.L	INFOGADGETS
-	DC.L	INFO_CNT-1
-INFOPUNTS:
-	DC.L	GD_TRigth,CONTROLSALIR
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
-	DC.L	ShareInfoWND
-	DC.L	ShareInfoGADGETS
-	DC.L	ShareInfo_CNT-1
-ShareInfoPUNTS:
-	DC.L	GD_ShareRegister,ShowRegisterShare
-	DC.L	GD_ShareThats,CONTROLSALIR
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
-	DC.L	RegisterWND
-	DC.L	RegisterGADGETS
-	DC.L	Register_CNT-1
-RegisterPUNTS:
-	DC.L	GD_ContRegister,CONTROLSALIR
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
-	DC.L	OutTimeWND
-	DC.L	OutTimeGADGETS
-	DC.L	OutTime_CNT-1
-OutTimePUNTS:
-	DC.L	GD_OutTimeRegister,ShowRegisterOut
-	DC.L	GD_OutTimeWell,CONTROLSALIR
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
-	DC.L	IMPLODERWND
-	DC.L	IMPLODERGADGETS
-	DC.L	IMPLODER_CNT-1
-IMPLODERPUNTS:
-	DC.L	GD_IMPLODE,IMPLODING
-	DC.L	GD_SAVEIMP,SAVEIMPLODED
-	DC.L	GD_CANCELIMP,CONTROLSALIR
-	DC.L	GD_ABORTIMP,CONTROLRET
-	DC.L	GD_EFFIMP,CONTROLRET
+	DC.L	GD_Slot2,InsertSl2Ask
 	DC.L	0,0
 
 
@@ -9340,16 +8784,6 @@ CartNotIDPUNTS:
 
 	CNOP	0,4
 	DC.L	0
-	DC.L	PasswordWND
-	DC.L	PasswordGADGETS
-	DC.L	Password_CNT-1
-PasswordPunts:
-	DC.L	GD_Password,ControlSalir
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
 	DC.L	UnProtectWND
 	DC.L	UnProtectGADGETS
 	DC.L	UnProtect_CNT-1
@@ -9365,18 +8799,7 @@ UnProtectPunts:
 	DC.L	ABOUTGADGETS
 	DC.L	ABOUT_CNT-1
 ABOUTPUNTS:
-	DC.L	GD_ABOUTMORE,CONTROLRET	; (4.0, as v3.2: no Address window)
 	DC.L	GD_ABOUTEXIT,CONTROLSALIR
-	DC.L	0,0
-
-
-	CNOP	0,4
-	DC.L	0
-	DC.L	ADDRESSWND
-	DC.L	ADDRESSGADGETS
-	DC.L	ADDRESS_CNT-1
-ADDRESSPUNTS:
-	DC.L	GD_ADDRESSEXIT,CONTROLSALIR
 	DC.L	0,0
 
 
@@ -9439,996 +8862,6 @@ NOMEMPUNTS:
 ; ----------------------------------------------
 
 
-;	IMPLODER 1.0 (CRUNCH)
-;	---------------------
-;	RESULTADO:
-;	D0=-1  ABORTADO
-;	D0=00  IMPOSIBLE DE COMPACTAR.
-
-;	ENTRADA:
-;	A0=DIR. DEL SOURCE
-;	D0=SIZE DEL SOURCE
-;	D1=MODE (de $00 a $0B)
-;	A1=RUTINA A EJECUTAR A VECES. 
-
-	CNOP	0,4
-lbL000D38:
-	dc.l	$20002
-	dc.l	$20002
-	dc.l	$6000A
-	dc.l	$A0012
-	dc.l	$16002A
-	dc.l	$8A4012
-lbL000D50:
-	dc.l	$1010101
-	dc.l	$2030304
-	dc.l	$405070E
-lbL000D5C:
-	dc.l	$2060E
-	dc.l	$1020304
-lbL000D64:
-	dc.l	$80
-	dc.l	$100
-	dc.l	$200
-	dc.l	$400
-	dc.l	$700
-	dc.l	$D00
-	dc.l	$1500
-	dc.l	$2500
-	dc.l	$5100
-	dc.l	$9200
-	dc.l	$10900
-	dc.l	$21200
-lbL000D94:
-	dc.l	$5050505
-	dc.l	$5050505
-	dc.l	$6060606
-	dc.l	$5060707
-	dc.l	$6060606
-	dc.l	$7070606
-	dc.l	$5060707
-	dc.l	$7070707
-	dc.l	$8080808
-	dc.l	$5060708
-	dc.l	$7070808
-	dc.l	$8080909
-	dc.l	$6070708
-	dc.l	$7080909
-	dc.l	$8090A0A
-	dc.l	$6070708
-	dc.l	$709090A
-	dc.l	$80A0B0B
-	dc.l	$6070808
-	dc.l	$709090A
-	dc.l	$80A0B0C
-	dc.l	$6070808
-	dc.l	$709090A
-	dc.l	$90A0C0D
-	dc.l	$6070708
-	dc.l	$709090C
-	dc.l	$90A0C0E
-	dc.l	$6070809
-	dc.l	$7090A0C
-	dc.l	$90B0D0F
-	dc.l	$6070808
-	dc.l	$70A0B0B
-	dc.l	$90C0D10
-	dc.l	$6080809
-	dc.l	$70B0C0C
-	dc.l	$90D0E11
-
-lbC000E24:
-	MOVE.L	8(A6),D0
-	BEQ.S	lbC000E56
-	MOVE.L	D0,A0
-	MOVE.L	$10(A6),D0
-	SUB.L	$2C(A6),D0
-	MOVE.L	$2C(A6),D1
-	SUB.L	$30(A6),D1
-	MOVEQ	#0,D2
-	MOVE.B	1(A6),D2
-	EXT.W	D2
-	SWAP	D2
-	MOVE.B	2(A6),D2
-	MOVE.L	4(A6),A5
-	MOVE.L	A6,-(SP)
-	JSR	(A0)
-	MOVE.L	(SP)+,A6
-	NOT.L	D0
-lbC000E56:
-	TST.L	D0
-	RTS
-
-lbC000E5A:
-	MOVEM.L	D2/A2-A4,-(SP)
-	MOVEQ	#4,D0
-	SWAP	D0
-	MOVEQ	#1,D1
-	SWAP	D1
-	MOVE.L	A6,-(SP)
-	MOVE.L	4,A6
-	JSR	-$C6(A6)
-	MOVE.L	(SP)+,A6
-	MOVE.L	D0,$20(A6)
-	BEQ	lbC000F14
-	SUB.L	A2,A2
-	MOVE.L	$1C(A6),D2
-	ADD.L	D2,D2
-	ADD.L	D2,D2
-	MOVE.L	D2,D0
-	ADD.L	D2,D2
-	ADD.L	D0,D2
-lbC000E8A:
-	MOVE.L	#$960,D0
-	SUB.L	D0,D2
-	BPL.S	lbC000E98
-	ADD.L	D2,D0
-	MOVEQ	#0,D2
-lbC000E98:
-	ADDQ.L	#8,D0
-	MOVEQ	#0,D1
-	MOVE.L	D0,-(SP)
-	MOVE.L	A6,-(SP)
-	MOVE.L	4,A6
-	JSR	-$C6(A6)
-	MOVE.L	(SP)+,A6
-	MOVE.L	(SP)+,D1
-	TST.L	D0
-	BEQ.S	lbC000F14
-	MOVE.L	D0,$24(A6)
-	MOVE.L	D0,A0
-	MOVE.L	D1,(A0)
-	MOVE.L	A2,4(A0)
-	MOVE.L	A0,A2
-	TST.L	D2
-	BNE.S	lbC000E8A
-	MOVE.L	$20(A6),A0
-	MOVE.L	12(A6),A1
-	ADD.L	$1C(A6),A1
-	MOVE.L	$24(A6),A2
-lbC000ED2:
-	MOVE.L	A2,A3
-	ADD.L	(A3),A3
-	ADDQ.W	#8,A2
-lbC000ED8:
-	MOVEQ	#0,D0
-	MOVE.B	-1(A1),D0
-	LSL.W	#8,D0
-	MOVE.B	(A1),D0
-	LSL.L	#2,D0
-	MOVE.L	0(A0,D0.L),A4
-	MOVE.L	A4,-(A3)
-	BEQ.S	lbC000EF2
-	MOVE.L	A1,-(A3)
-	MOVE.L	-(A4),-(A3)
-	BRA.S	lbC000EF6
-
-lbC000EF2:
-	MOVE.L	A1,-(A3)
-	MOVE.L	A3,-(A3)
-lbC000EF6:
-	MOVE.L	A3,0(A0,D0.L)
-	ADDQ.L	#4,0(A0,D0.L)
-	SUBQ.W	#1,A1
-	CMP.L	A2,A3
-	BHI.S	lbC000ED8
-	MOVE.L	-(A2),A2
-	MOVE.L	A2,D0
-	BNE.S	lbC000ED2
-	MOVEQ	#-$1,D0
-lbC000F0C:
-	MOVEM.L	(SP)+,D2/A2-A4
-	TST.L	D0
-	RTS
-
-lbC000F14:
-	MOVEQ	#0,D0
-	BRA.S	lbC000F0C
-
-lbC000F18:
-	MOVEM.L	A2,-(SP)
-	MOVE.L	$20(A6),D0
-	BEQ.S	lbC000F36
-	MOVE.L	D0,A1
-	MOVE.L	#$40000,D0
-	MOVE.L	A6,-(SP)
-	MOVE.L	4,A6
-	JSR	-$D2(A6)
-	MOVE.L	(SP)+,A6
-lbC000F36:
-	MOVE.L	$24(A6),A2
-lbC000F3A:
-	MOVE.L	A2,D0
-	BEQ.S	lbC000F54
-	MOVE.L	(A2),D0
-	MOVE.L	4(A2),A1
-	EXG	A2,A1
-	MOVE.L	A6,-(SP)
-	MOVE.L	4,A6
-	JSR	-$D2(A6)
-	MOVE.L	(SP)+,A6
-	BRA.S	lbC000F3A
-
-lbC000F54:
-	CLR.L	$24(A6)
-	CLR.L	$20(A6)
-	MOVEM.L	(SP)+,A2
-	RTS
-
-lbC000F62:
-	MOVE.L	$10(A6),D5
-	MOVE.L	$2C(A6),A5
-	MOVEQ	#1,D7
-	MOVE.L	$20(A6),A3
-	MOVEQ	#0,D0
-	MOVE.B	(A5)+,D0
-	LSL.W	#8,D0
-	MOVE.B	(A5)+,D0
-	LSL.L	#2,D0
-	ADD.L	D0,A3
-	MOVE.L	(A3),A0
-	MOVE.L	A0,$28(A6)
-	MOVE.L	4(A0),A1
-	MOVE.L	A1,(A3)
-	BEQ.S	lbC000FF8
-	MOVE.L	A1,A4
-	MOVE.L	-(A0),-(A1)
-	LEA	$46(A6),A3
-	CLR.L	-(A3)
-	CLR.L	-(A3)
-	BRA.S	lbC000F9E
-
-lbC000F98:
-	MOVE.L	(A4),D0
-	BEQ.S	lbC000FF8
-	MOVE.L	D0,A4
-lbC000F9E:
-	MOVE.L	(A4)+,A2
-	MOVE.L	A5,A0
-	LEA	1(A2),A1
-	CMPM.B	(A0)+,(A1)+
-	BNE.S	lbC000FBE
-	CMPM.B	(A0)+,(A1)+
-	BNE.S	lbC000FB8
-	MOVE.W	#$FB,D0
-lbC000FB2:
-	CMPM.B	(A0)+,(A1)+
-	DBNE	D0,lbC000FB2
-
-lbC000FB8:
-	CMP.L	D5,A1
-	BLS.S	lbC000FBE
-	MOVE.L	D5,A1
-lbC000FBE:
-	MOVE.L	A1,D6
-	SUB.L	A2,D6
-	CMP.W	D6,D7
-	BCC.S	lbC000F98
-	MOVE.W	D6,D7
-	CMP.W	#8,D6
-	BHI.S	lbC000FE6
-	TST.B	-2(A3,D6.W)
-	BNE.S	lbC000F98
-	MOVE.B	D6,-2(A3,D6.W)
-	MOVE.L	A2,D0
-	SUB.L	A5,D0
-	MOVE.W	D6,D1
-	LSL.W	#2,D1
-	MOVE.L	D0,0(A3,D1.W)
-	BRA.S	lbC000F98
-
-lbC000FE6:
-	MOVE.B	D6,7(A3)
-	MOVE.L	A2,D0
-	SUB.L	A5,D0
-	MOVE.L	D0,$24(A3)
-	CMP.B	#$FF,D6
-	BNE.S	lbC000F98
-lbC000FF8:
-	ADD.L	$1C(A6),A5
-	CMP.L	D5,A5
-	BCC.S	lbC001032
-	SUBQ.L	#2,A5
-	MOVE.L	$20(A6),A0
-	MOVE.L	$28(A6),A1
-	MOVEQ	#0,D0
-	MOVE.B	(A5)+,D0
-	LSL.W	#8,D0
-	MOVE.B	(A5),D0
-	LSL.L	#2,D0
-	MOVE.L	A5,(A1)
-	CLR.L	4(A1)
-	ADD.L	D0,A0
-	MOVE.L	(A0),D1
-	BEQ.S	lbC00102E
-	EXG	D1,A1
-	MOVE.L	-(A1),A0
-	MOVE.L	D1,4(A0)
-	MOVE.L	D1,(A1)
-	SUBQ.B	#1,D7
-	RTS
-
-lbC00102E:
-	MOVE.L	A1,(A0)
-	MOVE.L	A1,-(A1)
-lbC001032:
-	SUBQ.B	#1,D7
-	RTS
-
-lbC001036:
-	MOVE.L	$2C(A6),A5
-	MOVE.L	$10(A6),D5
-	MOVE.L	A5,D0
-	ADD.L	$1C(A6),D0
-	CMP.L	D5,D0
-	BLS.S	lbC00104A
-	MOVE.L	D5,D0
-lbC00104A:
-	MOVE.L	D0,D4
-	MOVE.L	A5,A2
-	ADDQ.L	#1,A2
-	MOVE.L	A2,A4
-	MOVEQ	#1,D7
-	MOVE.B	(A5),D3
-	LEA	$46(A6),A3
-	CLR.L	-(A3)
-	CLR.L	-(A3)
-lbC00105E:
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.B	(A2)+,D3
-	BEQ.S	lbC0010A4
-	CMP.L	A2,D4
-	BHI.S	lbC00105E
-lbC0010A2:
-	RTS
-
-lbC0010A4:
-	CMP.L	A2,D4
-	BLS.S	lbC0010A2
-	MOVE.L	A4,A0
-	MOVE.L	A2,A1
-	CMPM.B	(A0)+,(A1)+
-	BNE.S	lbC00105E
-	CMPM.B	(A0)+,(A1)+
-	BNE.S	lbC0010C8
-	CMPM.B	(A0)+,(A1)+
-	BNE.S	lbC0010C2
-	MOVE.W	#$FB,D0
-lbC0010BC:
-	CMPM.B	(A0)+,(A1)+
-	DBNE	D0,lbC0010BC
-
-lbC0010C2:
-	CMP.L	D5,A1
-	BLS.S	lbC0010C8
-	MOVE.L	D5,A1
-lbC0010C8:
-	MOVE.L	A1,D6
-	SUB.L	A2,D6
-	CMP.W	D6,D7
-	BCC.S	lbC00105E
-	MOVE.W	D6,D7
-	CMP.W	#8,D6
-	BHI.S	lbC0010F4
-	TST.B	-2(A3,D6.W)
-	BNE.S	lbC00105E
-	MOVE.B	D6,-2(A3,D6.W)
-	MOVE.L	A2,D0
-	SUB.L	A5,D0
-	SUBQ.L	#2,D0
-	MOVE.W	D6,D1
-	LSL.W	#2,D1
-	MOVE.L	D0,0(A3,D1.W)
-	BRA	lbC00105E
-
-lbC0010F4:
-	MOVE.B	D6,7(A3)
-	MOVE.L	A2,D0
-	SUB.L	A5,D0
-	SUBQ.L	#2,D0
-	MOVE.L	D0,$24(A3)
-	CMP.B	#$FF,D6
-	BNE	lbC00105E
-	RTS
-
-lbC00110C:
-	MOVE.B	$36(A6),D2
-	MOVE.B	$37(A6),D3
-	MOVE.L	$30(A6),A0
-lbC001118:
-	LSR.L	#1,D1
-	ROXR.B	#1,D2
-	SUBQ.B	#1,D3
-	BPL.S	lbC001126
-	MOVEQ	#7,D3
-	MOVE.B	D2,(A0)+
-	MOVEQ	#0,D2
-lbC001126:
-	SUBQ.B	#1,D0
-	BNE.S	lbC001118
-	MOVE.L	A0,$30(A6)
-	MOVE.B	D3,$37(A6)
-	MOVE.B	D2,$36(A6)
-	RTS
-
-lbC001138:
-	AND.W	#$FF,D0
-	CMP.B	#13,D0
-	BHI.S	lbC00116E
-	CMP.B	#5,D0
-	BHI.S	lbC00115C
-	LEA	lbL000D5C(PC),A0
-	ADD.W	D0,A0
-	MOVE.B	-2(A0),$7B(A6)
-	MOVE.B	2(A0),$73(A6)
-	BRA.S	lbC001180
-
-lbC00115C:
-	SUBQ.B	#6,D0
-	OR.B	#$F0,D0
-	MOVE.B	D0,$7B(A6)
-	MOVE.B	#8,$73(A6)
-	BRA.S	lbC00117E
-
-lbC00116E:
-	MOVE.B	#$1F,$7A(A6)
-	MOVE.B	D0,$7B(A6)
-	MOVE.B	#13,$73(A6)
-lbC00117E:
-	MOVEQ	#5,D0
-lbC001180:
-	SUBQ.B	#2,D0
-	MOVE.L	$3A(A6),D2
-	LEA	lbL000D50(PC),A1
-	LEA	lbL000D38(PC),A0
-	ADD.W	D0,A0
-	ADD.W	D0,A0
-	CMP.W	(A0),D2
-	BCC.S	lbC0011A8
-	MOVE.B	0(A1,D0.W),D6
-	MOVE.B	D6,D3
-	ADDQ.B	#1,D3
-	MOVE.B	#0,$7D(A6)
-	MOVEQ	#0,D4
-	BRA.S	lbC0011DC
-
-lbC0011A8:
-	CMP.W	8(A0),D2
-	BCC.S	lbC0011C0
-	MOVE.B	4(A1,D0.W),D6
-	MOVE.B	D6,D3
-	ADDQ.B	#2,D3
-	MOVE.B	#2,$7D(A6)
-	MOVE.W	(A0),D4
-	BRA.S	lbC0011DC
-
-lbC0011C0:
-	CMP.W	$10(A0),D2
-	BCS.S	lbC0011CA
-	MOVEQ	#0,D0
-	RTS
-
-lbC0011CA:
-	MOVE.B	8(A1,D0.W),D6
-	MOVE.B	D6,D3
-	ADDQ.B	#2,D3
-	MOVE.B	#3,$7D(A6)
-	MOVE.W	8(A0),D4
-lbC0011DC:
-	MOVE.B	D3,$74(A6)
-	SUB.W	D4,D2
-	MOVEQ	#$10,D5
-	SUB.B	D6,D5
-	LSL.W	D5,D2
-lbC0011E8:
-	ADD.W	D2,D2
-	ROXL	$7C(A6)
-	SUBQ.B	#1,D6
-	BNE.S	lbC0011E8
-	LEA	$AE(A6),A1
-	LEA	$7E(A6),A0
-	ADD.W	D0,A0
-	ADD.W	D0,A0
-	ADD.W	D0,A0
-	ADD.W	D0,A0
-	CMP.L	(A0),D1
-	BCC.S	lbC001214
-	MOVE.B	0(A1,D0.W),D6
-	MOVE.B	D6,D3
-	ADDQ.B	#1,D3
-	MOVEQ	#0,D7
-	MOVEQ	#0,D4
-	BRA.S	lbC001240
-
-lbC001214:
-	CMP.L	$10(A0),D1
-	BCC.S	lbC001228
-	MOVE.B	4(A1,D0.W),D6
-	MOVE.B	D6,D3
-	ADDQ.B	#2,D3
-	MOVEQ	#2,D7
-	MOVE.L	(A0),D4
-	BRA.S	lbC001240
-
-lbC001228:
-	CMP.L	$20(A0),D1
-	BCS.S	lbC001232
-	MOVEQ	#0,D0
-	RTS
-
-lbC001232:
-	MOVE.B	8(A1,D0.W),D6
-	MOVE.B	D6,D3
-	ADDQ.B	#2,D3
-	MOVEQ	#3,D7
-	MOVE.L	$10(A0),D4
-lbC001240:
-	MOVE.B	D3,$72(A6)
-	SUB.L	D4,D1
-	MOVEQ	#$20,D5
-	SUB.B	D6,D5
-	LSL.L	D5,D1
-lbC00124C:
-	ADD.L	D1,D1
-	ADDX.L	D7,D7
-	SUBQ.B	#1,D6
-	BNE.S	lbC00124C
-	MOVE.L	D7,$76(A6)
-	MOVEQ	#-$1,D0
-	RTS
-
-lbC00125C:
-	CLR.W	$34(A6)
-	CLR.W	$38(A6)
-	LEA	$3E(A6),A2
-	LEA	$46(A6),A3
-lbC00126C:
-	MOVE.L	(A3)+,D1
-	MOVE.B	(A2)+,D0
-	BEQ.S	lbC0012B2
-	BSR	lbC001138
-	BEQ.S	lbC0012B2
-	MOVEQ	#0,D0
-	MOVEQ	#0,D1
-	MOVE.B	-1(A2),D0
-	LSL.W	#3,D0
-	ADD.B	$73(A6),D1
-	ADD.B	$72(A6),D1
-	ADD.B	$74(A6),D1
-	SUB.W	D1,D0
-	BMI.S	lbC0012B2
-	CMP.W	$34(A6),D0
-	BCS.S	lbC0012B2
-	MOVE.W	D0,$34(A6)
-	MOVE.B	-1(A2),$39(A6)
-	LEA	$66(A6),A0
-	LEA	$72(A6),A1
-	MOVEQ	#11,D1
-lbC0012AC:
-	MOVE.B	(A1)+,(A0)+
-	DBRA	D1,lbC0012AC
-
-lbC0012B2:
-	MOVE.L	A2,D0
-	SUB.L	A6,D0
-	CMP.W	#$46,D0
-	BNE.S	lbC00126C
-	TST.W	$38(A6)
-	RTS
-
-	SWAP	D1
-	BSET	#7,D1
-	BRA.S	lbC0012D0
-
-IMPLODE:
-	OR.L	#$80000000,D1
-	SWAP	D1
-	BCLR	#7,D1
-lbC0012D0:
-	MOVEM.L	D2-D7/A2-A6,-(SP)
-	MOVE.W	#$5C,D2
-lbC0012D8:
-	CLR.W	-(SP)
-	DBRA	D2,lbC0012D8
-
-	MOVE.L	SP,A6
-	MOVE.L	A5,4(A6)
-	CMP.L	#$40,D0
-	BCS	lbC0015E2
-	LSR.L	#8,D1
-	SCS	(A6)
-	LSR.L	#8,D1
-	SCS	1(A6)
-	CMP.B	#12,D1
-	BCS.S	lbC001300
-	MOVEQ	#0,D1
-lbC001300:
-	MOVE.L	A1,8(A6)
-	MOVE.L	A0,12(A6)
-	MOVE.L	A0,$2C(A6)
-	MOVE.L	A0,$30(A6)
-	MOVE.L	D0,$14(A6)
-	ADD.L	D0,A0
-	MOVE.L	A0,$10(A6)
-	LEA	lbL000D64(PC),A0
-	LSL.W	#2,D1
-	MOVE.L	0(A0,D1.W),D1
-	ADDQ.L	#1,D1
-	CMP.L	D0,D1
-	BLS.S	lbC00132E
-	MOVE.L	D0,D1
-	SUBQ.L	#1,D1
-lbC00132E:
-	MOVE.L	D1,$1C(A6)
-	SUBQ.L	#1,D1
-	MOVEQ	#0,D0
-lbC001336:
-	CMP.L	(A0)+,D1
-	BLS.S	lbC00133E
-	ADDQ.B	#1,D0
-	BRA.S	lbC001336
-
-lbC00133E:
-	MOVE.B	D0,2(A6)
-	LEA	$AE(A6),A1
-	MOVEQ	#12,D1
-	MULU	D1,D0
-	LEA	lbL000D94(PC),A0
-	ADD.L	D0,A0
-	SUBQ.W	#1,D1
-lbC001352:
-	MOVE.B	(A0)+,(A1)+
-	DBRA	D1,lbC001352
-
-	LEA	$7E(A6),A1
-	LEA	$AE(A6),A0
-	MOVEQ	#11,D1
-lbC001362:
-	MOVE.B	(A0)+,D0
-	MOVEQ	#0,D2
-	BSET	D0,D2
-	MOVE.L	D2,(A1)+
-	DBRA	D1,lbC001362
-
-	LEA	$7E(A6),A0
-	LEA	$8E(A6),A1
-	MOVEQ	#7,D1
-lbC001378:
-	MOVE.L	(A0)+,D0
-	ADD.L	D0,(A1)+
-	DBRA	D1,lbC001378
-
-	TST.B	(A6)
-	BEQ.S	lbC00139E
-	LEA	$7E(A6),A1
-	MOVEQ	#7,D0
-lbC00138A:
-	MOVE.L	(A1)+,D1
-	MOVE.W	D1,(A2)+
-	DBRA	D0,lbC00138A
-
-	LEA	$AE(A6),A1
-	MOVEQ	#11,D0
-lbC001398:
-	MOVE.B	(A1)+,(A2)+
-	DBRA	D0,lbC001398
-
-lbC00139E:
-	MOVE.B	#7,$37(A6)
-	TST.B	1(A6)
-	BEQ.S	lbC0013B8
-	BSR	lbC000E5A
-	BNE.S	lbC0013B8
-	SF	1(A6)
-	BSR	lbC000F18
-lbC0013B8:
-	MOVE.L	$10(A6),D0
-	SUBQ.L	#2,D0
-	CMP.L	$2C(A6),D0
-	BLS	lbC0014C6
-	BSR	lbC000E24
-	BNE	lbC0015DE
-	TST.B	1(A6)
-	BNE.S	lbC0013DA
-	BSR	lbC001036
-	BRA.S	lbC0013E0
-
-lbC0013DA:
-	BSR	lbC000F62
-	BEQ.S	lbC0013E6
-lbC0013E0:
-	BSR	lbC00125C
-	BNE.S	lbC00140A
-lbC0013E6:
-	MOVE.L	$2C(A6),A0
-	MOVE.L	$30(A6),A1
-	MOVE.B	(A0),(A1)
-	ADDQ.L	#1,$2C(A6)
-	ADDQ.L	#1,$30(A6)
-	ADDQ.L	#1,$3A(A6)
-	CMP.L	#$4012,$3A(A6)
-	BCS.S	lbC0013B8
-	BRA	lbC0014C6
-
-lbC00140A:
-	CLR.L	$3A(A6)
-	TST.B	1(A6)
-	BEQ.S	lbC001480
-	MOVE.L	$2C(A6),A2
-	ADDQ.L	#1,A2
-	MOVE.L	A2,A3
-	ADD.L	$1C(A6),A3
-	MOVE.W	$38(A6),D3
-	SUBQ.W	#1,D3
-	MOVE.L	$10(A6),D2
-	SUB.L	A3,D2
-	SUBQ.L	#1,D2
-	BPL.S	lbC001432
-	MOVEQ	#0,D2
-lbC001432:
-	MOVE.L	$20(A6),A4
-	MOVEQ	#0,D0
-	MOVE.B	(A2)+,D0
-	LSL.W	#8,D0
-	MOVE.B	(A2),D0
-	LSL.L	#2,D0
-	ADD.L	D0,A4
-	MOVE.L	(A4),A5
-	MOVE.L	4(A5),A0
-	MOVE.L	A0,(A4)
-	BEQ.S	lbC001450
-	MOVE.L	-4(A5),-(A0)
-lbC001450:
-	SUBQ.L	#1,D2
-	BMI.S	lbC00147C
-	SUB.L	D0,A4
-	MOVEQ	#0,D0
-	MOVE.B	(A3)+,D0
-	LSL.W	#8,D0
-	MOVE.B	(A3),D0
-	LSL.L	#2,D0
-	ADD.L	D0,A4
-	MOVE.L	A3,(A5)
-	CLR.L	4(A5)
-	MOVE.L	(A4),D1
-	BEQ.S	lbC001478
-	EXG	D1,A5
-	MOVE.L	-(A5),A0
-	MOVE.L	D1,4(A0)
-	MOVE.L	D1,(A5)
-	BRA.S	lbC00147C
-
-lbC001478:
-	MOVE.L	A5,(A4)
-	MOVE.L	A5,-(A5)
-lbC00147C:
-	SUBQ.W	#1,D3
-	BNE.S	lbC001432
-lbC001480:
-	MOVE.W	$38(A6),D0
-	EXT.L	D0
-	ADD.L	D0,$2C(A6)
-	MOVE.B	$66(A6),D0
-	MOVE.L	$6A(A6),D1
-	BSR	lbC00110C
-	MOVE.B	$68(A6),D0
-	MOVE.W	$70(A6),D1
-	BSR	lbC00110C
-	MOVE.B	$67(A6),D0
-	MOVE.W	$6E(A6),D1
-	CMP.B	#13,D0
-	BNE.S	lbC0014BE
-	MOVE.L	$30(A6),A0
-	MOVE.B	D1,(A0)
-	ADDQ.L	#1,$30(A6)
-	MOVEQ	#5,D0
-	MOVEQ	#$1F,D1
-lbC0014BE:
-	BSR	lbC00110C
-	BRA	lbC0013B8
-
-lbC0014C6:
-	BSR	lbC000E24
-	BNE	lbC0015DE
-	MOVE.L	$2C(A6),A0
-	MOVE.L	$30(A6),A1
-	MOVE.B	(A0),(A1)
-	ADDQ.L	#1,$2C(A6)
-	ADDQ.L	#1,$30(A6)
-	ADDQ.L	#1,$3A(A6)
-	MOVE.L	$2C(A6),D0
-	CMP.L	$10(A6),D0
-	BNE.S	lbC0014C6
-	BSR	lbC000E24
-	BNE	lbC0015DE
-	TST.B	(A6)
-	BNE	lbC00159A
-	MOVE.L	$30(A6),D0
-	SUB.L	12(A6),D0
-	CMP.L	#12,D0
-	BCS	lbC0015E2
-	MOVE.L	$14(A6),D1
-	SUB.L	D0,D1
-	CMP.L	#$36,D1
-	BLS	lbC0015E2
-	MOVE.L	12(A6),A1
-	MOVE.L	$30(A6),A0
-	MOVE.L	#$FF00,D7
-	BTST	#0,D0
-	BEQ.S	lbC001538
-	MOVEQ	#0,D7
-	ADDQ.L	#1,D0
-	CLR.B	(A0)+
-lbC001538:
-	MOVE.L	(A1),8(A0)
-	MOVE.L	#$494D5021,(A1)
-	MOVE.L	4(A1),4(A0)
-	MOVE.L	$14(A6),4(A1)
-	MOVE.L	8(A1),(A0)
-	MOVE.L	D0,8(A1)
-	ADD.L	#$2E,D0
-	MOVE.L	D0,$18(A6)
-	MOVE.L	$3A(A6),12(A0)
-	MOVE.B	$36(A6),D1
-	AND.W	#$FE,D1
-	MOVE.B	$37(A6),D0
-	BSET	D0,D1
-	OR.W	D7,D1
-	MOVE.W	D1,$10(A0)
-	LEA	$7E(A6),A1
-	ADD.W	#$12,A0
-	MOVEQ	#7,D0
-lbC001584:
-	MOVE.L	(A1)+,D1
-	MOVE.W	D1,(A0)+
-	DBRA	D0,lbC001584
-
-	LEA	$AE(A6),A1
-	MOVEQ	#11,D0
-lbC001592:
-	MOVE.B	(A1)+,(A0)+
-	DBRA	D0,lbC001592
-
-	BRA.S	lbC0015E2
-
-lbC00159A:
-	MOVE.L	$30(A6),D0
-	SUB.L	12(A6),D0
-	MOVE.L	$14(A6),D1
-	SUB.L	D0,D1
-	CMP.L	#6,D1
-	BLS.S	lbC0015E2
-	MOVE.B	$36(A6),D1
-	AND.B	#$FE,D1
-	MOVE.B	$37(A6),D2
-	BSET	D2,D1
-	MOVE.L	$30(A6),A0
-	BTST	#0,D0
-	BEQ.S	lbC0015D0
-	MOVE.B	D1,(A0)+
-	MOVE.L	$3A(A6),(A0)
-	BRA.S	lbC0015D6
-
-lbC0015D0:
-	MOVE.L	$3A(A6),(A0)+
-	MOVE.B	D1,(A0)
-lbC0015D6:
-	ADDQ.L	#5,D0
-	MOVE.L	D0,$18(A6)
-	BRA.S	lbC0015E2
-
-lbC0015DE:
-	MOVEQ	#-$1,D0
-	BRA.S	lbC0015E6
-
-lbC0015E2:
-	MOVE.L	$18(A6),D0
-lbC0015E6:
-	MOVEM.L	D0,-(SP)
-	BSR	lbC000F18
-	MOVEM.L	(SP)+,D0
-	MOVE.W	#$5C,D2
-lbC0015F6:
-	CLR.W	(SP)+
-	DBRA	D2,lbC0015F6
-
-	MOVEM.L	(SP)+,D2-D7/A2-A6
-	TST.L	D0
-	RTS
-
-	CNOP	0,4
-IMPCONTROL:
-	MOVE.L	D2,-(SP)
-
-	MOVE.L	BUCPROG,D2
-	DIVU	#100,D2
-	DIVU	D2,D0
-
-	CMP.B	ULTINPOR(PC),D0
-	BNE.S	IMPCONTROLC
-	MOVE.L	(SP)+,D2
-	MOVEQ	#-1,D0
-	RTS
-
-	CNOP	0,4
-ULTINPOR:DC.L	-1
-
-	CNOP	0,4
-IMPCONTROLC:
-	MOVE.B	D0,ULTINPOR
-	MOVEM.L	D1/D3-D7/A0-A6,-(SP)
-
-	MOVEQ	#100,D2
-	SUB.W	D0,D2
-
-	MOVE.L	BUCPROG,D0
-	SUB.L	D1,D0
-
-	BSR	PASDEC
-	MOVE.W	4(A0),TIMPTXT1+$19
-	MOVE.L	6(A0),TIMPTXT1+$1B
-
-	MOVE.L	D2,D0
-	BSR	PASDEC
-	MOVE.L	6(A0),TIMPTXT1+$0D
-
-
-	move.l  IMPLODERWnd,a0
-	move.b  54(a0),d0
-	ext.w   d0
-	move.b  55(a0),d1
-	ext.w   d1
-	move.l  50(a0),a0
-	lea     IMPLODERTextO(PC),a1
-	move.l  _IntuitionBase,a6
-	JSR     TallIText
-
-	MOVEM.L	(SP)+,D1/D3-D7/A0-A6
-	MOVE.L	(SP)+,D2
-	MOVEQ	#-1,D0
-	RTS
-
-	CNOP	0,4
-IMPLODERTextO:
-    DC.B    7,0
-    DC.B    $01
-    DC.B    0
-    DC.W    23,8
-    DC.L    topaz8
-IMPLODERDIRTXT:
-    DC.L    TIMPTXT1
-    DC.L    0
-
-*********************************************
 
 ; ----------------------------------------------
 ****************************************************************************
@@ -10599,12 +9032,12 @@ LoadDiskB:
 	CMP.L	#720*1024,D0
 	BEQ.S	LdDkBS
 	CMP.L	#360*1024,D0
-	BNE	LdDkBR
+	BNE	LdDkBBad
 LdDkBS:	MOVE.L	D0,D7
 	MOVE.L	#DISKBNOM,D1		; Open first, then the memory.
 	MOVE.L	#$3ED,D2
 	JSR	OPENFILE
-	BEQ	LdDkBR
+	BEQ	LdDkBBad
 	MOVE.L	D7,D0
 	ADD.L	#1024,D0		; (as drive A: a little spare)
 	MOVE.L	D0,BUCFILEB
@@ -10619,6 +9052,8 @@ LdDkBS:	MOVE.L	D0,D7
 	JSR	CLOSEFILE
 	MOVE.L	D7,DskBSize		; (for DiskBSave)
 	SF	DskDirtyB
+	BSR	ShowDiskB
+DiskBGad:
 	MOVE.B	#5,DirPrefs+$19		; Drive B: MVD (and the gadget,
 	TST.L	MSX2WND			; so Power ON keeps it).
 	BEQ.S	LdDkBW
@@ -10633,7 +9068,42 @@ LdDkBW:	RTS
 LdDkBNo:
 	CLR.L	BUCFILEB
 	JSR	CLOSEFILE
+LdDkBBad:
+	CLR.B	DISKBNOM		; (no image: the Drive B row says so)
+	BSR	ShowDiskB
 LdDkBR:	RTS
+
+; (4.6) The Drive B row of the main window: drive B's file name, without its
+; path, or 'Buffer Empty.' (ShowDiskBT: the text at A0).
+	CNOP	0,4
+ShowDiskB:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	LEA	DISKBNOM,A0
+	MOVE.L	A0,A1
+	TST.B	(A0)
+	BNE.S	ShDkBN
+	LEA	TVD0BEM,A0
+	BRA.S	ShDkBT
+ShDkBN:	MOVE.B	(A1)+,D0
+	BEQ.S	ShDkBT
+	CMP.B	#":",D0
+	BEQ.S	ShDkBP
+	CMP.B	#"/",D0
+	BNE.S	ShDkBN
+ShDkBP:	MOVE.L	A1,A0
+	BRA.S	ShDkBN
+ShDkBT:	BSR.S	ShowDiskBT
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+ShowDiskBT:
+	LEA	MSX2IText10,A1
+	JSR	PONOM
+	MOVE.L	MSX2Wnd,D0
+	BEQ.S	ShDkBR
+	MOVE.L	D0,A0
+	LEA	MSX2Text10,A1
+	JMP	TxtPrint
+ShDkBR:	RTS
 
 	CNOP	0,4
 	INCLUDE	"AmiMSX_Saves_v4.asm"	; (4.0) flash and drive B saves.

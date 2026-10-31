@@ -1,0 +1,4 @@
+# Menu test of Options > RTG scanlines (Docs/agent_notes/v46_scanlines.md): HELP every
+# 4 s of play, so each Continue plays about 4 s and comes back to the menu (an RTGSHOT
+# build writes the last frame at each return).
+4s HELP every 4s until 200s

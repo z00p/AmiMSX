@@ -60,9 +60,8 @@ GD_MSXVD0                              EQU    12
 GD_DISKver                             EQU    13
 GD_Slot1                               EQU    14
 GD_Slot2                               EQU    15
-GD_CPUspd                              EQU    16
+GD_MVD2                                EQU    16
 
-GD_TRigth                              EQU    0
 
 GD_Errormfm                            EQU    0
 
@@ -80,11 +79,6 @@ GD_Instalar                            EQU    0
 GD_InsCancel                           EQU    1
 GD_Discodev                            EQU    2
 
-GD_Saveimp                             EQU    0
-GD_Implode                             EQU    1
-GD_Cancelimp                           EQU    2
-GD_Effimp                              EQU    3
-GD_Abortimp                            EQU    4
 
 GD_QuitMVDyes                          EQU    0
 GD_QuitMVDno                           EQU    1
@@ -92,11 +86,6 @@ GD_QuitMVDno                           EQU    1
 GD_delMVDcont                          EQU    0
 GD_DelMVDcancel                        EQU    1
 
-GD_OutTimeRegister                     EQU    0
-GD_OutTimeWell                         EQU    1
-
-GD_ShareRegister                       EQU    0
-GD_ShareThats                          EQU    1
 
 GD_AGAcontinue                         EQU    0
 GD_AGAExitWB                           EQU    1
@@ -109,7 +98,6 @@ GD_CheatSeaVal                         EQU    4
 GD_CheatComVal                         EQU    5
 GD_CheatMore                           EQU    6
 
-GD_ContRegister                        EQU    0
 
 GD_CIDSet                              EQU    0
 GD_CIDIgn                              EQU    1
@@ -140,40 +128,30 @@ GD_AddressesExit                       EQU    0
 GD_UnProtect                           EQU    0
 GD_Protect                             EQU    1
 
-GD_Password                            EQU    0
 
-GD_Aboutmore                           EQU    0
-GD_AboutExit                           EQU    1
+GD_AboutExit                           EQU    0
 
-GD_Addressexit                         EQU    0
 
 GD_MatraStart                          EQU    0
 
 MC68020_CNT    EQU    2
 MSX2_CNT    EQU    17
-Info_CNT    EQU    1
 Errormfm_CNT    EQU    1
 Error_CNT    EQU    1
 Quit_CNT    EQU    2
 NOMEM_CNT    EQU    1
 REGO_CNT    EQU    2
 MSXvirtual_CNT    EQU    3
-Imploder_CNT    EQU    5
 QuitMVD_CNT    EQU    2
 DelMVD_CNT    EQU    2
-OutTime_CNT    EQU    2
-ShareInfo_CNT    EQU    2
 AGAChip_CNT    EQU    2
 Poke_CNT    EQU    7
-Register_CNT    EQU    1
 CartNotID_CNT    EQU    3
 Debug_CNT    EQU    16
 Overwrite_CNT    EQU    2
 Addresses_CNT    EQU    1
 UnProtect_CNT    EQU    2
-Password_CNT    EQU    1
-About_CNT    EQU    2
-Address_CNT    EQU    1
+About_CNT    EQU    1
 Matra_CNT    EQU    1
 Scr:
     DC.L    0
@@ -182,8 +160,6 @@ VisualInfo:
 MC68020Wnd:
     DC.L    0
 MSX2Wnd:
-    DC.L    0
-InfoWnd:
     DC.L    0
 ErrormfmWnd:
     DC.L    0
@@ -199,21 +175,13 @@ LoaddecWnd:
     DC.L    0
 MSXvirtualWnd:
     DC.L    0
-ImploderWnd:
-    DC.L    0
 QuitMVDWnd:
     DC.L    0
 DelMVDWnd:
     DC.L    0
-OutTimeWnd:
-    DC.L    0
-ShareInfoWnd:
-    DC.L    0
 AGAChipWnd:
     DC.L    0
 PokeWnd:
-    DC.L    0
-RegisterWnd:
     DC.L    0
 CartNotIDWnd:
     DC.L    0
@@ -225,19 +193,13 @@ AddressesWnd:
     DC.L    0
 UnProtectWnd:
     DC.L    0
-PasswordWnd:
-    DC.L    0
 AboutWnd:
-    DC.L    0
-AddressWnd:
     DC.L    0
 MatraWnd:
     DC.L    0
 MC68020GList:
     DC.L    0
 MSX2GList:
-    DC.L    0
-InfoGList:
     DC.L    0
 ErrormfmGList:
     DC.L    0
@@ -251,21 +213,13 @@ REGOGList:
     DC.L    0
 MSXvirtualGList:
     DC.L    0
-ImploderGList:
-    DC.L    0
 QuitMVDGList:
     DC.L    0
 DelMVDGList:
     DC.L    0
-OutTimeGList:
-    DC.L    0
-ShareInfoGList:
-    DC.L    0
 AGAChipGList:
     DC.L    0
 PokeGList:
-    DC.L    0
-RegisterGList:
     DC.L    0
 CartNotIDGList:
     DC.L    0
@@ -277,11 +231,7 @@ AddressesGList:
     DC.L    0
 UnProtectGList:
     DC.L    0
-PasswordGList:
-    DC.L    0
 AboutGList:
-    DC.L    0
-AddressGList:
     DC.L    0
 MatraGList:
     DC.L    0
@@ -295,8 +245,6 @@ MC68020Gadgets:
     DCB.L    2,0
 MSX2Gadgets:
     DCB.L    17,0
-InfoGadgets:
-    DCB.L    1,0
 ErrormfmGadgets:
     DCB.L    1,0
 ErrorGadgets:
@@ -309,22 +257,14 @@ REGOGadgets:
     DCB.L    2,0
 MSXvirtualGadgets:
     DCB.L    3,0
-ImploderGadgets:
-    DCB.L    5,0
 QuitMVDGadgets:
     DCB.L    2,0
 DelMVDGadgets:
-    DCB.L    2,0
-OutTimeGadgets:
-    DCB.L    2,0
-ShareInfoGadgets:
     DCB.L    2,0
 AGAChipGadgets:
     DCB.L    2,0
 PokeGadgets:
     DCB.L    7,0
-RegisterGadgets:
-    DCB.L    1,0
 CartNotIDGadgets:
     DCB.L    3,0
 DebugGadgets:
@@ -335,11 +275,7 @@ AddressesGadgets:
     DCB.L    1,0
 UnProtectGadgets:
     DCB.L    2,0
-PasswordGadgets:
-    DCB.L    1,0
 AboutGadgets:
-    DCB.L    2,0
-AddressGadgets:
     DCB.L    1,0
 MatraGadgets:
     DCB.L    1,0
@@ -370,14 +306,6 @@ MSX2Width:
     DC.W    640
 MSX2Height:
     DC.W    190
-InfoLeft:
-    DC.W    130
-InfoTop:
-    DC.W    11
-InfoWidth:
-    DC.W    389
-InfoHeight:
-    DC.W    153
 ErrormfmLeft:
     DC.W    191
 ErrormfmTop:
@@ -434,14 +362,6 @@ MSXvirtualWidth:
     DC.W    291
 MSXvirtualHeight:
     DC.W    54
-ImploderLeft:
-    DC.W    166
-ImploderTop:
-    DC.W    57
-ImploderWidth:
-    DC.W    310
-ImploderHeight:
-    DC.W    60
 QuitMVDLeft:
     DC.W    212
 QuitMVDTop:
@@ -458,22 +378,6 @@ DelMVDWidth:
     DC.W    218
 DelMVDHeight:
     DC.W    55
-OutTimeLeft:
-    DC.W    192
-OutTimeTop:
-    DC.W    43
-OutTimeWidth:
-    DC.W    272
-OutTimeHeight:
-    DC.W    88
-ShareInfoLeft:
-    DC.W    140
-ShareInfoTop:
-    DC.W    11
-ShareInfoWidth:
-    DC.W    352
-ShareInfoHeight:
-    DC.W    152
 AGAChipLeft:
     DC.W    181
 AGAChipTop:
@@ -490,14 +394,6 @@ PokeWidth:
     DC.W    426
 PokeHeight:
     DC.W    127
-RegisterLeft:
-    DC.W    40
-RegisterTop:
-    DC.W    11
-RegisterWidth:
-    DC.W    561
-RegisterHeight:
-    DC.W    190
 CartNotIDLeft:
     DC.W    184
 CartNotIDTop:
@@ -538,14 +434,6 @@ UnProtectWidth:
     DC.W    284
 UnProtectHeight:
     DC.W    52
-PasswordLeft:
-    DC.W    188
-PasswordTop:
-    DC.W    68
-PasswordWidth:
-    DC.W    271
-PasswordHeight:
-    DC.W    56
 AboutLeft:
     DC.W    149
 AboutTop:
@@ -554,14 +442,6 @@ AboutWidth:
     DC.W    332
 AboutHeight:
     DC.W    190
-AddressLeft:
-    DC.W    150
-AddressTop:
-    DC.W    11
-AddressWidth:
-    DC.W    369
-AddressHeight:
-    DC.W    189
 MatraLeft:
     DC.W    0
 MatraTop:
@@ -592,9 +472,6 @@ MSX2GTypes:
     DC.W    7
     DC.W    1
     DC.W    1
-    DC.W    7
-
-InfoGTypes:
     DC.W    1
 
 ErrormfmGTypes:
@@ -621,26 +498,11 @@ MSXvirtualGTypes:
     DC.W    1
     DC.W    7
 
-ImploderGTypes:
-    DC.W    1
-    DC.W    1
-    DC.W    1
-    DC.W    7
-    DC.W    1
-
 QuitMVDGTypes:
     DC.W    1
     DC.W    1
 
 DelMVDGTypes:
-    DC.W    1
-    DC.W    1
-
-OutTimeGTypes:
-    DC.W    1
-    DC.W    1
-
-ShareInfoGTypes:
     DC.W    1
     DC.W    1
 
@@ -655,9 +517,6 @@ PokeGTypes:
     DC.W    1
     DC.W    12
     DC.W    12
-    DC.W    1
-
-RegisterGTypes:
     DC.W    1
 
 CartNotIDGTypes:
@@ -694,14 +553,7 @@ UnProtectGTypes:
     DC.W    1
     DC.W    1
 
-PasswordGTypes:
-    DC.W    12
-
 AboutGTypes:
-    DC.W    1
-    DC.W    1
-
-AddressGTypes:
     DC.W    1
 
 MatraGTypes:
@@ -738,7 +590,7 @@ MSX2NGads:
     DC.L    MSX2SprText,0
     DC.W    GD_MSX2Spr
     DC.L    $0021,0,0
-    DC.W    490,80,107,13
+    DC.W    482,80,115,13
     DC.L    SCRMODEText,0
     DC.W    GD_SCRMODE
     DC.L    $0021,0,0
@@ -754,7 +606,7 @@ MSX2NGads:
     DC.L    INTERText,0
     DC.W    GD_INTER
     DC.L    $0021,0,0
-    DC.W    287,80,95,13
+    DC.W    318,80,64,13
     DC.L    ROMText,0
     DC.W    GD_ROM
     DC.L    $0021,0,0
@@ -766,7 +618,7 @@ MSX2NGads:
     DC.L    SoundText,0
     DC.W    GD_Sound
     DC.L    $0021,0,0
-    DC.W    26,133,49,13
+    DC.W    26,133,69,13
     DC.L    MSXVD0Text,0
     DC.W    GD_MSXVD0
     DC.L    $0010,0,0
@@ -782,15 +634,9 @@ MSX2NGads:
     DC.L    Slot2Text,0
     DC.W    GD_Slot2
     DC.L    $0010,0,0
-    DC.W    178,149,131,13
-    DC.L    CPUspdText,0
-    DC.W    GD_CPUspd
-    DC.L    $0021,0,0
-
-InfoNGads:
-    DC.W    131,131,120,15
-    DC.L    TRigthText,0
-    DC.W    GD_TRigth
+    DC.W    26,149,69,13
+    DC.L    MVD2Text,0
+    DC.W    GD_MVD2
     DC.L    $0010,0,0
 
 ErrormfmNGads:
@@ -847,28 +693,6 @@ MSXvirtualNGads:
     DC.W    GD_Discodev
     DC.L    $0000,0,0
 
-ImploderNGads:
-    DC.W    13,41,82,14
-    DC.L    SaveimpText,0
-    DC.W    GD_Saveimp
-    DC.L    $0010,0,0
-    DC.W    111,41,82,14
-    DC.L    ImplodeText,0
-    DC.W    GD_Implode
-    DC.L    $0010,0,0
-    DC.W    208,41,82,14
-    DC.L    CancelimpText,0
-    DC.W    GD_Cancelimp
-    DC.L    $0010,0,0
-    DC.W    191,24,99,13
-    DC.L    EffimpText,0
-    DC.W    GD_Effimp
-    DC.L    $0021,0,0
-    DC.W    13,24,73,13
-    DC.L    AbortimpText,0
-    DC.W    GD_Abortimp
-    DC.L    $0010,0,0
-
 QuitMVDNGads:
     DC.W    24,36,73,14
     DC.L    QuitMVDyesText,0
@@ -887,26 +711,6 @@ DelMVDNGads:
     DC.W    112,36,82,14
     DC.L    DelMVDcancelText,0
     DC.W    GD_DelMVDcancel
-    DC.L    $0010,0,0
-
-OutTimeNGads:
-    DC.W    8,67,144,16
-    DC.L    OutTimeRegisterText,0
-    DC.W    GD_OutTimeRegister
-    DC.L    $0010,0,0
-    DC.W    161,67,95,16
-    DC.L    OutTimeWellText,0
-    DC.W    GD_OutTimeWell
-    DC.L    $0010,0,0
-
-ShareInfoNGads:
-    DC.W    25,130,142,16
-    DC.L    ShareRegisterText,0
-    DC.W    GD_ShareRegister
-    DC.L    $0010,0,0
-    DC.W    187,130,142,16
-    DC.L    ShareThatsText,0
-    DC.W    GD_ShareThats
     DC.L    $0010,0,0
 
 AGAChipNGads:
@@ -947,12 +751,6 @@ PokeNGads:
     DC.W    92,107,78,15
     DC.L    CheatMoreText,0
     DC.W    GD_CheatMore
-    DC.L    $0010,0,0
-
-RegisterNGads:
-    DC.W    361,142,148,16
-    DC.L    ContRegisterText,0
-    DC.W    GD_ContRegister
     DC.L    $0010,0,0
 
 CartNotIDNGads:
@@ -1061,26 +859,10 @@ UnProtectNGads:
     DC.W    GD_Protect
     DC.L    $0010,0,0
 
-PasswordNGads:
-    DC.W    111,27,119,14
-    DC.L    PasswordText,0
-    DC.W    GD_Password
-    DC.L    $0021,0,0
-
 AboutNGads:
-    DC.W    48,169,92,16
-    DC.L    AboutmoreText,0
-    DC.W    GD_Aboutmore
-    DC.L    $0010,0,0
-    DC.W    182,169,92,16
+    DC.W    120,169,92,16
     DC.L    AboutExitText,0
     DC.W    GD_AboutExit
-    DC.L    $0010,0,0
-
-AddressNGads:
-    DC.W    132,168,92,16
-    DC.L    AddressexitText,0
-    DC.W    GD_Addressexit
     DC.L    $0010,0,0
 
 MatraNGads:
@@ -1129,14 +911,7 @@ MSX2GTags:
     DC.L    $8008000F,1
     DC.L    $00000000
     DC.L    $00000000
-    DC.L    $8003000E,1
     DC.L    $00000000
-    DC.L    $8008000E,CPUspdLabels
-    DC.L    $8008000F,1
-    DC.L    $00000000
-
-
-InfoGTags:
     DC.L    $00000000
 
 
@@ -1173,34 +948,12 @@ MSXvirtualGTags:
     DC.L    $00000000
 
 
-ImploderGTags:
-    DC.L    $8003000E,1
-    DC.L    $00000000
-    DC.L    $00000000
-    DC.L    $00000000
-    DC.L    $8008000E,EffimpLabels
-    DC.L    $8008000F,2
-    DC.L    $00000000
-    DC.L    $8003000E,1
-    DC.L    $00000000
-
-
 QuitMVDGTags:
     DC.L    $00000000
     DC.L    $00000000
 
 
 DelMVDGTags:
-    DC.L    $00000000
-    DC.L    $00000000
-
-
-OutTimeGTags:
-    DC.L    $00000000
-    DC.L    $00000000
-
-
-ShareInfoGTags:
     DC.L    $00000000
     DC.L    $00000000
 
@@ -1244,10 +997,6 @@ CheatSeaValString:
 CheatComValString:
     DC.B    '$00',0
     CNOP    0,2
-
-RegisterGTags:
-    DC.L    $00000000
-
 
 CartNotIDGTags:
     DC.L    $00000000
@@ -1344,18 +1093,7 @@ UnProtectGTags:
     DC.L    $00000000
 
 
-PasswordGTags:
-    DC.L    $80030024,0
-    DC.L    $8008002E,12
-    DC.L    $00000000
-
-
 AboutGTags:
-    DC.L    $00000000
-    DC.L    $00000000
-
-
-AddressGTags:
     DC.L    $00000000
 
 
@@ -1387,7 +1125,7 @@ MSX2SprText:
     DC.B    'Sprites:',0
 
 SCRMODEText:
-    DC.B    'Frequence',0
+    DC.B    'Display:',0
 
 DRIVEAText:
     DC.B    'MSX Drive A:',0
@@ -1396,10 +1134,10 @@ DRIVEBText:
     DC.B    'MSX Drive B:',0
 
 INTERText:
-    DC.B    'Refresh:',0
+    DC.B    'Draw:',0
 
 ROMText:
-    DC.B    'ROM:',0
+    DC.B    'Machine:',0
 
 RAMText:
     DC.B    'RAM:',0
@@ -1408,7 +1146,7 @@ SoundText:
     DC.B    'Sound:',0
 
 MSXVD0Text:
-    DC.B    'MVD:',0
+    DC.B    'Drive A:',0
 
 DISKverText:
     DC.B    'MSX Disk ROM:',0
@@ -1419,16 +1157,12 @@ Slot1Text:
 Slot2Text:
     DC.B    'Slot 2:',0
 
-CPUspdText:
-    DC.B    'Emulation Speed: ',0
+MVD2Text:
+    DC.B    'Drive B:',0
 
     CNOP    0,2
 
-TRigthText:
-    DC.B    'That''s Right!',0
-
     CNOP    0,2
-
 ErrormfmText:
     DC.B    'Continue',0
 
@@ -1471,23 +1205,7 @@ DiscodevText:
 
     CNOP    0,2
 
-SaveimpText:
-    DC.B    'Save',0
-
-ImplodeText:
-    DC.B    'Implode',0
-
-CancelimpText:
-    DC.B    'Cancel',0
-
-EffimpText:
-    DC.B    'Efficiency:',0
-
-AbortimpText:
-    DC.B    'Abort',0
-
     CNOP    0,2
-
 QuitMVDyesText:
     DC.B    'Quit',0
 
@@ -1504,22 +1222,8 @@ DelMVDcancelText:
 
     CNOP    0,2
 
-OutTimeRegisterText:
-    DC.B    'How to Register?',0
-
-OutTimeWellText:
-    DC.B    'Well !!!',0
-
     CNOP    0,2
-
-ShareRegisterText:
-    DC.B    'How to Register?',0
-
-ShareThatsText:
-    DC.B    'That''s Right!',0
-
     CNOP    0,2
-
 AGAcontinueText:
     DC.B    'Continue!',0
 
@@ -1551,11 +1255,7 @@ CheatMoreText:
 
     CNOP    0,2
 
-ContRegisterText:
-    DC.B    'I will think...',0
-
     CNOP    0,2
-
 CIDSetText:
     DC.B    'Set ID',0
 
@@ -1638,24 +1338,13 @@ ProtectText:
 
     CNOP    0,2
 
-PasswordText:
-    DC.B    'Password:',0
-
     CNOP    0,2
-
-AboutmoreText:
-    DC.B    'More',0
-
 AboutExitText:
     DC.B    'Exit',0
 
     CNOP    0,2
 
-AddressexitText:
-    DC.B    'Exit',0
-
     CNOP    0,2
-
 MatraStartText:
     DC.B    'Start AmiMSX',0
 
@@ -1736,20 +1425,14 @@ DISKverLabels:
     DC.L    DISKverLab2
     DC.L    0
 
-CPUspdLabels:
-    DC.L    CPUspdLab0
-    DC.L    CPUspdLab1
-    DC.L    CPUspdLab2
-    DC.L    0
-
-MSX2SprLab0:    DC.B    'OFF',0
+MSX2SprLab0:    DC.B    'ECS',0
 MSX2SprLab1:    DC.B    '1 Frame',0
 MSX2SprLab2:    DC.B    '2 Frames',0
 MSX2SprLab3:    DC.B    '3 Frames',0
 
     CNOP    0,2
 
-SCRMODELab0:    DC.B    'From VDP',0
+SCRMODELab0:    DC.B    'Auto',0
 SCRMODELab1:    DC.B    'No Change',0
 SCRMODELab2:    DC.B    'NTSC 60Hz',0
 SCRMODELab3:    DC.B    'PAL 50Hz',0
@@ -1760,10 +1443,10 @@ DRIVEALab0:    DC.B    'DF0:',0
 DRIVEALab1:    DC.B    'DF1:',0
 DRIVEALab2:    DC.B    'DF2:',0
 DRIVEALab3:    DC.B    'DF3:',0
-DRIVEALab4:    DC.B    '-OFF-',0
+DRIVEALab4:    DC.B    'Off',0
 DRIVEALab5:    DC.B    'MVD:',0
 DRIVEALab6:    DC.B    'RAMSX:',0
-DRIVEALab7:    DC.B    '-ON-',0
+DRIVEALab7:    DC.B    'Empty',0
 
     CNOP    0,2
 
@@ -1771,10 +1454,10 @@ DRIVEBLab0:    DC.B    'DF0:',0
 DRIVEBLab1:    DC.B    'DF1:',0
 DRIVEBLab2:    DC.B    'DF2:',0
 DRIVEBLab3:    DC.B    'DF3:',0
-DRIVEBLab4:    DC.B    '-OFF-',0
+DRIVEBLab4:    DC.B    'Off',0
 DRIVEBLab5:    DC.B    'MVD:',0
 DRIVEBLab6:    DC.B    'RAMSX:',0
-DRIVEBLab7:    DC.B    '-ON-',0
+DRIVEBLab7:    DC.B    'Empty',0
 
     CNOP    0,2
 
@@ -1782,7 +1465,7 @@ INTERLab0:    DC.B    '1 Frame',0
 INTERLab1:    DC.B    '2 Frames',0
 INTERLab2:    DC.B    '3 Frames',0
 INTERLab3:    DC.B    '4 Frames',0
-INTERLab4:    DC.B    'Auto',0
+INTERLab4:    DC.B    '5 Frames',0
 
     CNOP    0,2
 
@@ -1815,9 +1498,6 @@ DISKverLab2:    DC.B    'None',0
 
     CNOP    0,2
 
-CPUspdLab0:    DC.B    'Real MSX',0
-CPUspdLab1:    DC.B    'Fast CPU',0
-CPUspdLab2:    DC.B    'Turbo Mode',0
 
     CNOP    0,2
 
@@ -1938,11 +1618,11 @@ MC68020SC:
     DC.L    $00000000
 
 MC68020WTitle:
-    DC.B    'AmiMSX2 Error.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 MC68020STitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 MSX2WindowTags:
@@ -1972,36 +1652,11 @@ MSX2WTitle:
     CNOP    0,2
 
 MSX2STitle:
-    DC.B    'AmiMSX Emulator.  1994-2000/2009/2021 © GUS Entertainment',0
+    DC.B    'AmiMSX Emulator.  1994-2000/2009/2021/2026 © GUS Entertainment',0
     CNOP    0,2
 
-InfoWindowTags:
-InfoL:
-    DC.L    $80000064,0
-InfoT:
-    DC.L    $80000065,0
-InfoW:
-    DC.L    $80000066,0
-InfoH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000644
-    DC.L    $8000006B,$00001006
-InfoWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,InfoWTitle
-    DC.L    $8000006F,InfoSTitle
-InfoSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-InfoWTitle:
-    DC.B    'AmiMSX2 Emulator Register.',0
     CNOP    0,2
-
-InfoSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
     CNOP    0,2
-
 ErrormfmWindowTags:
 ErrormfmL:
     DC.L    $80000064,0
@@ -2022,11 +1677,11 @@ ErrormfmSC:
     DC.L    $00000000
 
 ErrormfmWTitle:
-    DC.B    'AmiMSX2 Error.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 ErrormfmSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 ErrorWindowTags:
@@ -2049,11 +1704,11 @@ ErrorSC:
     DC.L    $00000000
 
 ErrorWTitle:
-    DC.B    'AmiMSX2 Error.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 ErrorSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 QuitWindowTags:
@@ -2076,11 +1731,11 @@ QuitSC:
     DC.L    $00000000
 
 QuitWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 QuitSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 NOMEMWindowTags:
@@ -2103,11 +1758,11 @@ NOMEMSC:
     DC.L    $00000000
 
 NOMEMWTitle:
-    DC.B    'AmiMSX2 Error.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 NOMEMSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 REGOWindowTags:
@@ -2130,11 +1785,11 @@ REGOSC:
     DC.L    $00000000
 
 REGOWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 REGOSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 LoaddecWindowTags:
@@ -2159,7 +1814,7 @@ LoaddecWTitle:
     CNOP    0,2
 
 LoaddecSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 MSXvirtualWindowTags:
@@ -2186,36 +1841,11 @@ MSXvirtualWTitle:
     CNOP    0,2
 
 MSXvirtualSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
-ImploderWindowTags:
-ImploderL:
-    DC.L    $80000064,0
-ImploderT:
-    DC.L    $80000065,0
-ImploderW:
-    DC.L    $80000066,0
-ImploderH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000244
-    DC.L    $8000006B,$0000100E
-ImploderWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,ImploderWTitle
-    DC.L    $8000006F,ImploderSTitle
-ImploderSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-ImploderWTitle:
-    DC.B    'The File Imploder.',0
     CNOP    0,2
-
-ImploderSTitle:
-    DC.B    'AmiMSX2 Emulator.         Implode/Explode routines by Peter Struijk',0
     CNOP    0,2
-
 QuitMVDWindowTags:
 QuitMVDL:
     DC.L    $80000064,0
@@ -2236,11 +1866,11 @@ QuitMVDSC:
     DC.L    $00000000
 
 QuitMVDWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 QuitMVDSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 DelMVDWindowTags:
@@ -2263,67 +1893,17 @@ DelMVDSC:
     DC.L    $00000000
 
 DelMVDWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 DelMVDSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
-OutTimeWindowTags:
-OutTimeL:
-    DC.L    $80000064,0
-OutTimeT:
-    DC.L    $80000065,0
-OutTimeW:
-    DC.L    $80000066,0
-OutTimeH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000244
-    DC.L    $8000006B,$0000100E
-OutTimeWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,OutTimeWTitle
-    DC.L    $8000006F,OutTimeSTitle
-OutTimeSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-OutTimeWTitle:
-    DC.B    'Out of Time.',0
     CNOP    0,2
-
-OutTimeSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
     CNOP    0,2
-
-ShareInfoWindowTags:
-ShareInfoL:
-    DC.L    $80000064,0
-ShareInfoT:
-    DC.L    $80000065,0
-ShareInfoW:
-    DC.L    $80000076,0
-ShareInfoH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000244
-    DC.L    $8000006B,$0000100E
-ShareInfoWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,ShareInfoWTitle
-    DC.L    $8000006F,ShareInfoSTitle
-ShareInfoSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-ShareInfoWTitle:
-    DC.B    'Shareware info...',0
     CNOP    0,2
-
-ShareInfoSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
     CNOP    0,2
-
 AGAChipWindowTags:
 AGAChipL:
     DC.L    $80000064,0
@@ -2344,11 +1924,11 @@ AGAChipSC:
     DC.L    $00000000
 
 AGAChipWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 AGAChipSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 PokeWindowTags:
@@ -2375,36 +1955,11 @@ PokeWTitle:
     CNOP    0,2
 
 PokeSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
-RegisterWindowTags:
-RegisterL:
-    DC.L    $80000064,0
-RegisterT:
-    DC.L    $80000065,0
-RegisterW:
-    DC.L    $80000066,0
-RegisterH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000244
-    DC.L    $8000006B,$0000100E
-RegisterWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,RegisterWTitle
-    DC.L    $8000006F,RegisterSTitle
-RegisterSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-RegisterWTitle:
-    DC.B    'How to Register:',0
     CNOP    0,2
-
-RegisterSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
     CNOP    0,2
-
 CartNotIDWindowTags:
 CartNotIDL:
     DC.L    $80000064,0
@@ -2425,11 +1980,11 @@ CartNotIDSC:
     DC.L    $00000000
 
 CartNotIDWTitle:
-    DC.B    'AmiMSX2 Error.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 CartNotIDSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 DebugWindowTags:
@@ -2456,7 +2011,7 @@ DebugWTitle:
     CNOP    0,2
 
 DebugSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 OverwriteWindowTags:
@@ -2479,11 +2034,11 @@ OverwriteSC:
     DC.L    $00000000
 
 OverwriteWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 OverwriteSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 AddressesWindowTags:
@@ -2510,7 +2065,7 @@ AddressesWTitle:
     CNOP    0,2
 
 AddressesSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 UnProtectWindowTags:
@@ -2533,40 +2088,15 @@ UnProtectSC:
     DC.L    $00000000
 
 UnProtectWTitle:
-    DC.B    'AmiMSX2 Request.',0
+    DC.B    'AmiMSX',0
     CNOP    0,2
 
 UnProtectSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
-PasswordWindowTags:
-PasswordL:
-    DC.L    $80000064,0
-PasswordT:
-    DC.L    $80000065,0
-PasswordW:
-    DC.L    $80000066,0
-PasswordH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000244
-    DC.L    $8000006B,$0000100E
-PasswordWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,PasswordWTitle
-    DC.L    $8000006F,PasswordSTitle
-PasswordSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-PasswordWTitle:
-    DC.B    'Register Control',0
     CNOP    0,2
-
-PasswordSTitle:
-    DC.B    'AmiMSX2 Emulator.',0
     CNOP    0,2
-
 AboutWindowTags:
 AboutL:
     DC.L    $80000064,0
@@ -2591,36 +2121,11 @@ AboutWTitle:
     CNOP    0,2
 
 AboutSTitle:
-    DC.B    'AmiMSX Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
-AddressWindowTags:
-AddressL:
-    DC.L    $80000064,0
-AddressT:
-    DC.L    $80000065,0
-AddressW:
-    DC.L    $80000066,0
-AddressH:
-    DC.L    $80000067,0
-    DC.L    $8000006A,$00000244
-    DC.L    $8000006B,$0000100E
-AddressWG:
-    DC.L    $8000006C,0
-    DC.L    $8000006E,AddressWTitle
-    DC.L    $8000006F,AddressSTitle
-AddressSC:
-    DC.L    $80000070,0
-    DC.L    $00000000
-
-AddressWTitle:
-    DC.B    'AmiMSX contact addresses.',0
     CNOP    0,2
-
-AddressSTitle:
-    DC.B    'AmiMSX Emulator.',0
     CNOP    0,2
-
 MatraWindowTags:
 MatraL:
     DC.L    $80000064,0
@@ -2644,7 +2149,7 @@ MatraWTitle:
     CNOP    0,2
 
 MatraSTitle:
-    DC.B    'AmiMSX Emulator.',0
+    DC.B    'AmiMSX Emulator',0
     CNOP    0,2
 
 MC68020Text0:
@@ -2723,7 +2228,7 @@ MSX2Text7:
     DC.B    7,0
     DC.B    $01
     DC.B    0
-    DC.W    88,136
+    DC.W    108,136
     DC.L    topaz8
     DC.L    MSX2IText7
     DC.L    MSX2Text8
@@ -2744,78 +2249,15 @@ MSX2Text9:
     DC.W    399,152
     DC.L    topaz8
     DC.L    MSX2IText9
-    DC.L    0
+    DC.L    MSX2Text10
 
-InfoText0:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    116,13
-    DC.L    topaz8
-    DC.L    InfoIText0
-    DC.L    InfoText1
-
-InfoText1:
-    DC.B    4,0
-    DC.B    $00
-    DC.B    0
-    DC.W    117,25
-    DC.L    topaz8
-    DC.L    InfoIText1
-    DC.L    InfoText2
-
-InfoText2:
+MSX2Text10:
     DC.B    7,0
-    DC.B    $00
+    DC.B    $01
     DC.B    0
-    DC.W    126,43
+    DC.W    108,152
     DC.L    topaz8
-    DC.L    InfoIText2
-    DC.L    InfoText3
-
-InfoText3:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    99,56
-    DC.L    topaz8
-    DC.L    InfoIText3
-    DC.L    InfoText4
-
-InfoText4:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    76,68
-    DC.L    topaz8
-    DC.L    InfoIText4
-    DC.L    InfoText5
-
-InfoText5:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    77,81
-    DC.L    topaz8
-    DC.L    InfoIText5
-    DC.L    InfoText6
-
-InfoText6:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    76,94
-    DC.L    topaz8
-    DC.L    InfoIText6
-    DC.L    InfoText7
-
-InfoText7:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    95,112
-    DC.L    topaz8
-    DC.L    InfoIText7
+    DC.L    MSX2IText10
     DC.L    0
 
 ErrormfmText0:
@@ -2899,15 +2341,6 @@ MSXvirtualText0:
     DC.L    MSXvirtualIText0
     DC.L    0
 
-ImploderText0:
-    DC.B    7,0
-    DC.B    $01
-    DC.B    0
-    DC.W    23,8
-    DC.L    topaz8
-    DC.L    ImploderIText0
-    DC.L    0
-
 QuitMVDText0:
     DC.B    7,0
     DC.B    $00
@@ -2942,141 +2375,6 @@ DelMVDText1:
     DC.W    32,20
     DC.L    topaz8
     DC.L    DelMVDIText1
-    DC.L    0
-
-OutTimeText0:
-    DC.B    4,0
-    DC.B    $00
-    DC.B    0
-    DC.W    54,10
-    DC.L    topaz8
-    DC.L    OutTimeIText0
-    DC.L    OutTimeText1
-
-OutTimeText1:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    30,24
-    DC.L    topaz8
-    DC.L    OutTimeIText1
-    DC.L    OutTimeText2
-
-OutTimeText2:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    16,36
-    DC.L    topaz8
-    DC.L    OutTimeIText2
-    DC.L    OutTimeText3
-
-OutTimeText3:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    24,50
-    DC.L    topaz8
-    DC.L    OutTimeIText3
-    DC.L    OutTimeText4
-
-OutTimeText4:
-    DC.B    2,0
-    DC.B    $00
-    DC.B    0
-    DC.W    23,49
-    DC.L    topaz8
-    DC.L    OutTimeIText4
-    DC.L    0
-
-ShareInfoText0:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    46,12
-    DC.L    topaz8
-    DC.L    ShareInfoIText0
-    DC.L    ShareInfoText1
-
-ShareInfoText1:
-    DC.B    2,0
-    DC.B    $00
-    DC.B    0
-    DC.W    45,11
-    DC.L    topaz8
-    DC.L    ShareInfoIText1
-    DC.L    ShareInfoText2
-
-ShareInfoText2:
-    DC.B    4,0
-    DC.B    $00
-    DC.B    0
-    DC.W    79,24
-    DC.L    topaz8
-    DC.L    ShareInfoIText2
-    DC.L    ShareInfoText3
-
-ShareInfoText3:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    65,43
-    DC.L    topaz8
-    DC.L    ShareInfoIText3
-    DC.L    ShareInfoText4
-
-ShareInfoText4:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    30,55
-    DC.L    topaz8
-    DC.L    ShareInfoIText4
-    DC.L    ShareInfoText5
-
-ShareInfoText5:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    35,67
-    DC.L    topaz8
-    DC.L    ShareInfoIText5
-    DC.L    ShareInfoText6
-
-ShareInfoText6:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    71,86
-    DC.L    topaz8
-    DC.L    ShareInfoIText6
-    DC.L    ShareInfoText7
-
-ShareInfoText7:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    21,98
-    DC.L    topaz8
-    DC.L    ShareInfoIText7
-    DC.L    ShareInfoText8
-
-ShareInfoText8:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    58,111
-    DC.L    topaz8
-    DC.L    ShareInfoIText8
-    DC.L    ShareInfoText9
-
-ShareInfoText9:
-    DC.B    2,0
-    DC.B    $00
-    DC.B    0
-    DC.W    57,110
-    DC.L    topaz8
-    DC.L    ShareInfoIText9
     DC.L    0
 
 AGAChipText0:
@@ -3149,186 +2447,6 @@ PokeText6:
     DC.W    21,92
     DC.L    topaz8
     DC.L    PokeIText6
-    DC.L    0
-
-RegisterText0:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    66,10
-    DC.L    topaz8
-    DC.L    RegisterIText0
-    DC.L    RegisterText1
-
-RegisterText1:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    29,21
-    DC.L    topaz8
-    DC.L    RegisterIText1
-    DC.L    RegisterText2
-
-RegisterText2:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    29,33
-    DC.L    topaz8
-    DC.L    RegisterIText2
-    DC.L    RegisterText3
-
-RegisterText3:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    31,44
-    DC.L    topaz8
-    DC.L    RegisterIText3
-    DC.L    RegisterText4
-
-RegisterText4:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    31,56
-    DC.L    topaz8
-    DC.L    RegisterIText4
-    DC.L    RegisterText5
-
-RegisterText5:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    29,67
-    DC.L    topaz8
-    DC.L    RegisterIText5
-    DC.L    RegisterText6
-
-RegisterText6:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    66,89
-    DC.L    topaz8
-    DC.L    RegisterIText6
-    DC.L    RegisterText7
-
-RegisterText7:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    28,100
-    DC.L    topaz8
-    DC.L    RegisterIText7
-    DC.L    RegisterText8
-
-RegisterText8:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    28,109
-    DC.L    topaz8
-    DC.L    RegisterIText8
-    DC.L    RegisterText9
-
-RegisterText9:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    28,118
-    DC.L    topaz8
-    DC.L    RegisterIText9
-    DC.L    RegisterText10
-
-RegisterText10:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    28,127
-    DC.L    topaz8
-    DC.L    RegisterIText10
-    DC.L    RegisterText11
-
-RegisterText11:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    29,136
-    DC.L    topaz8
-    DC.L    RegisterIText11
-    DC.L    RegisterText12
-
-RegisterText12:
-    DC.B    1,0
-    DC.B    $00
-    DC.B    0
-    DC.W    29,145
-    DC.L    topaz8
-    DC.L    RegisterIText12
-    DC.L    RegisterText13
-
-RegisterText13:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    389,89
-    DC.L    topaz8
-    DC.L    RegisterIText13
-    DC.L    RegisterText14
-
-RegisterText14:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    333,99
-    DC.L    topaz8
-    DC.L    RegisterIText14
-    DC.L    RegisterText15
-
-RegisterText15:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    333,108
-    DC.L    topaz8
-    DC.L    RegisterIText15
-    DC.L    RegisterText16
-
-RegisterText16:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    333,117
-    DC.L    topaz8
-    DC.L    RegisterIText16
-    DC.L    RegisterText17
-
-RegisterText17:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    333,126
-    DC.L    topaz8
-    DC.L    RegisterIText17
-    DC.L    RegisterText18
-
-RegisterText18:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    26,166
-    DC.L    topaz8
-    DC.L    RegisterIText18
-    DC.L    RegisterText19
-
-RegisterText19:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    30,176
-    DC.L    topaz8
-    DC.L    RegisterIText19
     DC.L    0
 
 CartNotIDText0:
@@ -3655,15 +2773,6 @@ UnProtectText0:
     DC.L    UnProtectIText0
     DC.L    0
 
-PasswordText0:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    23,12
-    DC.L    topaz8
-    DC.L    PasswordIText0
-    DC.L    0
-
 AboutText0:
     DC.B    7,0
     DC.B    $00
@@ -3763,114 +2872,6 @@ AboutText10:
     DC.L    AboutIText10
     DC.L    0
 
-AddressText0:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    51,14
-    DC.L    topaz8
-    DC.L    AddressIText0
-    DC.L    AddressText1
-
-AddressText1:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    83,27
-    DC.L    topaz8
-    DC.L    AddressIText1
-    DC.L    AddressText2
-
-AddressText2:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    83,37
-    DC.L    topaz8
-    DC.L    AddressIText2
-    DC.L    AddressText3
-
-AddressText3:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    83,47
-    DC.L    topaz8
-    DC.L    AddressIText3
-    DC.L    AddressText4
-
-AddressText4:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    83,57
-    DC.L    topaz8
-    DC.L    AddressIText4
-    DC.L    AddressText5
-
-AddressText5:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    83,67
-    DC.L    topaz8
-    DC.L    AddressIText5
-    DC.L    AddressText6
-
-AddressText6:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    64,85
-    DC.L    topaz8
-    DC.L    AddressIText6
-    DC.L    AddressText7
-
-AddressText7:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    140,85
-    DC.L    topaz8
-    DC.L    AddressIText7
-    DC.L    AddressText8
-
-AddressText8:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    101,102
-    DC.L    topaz8
-    DC.L    AddressIText8
-    DC.L    AddressText9
-
-AddressText9:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    57,116
-    DC.L    topaz8
-    DC.L    AddressIText9
-    DC.L    AddressText10
-
-AddressText10:
-    DC.B    6,0
-    DC.B    $00
-    DC.B    0
-    DC.W    77,133
-    DC.L    topaz8
-    DC.L    AddressIText10
-    DC.L    AddressText11
-
-AddressText11:
-    DC.B    7,0
-    DC.B    $00
-    DC.B    0
-    DC.W    100,147
-    DC.L    topaz8
-    DC.L    AddressIText11
-    DC.L    0
-
 MC68020IText0:
     DC.B    'MSX2 Emulator needs a MC68020+',0
 
@@ -3898,7 +2899,7 @@ MSX2IText6:
     DC.B    ' Slots Options ',0
 
 MSX2IText7:
-    DC.B    'Buffer Empty.              ',0
+    DC.B    'Buffer Empty.            ',0
 
 MSX2IText8:
     DC.B    'None.                    ',0
@@ -3906,18 +2907,12 @@ MSX2IText8:
 MSX2IText9:
     DC.B    'None.                    ',0
 
-    CNOP    0,2
-
-InfoIText0:
-    DC.B    'AmiMSX Emulator',0
-
-	REGISTRO
-
-InfoIText7:
-    DC.B    'Enjoy the MSX2 Emulator!',0
+MSX2IText10:
+    DC.B    'Buffer Empty.            ',0
 
     CNOP    0,2
 
+    CNOP    0,2
 ErrormfmIText0:
     DC.B    'I need DEVS:mfm.device for',0
 
@@ -3959,11 +2954,7 @@ MSXvirtualIText0:
 
     CNOP    0,2
 
-ImploderIText0:
-    DC.B    '        The File Imploder. ',0
-
     CNOP    0,2
-
 QuitMVDIText0:
     DC.B    'MVD: buffer not saved!',0
 
@@ -3980,57 +2971,10 @@ DelMVDIText1:
 
     CNOP    0,2
 
-OutTimeIText0:
-    DC.B    'Evaluation-Time Over!',0
-
-OutTimeIText1:
-    DC.B    'This is a DEMO version!',0
-
-OutTimeIText2:
-    DC.B    'Un-limited time emulation in',0
-
-OutTimeIText3:
-    DC.B    'Registered versions ONLY.',0
-
-OutTimeIText4:
-    DC.B    'Registered versions ONLY.',0
-
     CNOP    0,2
-
-ShareInfoIText0:
-    DC.B    'AmiMSX2 Emulator v2.4ß (Pro)',0
-
-ShareInfoIText1:
-    DC.B    'AmiMSX2 Emulator v2.4ß (Pro)',0
-
-ShareInfoIText2:
-    DC.B    '(Unregistered version)',0
-
-ShareInfoIText3:
-    DC.B    'This is a DEMO version:',0
-
-ShareInfoIText4:
-    DC.B    'MSX2 Emulation work 5 minutes ONLY',0
-
-ShareInfoIText5:
-    DC.B    'and JoySticks Emulation is Disabled.',0
-
-ShareInfoIText6:
-    DC.B    'Un-Limited time',0
-
-ShareInfoIText7:
-    DC.B    'and JoySticks emulation',0
-
-ShareInfoIText8:
-    DC.B    'In Registered versions ONLY.',0
-
-ShareInfoIText9:
-    DC.B    'In Registered versions ONLY.',0
-
     CNOP    0,2
-
 AGAChipIText0:
-    DC.B    ' AmiMSX2 needs AGA Chip set!',0
+    DC.B    ' AmiMSX needs an AGA Amiga',0
 
     CNOP    0,2
 
@@ -4057,68 +3001,7 @@ PokeIText6:
 
     CNOP    0,2
 
-RegisterIText0:
-    DC.B    'This Program is SHAREWARE, so this is a DEMO version.',0
-
-RegisterIText1:
-    DC.B    'If you are interested in the FULL version, you must register.',0
-
-RegisterIText2:
-    DC.B    'The Registered version is 100% identical to this one but',0
-
-RegisterIText3:
-    DC.B    'it permits emulation of two JoySticks and NO time-limit.',0
-
-RegisterIText4:
-    DC.B    'If you want to Register, you must fill-in and send me this',0
-
-RegisterIText5:
-    DC.B    'questionaire with $30 US Dollar (or equivalent in your country)',0
-
-RegisterIText6:
-    DC.B    'AmiMSX2 Emulator Register',0
-
-RegisterIText7:
-    DC.B    'Full name: _______________________',0
-
-RegisterIText8:
-    DC.B    'Address: _________________________',0
-
-RegisterIText9:
-    DC.B    'City: ____________________________',0
-
-RegisterIText10:
-    DC.B    'Country: _________________________',0
-
-RegisterIText11:
-    DC.B    'Amiga you own: ___________________',0
-
-RegisterIText12:
-    DC.B    'Bugs, Ideas, etc... ______________',0
-
-RegisterIText13:
-    DC.B    'Sent it to:',0
-
-RegisterIText14:
-    DC.B    'Juan Antonio Gómez Gálvez',0
-
-RegisterIText15:
-    DC.B    'APDO: 275',0
-
-RegisterIText16:
-    DC.B    '08940 Cornellà',0
-
-RegisterIText17:
-    DC.B    'BARCELONA  (SPAIN)',0
-
-RegisterIText18:
-    DC.B    'When I receive this, I will send to you the Emulator immediatly.',0
-
-RegisterIText19:
-    DC.B    'All this packed in a padded envelope with a brank new TDK disk.',0
-
     CNOP    0,2
-
 CartNotIDIText0:
     DC.B    'Cartridge ID. "AB"  Not Found!',0
 
@@ -4237,11 +3120,7 @@ UnProtectIText0:
 
     CNOP    0,2
 
-PasswordIText0:
-    DC.B    'Please, Input your Password',0
-
     CNOP    0,2
-
 AboutIText0:
     DC.B    'AmiMSX Emulator v4.5',0
 
@@ -4277,44 +3156,7 @@ AboutIText10:
 
     CNOP    0,2
 
-AddressIText0:
-    DC.B    'To contact the author write to:',0
-
-AddressIText1:
-    DC.B    'Juan Antonio Gómez',0
-
-AddressIText2:
-    DC.B    'Aptdo. de Correos: 275',0
-
-AddressIText3:
-    DC.B    '08940 Cornellà de Llobregat',0
-
-AddressIText4:
-    DC.B    'BARCELONA',0
-
-AddressIText5:
-    DC.B    'SPAIN',0
-
-AddressIText6:
-    DC.B    'e-mail:',0
-
-AddressIText7:
-    DC.B    'joanant@arrakis.es',0
-
-AddressIText8:
-    DC.B    'AmiEmuls Home-Page:',0
-
-AddressIText9:
-    DC.B    'www.arrakis.es/~joanant',0
-
-AddressIText10:
-    DC.B    'The MATRA Corporation WEB:',0
-
-AddressIText11:
-    DC.B    'www.matranet.net',0
-
-    CNOP    0,2
-
+	MDT	MT_Project
 MSX2NewMenu0:
     DC.B    1,0
     DC.L    MSX2MName0
@@ -4322,6 +3164,7 @@ MSX2NewMenu0:
     DC.W    0
     DC.L    0,0
 
+	MDI	MN_About
 MSX2NewMenu1:
     DC.B    2,0
     DC.L    MSX2MName1
@@ -4329,80 +3172,14 @@ MSX2NewMenu1:
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu2:
-    DC.B    2,0
-    DC.L    MSX2MName2
-    DC.L    MSX2MComm2
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu3:
+	MDI	MN_ProjectBar0
+MSX2NewMenu_ProjectBar0:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu4:
-    DC.B    2,0
-    DC.L    MSX2MName4
-    DC.L    0
-    DC.W    $0008
-    DC.L    0,0
-
-MSX2NewMenu5:
-    DC.B    3,0
-    DC.L    MSX2MName5
-    DC.L    MSX2MComm5
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu6:
-    DC.B    3,0
-    DC.L    MSX2MName6
-    DC.L    MSX2MComm6
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu7:
-    DC.B    2,0
-    DC.L    MSX2MName7
-    DC.L    MSX2MComm7
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu8:
-    DC.B    2,0
-    DC.L    MSX2MName8
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu9:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu10:
-    DC.B    2,0
-    DC.L    MSX2MName10
-    DC.L    MSX2MComm10
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu11:
-    DC.B    2,0
-    DC.L    MSX2MName11
-    DC.L    MSX2MComm11
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu12:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
+	MDI	MN_SavePrefs
 MSX2NewMenu13:
     DC.B    2,0
     DC.L    MSX2MName13
@@ -4410,308 +3187,30 @@ MSX2NewMenu13:
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu14:
+	MDI	MN_GameSave
+MSX2NewMenu70b:
+    DC.B    2,0
+    DC.L    MSX2MName70b
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_GameForget
+MSX2NewMenu70c:
+    DC.B    2,0
+    DC.L    MSX2MName70c
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_ProjectBar1
+MSX2NewMenu_ProjectBar1:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu15:
-    DC.B    2,0
-    DC.L    MSX2MName15
-    DC.L    MSX2MComm15
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu16:
-    DC.B    1,0
-    DC.L    MSX2MName16
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu17:
-    DC.B    2,0
-    DC.L    MSX2MName17
-    DC.L    MSX2MComm17
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu18:
-    DC.B    2,0
-    DC.L    MSX2MName18
-    DC.L    MSX2MComm18
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu18a:                     ; (4.1.1) item 2: JoyPort 2 pad
-    DC.B    2,0
-    DC.L    MSX2MName18a
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu18b:                     ; sub-item 0: Standard (2 buttons)
-    DC.B    3,0
-    DC.L    MSX2MName18b
-    DC.L    0
-    DC.W    $0101
-    DC.L    2,0                     ; excludes sub-item 1
-
-MSX2NewMenu18c:                     ; sub-item 1: CD32 pad
-    DC.B    3,0
-    DC.L    MSX2MName18c
-    DC.L    0
-    DC.W    $0001
-    DC.L    1,0                     ; excludes sub-item 0
-
-MSX2NewMenu18d:                     ; (4.1.1) item 3: JoyPort 1 pad
-    DC.B    2,0
-    DC.L    MSX2MName18d
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu18e:                     ; sub-item 0: Standard (2 buttons)
-    DC.B    3,0
-    DC.L    MSX2MName18b
-    DC.L    0
-    DC.W    $0101
-    DC.L    2,0
-
-MSX2NewMenu18f:                     ; sub-item 1: CD32 pad
-    DC.B    3,0
-    DC.L    MSX2MName18c
-    DC.L    0
-    DC.W    $0001
-    DC.L    1,0
-
-MSX2NewMenu19:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu20:
-    DC.B    2,0
-    DC.L    MSX2MName20
-    DC.L    MSX2MComm20
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu21:
-    DC.B    2,0
-    DC.L    MSX2MName21
-    DC.L    MSX2MComm21
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu22:
-    DC.B    2,0
-    DC.L    MSX2MName22
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu23:
-    DC.B    2,0
-    DC.L    MSX2MName23
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu24:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu25:
-    DC.B    2,0
-    DC.L    MSX2MName25
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu26:
-    DC.B    2,0
-    DC.L    MSX2MName26
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu27:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu28:
-    DC.B    2,0
-    DC.L    MSX2MName28
-    DC.L    0
-    DC.W    $0008
-    DC.L    0,0
-
-MSX2NewMenu29:
-    DC.B    3,0
-    DC.L    MSX2MName29
-    DC.L    MSX2MComm29
-    DC.W    $0109
-    DC.L    0,0
-
-MSX2NewMenu30:
-    DC.B    3,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu31:
-    DC.B    3,0
-    DC.L    MSX2MName31
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu32:
-    DC.B    3,0
-    DC.L    MSX2MName32
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu33:
-    DC.B    2,0
-    DC.L    MSX2MName33
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu34:
-    DC.B    3,0
-    DC.L    MSX2MName34
-    DC.L    0
-    DC.W    $0109
-    DC.L    0,0
-
-MSX2NewMenu35:
-    DC.B    3,0
-    DC.L    MSX2MName35
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu36:
-    DC.B    3,0
-    DC.L    MSX2MName36
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu37:
-    DC.B    2,0
-    DC.L    MSX2MName37
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu38:
-    DC.B    3,0
-    DC.L    MSX2MName38
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu39:
-    DC.B    3,0
-    DC.L    MSX2MName39
-    DC.L    0
-    DC.W    $0109
-    DC.L    0,0
-
-MSX2NewMenu41:
-    DC.B    3,0
-    DC.L    MSX2MName41
-    DC.L    0
-    DC.W    $0109
-    DC.L    0,0
-
-MSX2NewMenu41b:                      ; (4.2) sub-items 3-5: Mask screen
-    DC.B    3,0                     ; edges Off / 8 dots / 16 dots (one
-    DC.L    MSX2MName41b            ; ticked: mutual exclusion)
-    DC.L    0
-    DC.W    $0101
-    DC.L    $30,0                   ; excludes sub-items 4 and 5
-
-MSX2NewMenu41e:                     ; sub-item 4: 8 dots
-    DC.B    3,0
-    DC.L    MSX2MName41e
-    DC.L    0
-    DC.W    $0001
-    DC.L    $28,0                   ; excludes sub-items 3 and 5
-
-MSX2NewMenu41f:                     ; sub-item 5: 16 dots
-    DC.B    3,0
-    DC.L    MSX2MName41f
-    DC.L    0
-    DC.W    $0001
-    DC.L    $18,0                   ; excludes sub-items 3 and 4
-
-MSX2NewMenu41c:
-    DC.B    3,0
-    DC.L    MSX2MName41c
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu41d:
-    DC.B    3,0
-    DC.L    MSX2MName41d
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-MSX2NewMenu41g:                     ; (4.5) sub-items 8-11: RTG scanlines
-    DC.B    3,0
-    DC.L    MSX2MName41g
-    DC.L    0
-    DC.W    $0101
-    DC.L    $E00,0
-
-MSX2NewMenu41h:
-    DC.B    3,0
-    DC.L    MSX2MName41h
-    DC.L    0
-    DC.W    $0001
-    DC.L    $D00,0
-
-MSX2NewMenu41i:
-    DC.B    3,0
-    DC.L    MSX2MName41i
-    DC.L    0
-    DC.W    $0001
-    DC.L    $B00,0
-
-MSX2NewMenu41j:
-    DC.B    3,0
-    DC.L    MSX2MName41j
-    DC.L    0
-    DC.W    $0001
-    DC.L    $700,0
-
-MSX2NewMenu42:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu43:
-    DC.B    2,0
-    DC.L    MSX2MName43
-    DC.L    MSX2MComm43
-    DC.W    $0009
-    DC.L    0,0
-
+	MDI	MN_AskReset
 MSX2NewMenu44:
     DC.B    2,0
     DC.L    MSX2MName44
@@ -4719,6 +3218,7 @@ MSX2NewMenu44:
     DC.W    $0009
     DC.L    0,0
 
+	MDI	MN_Overwrite
 MSX2NewMenu45:
     DC.B    2,0
     DC.L    MSX2MName45
@@ -4726,6 +3226,374 @@ MSX2NewMenu45:
     DC.W    $0009
     DC.L    0,0
 
+	MDI	MN_ProjectBar2
+MSX2NewMenu_ProjectBar2:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Quit
+MSX2NewMenu15:
+    DC.B    2,0
+    DC.L    MSX2MName15
+    DC.L    MSX2MComm15
+    DC.W    0
+    DC.L    0,0
+
+	MDICNT	NI_Project
+	MDT	MT_Emulation
+MSX2NewMenu_Emulation:
+    DC.B    1,0
+    DC.L    MSX2MName_Emulation
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Speed
+MSX2NewMenu_Speed:
+    DC.B    2,0
+    DC.L    MSX2MName_Speed
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_SpeedNormal
+MSX2NewMenu_SpeedN:
+    DC.B    3,0
+    DC.L    MSX2MName_SpeedN
+    DC.L    0
+    DC.W    $0001
+    DC.L    $6,0
+
+	MDS	MN_SpeedOC
+MSX2NewMenu_SpeedO:
+    DC.B    3,0
+    DC.L    MSX2MName_SpeedO
+    DC.L    0
+    DC.W    $0001
+    DC.L    $5,0
+
+	MDS	MN_SpeedNoLimit
+MSX2NewMenu_SpeedL:
+    DC.B    3,0
+    DC.L    MSX2MName_SpeedL
+    DC.L    0
+    DC.W    $0001
+    DC.L    $3,0
+
+	MDSCNT	NS_Speed
+	MDI	MN_JapID
+MSX2NewMenu25:
+    DC.B    2,0
+    DC.L    MSX2MName25
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_Kanji
+MSX2NewMenu26:
+    DC.B    2,0
+    DC.L    MSX2MName26
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_Filter
+MSX2NewMenu41c:
+    DC.B    2,0
+    DC.L    MSX2MName41c
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_EmulationBar0
+MSX2NewMenu_EmulationBar0:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Mask
+MSX2NewMenu_Mask:
+    DC.B    2,0
+    DC.L    MSX2MName_Mask
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_MaskOff
+MSX2NewMenu41b:
+    DC.B    3,0
+    DC.L    MSX2MName41b
+    DC.L    0
+    DC.W    $0101
+    DC.L    $06,0
+
+	MDS	MN_Mask8
+MSX2NewMenu41e:
+    DC.B    3,0
+    DC.L    MSX2MName41e
+    DC.L    0
+    DC.W    $0001
+    DC.L    $05,0
+
+	MDS	MN_Mask16
+MSX2NewMenu41f:
+    DC.B    3,0
+    DC.L    MSX2MName41f
+    DC.L    0
+    DC.W    $0001
+    DC.L    $03,0
+
+	MDSCNT	NS_Mask
+	MDI	MN_Smooth
+MSX2NewMenu41d:
+    DC.B    2,0
+    DC.L    MSX2MName41d
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_Scan
+MSX2NewMenu45b:
+    DC.B    2,0
+    DC.L    MSX2MName45b
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_ScanOff
+MSX2NewMenu45c:
+    DC.B    3,0
+    DC.L    MSX2MName45c
+    DC.L    0
+    DC.W    $0101
+    DC.L    $7E,0
+
+	MDS	MN_ScanH25
+MSX2NewMenu45d:
+    DC.B    3,0
+    DC.L    MSX2MName45d
+    DC.L    0
+    DC.W    $0001
+    DC.L    $7D,0
+
+	MDS	MN_ScanH50
+MSX2NewMenu45e:
+    DC.B    3,0
+    DC.L    MSX2MName45e
+    DC.L    0
+    DC.W    $0001
+    DC.L    $7B,0
+
+	MDS	MN_ScanH75
+MSX2NewMenu45f:
+    DC.B    3,0
+    DC.L    MSX2MName45f
+    DC.L    0
+    DC.W    $0001
+    DC.L    $77,0
+
+	MDS	MN_ScanBL
+MSX2NewMenu45g:
+    DC.B    3,0
+    DC.L    MSX2MName45g
+    DC.L    0
+    DC.W    $0001
+    DC.L    $6F,0
+
+	MDS	MN_ScanB
+MSX2NewMenu45h:
+    DC.B    3,0
+    DC.L    MSX2MName45h
+    DC.L    0
+    DC.W    $0001
+    DC.L    $5F,0
+
+	MDS	MN_ScanBS
+MSX2NewMenu45i:
+    DC.B    3,0
+    DC.L    MSX2MName45i
+    DC.L    0
+    DC.W    $0001
+    DC.L    $3F,0
+
+	MDSCNT	NS_Scan
+	MDI	MN_ScrMode
+MSX2NewMenu4:
+    DC.B    2,0
+    DC.L    MSX2MName4
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_SetPAL
+MSX2NewMenu5:
+    DC.B    3,0
+    DC.L    MSX2MName5
+    DC.L    MSX2MComm5
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_SetNTSC
+MSX2NewMenu6:
+    DC.B    3,0
+    DC.L    MSX2MName6
+    DC.L    MSX2MComm6
+    DC.W    0
+    DC.L    0,0
+
+	MDSCNT	NS_ScrMode
+	MDI	MN_Internal
+MSX2NewMenu37:
+    DC.B    2,0
+    DC.L    MSX2MName37
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_SprLate
+MSX2NewMenu38:
+    DC.B    3,0
+    DC.L    MSX2MName38
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDS	MN_FullRedraw
+MSX2NewMenu39:
+    DC.B    3,0
+    DC.L    MSX2MName39
+    DC.L    0
+    DC.W    $0109
+    DC.L    0,0
+
+	MDS	MN_TRBit
+MSX2NewMenu41:
+    DC.B    3,0
+    DC.L    MSX2MName41
+    DC.L    0
+    DC.W    $0109
+    DC.L    0,0
+
+	MDSCNT	NS_Internal
+	MDICNT	NI_Emulation
+	MDT	MT_Input
+MSX2NewMenu_Input:
+    DC.B    1,0
+    DC.L    MSX2MName_Input
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Joy2
+MSX2NewMenu17:
+    DC.B    2,0
+    DC.L    MSX2MName17
+    DC.L    MSX2MComm17
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_SwapJoy
+MSX2NewMenu18:
+    DC.B    2,0
+    DC.L    MSX2MName18
+    DC.L    MSX2MComm18
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_Pad2
+MSX2NewMenu18a:
+    DC.B    2,0
+    DC.L    MSX2MName18a
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_Pad2Std
+MSX2NewMenu18b:
+    DC.B    3,0
+    DC.L    MSX2MName18b
+    DC.L    0
+    DC.W    $0101
+    DC.L    2,0
+
+	MDS	MN_Pad2CD32
+MSX2NewMenu18c:
+    DC.B    3,0
+    DC.L    MSX2MName18c
+    DC.L    0
+    DC.W    $0001
+    DC.L    1,0
+
+	MDSCNT	NS_Pad2
+	MDI	MN_Pad1
+MSX2NewMenu18d:
+    DC.B    2,0
+    DC.L    MSX2MName18d
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_Pad1Std
+MSX2NewMenu18e:
+    DC.B    3,0
+    DC.L    MSX2MName18b
+    DC.L    0
+    DC.W    $0101
+    DC.L    2,0
+
+	MDS	MN_Pad1CD32
+MSX2NewMenu18f:
+    DC.B    3,0
+    DC.L    MSX2MName18c
+    DC.L    0
+    DC.W    $0001
+    DC.L    1,0
+
+	MDSCNT	NS_Pad1
+	MDI	MN_InputBar0
+MSX2NewMenu_InputBar0:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_MultiKey
+MSX2NewMenu20:
+    DC.B    2,0
+    DC.L    MSX2MName20
+    DC.L    MSX2MComm20
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_DelPause
+MSX2NewMenu21:
+    DC.B    2,0
+    DC.L    MSX2MName21
+    DC.L    MSX2MComm21
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_LShift
+MSX2NewMenu22:
+    DC.B    2,0
+    DC.L    MSX2MName22
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_RShift
+MSX2NewMenu23:
+    DC.B    2,0
+    DC.L    MSX2MName23
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDICNT	NI_Input
+	MDT	MT_Disks
 MSX2NewMenu46:
     DC.B    1,0
     DC.L    MSX2MName46
@@ -4733,60 +3601,149 @@ MSX2NewMenu46:
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu47:
+	MDI	MN_DriveA
+MSX2NewMenu_DriveA:
     DC.B    2,0
+    DC.L    MSX2MName_DriveA
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_LoadImg
+MSX2NewMenu47:
+    DC.B    3,0
     DC.L    MSX2MName47
     DC.L    MSX2MComm47
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_SaveImg
 MSX2NewMenu48:
-    DC.B    2,0
+    DC.B    3,0
     DC.L    MSX2MName48
     DC.L    MSX2MComm48
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu49:
+	MDS	MN_EjectImg
+MSX2NewMenu64:
+    DC.B    3,0
+    DC.L    MSX2MName64
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDSCNT	NS_DriveA
+	MDI	MN_DriveB
+MSX2NewMenu_DriveB:
+    DC.B    2,0
+    DC.L    MSX2MName_DriveB
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_LoadImgB
+MSX2NewMenu64b:
+    DC.B    3,0
+    DC.L    MSX2MName64b
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_EjectImgB
+MSX2NewMenu64c:
+    DC.B    3,0
+    DC.L    MSX2MName64c
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDSCNT	NS_DriveB
+	MDI	MN_DisksBar0
+MSX2NewMenu_DisksBar0:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu50:
+	MDI	MN_WProt
+MSX2NewMenu29:
     DC.B    2,0
+    DC.L    MSX2MName29
+    DC.L    MSX2MComm29
+    DC.W    $0109
+    DC.L    0,0
+
+	MDI	MN_WarnProt
+MSX2NewMenu31:
+    DC.B    2,0
+    DC.L    MSX2MName31
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_WarnChg
+MSX2NewMenu32:
+    DC.B    2,0
+    DC.L    MSX2MName32
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_DisksBar1
+MSX2NewMenu_DisksBar1:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Floppy
+MSX2NewMenu_Floppy:
+    DC.B    2,0
+    DC.L    MSX2MName_Floppy
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_ReadFloppy
+MSX2NewMenu50:
+    DC.B    3,0
     DC.L    MSX2MName50
     DC.L    MSX2MComm50
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_WriteFloppy
 MSX2NewMenu51:
-    DC.B    2,0
+    DC.B    3,0
     DC.L    MSX2MName51
     DC.L    MSX2MComm51
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu52:
-    DC.B    2,0
+	MDS	MN_FloppyBar0
+MSX2NewMenu_FloppyBar0:
+    DC.B    3,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_InstBoot
 MSX2NewMenu53:
-    DC.B    2,0
+    DC.B    3,0
     DC.L    MSX2MName53
     DC.L    MSX2MComm53
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu54:
-    DC.B    2,0
-    DC.L    MSX2MName54
-    DC.L    0
+	MDS	MN_FloppyBar1
+MSX2NewMenu_FloppyBar1:
+    DC.B    3,0
+    DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_BootAuto
 MSX2NewMenu55:
     DC.B    3,0
     DC.L    MSX2MName55
@@ -4794,6 +3751,7 @@ MSX2NewMenu55:
     DC.W    $0101
     DC.L    0,0
 
+	MDS	MN_Boot1DD
 MSX2NewMenu56:
     DC.B    3,0
     DC.L    MSX2MName56
@@ -4801,6 +3759,7 @@ MSX2NewMenu56:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Boot2DD
 MSX2NewMenu57:
     DC.B    3,0
     DC.L    MSX2MName57
@@ -4808,65 +3767,9 @@ MSX2NewMenu57:
     DC.W    $0001
     DC.L    0,0
 
-MSX2NewMenu58:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu59:
-    DC.B    2,0
-    DC.L    MSX2MName59
-    DC.L    MSX2MComm59
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu60:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu61:
-    DC.B    2,0
-    DC.L    MSX2MName61
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu62:
-    DC.B    2,0
-    DC.L    MSX2MName62
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu63:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu64:
-    DC.B    2,0
-    DC.L    MSX2MName64
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu64a:                     ; (4.0) drive B
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu64b:
-    DC.B    2,0
-    DC.L    MSX2MName64b
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
+	MDSCNT	NS_Floppy
+	MDICNT	NI_Disks
+	MDT	MT_Carts
 MSX2NewMenu65:
     DC.B    1,0
     DC.L    MSX2MName65
@@ -4874,13 +3777,15 @@ MSX2NewMenu65:
     DC.W    0
     DC.L    0,0
 
+	MDI	MN_Slot1
 MSX2NewMenu66:
     DC.B    2,0
     DC.L    MSX2MName66
     DC.L    0
-    DC.W    $0008
+    DC.W    0
     DC.L    0,0
 
+	MDS	MN_Sl1Insert
 MSX2NewMenu67:
     DC.B    3,0
     DC.L    MSX2MName67
@@ -4888,6 +3793,7 @@ MSX2NewMenu67:
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_Sl1Eject
 MSX2NewMenu68:
     DC.B    3,0
     DC.L    MSX2MName68
@@ -4895,39 +3801,23 @@ MSX2NewMenu68:
     DC.W    $0010
     DC.L    0,0
 
-MSX2NewMenu69:
+	MDS	MN_Slot1Bar0
+MSX2NewMenu_Slot1Bar0:
     DC.B    3,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_Sl1SaveMap
 MSX2NewMenu70:
     DC.B    3,0
     DC.L    MSX2MName70
     DC.L    0
-    DC.W    $0100
-    DC.L    0,0
-
-MSX2NewMenu70a:
-    DC.B    3,0
-    DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu70b:
-    DC.B    3,0
-    DC.L    MSX2MName70b
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu70c:
-    DC.B    3,0
-    DC.L    MSX2MName70c
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
+	MDSCNT	NS_Slot1
+	MDI	MN_Map1
 MSX2NewMenu71:
     DC.B    2,0
     DC.L    MSX2MName71
@@ -4935,6 +3825,7 @@ MSX2NewMenu71:
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_Map1None
 MSX2NewMenu72:
     DC.B    3,0
     DC.L    MSX2MName72
@@ -4942,6 +3833,7 @@ MSX2NewMenu72:
     DC.W    $0101
     DC.L    0,0
 
+	MDS	MN_Map1Gen16
 MSX2NewMenu73:
     DC.B    3,0
     DC.L    MSX2MName73
@@ -4949,6 +3841,7 @@ MSX2NewMenu73:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1Konami
 MSX2NewMenu74:
     DC.B    3,0
     DC.L    MSX2MName74
@@ -4956,6 +3849,7 @@ MSX2NewMenu74:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1Asc8
 MSX2NewMenu75:
     DC.B    3,0
     DC.L    MSX2MName75
@@ -4963,6 +3857,7 @@ MSX2NewMenu75:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1Asc16
 MSX2NewMenu76:
     DC.B    3,0
     DC.L    MSX2MName76
@@ -4970,6 +3865,7 @@ MSX2NewMenu76:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1SCC
 MSX2NewMenu77:
     DC.B    3,0
     DC.L    MSX2MName77
@@ -4977,6 +3873,7 @@ MSX2NewMenu77:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1SCCs
 MSX2NewMenu78:
     DC.B    3,0
     DC.L    MSX2MName78
@@ -4984,6 +3881,7 @@ MSX2NewMenu78:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1RType
 MSX2NewMenu78r:
     DC.B    3,0
     DC.L    MSX2MName78r
@@ -4991,26 +3889,31 @@ MSX2NewMenu78r:
     DC.W    $0001
     DC.L    0,0
 
-MSX2NewMenu79:
+	MDSCNT	NS_Map1
+	MDI	MN_CartsBar0
+MSX2NewMenu_CartsBar0:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
+	MDI	MN_Slot2
 MSX2NewMenu80:
     DC.B    2,0
     DC.L    MSX2MName80
     DC.L    0
-    DC.W    $0008
+    DC.W    0
     DC.L    0,0
 
+	MDS	MN_Sl2Insert
 MSX2NewMenu81:
     DC.B    3,0
     DC.L    MSX2MName81
     DC.L    0
-    DC.W    $0010
+    DC.W    0
     DC.L    0,0
 
+	MDS	MN_Sl2Eject
 MSX2NewMenu82:
     DC.B    3,0
     DC.L    MSX2MName82
@@ -5018,19 +3921,23 @@ MSX2NewMenu82:
     DC.W    $0010
     DC.L    0,0
 
-MSX2NewMenu83:
+	MDS	MN_Slot2Bar0
+MSX2NewMenu_Slot2Bar0:
     DC.B    3,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_Sl2SaveMap
 MSX2NewMenu84:
     DC.B    3,0
     DC.L    MSX2MName84
     DC.L    0
-    DC.W    $0100
+    DC.W    0
     DC.L    0,0
 
+	MDSCNT	NS_Slot2
+	MDI	MN_Map2
 MSX2NewMenu85:
     DC.B    2,0
     DC.L    MSX2MName85
@@ -5038,6 +3945,7 @@ MSX2NewMenu85:
     DC.W    0
     DC.L    0,0
 
+	MDS	MN_Map2None
 MSX2NewMenu86:
     DC.B    3,0
     DC.L    MSX2MName86
@@ -5045,6 +3953,7 @@ MSX2NewMenu86:
     DC.W    $0101
     DC.L    0,0
 
+	MDS	MN_Map2Gen16
 MSX2NewMenu87:
     DC.B    3,0
     DC.L    MSX2MName87
@@ -5052,6 +3961,7 @@ MSX2NewMenu87:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map2Konami
 MSX2NewMenu88:
     DC.B    3,0
     DC.L    MSX2MName88
@@ -5059,6 +3969,7 @@ MSX2NewMenu88:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map2Asc8
 MSX2NewMenu89:
     DC.B    3,0
     DC.L    MSX2MName89
@@ -5066,6 +3977,7 @@ MSX2NewMenu89:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map2Asc16
 MSX2NewMenu90:
     DC.B    3,0
     DC.L    MSX2MName90
@@ -5073,6 +3985,7 @@ MSX2NewMenu90:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map2SCC
 MSX2NewMenu91:
     DC.B    3,0
     DC.L    MSX2MName91
@@ -5080,6 +3993,7 @@ MSX2NewMenu91:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map2SCCs
 MSX2NewMenu92:
     DC.B    3,0
     DC.L    MSX2MName92
@@ -5087,6 +4001,7 @@ MSX2NewMenu92:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map2RType
 MSX2NewMenu92r:
     DC.B    3,0
     DC.L    MSX2MName92r
@@ -5094,53 +4009,9 @@ MSX2NewMenu92r:
     DC.W    $0001
     DC.L    0,0
 
-MSX2NewMenu93:
-    DC.B    2,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu94:
-    DC.B    2,0
-    DC.L    MSX2MName94
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu95:
-    DC.B    3,0
-    DC.L    MSX2MName95
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu96:
-    DC.B    3,0
-    DC.L    $FFFFFFFF,0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu97:
-    DC.B    3,0
-    DC.L    MSX2MName97
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu98:
-    DC.B    3,0
-    DC.L    MSX2MName98
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-MSX2NewMenu99:
-    DC.B    3,0
-    DC.L    MSX2MName99
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
+	MDSCNT	NS_Map2
+	MDICNT	NI_Carts
+	MDT	MT_Tape
 MSX2NewMenu100:
     DC.B    1,0
     DC.L    MSX2MName100
@@ -5148,13 +4019,7 @@ MSX2NewMenu100:
     DC.W    0
     DC.L    0,0
 
-MSX2NewMenu101:
-    DC.B    2,0
-    DC.L    MSX2MName101
-    DC.L    0
-    DC.W    $0010
-    DC.L    0,0
-
+	MDI	MN_LoadTape
 MSX2NewMenu102:
     DC.B    2,0
     DC.L    MSX2MName102
@@ -5162,12 +4027,22 @@ MSX2NewMenu102:
     DC.W    0
     DC.L    0,0
 
+	MDI	MN_RewindTape
+MSX2NewMenu101:
+    DC.B    2,0
+    DC.L    MSX2MName101
+    DC.L    0
+    DC.W    $0010
+    DC.L    0,0
+
+	MDI	MN_TapeBar0
 MSX2NewMenu103:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
     DC.W    0
     DC.L    0,0
 
+	MDI	MN_NewRec
 MSX2NewMenu104:
     DC.B    2,0
     DC.L    MSX2MName104
@@ -5175,6 +4050,7 @@ MSX2NewMenu104:
     DC.W    0
     DC.L    0,0
 
+	MDI	MN_SaveRec
 MSX2NewMenu105:
     DC.B    2,0
     DC.L    MSX2MName105
@@ -5182,64 +4058,180 @@ MSX2NewMenu105:
     DC.W    0
     DC.L    0,0
 
+	MDICNT	NI_Tape
+	MDT	MT_Tools
+MSX2NewMenu_Tools:
+    DC.B    1,0
+    DC.L    MSX2MName_Tools
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Cheat
+MSX2NewMenu7:
+    DC.B    2,0
+    DC.L    MSX2MName7
+    DC.L    MSX2MComm7
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Debug
+MSX2NewMenu8:
+    DC.B    2,0
+    DC.L    MSX2MName8
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_LockCheats
+MSX2NewMenu43:
+    DC.B    2,0
+    DC.L    MSX2MName43
+    DC.L    MSX2MComm43
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_ToolsBar0
+MSX2NewMenu_ToolsBar0:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_SaveScreen
+MSX2NewMenu10:
+    DC.B    2,0
+    DC.L    MSX2MName10
+    DC.L    MSX2MComm10
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_SaveSprites
+MSX2NewMenu11:
+    DC.B    2,0
+    DC.L    MSX2MName11
+    DC.L    MSX2MComm11
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_ToolsBar1
+MSX2NewMenu_ToolsBar1:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_NewDisk
+MSX2NewMenu_NewDisk:
+    DC.B    2,0
+    DC.L    MSX2MName_NewDisk
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_Fmt2DD
+MSX2NewMenu61:
+    DC.B    3,0
+    DC.L    MSX2MName61
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_Fmt1DD
+MSX2NewMenu62:
+    DC.B    3,0
+    DC.L    MSX2MName62
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDSCNT	NS_NewDisk
+	MDICNT	NI_Tools
+	IFNE	NM_Menus-(_DM+1)
+	FAIL	"menu data: not NM_Menus menus"
+	ENDC
     DC.B    0,0
     DC.L    0,0
     DC.W    0
     DC.L    0,0
 
+MSX2MName_Tools:
+    DC.B    'Tools  ',0
+
+MSX2MName_Emulation:
+    DC.B    'Emulation  ',0
+
+MSX2MName_Speed:
+    DC.B    'Speed',0
+
+MSX2MName_SpeedN:
+    DC.B    'Normal',0
+
+MSX2MName_SpeedO:
+    DC.B    'Overclock',0
+
+MSX2MName_SpeedL:
+    DC.B    'No Limit',0
+
+MSX2MName_Mask:
+    DC.B    'Mask Screen Edges',0
+
+MSX2MName_Input:
+    DC.B    'Input  ',0
+
+MSX2MName_NewDisk:
+    DC.B    'New Blank Disk',0
+
+MSX2MName_Floppy:
+    DC.B    'Real MSX Floppy',0
+
 MSX2MName0:
-    DC.B    'Project   ',0
+    DC.B    'Project  ',0
 
 MSX2MName1:
-    DC.B    'About',0
+    DC.B    'About...',0
 
 MSX2MComm1:
     DC.B    'A',0
 
-MSX2MName2:
-    DC.B    'Register',0
-
-MSX2MComm2:
-    DC.B    '?',0
-
 MSX2MName4:
-    DC.B    'Screen mode',0
+    DC.B    'Amiga Video',0
 
 MSX2MName5:
-    DC.B    'Set PAL  (50Hz)',0
+    DC.B    'Menu in PAL',0
 
 MSX2MComm5:
     DC.B    '5',0
 
 MSX2MName6:
-    DC.B    'Set NTSC (60Hz)',0
+    DC.B    'Menu in NTSC',0
 
 MSX2MComm6:
     DC.B    '6',0
 
 MSX2MName7:
-    DC.B    'Cheat mode',0
+    DC.B    'Cheats and Pokes...',0
 
 MSX2MComm7:
     DC.B    'C',0
 
 MSX2MName8:
-    DC.B    'Debug mode',0
+    DC.B    'Debugger...',0
 
 MSX2MName10:
-    DC.B    'Save Screen',0
+    DC.B    'Save Screen as IFF...',0
 
 MSX2MComm10:
     DC.B    'V',0
 
 MSX2MName11:
-    DC.B    'Save Sprites',0
+    DC.B    'Save Sprites as IFF...',0
 
 MSX2MComm11:
     DC.B    'E',0
 
 MSX2MName13:
-    DC.B    'Save Prefs',0
+    DC.B    'Save Settings',0
 
 MSX2MComm13:
     DC.B    'P',0
@@ -5254,208 +4246,202 @@ MSX2MName16:
     DC.B    'Options   ',0
 
 MSX2MName17:
-    DC.B    'JoyStick 2 ON',0
+    DC.B    'MSX Joystick 2 in Mouse Port',0
 
 MSX2MComm17:
     DC.B    'J',0
 
 MSX2MName18:
-    DC.B    'Swap JoyPorts',0
+    DC.B    'Swap Joystick Ports',0
 
 MSX2MComm18:
     DC.B    'X',0
 
 MSX2MName18a:
-    DC.B    'JoyPort 2 (Joystick) Pad',0
+    DC.B    'Joystick Port',0
 
 MSX2MName18b:
     DC.B    'Standard (2 buttons)',0
 
 MSX2MName18c:
-    DC.B    'CD32 pad',0
+    DC.B    'CD32 Pad',0
 
 MSX2MName18d:
-    DC.B    'JoyPort 1 (Mouse port) Pad',0
+    DC.B    'Mouse Port',0
 
 MSX2MName20:
-    DC.B    'Multi-key ON',0
+    DC.B    'Multi-Key (A1200 keyboard)',0
 
 MSX2MComm20:
     DC.B    'M',0
 
 MSX2MName21:
-    DC.B    'DEL for Pause',0
+    DC.B    'DEL Pauses',0
 
 MSX2MComm21:
     DC.B    'D',0
 
 MSX2MName22:
-    DC.B    'Left  Shift as Space',0
+    DC.B    'Left Shift as Space',0
 
 MSX2MName23:
     DC.B    'Right Shift as Space',0
 
 MSX2MName25:
-    DC.B    'Use Japanese ID (60 Hz)',0
+    DC.B    'Japanese Machine (60 Hz)',0
 
 MSX2MName26:
-    DC.B    'Use Kanji ROM',0
-
-MSX2MName28:
-    DC.B    'MSX Virtual Disk',0
+    DC.B    'Kanji ROM',0
 
 MSX2MName29:
-    DC.B    'MVD: Write Protected',0
+    DC.B    'Write-Protect Disk Image',0
 
 MSX2MComm29:
     DC.B    'U',0
 
 MSX2MName31:
-    DC.B    'Warn on save to protected MVD',0
+    DC.B    'Warn if Protected',0
 
 MSX2MName32:
-    DC.B    'Warn when MVD: buffer has changed',0
-
-MSX2MName33:
-    DC.B    'Screen mode on exit',0
-
-MSX2MName34:
-    DC.B    'No Change',0
-
-MSX2MName35:
-    DC.B    'Force to PAL',0
-
-MSX2MName36:
-    DC.B    'Force to NTSC',0
+    DC.B    'Warn if Changed',0
 
 MSX2MName37:
-    DC.B    'Internal Emulation',0
+    DC.B    'Compatibility',0
 
 MSX2MName38:
-    DC.B    'Sprites Y coor. from Line interrupt',0
+    DC.B    'Sprites a Frame Late',0
 
 MSX2MName39:
-    DC.B    '100% Refresh in Screen Changes',0
-
-MSX2MName40:
-    DC.B    'Sprites collisions ON (always)',0
+    DC.B    'Full Redraw on Mode Change',0
 
 MSX2MName41:
-    DC.B    'VDP ''TR bit'' always ready',0
+    DC.B    'VDP Always Ready (TR bit)',0
 
 MSX2MName41b:
-    DC.B    'Mask screen edges: Off',0
+    DC.B    'Off',0
 
 MSX2MName41c:
-    DC.B    'Audio filter (less hiss)',0
+    DC.B    'Audio Filter (less hiss)',0
 
 MSX2MName41d:
-    DC.B    'Smooth display (fast CPUs)',0
+    DC.B    'Smooth Display (fast CPUs)',0
 
 MSX2MName41e:
-    DC.B    'Mask screen edges: 8 dots',0
+    DC.B    '8 dots',0
 
 MSX2MName41f:
-    DC.B    'Mask screen edges: 16 dots',0
-
-MSX2MName41g:
-    DC.B    'RTG scanlines: Off',0
-
-MSX2MName41h:
-    DC.B    'RTG scanlines: 25%',0
-
-MSX2MName41i:
-    DC.B    'RTG scanlines: 50%',0
-
-MSX2MName41j:
-    DC.B    'RTG scanlines: 75%',0
+    DC.B    '16 dots',0
 
 MSX2MName43:
-    DC.B    'Disable Cheats',0
+    DC.B    'Lock Cheats and Debugger',0
 
 MSX2MComm43:
     DC.B    'H',0
 
 MSX2MName44:
-    DC.B    'Ask for Reset',0
+    DC.B    'Confirm Reset',0
 
 MSX2MComm44:
     DC.B    'G',0
 
 MSX2MName45:
-    DC.B    'Overwrite',0
+    DC.B    'Always Overwrite',0
+
+MSX2MName45b:
+    DC.B    'RTG Scanlines',0
+
+MSX2MName45c:
+    DC.B    'Off',0
+
+MSX2MName45d:
+    DC.B    'Hard 25%',0
+
+MSX2MName45e:
+    DC.B    'Hard 50%',0
+
+MSX2MName45f:
+    DC.B    'Hard 75%',0
+
+MSX2MName45g:
+    DC.B    'Blended light',0
+
+MSX2MName45h:
+    DC.B    'Blended',0
+
+MSX2MName45i:
+    DC.B    'Blended strong',0
 
 MSX2MName46:
-    DC.B    'MSX Virtual Drive   ',0
+    DC.B    'Disks  ',0
 
 MSX2MName47:
-    DC.B    'Load Disk File',0
+    DC.B    'Load...',0
 
 MSX2MComm47:
     DC.B    'L',0
 
 MSX2MName48:
-    DC.B    'Save Disk File',0
+    DC.B    'Save...',0
 
 MSX2MComm48:
     DC.B    'S',0
 
 MSX2MName50:
-    DC.B    'Load MSX Disk',0
+    DC.B    'Read Floppy into Image...',0
 
 MSX2MComm50:
     DC.B    'O',0
 
 MSX2MName51:
-    DC.B    'Save MSX Disk',0
+    DC.B    'Write Image to Floppy...',0
 
 MSX2MComm51:
     DC.B    'W',0
 
 MSX2MName53:
-    DC.B    'Install MSX Boot',0
+    DC.B    'Install Boot Sector...',0
 
 MSX2MComm53:
     DC.B    'B',0
 
-MSX2MName54:
-    DC.B    'MSX Boot Type',0
-
 MSX2MName55:
-    DC.B    'Check',0
+    DC.B    'Boot Sector: Auto',0
 
 MSX2MComm55:
     DC.B    '0',0
 
 MSX2MName56:
-    DC.B    '1DD',0
+    DC.B    'Boot Sector: 1DD',0
 
 MSX2MComm56:
     DC.B    '1',0
 
 MSX2MName57:
-    DC.B    '2DD',0
+    DC.B    'Boot Sector: 2DD',0
 
 MSX2MComm57:
     DC.B    '2',0
 
-MSX2MName59:
-    DC.B    'Implode MVD',0
-
-MSX2MComm59:
-    DC.B    'I',0
-
 MSX2MName61:
-    DC.B    'Format MVD as 2DD',0
+    DC.B    '720K (2DD)',0
 
 MSX2MName62:
-    DC.B    'Format MVD as 1DD',0
+    DC.B    '360K (1DD)',0
 
 MSX2MName64:
-    DC.B    'Clear buffer (Eject)',0
+    DC.B    'Eject',0
+
+MSX2MName_DriveA:
+    DC.B    'Drive A',0
+
+MSX2MName_DriveB:
+    DC.B    'Drive B',0
+
+MSX2MName64c:
+    DC.B    'Eject',0
 
 MSX2MName64b:
-    DC.B    'Load Disk File into drive B',0
+    DC.B    'Load...',0
 
 MSX2MName65:
     DC.B    'Cartridges  ',0
@@ -5464,43 +4450,43 @@ MSX2MName66:
     DC.B    'Slot 1',0
 
 MSX2MName67:
-    DC.B    'Insert Cartridge',0
+    DC.B    'Insert...',0
 
 MSX2MName68:
-    DC.B    'Eject  Cartridge',0
+    DC.B    'Eject',0
 
 MSX2MName70:
-    DC.B    'Save Mapper ID',0
+    DC.B    'Remember Mapper for This ROM',0
 
 MSX2MName70b:
-    DC.B    'Save game settings',0
+    DC.B    'Save Game Settings',0
 
 MSX2MName70c:
-    DC.B    'Forget game settings',0
+    DC.B    'Forget Game Settings',0
 
 MSX2MName71:
-    DC.B    'Mapper',0
+    DC.B    'Slot 1 Mapper',0
 
 MSX2MName72:
-    DC.B    'No Mapper',0
+    DC.B    'None',0
 
 MSX2MName73:
-    DC.B    'Konami 1',0
+    DC.B    'Generic 16K',0
 
 MSX2MName74:
-    DC.B    'Konami 2',0
+    DC.B    'Konami',0
 
 MSX2MName75:
-    DC.B    'ASCII 1',0
+    DC.B    'ASCII 8K',0
 
 MSX2MName76:
-    DC.B    'ASCII 2',0
+    DC.B    'ASCII 16K',0
 
 MSX2MName77:
-    DC.B    'SCC 1',0
+    DC.B    'Konami SCC',0
 
 MSX2MName78:
-    DC.B    'SCC 2',0
+    DC.B    'Konami SCC (strict)',0
 
 MSX2MName78r:
     DC.B    'R-Type',0
@@ -5509,70 +4495,55 @@ MSX2MName80:
     DC.B    'Slot 2',0
 
 MSX2MName81:
-    DC.B    'Insert Cartridge',0
+    DC.B    'Insert...',0
 
 MSX2MName82:
-    DC.B    'Eject  Cartridge',0
+    DC.B    'Eject',0
 
 MSX2MName84:
-    DC.B    'Save Mapper ID',0
+    DC.B    'Remember Mapper for This ROM',0
 
 MSX2MName85:
-    DC.B    'Mapper',0
+    DC.B    'Slot 2 Mapper',0
 
 MSX2MName86:
-    DC.B    'No Mapper',0
+    DC.B    'None',0
 
 MSX2MName87:
-    DC.B    'Konami 1',0
+    DC.B    'Generic 16K',0
 
 MSX2MName88:
-    DC.B    'Konami 2',0
+    DC.B    'Konami',0
 
 MSX2MName89:
-    DC.B    'ASCII 1',0
+    DC.B    'ASCII 8K',0
 
 MSX2MName90:
-    DC.B    'ASCII 2',0
+    DC.B    'ASCII 16K',0
 
 MSX2MName91:
-    DC.B    'SCC 1',0
+    DC.B    'Konami SCC',0
 
 MSX2MName92:
-    DC.B    'SCC 2',0
+    DC.B    'Konami SCC (strict)',0
 
 MSX2MName92r:
     DC.B    'R-Type',0
-
-MSX2MName94:
-    DC.B    'Slot 3',0
-
-MSX2MName95:
-    DC.B    'Save Cartridge',0
-
-MSX2MName97:
-    DC.B    'Save Page 1',0
-
-MSX2MName98:
-    DC.B    'Save Page 2',0
-
-MSX2MName99:
-    DC.B    'Save Page 1 & 2',0
 
 MSX2MName100:
     DC.B    'Tape  ',0
 
 MSX2MName101:
-    DC.B    'Init Tape File',0
+    DC.B    'Rewind Tape',0
 
 MSX2MName102:
-    DC.B    'Load Tape File',0
+    DC.B    'Load Tape File...',0
 
 MSX2MName104:
-    DC.B    'Init Tape buffer',0
+    DC.B    'Start New Recording',0
 
 MSX2MName105:
-    DC.B    'Save Tape buffer',0
+    DC.B    'Save Recording...',0
 
     CNOP    0,2
 
@@ -5869,20 +4840,20 @@ MSX2Render:
     jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
-    move.w  #82,d0
+    move.w  #102,d0
     add.w   d4,d0
     move.w  #133,d1
     add.w   d5,d1
-    move.w  #228,d2
+    move.w  #208,d2
     move.w  #13,d3
     jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
-    move.w  #27,d0
+    move.w  #102,d0
     add.w   d4,d0
     move.w  #149,d1
     add.w   d5,d1
-    move.w  #143,d2
+    move.w  #208,d2
     move.w  #13,d3
     jsr     TallBevel
     move.l  a2,a0
@@ -6151,196 +5122,6 @@ MSX2NWnd:
     jsr     FreeGadgets(a6)
     move.l  #0,MSX2GList
 MSX2NGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
-InfoRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  InfoWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  InfoWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #28,d0
-    add.w   d4,d0
-    move.w  #39,d1
-    add.w   d5,d1
-    move.w  #326,d2
-    move.w  #68,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #26,d0
-    add.w   d4,d0
-    move.w  #38,d1
-    add.w   d5,d1
-    move.w  #330,d2
-    move.w  #70,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #9,d0
-    add.w   d4,d0
-    move.w  #4,d1
-    add.w   d5,d1
-    move.w  #363,d2
-    move.w  #123,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #13,d0
-    add.w   d4,d0
-    move.w  #6,d1
-    add.w   d5,d1
-    move.w  #355,d2
-    move.w  #119,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  InfoWnd,a0
-    move.l  50(a0),a0
-    lea.l   InfoText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenInfoWindow
-
-OpenInfoWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   InfoGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     InfoCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   InfoGTags,a4
-InfoGL:
-    move.l  _SysBase,a6
-    lea.l   InfoNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   InfoGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    InfoCOK
-    movem.w (sp)+,d2-d3
-    bra     InfoGError
-InfoCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   InfoGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-InfoTL:
-    tst.l   (a4)
-    beq.s   InfoDN
-    addq.w  #8,a4
-    bra.s   InfoTL
-InfoDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #Info_CNT,d3
-    bmi     InfoGL
-    movem.w (sp)+,d2-d3
-    move.l  InfoGList,InfoWG+4
-    move.l  Scr,InfoSC+4
-    moveq   #0,d0
-    move.w  InfoLeft,d0
-    move.l  d0,InfoL+4
-    move.w  InfoTop,d0
-    move.l  d0,InfoT+4
-    move.w  InfoWidth,d0
-    move.l  d0,InfoW+4
-    move.w  InfoHeight,d0
-    add.w   d3,d0
-    move.l  d0,InfoH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   InfoWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,InfoWnd
-    tst.l   d0
-    beq     InfoWError
-    move.l  _GadToolsBase,a6
-    move.l  InfoWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     InfoRender
-    moveq   #0,d0
-InfoDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-InfoCError:
-    moveq   #1,d0
-    bra.s   InfoDone
-InfoGError:
-    moveq   #2,d0
-    bra.s   InfoDone
-InfoWError:
-    moveq   #4,d0
-    bra.s   InfoDone
-
-CloseInfoWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  InfoWnd,a0
-    cmpa.l  #0,a0
-    beq     InfoNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,InfoWnd
-InfoNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  InfoGList,a0
-    cmpa.l  #0,a0
-    beq     InfoNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,InfoGList
-InfoNGad:
     movem.l (sp)+,d0-d1/a0-a2/a6
     rts
 
@@ -7473,178 +6254,6 @@ MSXvirtualNGad:
     movem.l (sp)+,d0-d1/a0-a2/a6
     rts
 
-ImploderRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  ImploderWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  ImploderWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #15,d0
-    add.w   d4,d0
-    move.w  #5,d1
-    add.w   d5,d1
-    move.w  #273,d2
-    move.w  #14,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #13,d0
-    add.w   d4,d0
-    move.w  #4,d1
-    add.w   d5,d1
-    move.w  #277,d2
-    move.w  #16,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  ImploderWnd,a0
-    move.l  50(a0),a0
-    lea.l   ImploderText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenImploderWindow
-
-OpenImploderWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   ImploderGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     ImploderCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   ImploderGTags,a4
-ImploderGL:
-    move.l  _SysBase,a6
-    lea.l   ImploderNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   ImploderGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    ImploderCOK
-    movem.w (sp)+,d2-d3
-    bra     ImploderGError
-ImploderCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   ImploderGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-ImploderTL:
-    tst.l   (a4)
-    beq.s   ImploderDN
-    addq.w  #8,a4
-    bra.s   ImploderTL
-ImploderDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #Imploder_CNT,d3
-    bmi     ImploderGL
-    movem.w (sp)+,d2-d3
-    move.l  ImploderGList,ImploderWG+4
-    move.l  Scr,ImploderSC+4
-    moveq   #0,d0
-    move.w  ImploderLeft,d0
-    move.l  d0,ImploderL+4
-    move.w  ImploderTop,d0
-    move.l  d0,ImploderT+4
-    move.w  ImploderWidth,d0
-    move.l  d0,ImploderW+4
-    move.w  ImploderHeight,d0
-    add.w   d3,d0
-    move.l  d0,ImploderH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   ImploderWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,ImploderWnd
-    tst.l   d0
-    beq     ImploderWError
-    move.l  _GadToolsBase,a6
-    move.l  ImploderWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     ImploderRender
-    moveq   #0,d0
-ImploderDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-ImploderCError:
-    moveq   #1,d0
-    bra.s   ImploderDone
-ImploderGError:
-    moveq   #2,d0
-    bra.s   ImploderDone
-ImploderWError:
-    moveq   #4,d0
-    bra.s   ImploderDone
-
-CloseImploderWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  ImploderWnd,a0
-    cmpa.l  #0,a0
-    beq     ImploderNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,ImploderWnd
-ImploderNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  ImploderGList,a0
-    cmpa.l  #0,a0
-    beq     ImploderNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,ImploderGList
-ImploderNGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
 QuitMVDRender:
     movem.l d0-d5/a0-a2/a6,-(sp)
     move.l  QuitMVDWnd,a0
@@ -7986,368 +6595,6 @@ DelMVDNWnd:
     jsr     FreeGadgets(a6)
     move.l  #0,DelMVDGList
 DelMVDNGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
-OutTimeRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  OutTimeWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  OutTimeWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #9,d0
-    add.w   d4,d0
-    move.w  #4,d1
-    add.w   d5,d1
-    move.w  #245,d2
-    move.w  #59,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #7,d0
-    add.w   d4,d0
-    move.w  #3,d1
-    add.w   d5,d1
-    move.w  #249,d2
-    move.w  #61,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  OutTimeWnd,a0
-    move.l  50(a0),a0
-    lea.l   OutTimeText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenOutTimeWindow
-
-OpenOutTimeWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   OutTimeGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     OutTimeCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   OutTimeGTags,a4
-OutTimeGL:
-    move.l  _SysBase,a6
-    lea.l   OutTimeNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   OutTimeGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    OutTimeCOK
-    movem.w (sp)+,d2-d3
-    bra     OutTimeGError
-OutTimeCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   OutTimeGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-OutTimeTL:
-    tst.l   (a4)
-    beq.s   OutTimeDN
-    addq.w  #8,a4
-    bra.s   OutTimeTL
-OutTimeDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #OutTime_CNT,d3
-    bmi     OutTimeGL
-    movem.w (sp)+,d2-d3
-    move.l  OutTimeGList,OutTimeWG+4
-    move.l  Scr,OutTimeSC+4
-    moveq   #0,d0
-    move.w  OutTimeLeft,d0
-    move.l  d0,OutTimeL+4
-    move.w  OutTimeTop,d0
-    move.l  d0,OutTimeT+4
-    move.w  OutTimeWidth,d0
-    move.l  d0,OutTimeW+4
-    move.w  OutTimeHeight,d0
-    add.w   d3,d0
-    move.l  d0,OutTimeH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   OutTimeWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,OutTimeWnd
-    tst.l   d0
-    beq     OutTimeWError
-    move.l  _GadToolsBase,a6
-    move.l  OutTimeWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     OutTimeRender
-    moveq   #0,d0
-OutTimeDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-OutTimeCError:
-    moveq   #1,d0
-    bra.s   OutTimeDone
-OutTimeGError:
-    moveq   #2,d0
-    bra.s   OutTimeDone
-OutTimeWError:
-    moveq   #4,d0
-    bra.s   OutTimeDone
-
-CloseOutTimeWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  OutTimeWnd,a0
-    cmpa.l  #0,a0
-    beq     OutTimeNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,OutTimeWnd
-OutTimeNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  OutTimeGList,a0
-    cmpa.l  #0,a0
-    beq     OutTimeNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,OutTimeGList
-OutTimeNGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
-ShareInfoRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  ShareInfoWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  ShareInfoWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #24,d0
-    add.w   d4,d0
-    move.w  #37,d1
-    add.w   d5,d1
-    move.w  #304,d2
-    move.w  #44,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #22,d0
-    add.w   d4,d0
-    move.w  #36,d1
-    add.w   d5,d1
-    move.w  #308,d2
-    move.w  #46,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #9,d0
-    add.w   d4,d0
-    move.w  #4,d1
-    add.w   d5,d1
-    move.w  #334,d2
-    move.w  #122,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #13,d0
-    add.w   d4,d0
-    move.w  #6,d1
-    add.w   d5,d1
-    move.w  #326,d2
-    move.w  #118,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  ShareInfoWnd,a0
-    move.l  50(a0),a0
-    lea.l   ShareInfoText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenShareInfoWindow
-
-OpenShareInfoWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   ShareInfoGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     ShareInfoCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   ShareInfoGTags,a4
-ShareInfoGL:
-    move.l  _SysBase,a6
-    lea.l   ShareInfoNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   ShareInfoGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    ShareInfoCOK
-    movem.w (sp)+,d2-d3
-    bra     ShareInfoGError
-ShareInfoCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   ShareInfoGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-ShareInfoTL:
-    tst.l   (a4)
-    beq.s   ShareInfoDN
-    addq.w  #8,a4
-    bra.s   ShareInfoTL
-ShareInfoDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #ShareInfo_CNT,d3
-    bmi     ShareInfoGL
-    movem.w (sp)+,d2-d3
-    move.l  ShareInfoGList,ShareInfoWG+4
-    move.l  Scr,ShareInfoSC+4
-    moveq   #0,d0
-    move.w  ShareInfoLeft,d0
-    move.l  d0,ShareInfoL+4
-    move.w  ShareInfoTop,d0
-    move.l  d0,ShareInfoT+4
-    move.w  ShareInfoWidth,d0
-    move.l  d0,ShareInfoW+4
-    move.w  ShareInfoHeight,d0
-    add.w   d3,d0
-    move.l  d0,ShareInfoH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   ShareInfoWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,ShareInfoWnd
-    tst.l   d0
-    beq     ShareInfoWError
-    move.l  _GadToolsBase,a6
-    move.l  ShareInfoWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     ShareInfoRender
-    moveq   #0,d0
-ShareInfoDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-ShareInfoCError:
-    moveq   #1,d0
-    bra.s   ShareInfoDone
-ShareInfoGError:
-    moveq   #2,d0
-    bra.s   ShareInfoDone
-ShareInfoWError:
-    moveq   #4,d0
-    bra.s   ShareInfoDone
-
-CloseShareInfoWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  ShareInfoWnd,a0
-    cmpa.l  #0,a0
-    beq     ShareInfoNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,ShareInfoWnd
-ShareInfoNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  ShareInfoGList,a0
-    cmpa.l  #0,a0
-    beq     ShareInfoNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,ShareInfoGList
-ShareInfoNGad:
     movem.l (sp)+,d0-d1/a0-a2/a6
     rts
 
@@ -8728,232 +6975,6 @@ PokeNWnd:
     jsr     FreeGadgets(a6)
     move.l  #0,PokeGList
 PokeNGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
-RegisterRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  RegisterWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  RegisterWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #324,d0
-    add.w   d4,d0
-    move.w  #85,d1
-    add.w   d5,d1
-    move.w  #218,d2
-    move.w  #52,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #322,d0
-    add.w   d4,d0
-    move.w  #84,d1
-    add.w   d5,d1
-    move.w  #222,d2
-    move.w  #54,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #15,d0
-    add.w   d4,d0
-    move.w  #163,d1
-    add.w   d5,d1
-    move.w  #527,d2
-    move.w  #23,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #13,d0
-    add.w   d4,d0
-    move.w  #162,d1
-    add.w   d5,d1
-    move.w  #531,d2
-    move.w  #25,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #14,d0
-    add.w   d4,d0
-    move.w  #85,d1
-    add.w   d5,d1
-    move.w  #299,d2
-    move.w  #73,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #12,d0
-    add.w   d4,d0
-    move.w  #84,d1
-    add.w   d5,d1
-    move.w  #303,d2
-    move.w  #75,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #13,d0
-    add.w   d4,d0
-    move.w  #5,d1
-    add.w   d5,d1
-    move.w  #529,d2
-    move.w  #75,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #11,d0
-    add.w   d4,d0
-    move.w  #4,d1
-    add.w   d5,d1
-    move.w  #533,d2
-    move.w  #77,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  RegisterWnd,a0
-    move.l  50(a0),a0
-    lea.l   RegisterText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenRegisterWindow
-
-OpenRegisterWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   RegisterGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     RegisterCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   RegisterGTags,a4
-RegisterGL:
-    move.l  _SysBase,a6
-    lea.l   RegisterNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   RegisterGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    RegisterCOK
-    movem.w (sp)+,d2-d3
-    bra     RegisterGError
-RegisterCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   RegisterGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-RegisterTL:
-    tst.l   (a4)
-    beq.s   RegisterDN
-    addq.w  #8,a4
-    bra.s   RegisterTL
-RegisterDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #Register_CNT,d3
-    bmi     RegisterGL
-    movem.w (sp)+,d2-d3
-    move.l  RegisterGList,RegisterWG+4
-    move.l  Scr,RegisterSC+4
-    moveq   #0,d0
-    move.w  RegisterLeft,d0
-    move.l  d0,RegisterL+4
-    move.w  RegisterTop,d0
-    move.l  d0,RegisterT+4
-    move.w  RegisterWidth,d0
-    move.l  d0,RegisterW+4
-    move.w  RegisterHeight,d0
-    add.w   d3,d0
-    move.l  d0,RegisterH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   RegisterWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,RegisterWnd
-    tst.l   d0
-    beq     RegisterWError
-    move.l  _GadToolsBase,a6
-    move.l  RegisterWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     RegisterRender
-    moveq   #0,d0
-RegisterDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-RegisterCError:
-    moveq   #1,d0
-    bra.s   RegisterDone
-RegisterGError:
-    moveq   #2,d0
-    bra.s   RegisterDone
-RegisterWError:
-    moveq   #4,d0
-    bra.s   RegisterDone
-
-CloseRegisterWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  RegisterWnd,a0
-    cmpa.l  #0,a0
-    beq     RegisterNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,RegisterWnd
-RegisterNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  RegisterGList,a0
-    cmpa.l  #0,a0
-    beq     RegisterNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,RegisterGList
-RegisterNGad:
     movem.l (sp)+,d0-d1/a0-a2/a6
     rts
 
@@ -9862,178 +7883,6 @@ UnProtectNGad:
     movem.l (sp)+,d0-d1/a0-a2/a6
     rts
 
-PasswordRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  PasswordWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  PasswordWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #11,d0
-    add.w   d4,d0
-    move.w  #5,d1
-    add.w   d5,d1
-    move.w  #241,d2
-    move.w  #43,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #9,d0
-    add.w   d4,d0
-    move.w  #4,d1
-    add.w   d5,d1
-    move.w  #245,d2
-    move.w  #45,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  PasswordWnd,a0
-    move.l  50(a0),a0
-    lea.l   PasswordText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenPasswordWindow
-
-OpenPasswordWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   PasswordGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     PasswordCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   PasswordGTags,a4
-PasswordGL:
-    move.l  _SysBase,a6
-    lea.l   PasswordNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   PasswordGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    PasswordCOK
-    movem.w (sp)+,d2-d3
-    bra     PasswordGError
-PasswordCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   PasswordGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-PasswordTL:
-    tst.l   (a4)
-    beq.s   PasswordDN
-    addq.w  #8,a4
-    bra.s   PasswordTL
-PasswordDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #Password_CNT,d3
-    bmi     PasswordGL
-    movem.w (sp)+,d2-d3
-    move.l  PasswordGList,PasswordWG+4
-    move.l  Scr,PasswordSC+4
-    moveq   #0,d0
-    move.w  PasswordLeft,d0
-    move.l  d0,PasswordL+4
-    move.w  PasswordTop,d0
-    move.l  d0,PasswordT+4
-    move.w  PasswordWidth,d0
-    move.l  d0,PasswordW+4
-    move.w  PasswordHeight,d0
-    add.w   d3,d0
-    move.l  d0,PasswordH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   PasswordWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,PasswordWnd
-    tst.l   d0
-    beq     PasswordWError
-    move.l  _GadToolsBase,a6
-    move.l  PasswordWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     PasswordRender
-    moveq   #0,d0
-PasswordDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-PasswordCError:
-    moveq   #1,d0
-    bra.s   PasswordDone
-PasswordGError:
-    moveq   #2,d0
-    bra.s   PasswordDone
-PasswordWError:
-    moveq   #4,d0
-    bra.s   PasswordDone
-
-ClosePasswordWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  PasswordWnd,a0
-    cmpa.l  #0,a0
-    beq     PasswordNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,PasswordWnd
-PasswordNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  PasswordGList,a0
-    cmpa.l  #0,a0
-    beq     PasswordNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,PasswordGList
-PasswordNGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
 AboutRender:
     movem.l d0-d5/a0-a2/a6,-(sp)
     move.l  AboutWnd,a0
@@ -10206,180 +8055,7 @@ AboutNGad:
     movem.l (sp)+,d0-d1/a0-a2/a6
     rts
 
-AddressRender:
-    movem.l d0-d5/a0-a2/a6,-(sp)
-    move.l  AddressWnd,a0
-    move.b  54(a0),d4
-    ext.w   d4
-    move.b  55(a0),d5
-    ext.w   d5
-    move.l  VisualInfo,NR+4
-    move.l  VisualInfo,IR+4
-    move.l  _GadToolsBase,a6
-    move.l  AddressWnd,a0
-    move.l  50(a0),a2
-    move.l  a2,a0
-    lea.l   NR,a1
-    move.w  #13,d0
-    add.w   d4,d0
-    move.w  #5,d1
-    add.w   d5,d1
-    move.w  #334,d2
-    move.w  #159,d3
-    jsr     TallBevel
-    move.l  a2,a0
-    lea.l   IR,a1
-    move.w  #17,d0
-    add.w   d4,d0
-    move.w  #7,d1
-    add.w   d5,d1
-    move.w  #326,d2
-    move.w  #155,d3
-    jsr     TallBevel
-    move.l  _IntuitionBase,a6
-    move.l  AddressWnd,a0
-    move.l  50(a0),a0
-    lea.l   AddressText0,a1
-    move.l  d4,d0
-    move.l  d5,d1
-    jsr     TallIText
-    movem.l (sp)+,d0-d5/a0-a2/a6
-    rts
-
-    XDEF    OpenAddressWindow
-
-OpenAddressWindow:
-    movem.l d1-d4/a0-a4/a6,-(sp)
-    move.l  Scr,a0
-    moveq   #0,d3
-    moveq   #0,d2
-    move.b  36(a0),d2
-    move.l  40(a0),a1
-    move.w  4(a1),d3
-    addq.w  #1,d3
-    add.b   35(a0),d0
-    ext.w   d0
-    add.w   d0,d3
-    move.l  _GadToolsBase,a6
-    lea.l   AddressGList,a0
-    jsr     CreateContext(a6)
-    move.l  d0,a3
-    tst.l   d0
-    beq     AddressCError
-    movem.w d2-d3,-(sp)
-    moveq   #0,d3
-    lea.l   AddressGTags,a4
-AddressGL:
-    move.l  _SysBase,a6
-    lea.l   AddressNGads,a0
-    move.l  d3,d0
-    mulu    #30,d0
-    add.l   d0,a0
-    lea.l   BufNewGad,a1
-    moveq   #30,d0
-    jsr     CopyMem(a6)
-    lea.l   BufNewGad,a0
-    move.l  VisualInfo,22(a0)
-    move.l  #topaz8,12(a0)
-    move.w  (a0),d0
-    add.w   (sp),d0
-    move.w  d0,(a0)
-    jsr     TallNG
-    move.w  2(a0),d0
-    add.w   2(sp),d0
-    move.w  d0,2(a0)
-    move.l  _GadToolsBase,a6
-    lea.l   AddressGTypes,a0
-    moveq   #0,d0
-    move.l  d3,d1
-    asl.l   #1,d1
-    add.l   d1,a0
-    move.w  (a0),d0
-    move.l  a3,a0
-    lea.l   BufNewGad,a1
-    move.l  a4,a2
-    jsr     CreateGadgetA(a6)
-    tst.l   d0
-    bne.s    AddressCOK
-    movem.w (sp)+,d2-d3
-    bra     AddressGError
-AddressCOK:
-    move.l  d0,a3
-    move.l  d3,d0
-    asl.l   #2,d0
-    lea.l   AddressGadgets,a0
-    add.l   d0,a0
-    move.l  a3,(a0)
-AddressTL:
-    tst.l   (a4)
-    beq.s   AddressDN
-    addq.w  #8,a4
-    bra.s   AddressTL
-AddressDN:
-    addq.w  #4,a4
-    addq.w  #1,d3
-    cmp.w   #Address_CNT,d3
-    bmi     AddressGL
-    movem.w (sp)+,d2-d3
-    move.l  AddressGList,AddressWG+4
-    move.l  Scr,AddressSC+4
-    moveq   #0,d0
-    move.w  AddressLeft,d0
-    move.l  d0,AddressL+4
-    move.w  AddressTop,d0
-    move.l  d0,AddressT+4
-    move.w  AddressWidth,d0
-    move.l  d0,AddressW+4
-    move.w  AddressHeight,d0
-    add.w   d3,d0
-    move.l  d0,AddressH+4
-    move.l  _IntuitionBase,a6
-    suba.l  a0,a0
-    lea.l   AddressWindowTags,a1
-    jsr     OpenWindowTagList(a6)
-    move.l  d0,AddressWnd
-    tst.l   d0
-    beq     AddressWError
-    move.l  _GadToolsBase,a6
-    move.l  AddressWnd,a0
-    suba.l  a1,a1
-    jsr     GT_RefreshWindow(a6)
-    jsr     AddressRender
-    moveq   #0,d0
-AddressDone:
-    movem.l (sp)+,d1-d4/a0-a4/a6
-    rts
-AddressCError:
-    moveq   #1,d0
-    bra.s   AddressDone
-AddressGError:
-    moveq   #2,d0
-    bra.s   AddressDone
-AddressWError:
-    moveq   #4,d0
-    bra.s   AddressDone
-
-CloseAddressWindow:
-    movem.l d0-d1/a0-a2/a6,-(sp)
-    move.l  _IntuitionBase,a6
-    move.l  AddressWnd,a0
-    cmpa.l  #0,a0
-    beq     AddressNWnd
-    jsr     CloseWindow(a6)
-    move.l  #0,AddressWnd
-AddressNWnd:
-    move.l  _GadToolsBase,a6
-    move.l  AddressGList,a0
-    cmpa.l  #0,a0
-    beq     AddressNGad
-    jsr     FreeGadgets(a6)
-    move.l  #0,AddressGList
-AddressNGad:
-    movem.l (sp)+,d0-d1/a0-a2/a6
-    rts
-
     XDEF    OpenMatraWindow
-
 OpenMatraWindow:
     movem.l d1-d4/a0-a4/a6,-(sp)
     move.l  Scr,a0

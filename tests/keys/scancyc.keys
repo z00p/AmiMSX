@@ -1,0 +1,14 @@
+# RTG scanline check (SCANCYC test builds): the generic play script, and a SNAP
+# every 2 s from 42 s; after each SNAP the build steps to the next of the seven
+# choices (Off, Hard 25/50/75, Blended light/normal/strong), then Off again; then
+# HELP (back to the menu: RTGSHOT builds write AmiMSX:rtgshot.raw there).
+include play.keys
+42s SNAP 60
+44s SNAP 60
+46s SNAP 60
+48s SNAP 60
+50s SNAP 60
+52s SNAP 60
+54s SNAP 60
+56s SNAP 60
+58s HELP

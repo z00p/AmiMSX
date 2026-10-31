@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.5 (30.10.2026)
+@version $VER: AmiMSX.guide 4.5 (31.10.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.5 beta
+                          AmiMSX Emulator v4.5
                           ( 30.10.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -66,14 +66,14 @@ https://github.com/z00p/AmiMSX/issues
       an edge mask of 8 or 16 dots for games that scroll sideways.
 
     - Options:  Use Japanese ID (60 Hz), Mask screen edges (Off, 8 or
-      16 dots), Audio filter, Smooth display.  (See @{"Options Menu" link MenuOpt}.)
+      16 dots), Audio filter, Smooth display.  (See @{"Emulation Menu" link MenuOpt}.)
 
     - Cartridges:  mapper from a ROM database, 8Kb, 48/64Kb and 4Mb
       ROMs, flash Konami SCC cartridges with saves, per-game settings.
       (See @{"Cartridges Menu" link MenuCar}.)
 
     - Disks:  drive B with its own disk image, disk swap with Left Amiga.
-      (See @{"MSX Virtual Drive Menu" link MenuMVD}.)
+      (See @{"Disks Menu" link MenuMVD}.)
 
     - Two @{"presets" link Presets}: one for a 68030, one for PiStorm and
       other fast CPUs.
@@ -97,7 +97,7 @@ https://github.com/z00p/AmiMSX/issues
 @{fg text}    --------
 
     Start AmiMSX from one of the three preset icons.  Each one has its own
-settings file, and Save Prefs writes to the preset you started.
+settings file, and Save Settings writes to the preset you started.
 
 @{fg highlight}    <*> AmiMSX 030:
 @{fg text}    ---------------
@@ -108,8 +108,8 @@ Fast memory.  PSG, PAL, sprites every frame.
 @{fg highlight}    <*> AmiMSX PiStorm:
 @{fg text}    -------------------
 
-    PiStorm (Emu68), BigMig and other fast CPUs.  PSG+FM, Frequence
-[From VDP] (60 Hz games in NTSC, at full speed), Use Japanese ID (60 Hz),
+    PiStorm (Emu68), BigMig and other fast CPUs.  PSG+FM, Display
+[Auto] (60 Hz games in NTSC, at full speed), Use Japanese ID (60 Hz),
 Audio filter and Smooth display.
 
 @{fg highlight}    <*> AmiMSX RTG:  (beta)
@@ -118,10 +118,14 @@ Audio filter and Smooth display.
     The PiStorm preset on a Picasso96 (RTG) screen, such as the PiStorm's
 HDMI output:  every MSX dot is 2x2 pixels (960x540 is an exact 2x on a
 1080p display), the menu is drawn at double height, and every second row
-is 50% darker (scanlines).  SCREEN 1, 2, 4, 5 and 8 are drawn on RTG;
-frames in other modes, and screens split between SCREEN 5 and 8, still go
-to the Amiga's own video output, and the RTG screen keeps its last
-picture (black after a second).  Needs Picasso96 and a 16 or 32-bit mode.
+is 50% darker (scanlines).  SCREEN 0 (40 and 80 columns) and 1 to 8 are
+drawn on RTG, the MSX2 boot animation and screens split between two
+modes (Manbow 2's title) included.  SCREEN 5 and 7 need "100% Refresh in
+Screen Changes" on (the default); without it those frames go to the
+Amiga's own video output, and the RTG screen keeps its last picture
+(black after a second).  On a screen under 544x460 (1x picture) SCREEN 6,
+7 and 80-column text show every other dot.  Needs Picasso96 and a 16 or
+32-bit mode.
 
 @{fg highlight}    <*> ToolType RTG:
 @{fg text}    -----------------
@@ -132,13 +136,15 @@ picture (black after a second).  Needs Picasso96 and a 16 or 32-bit mode.
 @{fg text}    ---------------------------
 
     With RTG:  every second row of the picture n% darker (0 to 90;
-SCANLINES alone is 50).  The Options menu changes it until AmiMSX quits.
+SCANLINES alone is 50).  SCANLINES=blendlight, blend or blendstrong
+chooses blended scanlines instead.  The ToolType is used while the
+settings file has no scanline choice saved (see Emulation > RTG Scanlines).
 
 @{fg highlight}    <*> ToolType PREFS=<file>:
 @{fg text}    --------------------------
 
     Chooses the settings file.  A relative name is taken from the icon's
-drawer.  Without it, AmiMSX uses S:MSX2emulator.prefs.
+drawer.  Without it, AmiMSX uses S:AmiMSX2.prefs.
 
 @endnode
 
@@ -155,7 +161,7 @@ drawer.  Without it, AmiMSX uses S:MSX2emulator.prefs.
     - MSX2 Overscan support. (256x224 pixels)  (Sex Bomb Bunny)
     - Screen 2 and 4 ONE tile bank support.  (Ark-A-Noah)
     - Screen 8 Sprites are now emulated with your real colours.
-    - Syncronized CPU emulation. (Real / Fast / Turbo modes)
+    - Syncronized CPU emulation. (Normal / Overclock / No Limit)
     - 100% Compatible with all Motorola Procesors. (020/030/040/060)
     - Full support of Line Interrupts.
 
@@ -246,13 +252,18 @@ THIS SOFTWARE...
 @{fg text}                           <=-----------------=>
 
                           @{"Project Menu          " link MenuPro}
-                          @{"Options Menu          " link MenuOpt}
-                          @{"MSX Virtual Drive Menu" link MenuMVD}
+                          @{"Emulation Menu        " link MenuOpt}
+                          @{"Input Menu            " link MenuInp}
+                          @{"Disks Menu            " link MenuMVD}
                           @{"Cartridges Menu       " link MenuCar}
+                          @{"Tape Menu             " link MenuTape}
+                          @{"Tools Menu            " link MenuTools}
                           @{"Main Window           " link FinestraPrin}
-                          @{"Imploder Window       " link FinestraImp}
                           @{"Cheat Window          " link FinestraPoke}
                           @{"RAMSX: Drive          " link RAMSX}
+
+    The menus were rearranged in 4.6.  Where a line was renamed, its old
+name is given in brackets.
 @endnode
 
 
@@ -261,459 +272,523 @@ THIS SOFTWARE...
 @{fg highlight}    Project Menu:
 @{fg text}    -------------
 
-@{fg highlight}    <*> About:
-@{fg text}    ----------
+@{fg highlight}    <*> About... (A)
+@{fg text}    ----------------
 
     Information about the author and credits.
 
-@{fg highlight}    <*> Screen mode:
-@{fg text}    ----------------
+@{fg highlight}    <*> Save Settings (P):  [Save Prefs]
+@{fg text}    ------------------------------------
 
-    Set menu screen in PAL or NTSC.
+    Saves the settings and the MSX2 clock battery in S:AmiMSX2.prefs, or
+in the file named by the icon's PREFS ToolType.  (See @{"Presets" link Presets}.)
 
-@{fg highlight}    <*> Save Screen:
-@{fg text}    ----------------
+@{fg highlight}    <*> Save Game Settings:  [Save game settings]
+@{fg text}    ---------------------------------------------
 
-    Save the emulated screen like a IFF-ILBM file.
+    Saves the sound chip, sprite refresh, edge mask, audio filter, the
+pads and the machine next to the Slot 1 cartridge, as <cartridge>.prefs.
+They are used whenever this cartridge is inserted.  Without them, a Konami
+SCC cartridge gets the SCC sound chip.
 
-@{fg highlight}    <*> Cheat mode:
-@{fg text}    ---------------
+@{fg highlight}    <*> Forget Game Settings:  [Forget game settings]
+@{fg text}    -------------------------------------------------
 
-    For finding/setting cheat pokes in the MSX2 emulation.
+    Deletes that file and brings back the global settings.
 
-@{fg highlight}    <*> Save Prefs:
-@{fg text}    ---------------
+@{fg highlight}    <*> Confirm Reset (G):  [Ask for Reset]
+@{fg text}    ---------------------------------------
 
-    Save preferences and MSX2 clock battery in S:MSX2emulator.prefs, or in
-the file named by the icon's PREFS ToolType.  (See @{"Presets" link Presets}.)
+    Asks before Reset or Power ON throws away a running MSX.
 
-@{fg highlight}    <*> Quit:
-@{fg text}    ---------
+@{fg highlight}    <*> Always Overwrite:  [Overwrite]
+@{fg text}    ----------------------------------
 
-    To quit the emulator.
+    Ticked:  saving over an existing file does not ask first.
+
+@{fg highlight}    <*> Quit (Q):
+@{fg text}    -------------
+
+    To quit the emulator.  (The same as the Exit button.)
 
 @endnode
 
 @node MenuOpt "AmiMSX Emulator."
 
-@{fg highlight}    Options menu:
-@{fg text}    -------------
+@{fg highlight}    Emulation menu:
+@{fg text}    ---------------
 
-@{fg highlight}    <*> Joystick 2 ON:
-@{fg text}    ------------------
+@{fg highlight}    <*> Speed:  [Emulation Speed]
+@{fg text}    -----------------------------
 
-    To activate emulation of the second MSX Joystick.  (It must be
-connected in the Amiga's mouse connector.)
+    How the MSX's time is kept against the Amiga's.  Saved with the
+settings.
 
-    Note:  This menu needs to be disabled for MSX mouse emulation.
+    - Normal:  [Real MSX]  real MSX speed.  AmiMSX runs one MSX frame, then
+waits for the Amiga's frame timer.  If the Amiga can't finish a frame in
+time, the game slows down.  This is the one to use.
 
-    Caution:  If this menu is activated and your Amiga mouse is connected
-some games will not work well.
+    - Overclock:  [Fast CPU]  the frame rate stays the same, so games keep
+their speed, but whatever time is left in a frame goes on extra Z80 code
+(AmiMSX keeps running Z80 lines after the visible picture until the frame's
+time is up).  Games that slow down when the screen gets busy, even on a real
+MSX, slow down less.  It costs nothing in picture or sound, but the Amiga
+never rests, and on an Amiga with no time to spare it changes nothing.  A
+program that measures the Z80 will see a faster machine.
 
+    - No Limit:  [Turbo Mode]  AmiMSX doesn't wait for the frame timer, so
+games run as fast as the Amiga can take them, and their music with them.
+Too fast to play on a fast CPU:  it's for skipping intros and long loads.
 
-@{fg highlight}    <*> Swap JoyPorts:
-@{fg text}    ------------------
-
-    Change JoyPorts A and B of MSX.
-
-
-@{fg highlight}    <*> JoyPort 2 (Joystick) Pad / JoyPort 1 (Mouse port) Pad:
-@{fg text}    ----------------------------------------------------------
-
-    What is plugged into each Amiga port:  Standard (2 buttons), the
-plain joystick read, or CD32 pad.  New in 4.1.1.  With CD32 pad the
-port is read with the CD32 protocol every frame, no questions asked
-(there is no auto-detection: it failed on real pads and adapters):
-red = MSX firebutton 1, blue = firebutton 2, yellow = Space, green =
-M, play = F1.  The shoulder buttons do nothing.  Choose Standard for
-a joystick or a mouse in that port.  Saved with the prefs and in a
-game's own settings.
-
-
-@{fg highlight}    <*> Multi-key ON:
-@{fg text}    -----------------
-
-    There is a bug in the Amiga 1200 keyboard, and some keys can't be
-pressed together.  To solve this, you can activate this menu and then
-press all keys you want separately.  MSX rom will think that you are
-pressing all keys at the same time until you disable this menu.
-
-
-@{fg highlight}    <*> Left and Right Shift as Space:
-@{fg text}    ----------------------------------
-
-    Will emulate Left or Right Shift keys as Space.  (To solve the A1200
-Space and Down key bug.)
-
-
-@{fg highlight}    <*> DEL for Pause:
-@{fg text}    ------------------
-
-    Amiga's DEL key will pause the emulation if this menu is enabled.
-    To exit pause press DEL key again.
-
-
-@{fg highlight}    <*> Ask for Reset:
-@{fg text}    ---------------------
-
-    If this menu is enabled the emulation will ask for a confirmation
-when you click on Power ON.
-
-
-@{fg highlight}    <*> Use Japanese ID (60 Hz):
-@{fg text}    ----------------------------
+@{fg highlight}    <*> Japanese Machine (60 Hz):  [Use Japanese ID (60 Hz)]
+@{fg text}    --------------------------------------------------------
 
     The BIOS reports a Japanese machine and starts at 60 Hz, as the
-machines most games were written for.  With Frequence [From VDP] the
+machines most games were written for.  With Display [Auto] the
 display follows.  Off:  an international machine at 50 Hz.  It applies to
 MSX, MSX2 and MSX2+.
-
 
 @{fg highlight}    <*> Kanji ROM:
 @{fg text}    --------------
 
     Emulates MSX Kanji ROM.
 
+@{fg highlight}    <*> Audio Filter (less hiss):
+@{fg text}    -----------------------------
 
-@{fg highlight}    <*> MSX Virtual Disk:
-@{fg text}    ---------------------
+    Keeps the Amiga's low-pass filter on while a game runs, for less hiss
+from the FM and PSG sound.  The power LED stays lit.
 
-    - MVD: Write Protected:  Disk in MVD:  will be write-protected.
+@{fg highlight}    <*> Mask Screen Edges:  Off / 8 dots / 16 dots
+@{fg text}    ----------------------------------------------
 
-    - Warn on save to protected MVD:  Emulation is stopped when you atten
-to save in a Write-Pretected MVD.
+    Hides that many dots at each side of the picture, where games that
+scroll sideways redraw columns.  (A TV's overscan hid them on a real MSX.)
+Off, the default, shows the whole picture, as openMSX does.  8 dots covers
+the columns most games redraw (Lilly's Saga); 16 dots is for wider ones.
+Text screens (SCREEN 0, 40 and 80 columns) are never masked.  The MSX2+
+left mask (V9958 R#25) is always shown: it is part of the machine.
 
-    - Warn when MVD:  buffer is changed:  AmiMSX warn if MVD has been
-changed when you press HELP key.  This is to remenber save MVD in your
-harddisk.
+    The edge mask and the audio filter are kept in a game's own settings
+too.  (See @{"Project Menu" link MenuPro}.)
 
+@{fg highlight}    <*> Smooth Display (fast CPUs):
+@{fg text}    -------------------------------
 
-@{fg highlight}    <*> Screen Mode on Exit:
-@{fg text}    ------------------------
+    SCREEN 4 is double-buffered, so each frame is shown complete.  Needs a
+fast CPU and about 90Kb more Chip memory.  Other screen modes are not
+changed.
 
-    The display timing AmiMSX leaves when you quit: Force PAL, Force
-NTSC, or No Change (the default), which puts back the Amiga's own
-timing (PAL on a PAL machine).  A 60 Hz MSX game switches the Amiga to
-NTSC timing; before 4.2 'No Change' left it there, so PAL screens opened
-afterwards lost their bottom lines.
+@{fg highlight}    <*> RTG Scanlines:
+@{fg text}    ------------------
 
+    With the RTG preset (see @{"Presets" link Presets}):
 
-@{fg highlight}    <*> Internal Emulation (4.0 options):
-@{fg text}    -------------------------------------
+    - Off:  no scanlines.
 
-    - Mask screen edges:  Off, 8 dots or 16 dots.  Hides that many dots
-at each side of the picture, where games that scroll sideways redraw
-columns.  (A TV's overscan hid them on a real MSX.)  Off, the default,
-shows the whole picture, as openMSX does.  8 dots covers the columns most
-games redraw (Lilly's Saga); 16 dots is for wider ones.  Text screens
-(SCREEN 0, 40 and 80 columns) are never masked.  The MSX2+ left
-mask (V9958 R#25) is always shown, whatever this option says: it is part
-of the machine.  (Before 4.2 an "Auto mask" option masked the edges once
-a game scrolled; it is gone: it cut off the score panel of Uridium 2.)
+    - Hard 25%, Hard 50%, Hard 75%:  every second row of the 2x picture
+that much darker.
 
-    - Audio filter (less hiss):  Keeps the Amiga's low-pass filter on while
-a game runs, for less hiss from the FM and PSG sound.  The power LED stays
-lit.
+    - Blended light, Blended, Blended strong:  the row between two lines
+is the mix of the two lines, 25%, 50% or 75% darker, as in the Arnold
+emulator:  softer than hard scanlines on a big display.  Needs the 2x
+picture (a 1x screen gets hard scanlines) and about 230Kb more memory.
 
-    - Smooth display (fast CPUs):  SCREEN 4 is double-buffered, so each
-frame is shown complete.  Needs a fast CPU and about 90Kb more Chip
-memory.  Other screen modes are not changed.
+    Hard scanlines cost a little CPU time (each changed row is built a
+second time from the dimmed colours); Blended costs more, as the rows between
+are worked out as well.  Off is the fastest.  They are there for the look
+of the picture:  Hard for a sharp old monitor, Blended on a big display.
 
-    - RTG scanlines:  Off, 25%, 50% or 75%:  with the RTG preset, every
-second row of the picture that much darker.  Starts from the icon's
-SCANLINES ToolType and is kept until AmiMSX quits.  (See @{"Presets" link Presets}.)
+    The choice takes effect at the next Continue or Power ON, and Save
+Settings keeps it.  Until a choice is saved, the SCANLINES ToolType of
+the icon is used (Off without it).  Greyed when AmiMSX is not on RTG.
 
-    The edge mask and the audio filter are kept in the per-game settings
-too.  (See @{"Cartridges Menu" link MenuCar}.)
+@{fg highlight}    <*> Amiga Video:  [Screen mode]
+@{fg text}    -------------------------------
+
+    For the Amiga's own video output (not RTG):
+
+    - Menu in PAL (5), Menu in NTSC (6):  switch the menu screen now.
+
+    On quitting, AmiMSX always puts back the Amiga's own display timing
+(PAL on a PAL machine).  [Screen Mode on Exit is gone; an old setting of it
+in a settings file is ignored.]
+
+@{fg highlight}    <*> Compatibility:  [Internal Emulation]
+@{fg text}    ----------------------------------------
+
+    For games that misbehave.  Leave them as they are otherwise.
+
+    - Sprites a Frame Late:  [Sprites Y coor. from Line interrupt]  draws
+the sprites from the previous frame's tables.  Off by default.  Try it if
+a game's sprites jump or sit a frame ahead of the picture.  It costs nothing.
+
+    - Full Redraw on Mode Change:  [100% Refresh in Screen Changes]  when a
+game enters a graphics mode such as SCREEN 5, the whole picture is built
+again from the MSX video memory, so nothing the game drew before the change
+is lost.  On by default.  Off, mode changes are quicker, but the picture can
+be wrong until the game redraws it, and several things that need the
+picture to match the video memory are lost:  SCREEN 5 and 7 on RTG, the
+MSX2+ fine scroll on the Amiga's output and SCREEN 5 split screens.  Leave
+it on unless a slow Amiga struggles with a game that changes mode a lot.
+
+    - VDP Always Ready (TR bit):  [VDP 'TR bit' always ready]  when a program
+reads the VDP's status, the TR bit says the VDP is ready for the next byte of
+a command, every time.  On by default.  Off, the bit follows the VDP command
+being drawn.  Try Off if a game goes wrong while it feeds a VDP command.
+
+@endnode
+
+@node MenuInp "AmiMSX Emulator."
+
+@{fg highlight}    Input menu:
+@{fg text}    -----------
+
+@{fg highlight}    <*> MSX Joystick 2 in Mouse Port (J):  [Joystick 2 ON]
+@{fg text}    ------------------------------------------------------
+
+    Emulates the second MSX joystick, connected to the Amiga's mouse
+port.  It must be off for MSX mouse emulation, and with a mouse in that
+port some games will not work well.
+
+@{fg highlight}    <*> Swap Joystick Ports (X):  [Swap JoyPorts]
+@{fg text}    ---------------------------------------------
+
+    Swaps MSX joystick ports A and B.
+
+@{fg highlight}    <*> Joystick Port / Mouse Port:
+@{fg text}    -------------------------------
+
+    [JoyPort 2 (Joystick) Pad / JoyPort 1 (Mouse port) Pad]  What is
+plugged into each Amiga port:  Standard (2 buttons), the plain joystick
+read, or CD32 Pad.  With CD32 Pad the port is read with the CD32 protocol
+every frame (there is no auto-detection:  it failed on real pads and
+adapters):  red = MSX firebutton 1, blue = firebutton 2, yellow = Space,
+green = M, play = F1.  The shoulder buttons do nothing.  Choose Standard
+for a joystick or a mouse in that port.  Saved with the settings and in a
+game's own settings.
+
+@{fg highlight}    <*> Multi-Key (A1200 keyboard) (M):  [Multi-key ON]
+@{fg text}    ---------------------------------------------------
+
+    Some keys of the Amiga 1200 keyboard can't be pressed together.  With
+this ticked, press the keys one after another:  the MSX sees them all held
+until you untick it.
+
+@{fg highlight}    <*> DEL Pauses (D):  [DEL for Pause]
+@{fg text}    ------------------------------------
+
+    Amiga's DEL key pauses the emulation; DEL again goes on.
+
+@{fg highlight}    <*> Left Shift as Space, Right Shift as Space:
+@{fg text}    ----------------------------------------------
+
+    The Shift key works as Space.  (For the A1200 Space and Down key bug.)
 
 @endnode
 
 @node MenuMVD "AmiMSX Emulator."
 
-@{fg highlight}    MSX Virtual Drive menu:
-@{fg text}    -----------------------
-
-    AmiMSX Emulator supports a MSX Virtual Drive in Amiga's RAM.
-
-    You can have MSX disks of 360Kb (1DD) or 720Kb (2DD) crunched as
-Amiga files on your hard Disk, CD-ROM, etc...
-
-    MVD files can be crunched with Stone Cracker or File Imploder
-(supported in emulator).
-
-    Note:  MVD files are MSX Disk Images.  (#?.dsk)
-
-@{fg highlight}    <*> Load Disk File / Save Disk File:
-@{fg text}    ------------------------
-
-    To Load/Save MVD files.
-
-@{fg highlight}    <*> Load Disk File into drive B:
+@{fg highlight}    Disks menu:  [MSX Virtual Drive]
 @{fg text}    --------------------------------
 
-    Loads a 360/720Kb disk image into drive B, which becomes a second
-virtual drive.  What a game writes to it goes back to the file when you
-return to the menu.  During play, Left Amiga swaps the disks in drives A
-and B.
+    AmiMSX keeps an MSX disk image (#?.dsk, 360Kb 1DD or 720Kb 2DD) in
+memory as the drive MVD: (choose MVD: for MSX Drive A or B in the main
+window).  Images packed with Stone Cracker, File Imploder or xpk load as
+well.
 
-@{fg highlight}    <*> Load/Save MSX Disk:
-@{fg text}    -----------------------
+@{fg highlight}    <*> Drive A:
+@{fg text}    ------------
 
-    To Load/Save from/to MSX Disk.
+    - Load... (L), Save... (S):  [Load/Save Disk File]  load or save the
+image in MVD:.  (The Drive A: button loads too.)
 
-@{fg highlight}    <*> Install MSX Boot:
-@{fg text}    ---------------------
+    - Eject:  [Clear buffer (Eject)]  empties MVD:.
 
-    To install MSX boot on MSX Disks.
+@{fg highlight}    <*> Drive B:
+@{fg text}    ------------
 
-@{fg highlight}    <*> Implode MVD:
-@{fg text}    ----------------
+    - Load...:  [Load Disk File into drive B]  loads a 360/720Kb disk image
+into drive B, which becomes a second virtual drive.  (The Drive B: button does
+the same.)  What a game writes to it goes back to the file when you return
+to the menu.  During play, Left Amiga swaps the disks in drives A and B.
 
-    Will crunch the resident MVD with File Imploder.
+    - Eject:  empties drive B's image.  A blank disk made for drive B is
+lost when you eject it:  there's no Save for drive B yet.
 
-@{fg highlight}    <*> Format MVD as 2DD or 1DD:
-@{fg text}    -----------------------------
+@{fg highlight}    <*> Write-Protect Disk Image (U):  [MVD: Write Protected]
+@{fg text}    ---------------------------------------------------------
 
-    Create a buffer (MVD:) of a 1DD/2DD MSX disk.
+    The images in memory are write-protected, in both drives.
 
-@{fg highlight}    <*> Clear buffer (Eject):
-@{fg text}    -----------------
+@{fg highlight}    <*> Warn if Protected:
+@{fg text}    ----------------------
 
-    Clear MVD: buffer  (as an Eject disk of MVD: drive)
+    The emulation stops when a program tries to write to the protected
+image.
+
+@{fg highlight}    <*> Warn if Changed:
+@{fg text}    --------------------
+
+    When you press HELP, AmiMSX warns if MVD: has changed, so you remember
+to save it.
+
+@{fg highlight}    <*> Real MSX Floppy:
+@{fg text}    --------------------
+
+    For MSX floppies in an Amiga drive:
+
+    - Read Floppy into Image... (O), Write Image to Floppy... (W):  [Load/
+Save MSX Disk]  copy a floppy into MVD:, or MVD: to a floppy.
+
+    - Install Boot Sector... (B):  [Install MSX Boot]  writes an MSX boot
+sector, of the type chosen below.
+
+    - Boot Sector: Auto (0) / 1DD (1) / 2DD (2).
+
+    (The Imploder compressor, Implode MVD, is gone in 4.6.  Packed images
+still load.)
 
 @endnode
 
 @node MenuCar "AmiMSX Emulator."
 
-@{fg highlight}    Cartridges:
-@{fg text}    -----------
+@{fg highlight}    Cartridges menu:
+@{fg text}    ----------------
 
-    This is for emulate MSX Cartridges of ANY size.
+    This is for emulating MSX cartridges of any size.
 
-    Slot 3 is for obtaining cartridge files but it is a bit complicated
-to explain!!!
+@{fg highlight}    <*> Slot 1, Slot 2:
+@{fg text}    -------------------
 
-@{fg highlight}    Slot 1 & 2:
-@{fg text}    -----------
+    - Insert...:  reads a cartridge file.  (The Slot 1 and Slot 2 buttons
+do the same.)  Slot 2 is used by the MSX Disk ROM:  with a Disk ROM chosen,
+Slot 2 asks first whether to switch it off.
 
-    - Insert Cartridge: For reading a cartridge file.
+    - Eject:  ejects the cartridge.
 
-    - Eject Cartridge:  For ejecting the cartridge file that is resident.
+    - Remember Mapper for This ROM:  [Save Mapper ID]  when you insert
+this cartridge again, its mapper is set.
 
-    - Save Mapper ID:  Saves Mapper type for current Cartridge.  When you
-insert this cartridge again, your mapper will be set correctly.
+@{fg highlight}    <*> Slot 1 Mapper, Slot 2 Mapper:
+@{fg text}    ---------------------------------
 
-    - Save game settings (Slot 1):  Saves the sound chip, sprite refresh,
-edge mask and audio filter next to the cartridge, as <cartridge>.prefs.
-They are used whenever this cartridge is inserted.  Without them, a Konami
-SCC cartridge gets the SCC sound chip.
+    MSX cartridges bigger than 32Kb use a mapper.  The choices, with the
+old names in brackets:  None, Generic 16K [Konami 1], Konami [Konami 2],
+ASCII 8K [ASCII 1], ASCII 16K [ASCII 2], Konami SCC [SCC 1], Konami SCC
+(strict) [SCC 2] and R-Type.
 
-    - Forget game settings (Slot 1):  Deletes that file and brings back
-the global settings.
-
-
-@{fg highlight}    Mapper:
-@{fg text}    -------
-
-    MSX cartridges bigger than 32Kb uses a custom mapper to work.
-
-    There are seven types of mappers emulated in AmiMSX.  You need find the
-correct mapper for a Cartridge testing every one.
-
-    4.0:  most MegaROMs get their mapper without testing.  A saved Mapper
-ID comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
+    Most MegaROMs get their mapper without testing.  A remembered mapper
+comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
 mapper tag in the file name, then a guess.  The answers are kept in
-AmiMSX4.romcache, so each ROM is checked once.
+AmiMSX4.romcache, so each ROM is checked once.  With the R-Type FM loader
+in Slot 1 and R-Type in Slot 2, the MSX Disk ROM must be None.
 
-    4.5:  R-Type has its own mapper, chosen by the ROM database or with
-Mapper > R-Type.  With the R-Type FM loader in Slot 1 and R-Type in Slot 2,
-set MSX Disk ROM to None first.
+@endnode
 
+@node MenuTape "AmiMSX Emulator."
 
-@{fg highlight}    Slot 3:
-@{fg text}    -------
+@{fg highlight}    Tape menu:
+@{fg text}    ----------
 
-    This option is for 'programers'
+@{fg highlight}    <*> Load Tape File...:
+@{fg text}    ----------------------
 
-@{fg highlight}    <*> Save Pages:
-@{fg text}    ---------------
+    Loads a tape image for the MSX cassette.
 
-    - Page 1:  Save Page 1 of Slot 3 (&H4000-&H7FFF)
+@{fg highlight}    <*> Rewind Tape:  [Init Tape File]
+@{fg text}    ----------------------------------
 
-    - Page 2:  Save Page 2 of Slot 3 (&H8000-&HBFFF)
+    Back to the start of the loaded tape.
 
-    - Page 1 & 2:  Save Pages 1 and 2 of Slot 3 (&H4000-&HBFFF)
+@{fg highlight}    <*> Start New Recording:  [Init Tape buffer]
+@{fg text}    --------------------------------------------
+
+    An empty tape for the MSX to save to.
+
+@{fg highlight}    <*> Save Recording...:  [Save Tape buffer]
+@{fg text}    ------------------------------------------
+
+    Saves what the MSX recorded.
+
+@endnode
+
+@node MenuTools "AmiMSX Emulator."
+
+@{fg highlight}    Tools menu:
+@{fg text}    -----------
+
+    All but New Blank Disk need a running MSX (Power ON first).
+
+@{fg highlight}    <*> Cheats and Pokes... (C):  [Cheat mode]
+@{fg text}    ------------------------------------------
+
+    Finds and sets cheat pokes.  (See @{"Cheat Window" link FinestraPoke}.)
+
+@{fg highlight}    <*> Debugger...:
+@{fg text}    ----------------
+
+    Z80 registers, slots and a memory monitor.
+
+@{fg highlight}    <*> Lock Cheats and Debugger (H):  [Disable Cheats]
+@{fg text}    ---------------------------------------------------
+
+    Ticked:  the two windows above do not open.  Untick it before Power ON.
+
+@{fg highlight}    <*> Save Screen as IFF... (V):  [Save Screen]
+@{fg text}    ---------------------------------------------
+
+    Saves the MSX screen as an IFF-ILBM picture.
+
+@{fg highlight}    <*> Save Sprites as IFF... (E):
+@{fg text}    -------------------------------
+
+    Saves the sprite patterns as a picture (MSX2 sprite modes only).
+
+@{fg highlight}    <*> New Blank Disk:  720K (2DD) / 360K (1DD)  [Format MVD as 2DD/1DD]
+@{fg text}    ---------------------------------------------------------------------
+
+    Makes a new formatted MSX disk.  A requester asks for Drive A, Drive B
+or Cancel.  The disk replaces what's in that drive's image, without asking.
+Drive B's blank has no file behind it, so it lasts until you eject or replace
+it or quit:  there's no Save for drive B yet.
 
 @endnode
 
 @node FinestraPrin "AmiMSX Emulator."
 
-@{fg highlight}    Disk Drives:
-@{fg text}    ------------
+@{fg highlight}    Disk Drivers:
+@{fg text}    -------------
 
-    With these gadgets you select which Amiga-diskdrives will be used to
-emulate MSX drives A:  and B: . If both A:  and B:  drives are OFF, MSX
-Disk Basic ROM will not be emulated.
+    Which drives are emulated as MSX drives A: and B:.
 
-@{fg highlight}    <*>  MSX Drive A & B:
-@{fg text}    ---------------------
+@{fg highlight}    <*> MSX Drive A & B:
+@{fg text}    --------------------
 
-    - DFx:   Emulation of MSX drives via  Amiga drives.
+    - DF0: to DF3:  an Amiga floppy drive (real MSX floppies).
 
-    - MVD:   Emulation of @{"MSX Virtual Drive" link MenuMVD} (MVD:)
+    - MVD:   that drive's disk image in memory.  (See @{"Disks Menu" link MenuMVD}.)
 
-    - RAMSX: Emulation of Amigas's RAD: as a MSX disk. (Look at @{"RAMSX:" link RAMSX})
+    - RAMSX: Amiga's RAD: as an MSX disk.  (See @{"RAMSX:" link RAMSX})
 
-    - OFF:   Emulation of NO drive connected.
+    - Off:   [-OFF-]  no drive.
 
-@{fg highlight}    <*>  MSX Disk ROM:
-@{fg text}    ------------------
+    - Empty: [-ON-]  a drive with no disk in it (the Disk ROM is there).
 
-    - DOS:   Emulation of Disk ROM v1.0  (Recommended for Games)
+@{fg highlight}    <*> MSX Disk ROM:
+@{fg text}    -----------------
 
-    - DOS2:  Emulation of Disk ROM v2.0  (Recommended for Tools)
+    - DOS:   Disk ROM v1.0  (recommended for games)
 
-    - None:  Emulation of NO Disk ROM.
+    - DOS2:  Disk ROM v2.0  (recommended for tools)
+
+    - None:  no Disk ROM.  (Slot 2 is then free for a cartridge.)
 
 @{fg highlight}    Slots Options:
 @{fg text}    --------------
 
-@{fg highlight}    <*>  ROM:
-@{fg text}    ---------
+@{fg highlight}    <*> Machine:  [ROM:]
+@{fg text}    --------------------
 
-    - MSX:  Emulation of MSX ROM.
+    - MSX, MSX2, or MSX2+ (V9958: fine scroll and left mask only).
 
-    - MSX2: Emulation of MSX2 ROM.
+@{fg highlight}    <*> RAM:
+@{fg text}    --------
 
-    - MSX2+: Emulation of MSX2+ ROM.  (V9958: fine scroll and left mask
-only.)
+    - 128 to 4096Kb.
 
-@{fg highlight}    <*>  RAM:
-@{fg text}    ---------
+@{fg highlight}    <*> Sound:
+@{fg text}    ----------
 
-    - Emulation of 128 to 4096Kb RAM.
+    - PSG:  the PSG.
 
-@{fg highlight}    <*>  Sound:
-@{fg text}    -----------
+    - SCC:  Konami's SCC.
 
-    - PSG:  Emulation of PSG.
-
-    - SCC:  Emulation of Konami's SCC.
-
-    - SCC+: Emulation of Konami's SCC+.
+    - SCC+: Konami's SCC+.
 
     - PSG+FM: PSG and MSX-Music (FM).  Needs a fast CPU.
 
     - FM lite: The same, mixing only the 4 loudest FM voices.
 
-
 @{fg highlight}    Video Options:
 @{fg text}    --------------
 
-@{fg highlight}    <*> Frequence:
-@{fg text}    --------------
+@{fg highlight}    <*> Display:  [Frequence]
+@{fg text}    ----------------------------
 
-    -  Selects display mode:
+    Which display the Amiga's own output uses.  An MSX frame takes a display
+frame, so this sets how many frames a second have to be emulated.
 
-         * [From VDP] MSX will select NTSC or PAL when required.
-         * [No Change] MSX won't be able to change display mode.
-         * [PAL] (50 Hz) The emulator will always run in PAL mode.
-         * [NTSC] (60 Hz) The emulator will always run in NTSC mode.
+    - Auto:  [Follow MSX, From VDP]  the MSX chooses:  a 60 Hz game gets
+NTSC and runs at full speed, a 50 Hz game gets PAL.  A 60 Hz game then costs
+20% more emulation each second than on PAL, so it's for fast CPUs.
 
+    - No Change:  the MSX can't change the display.  The Amiga stays as it
+is, so on PAL a 60 Hz game has 50 frames a second and runs that much slower,
+which is what lets a slow Amiga keep up.
 
-@{fg highlight}    <*> Refresh:
-@{fg text}    ------------
+    - NTSC 60Hz:  always NTSC.
 
-    MSX screen is updated every 'refresh' frames.
+    - PAL 50Hz:  always PAL.
+
+@{fg highlight}    <*> Draw:  [Draw Screen, Refresh]
+@{fg text}    ---------------------------------------
+
+    - 1 Frame to 5 Frames:  the MSX picture is drawn once in that many
+frames.  The frames between are still emulated, so the Z80, the sound and the
+speed of the game don't change:  only the picture gets jerkier.  1 Frame is
+the smoothest and costs the most.  If a game slows down, raise this first.
+(5 Frames was called Auto.)
 
 @{fg highlight}    <*> Sprites:
-@{fg text}    -----------------
+@{fg text}    ------------
 
-    MSX2 Sprites refresh:
+    MSX2 sprites on the Amiga output (AGA only):
 
-    - OFF: No sprite emulation.
+    - ECS:  [OFF]  the older sprite method.  It does not turn sprites off.
 
-    - 1fr: Refresh at 1 frame. (100%)  (Default, as a real MSX.)
+    - 1 Frame:  [Every Frame]  sprites redrawn every frame, as a real MSX.
+The smoothest, and the most work.  (The default.)
 
-    - 2fr: Refresh at 2 frames.  (50%)
-
-    - 3fr: Refresh at 3 frames.  (36%)
-
+    - 2 Frames, 3 Frames:  sprites redrawn every 2nd or 3rd frame.  It saves
+time in games with a lot of sprites, but fast sprites move in jumps.
 
 @{fg highlight}    Rest of the Gadgets:
-@{fg text}    ----------------
-
-@{fg highlight}    <*> MVD:
-@{fg text}    --------
-
-    For reading a MSX Virtual Disk in MVD:
-
-@{fg highlight}    <*> Emulation Speed:
 @{fg text}    --------------------
 
- - [Real MSX]  MSX runs always at 3.5Mhz
+@{fg highlight}    <*> Drive A:, Drive B:
+@{fg text}    ----------------
 
- - [Fast CPU]  MSX CPU run as fast possible.
-
- - [Turbo Mode] MSX run at 3.5Mhz but without wait to 'Amiga Real Frame'
-
+    Load a disk image for MSX drive A or drive B, as Load... in the Disks
+menu.  The box beside each shows the image's name, or Buffer Empty.  Drive B:
+also sets MSX Drive B to MVD:; for drive A, choose MVD: yourself.
 
 @{fg highlight}    <*> Slot 1 and 2:
 @{fg text}    -----------------
 
-    For reading a cartridge file in any Slot.
+    Insert a cartridge in that slot.  With an MSX Disk ROM set, Slot 2 is
+in use:  the button (like Insert... in the menu) asks to switch the Disk ROM
+off first.
 
 @{fg highlight}    Reset:
 @{fg text}    ------
 
-    Makes a MSX reset. (Like key RESET of a MSX keyboard)
+    An MSX reset.  (Like the RESET key of an MSX.)
 
 @{fg highlight}    <*> Power ON:
 @{fg text}    -------------
 
-    For starting MSX2 emulation.
+    Starts the MSX.
 
 @{fg highlight}    <*> Continue:
 @{fg text}    -------------
 
-    To continue the emulation after you have pressed the HELP key.
+    Goes on with the emulation after you have pressed the HELP key.
 
 @{fg highlight}    <*> Exit:
 @{fg text}    ---------
 
     To quit the emulator.
-
-@endnode
-
-@node FinestraIMP "AmiMSX Emulator."
-
-@{fg highlight}    Imploder window:
-@{fg text}    ----------------
-
-@{fg highlight}    <*> Implode:
-@{fg text}    ------------
-
-    To crunch a resident MSX Virtual Disk in MVD:
-
-@{fg highlight}    <*> Efficiency:
-@{fg text}    ---------------
-
-    Compression efficiency.
-
-@{fg highlight}    <*> Abort:
-@{fg text}    ----------
-
-    Not implemented!
-
-@{fg highlight}    <*> Save:
-@{fg text}    ---------
-
-    To save crunched MVD.
-
-@{fg highlight}    <*> Cancel:
-@{fg text}    -----------
-
-    To exit to main menu.
 
 @endnode
 
@@ -897,8 +972,8 @@ like joystick second firebutton.
     A Joypad can be used.
 
     A CD32 pad works as a two-button joystick (red and blue) in
-either port.  Set the port to CD32 pad in the Options menu (JoyPort
-2 (Joystick) Pad, JoyPort 1 (Mouse port) Pad) and it is read with
+either port.  Set the port to CD32 pad in the Input menu (Joystick
+Port, Mouse Port) and it is read with
 the CD32 protocol instead: red = MSX firebutton 1, blue = firebutton
 2, yellow = Space, green = M, play = F1.  The shoulder buttons do
 nothing.  Nothing is detected: a port left on Standard is read as a
