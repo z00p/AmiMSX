@@ -3010,7 +3010,7 @@ GPLoadSet:
 	BRA	GPShowGUI
 GPLoadNone:
 	MOVE.B	RomDbMach,D0		; (4.4) No game file: an MSX2/MSX2+/turbo
-	BEQ.S	GPNoMach		; R game in the ROM database gets that
+	BEQ	GPNoMach		; R game in the ROM database gets that
 	TST.B	GPActive		; machine over the global settings (MSX1
 	BNE.S	GPMach1			; games and unknown ones keep them).
 	BSR	GPGUIToPrefs
@@ -3021,15 +3021,7 @@ GPMach1:LEA	GPSaved,A1
 	BSR	GPToPrefs
 	MOVE.B	RomDbMach,D0		; (D0 went in the calls above)
 	BSR	GDMach
-	CMP.B	#5,DirPrefs+$76		; (and the SCC rule below)
-	BCS	GPShowGUI
-	CMP.B	#6,DirPrefs+$76
-	BHI	GPShowGUI
-	TST.B	DirPrefs+$1D
-	BEQ.S	GPMach2
-	CMP.B	#3,DirPrefs+$1D
-	BCS	GPShowGUI
-GPMach2:MOVE.B	#1,DirPrefs+$1D
+	BSR	GPSndRule		; (and the Sound rule below)
 	BRA	GPShowGUI
 ; (4.4) D0 = the database's machine (1 MSX2, 2 MSX2+, 3 turbo R: MSX2+, the
 ; nearest AmiMSX has) into DirPrefs+$10.
@@ -3040,11 +3032,21 @@ GDMach1:MOVE.B	D0,DirPrefs+$10
 	RTS
 GPNoMach:
 	CMP.B	#5,DirPrefs+$76		; No game file, but a Konami SCC mapper
-	BCS.S	GPNoScc			; (5 = SCC 1, 6 = SCC 2): the global
+	BCS.S	GPNoM1			; (5 = SCC 1, 6 = SCC 2): the global
 	CMP.B	#6,DirPrefs+$76		; settings with the SCC sound chip, if
-	BHI.S	GPNoScc			; they have the PSG or PSG+FM (SCC+
-					; is kept).
+	BHI.S	GPNoM1			; they have the PSG or PSG+FM (SCC+
+	TST.B	RomDbFM			; is kept; 4.6: unless the database says
+	BNE.S	GPNoScc			; it is an FM game).
+	BRA.S	GPScc0
+GPNoM1:	BSR	GPHasFM			; (4.6) A game with no FM, with the global
+	BNE.S	GPNoScc			; settings on PSG+FM: the same with the
+	MOVE.B	GPSaved+5,D0		; PSG, whose noise goes with PSG+FM.
 	TST.B	GPActive
+	BNE.S	GPNoM2
+	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),D0
+GPNoM2:	CMP.B	#3,D0
+	BCS.S	GPNoScc
+GPScc0:	TST.B	GPActive
 	BNE.S	GPScc1
 	BSR	GPGUIToPrefs
 	LEA	GPSaved,A1
@@ -3052,12 +3054,8 @@ GPNoMach:
 	ST	GPActive
 GPScc1:	LEA	GPSaved,A1
 	BSR	GPToPrefs
-	TST.B	DirPrefs+$1D
-	BEQ.S	GPScc3
-	CMP.B	#3,DirPrefs+$1D
-	BCS.S	GPScc2			; (3, 4: PSG+FM, lite)
-GPScc3:	MOVE.B	#1,DirPrefs+$1D
-GPScc2:	BRA	GPShowGUI
+	BSR	GPSndRule
+	BRA	GPShowGUI
 GPNoScc:
 	TST.B	GPActive		; None: the global settings again.
 	BEQ.S	GPLoadRet
@@ -3067,6 +3065,39 @@ GPRestore:
 	SF	GPActive
 	BRA	GPShowGUI
 GPLoadRet:
+	RTS
+
+; (4.6) The Sound rule, for a cartridge with no game file. On a Konami SCC
+; mapper PSG and PSG+FM (3, 4: PSG+FM, lite) become SCC. Elsewhere PSG+FM
+; becomes PSG if the game has no FM, as FM takes the PSG's noise channel.
+; A game has FM if "OPLL" is in its file. RomDbFM, from the ROM database, is
+; the exception: it turns either answer round (DEVA on its SCC mapper keeps
+; the Sound as set, Uwol has the text but no FM).
+GPSndRule:
+	MOVE.B	DirPrefs+$1D,D0
+	CMP.B	#5,DirPrefs+$76
+	BCS.S	GPSnd1
+	CMP.B	#6,DirPrefs+$76
+	BHI.S	GPSnd1
+	TST.B	RomDbFM
+	BNE.S	GPSndX
+	TST.B	D0
+	BEQ.S	GPSndS
+	CMP.B	#3,D0
+	BCS.S	GPSndX
+GPSndS:	MOVE.B	#1,DirPrefs+$1D
+	RTS
+GPSnd1:	CMP.B	#3,D0
+	BCS.S	GPSndX
+	BSR.S	GPHasFM
+	BNE.S	GPSndX
+	CLR.B	DirPrefs+$1D
+GPSndX:	RTS
+; Z clear: the game has FM, by the rule above.
+GPHasFM:
+	MOVE.B	RomDbOpll,D0
+	MOVE.B	RomDbFM,D1
+	EOR.B	D1,D0
 	RTS
 
 GameSave:
@@ -5767,6 +5798,7 @@ DirBaseROM:	DS.L	16
 	CNOP	0,8
 LoadROMs:
 
+	JSR	MMusLoad			; (4.6) MSXMUSIC.ROM, if there is one.
 	BSR	LoadROMsBase
 
 	TST.B	LoROMBaDat(PC)		; �ROMs Base Leido Correctamente?

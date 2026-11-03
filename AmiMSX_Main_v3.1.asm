@@ -595,7 +595,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.5 ("
+	DC.B	"$VER:AmiMSX Emulator v4.6 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -1091,16 +1091,6 @@ SetFFBuc:
 	MOVE.L	D1,(A0)+
 	MOVE.L	D1,(A0)+
 	DBF	D0,SetFFBuc
-; (4.0) MSX-Music signature page: $FF but for the ID that games look for
-; ("APRLOPLL" at 4018h, as in an MSX2+ with built-in MSX-Music). No ROM code.
-	LEA	MMUSIC,A0
-	MOVE.W	#((16*1024)/8)-1,D0
-SetFFBucM:
-	MOVE.L	D1,(A0)+
-	MOVE.L	D1,(A0)+
-	DBF	D0,SetFFBucM
-	MOVE.L	#"APRL",MMUSIC+$18
-	MOVE.L	#"OPLL",MMUSIC+$1C
 ; ------------------------------------<
 
 
@@ -1175,6 +1165,8 @@ MagDblD:DBF	D2,MagDblC
 	CMP.W	#256,D0
 	BNE.S	MagDblB
 	ST	SCDblOK
+	MOVE.W	#-1,BUFERSPR2-2		; (4.6) Nothing to clear yet (in BSS).
+	MOVE.W	#-1,BUFERSPR2b-2
 	MOVEM.L	(SP)+,D2-D3/A1
 ; ------------------------------------<
 
@@ -1436,6 +1428,16 @@ ACTPAG1:
 	MOVE.L	(DatosRAM.W,PC,D0.W*4),D0
 	MOVE.L	D0,$3E8C(A0)
 NoROM_MSX2:
+; (4.6) The MSX2+ SUB-ROM's boot logo calls 7A00h of its own slot (a stub it
+; copies to F55Eh, run through H.NMI). On the real machine a Kanji driver sits
+; there; here that is page 1 of Slot 2, so a cartridge or Disk ROM with code
+; at 7A00h ran it at boot (R-Type: black). The stub's jump becomes RET.
+	CMP.B	#2,DirPrefs+$10
+	BNE.S	NoROM_P2
+	CMP.B	#$C3,ROM33+$2CC1
+	BNE.S	NoROM_P2
+	MOVE.B	#$C9,ROM33+$2CC1
+NoROM_P2:
 ; 	--------------------
 	MOVE.W	#$ED16,(A1)+
 	MOVE.B	#$C9,(A1)+
@@ -1528,12 +1530,10 @@ NoEsFMPak:
 	IFNE	FM_Pak_ROM
 	SF	FlashOn			; (4.0) flash cartridges: writes off.
 	SF	FlState
-	MOVE.L	#NOMEM-$4000,SUBSLOT2+8	; (4.0) Sound chip FM: MSX-Music
-	TST.B	FMXOn			; signature page in slot 0-2, page 1,
-	BEQ.S	NoEsMMus		; and the FMX engine reset.
-	MOVE.L	#MMUSIC-$4000,SUBSLOT2+8
+	TST.B	FMXOn			; (4.0) Sound chip FM: the FMX engine reset.
+	BEQ.S	NoEsFMX
 	JSR	FMXInit
-NoEsMMus:
+NoEsFMX:
 	ENDC
 ; ---------------------------------------<=
 
@@ -2484,6 +2484,42 @@ BUCCR3:
 	DBF	D2,BUCCR2
 	DBF	D1,BUCCR1
 ; ---------------------------------------<=
+; (4.6) Sound chip FM: MSX-Music for the games that scan for it, in the RAM
+; at 4000h of slot 3, the last slot they scan: AmiMSX has no sub-slots and
+; slots 1 and 2 can both be taken. With the user's MSXMUSIC.ROM (MMusLoad) that
+; is the ROM's image; with Slot 1 empty the ROM goes there instead, as a game
+; that uses page 1 RAM would write over the image (Gradius III Legends, see
+; NoSlot1Cart). Without the file,
+; the ID and stubs at 4110h (MMusStub): OPLL writes work, the ROM's music driver
+; is not there. R-Type plays its music with that driver, so then it gets no ID
+; and stays on PSG.
+	TST.B	FMXOn
+	BEQ.S	NoEsMMus
+	TST.B	MMusOK
+	BEQ.S	MMusNoRom
+	TST.L	BucCartS1
+	BEQ.S	NoEsMMus
+	LEA	MMusic,A0
+	LEA	RAM02,A1
+	MOVE.W	#(16*1024/4)-1,D0
+BucMMusR:
+	MOVE.L	(A0)+,(A1)+
+	DBF	D0,BucMMusR
+	BRA.S	NoEsMMus
+MMusNoRom:
+	CMP.B	#7,DirPrefs+$76
+	BEQ.S	NoEsMMus
+	CMP.B	#7,DirPrefs+$77
+	BEQ.S	NoEsMMus
+	MOVE.L	#"APRL",RAM02+$18
+	MOVE.L	#"OPLL",RAM02+$1C
+	LEA	MMusStub,A0
+	LEA	RAM02+$110,A1
+	MOVEQ	#MMusStubE-MMusStub-1,D0
+BucMMus:
+	MOVE.B	(A0)+,(A1)+
+	DBF	D0,BucMMus
+NoEsMMus:
 
 ; ---------------------------------------=> Borrado de la VRAM.
 	LEA	DIRVRAM,A0
@@ -2872,6 +2908,21 @@ RTypS1a:
 NoRTypeS1:
 
 NoSlot1Cart:
+; (4.6) Slot 1 empty: the user's MSX-Music ROM (MMusLoad), page 1, with Sound
+; chip FM. Read only there, as on the real machine: the driver stays whole
+; whatever the game does with its RAM.
+	TST.L	BucCartS1
+	BNE.S	NoMMusS1
+	MOVE.L	#NOMEM-$4000,D0
+	TST.B	FMXOn
+	BEQ.S	MMusS1Put
+	TST.B	MMusOK
+	BEQ.S	MMusS1Put
+	MOVE.L	#MMusic-$4000,D0
+MMusS1Put:
+	MOVE.L	D0,SLOT1+8
+	MOVE.L	D0,SubSLOT1+8
+NoMMusS1:
 ; ===
 
 	CMP.B	#2,DIRPREFS+$65			; �Disk ROM?
@@ -6992,6 +7043,19 @@ DOS2MAPPER:
 	DC.L	DISK2+($4000*2)-$4000,NORAM-$4000
 	DC.L	DISK2+($4000*3)-$4000,NORAM-$4000
 
+; (4.6) MSX-Music entry points 4110h-4124h, Z80 code (see NoEsMMus).
+MMusStub:
+	DC.B	$C3,$40,$41		; WRTOPL: JP 4140h
+	DC.B	$C9,0,0			; INIOPL: RET
+	DC.B	$C9,0,0			; MSTART: RET
+	DC.B	$C9,0,0			; MSTOP:  RET
+	DC.B	$AF,$C9,0		; RDDATA: XOR A, RET
+	DC.B	$C9,0,0			; OPLDRV: RET
+	DC.B	$AF,$C9,0		; TSTBGM: XOR A, RET (not playing)
+	DS.B	$40-21
+	DC.B	$F5,$D3,$7C,$7B,$D3,$7D,$F1,$C9	; 4140h: reg A, data E to the OPLL
+MMusStubE:
+
 ; -------------------------------
 
 	CNOP	0,8
@@ -8896,9 +8960,24 @@ RTyp1:
 	BRA.S	RTyp1C
 RTyp1L:	AND.B	#$0F,D1
 RTyp1C:	CMP.W	NumROM2,D1		; (a smaller ROM: masked as BankNum)
-	BCS	KON18N
+	BCS.S	RTyp1M
 	AND.W	MaskROM2(A3),D1
-	BRA	KON18N
+RTyp1M:	BTST	#5,DA8(A3)		; Page 2 on this slot? Any write in
+	BNE.S	RTyp1O		; page 1 selects the bank, so the BIOS can
+	BTST	#4,DA8(A3)		; do it while page 2 shows its own ROM
+	BNE	KON18N		; (MSX2+ slot 0): then only the tables.
+RTyp1O:	MULU	#$4100,D1
+	ADD.L	MapROMBase1(A3),D1
+	SUB.L	#$8000,D1
+	MOVE.L	D1,SLOTS+(32*1)+16(A3)
+	MOVE.W	D1,SLOTSR+(8*1)+4(A3)
+	ADD.L	#$0080,D1
+	MOVE.L	D1,SubSLOTS+(32*1)+16(A3)
+	MOVE.W	D1,SubSLOTSR+(8*1)+4(A3)
+	MOVEQ	#0,D1
+	MOVE.W	A5,D1
+	CogePag	D1,A5
+	Otra2
 
 ; (4.0) Flash Konami SCC cartridges (Konami Ultimate Collection style, e.g.
 ; Pampas & Selene, 2 MB): Konami SCC banking plus an AMD flash chip for game
@@ -9588,9 +9667,24 @@ RTyp2:
 	BRA.S	RTyp2C
 RTyp2L:	AND.B	#$0F,D1
 RTyp2C:	CMP.W	NumROM4,D1		; (a smaller ROM: masked as BankNum)
-	BCS	KON18bN
+	BCS.S	RTyp2M
 	AND.W	MaskROM4(A3),D1
-	BRA	KON18bN
+RTyp2M:	BTST	#4,DA8(A3)		; Page 2 on this slot? Any write in
+	BNE.S	RTyp2O		; page 1 selects the bank, so the BIOS can
+	BTST	#5,DA8(A3)		; do it while page 2 shows its own ROM
+	BNE	KON18bN		; (MSX2+ slot 0): then only the tables.
+RTyp2O:	MULU	#$4100,D1
+	ADD.L	MapROMBase2(A3),D1
+	SUB.L	#$8000,D1
+	MOVE.L	D1,SLOTS+(32*2)+16(A3)
+	MOVE.W	D1,SLOTSR+(8*2)+4(A3)
+	ADD.L	#$0080,D1
+	MOVE.L	D1,SubSLOTS+(32*2)+16(A3)
+	MOVE.W	D1,SubSLOTSR+(8*2)+4(A3)
+	MOVEQ	#0,D1
+	MOVE.W	A5,D1
+	CogePag	D1,A5
+	Otra2
 
 ; -------------------------------------<=
 ; -------------------------------------<=
@@ -16518,10 +16612,10 @@ SPR16BUC:
 	MOVEQ	#0,D5
 	MOVE.B	(A0)+,D0	; MSX Y
 	CMP.B	#208,D0
-	BEQ.S	NOMASPR
+	BEQ	NOMASPR
 	ADD.B	#15,D0		; �Se ve en pantalla?
 	CMP.W	#(192+15),D0
-	BGE.S	OTROSPRI
+	BGE	OTROSPRI
 	CMP.W	SprWinLo,D0		; In this pass's part of the screen?
 	BLT	OTROSPRI
 	CMP.W	SprWinHi,D0
@@ -16556,7 +16650,13 @@ CHESPRBUC:
 	TST.L	(A4)
 	BNE.S	NOSPRLIBRE
 	TST.L	14(A4)
-	BEQ.S	SPRLIBRE
+	BNE.S	NOSPRLIBRE
+	TST.L	4(A4)			; (4.6) The middle too: a sprite placed
+	BNE.S	NOSPRLIBRE		; by SprTrim can hold fewer than the 18
+	TST.L	8(A4)			; lines (and sit inside them).
+	BNE.S	NOSPRLIBRE
+	TST.W	12(A4)
+	BEQ	SPRLIBRE
 NOSPRLIBRE:
 	ADD.W	#(192+16+16),A4
 	ADD.L	D4,D0
@@ -16566,7 +16666,8 @@ NOSPRLIBRE:
 	ADD.L	D4,D2
 	ADDQ.B	#1,D3
 	DBF	D7,CHESPRBUC
-OTROSPR:
+	BRA	SprTrim			; (4.6) No Amiga sprite free: try again
+OTROSPR:				; without the pattern's blank top rows.
 	ADDQ.W	#2,A0
 	DBF	D6,SPR16BUC
 NOMASPR:
@@ -16662,6 +16763,102 @@ NOPONER2:
 	MOVE.L	(A4),NEXTCOPP
 	RTS
 
+; (4.6) SPR16 found no free Amiga sprite for this MSX sprite (each takes 18
+; lines of one: the line before, 16 rows, the line after). Uridium's HUD
+; stacks rows of four 16x16 sprites 8 lines apart, each with dots in its
+; lower rows only (score digits, logo), so every second row of sprites found
+; all eight busy and was lost: the rows openMSX shows in another colour.
+; Here the sprite starts at its first row with dots (f): Amiga VSTART + f,
+; the data pointer 4*f bytes on, VSTOP as before, and it needs only lines
+; Y+15+f-1 .. Y+15+16 free (checked a byte at a time). Transparent or empty
+; patterns, and those with dots in row 0, stay dropped as before.
+; Entry: the channel loop ran out (D0-D3 stepped 8 times), A0 at the
+; pattern byte, D5 = Y+15, D6 the sprite count; out to OTROSPR, or as
+; SPRLIBRE (at NOSPRTRAS) with A3 = data, A4 = copper entry, D5 = colour.
+	CNOP	0,4
+SprTrim:
+	SUB.L	#$400000,D0		; Back to Amiga sprite 0.
+	SUB.L	#$400000,D1
+	SUB.L	#$200000,D2
+	CLR.B	D3
+	MOVEQ	#0,D7
+	MOVE.B	1(A0),D7
+	AND.B	#$0F,D7
+	BEQ	OTROSPR			; Transparent colour.
+	MOVE.B	(A0),D7
+	AND.W	#$00FC,D7
+	MULU	#18,D7			; 72 bytes per slot.
+	LEA	(A1,D7.L),A3
+	TST.B	-3(A3)
+	BEQ.S	SpTrA
+	ADD.W	#$1200,A3
+SpTrA:	TST.W	(A3)
+	BNE	OTROSPR			; Dots in row 0: nothing to trim.
+	MOVEQ	#4,D7
+SpTrRow:TST.W	(A3,D7.W)
+	BNE.S	SpTrGot
+	ADDQ.W	#4,D7
+	CMP.W	#64,D7
+	BCS.S	SpTrRow
+	BRA	OTROSPR			; No dots at all.
+SpTrGot:
+	ADD.W	D7,A3			; First row with dots.
+	MOVE.L	A3,SprTrPtr
+	LSR.W	#2,D7			; f (1-15).
+	MOVE.W	D6,-(SP)
+	MOVEQ	#17,D6
+	SUB.W	D7,D6			; Lines to check and mark, minus 1.
+	MOVE.W	D6,SprTrLen
+	ADD.W	D7,D5			; Its first line with dots.
+	CMP.W	#(192+15),D5
+	BGE.S	SpTrNo
+	LSL.W	#8,D7
+	ADD.W	D7,D0			; VSTART + f.
+	BCS.S	SpTrNo
+	LEA	-1(A6,D5.W),A4
+	MOVEQ	#8-1,D7
+SpTrCh:	MOVE.L	A4,A3
+	MOVE.W	SprTrLen,D6
+SpTrB:	TST.B	(A3)+
+	DBNE	D6,SpTrB
+	BEQ.S	SpTrFree
+	ADD.W	#(192+16+16),A4
+	ADD.L	D4,D0
+	ADD.L	D4,D0
+	ADD.L	D4,D1
+	ADD.L	D4,D1
+	ADD.L	D4,D2
+	ADDQ.B	#1,D3
+	DBF	D7,SpTrCh
+SpTrNo:	MOVE.W	(SP)+,D6
+	BRA	OTROSPR
+SpTrFree:
+	LEA	(TABLASPR2.W,PC,D5.W),A3	; A copper entry, as SPRLIBRE.
+	TST.B	(A3)
+	BNE.S	SpTrCont
+	TST.B	-1(A3)
+	BEQ.S	SpTrNo
+	SUBQ.W	#1,A3
+	SUBQ.W	#1,D5
+SpTrCont:
+	SUBQ.B	#1,(A3)
+	MOVE.W	SprTrLen,D6
+SpTrMk:	ST	(A4)+			; Its lines are taken.
+	DBF	D6,SpTrMk
+	MOVE.W	(SP)+,D6
+	MULU	#SPRADD,D5
+	LEA	(A2,D5.W),A4
+	MOVEQ	#0,D5
+	MOVE.B	(A3),D5
+	LSL.W	#4,D5
+	ADD.W	D5,A4
+	MOVE.L	A4,(A5)+
+	ADDQ.W	#1,A0			; (Pattern.)
+	MOVE.L	SprTrPtr,A3
+	MOVE.B	(A0)+,D5
+	AND.W	#$000F,D5
+	BRA	NOSPRTRAS
+
 	CNOP	0,8
 SPRDATS:
 	DC.L	$01400000	; Usado para Control 1.
@@ -16733,6 +16930,9 @@ TABLASPR3A:	DS.B	(64+2)*4	; (4.1.2) 64: two entries per magnified sprite.
 	DC.L	0
 TABLASPR3B:	DS.B	(64+2)*4
 	DC.L	0,0
+SprTrPtr:	DC.L	0		; (4.6) SprTrim: data from the first row
+SprTrLen:	DC.W	0		; with dots; lines to mark - 1.
+	EVEN
 ; -----------------------------<
 
 	CNOP	0,8
@@ -17547,7 +17747,7 @@ MI0BlOff:
 	MOVE.B	DVDP2(A3),(TabRasDATA+1,D1.W*8)	; VDP (2)
 MiraInterBuc:
 	ADD.W	#HPeriod,(A3)		; Suma Cyclos de 1 linea.
-	BMI.W	MiraInter
+	BMI.W	MiraInterCU
 	IFD	CORRCHK
 	JMP	CorrTest
 CorrRet:
@@ -17555,6 +17755,26 @@ CorrRet:
 	TST.W	PetInt38(A3)
 	BNE.S	FastInterRun
 	JMP	([A3,D2.W*8])		; Vuelta al Z-80 emul.
+
+; (4.6) A whole line went by without the Z80: a long instruction (LDIR,
+; OTIR: up to ~125 lines in one go) still owes its cycles. FastInterRun only
+; runs when the Z80 does, so a line interrupt flag raised with IE1 off (seen
+; during its own line only, InterHor) stayed up until the instruction ended
+; and the next interrupt's handler read it in S#1. Manbow 2's title: its
+; split leaves R#23 = 9Ah, so FH comes at line 223 with IE1 off; an LDIR
+; across the VBlank kept it up, the VBlank interrupt (taken late) saw FH,
+; ran the split's handler, and the next frame started with the bottom's
+; page 1 / 9Ah from line 0. Count it down here as FastInterRun does. With
+; IE1 on the request stays pending as before.
+MiraInterCU:
+	TST.B	PetInt38(A3)
+	BEQ	MiraInter
+	BTST	#4,DVDP0(A3)
+	BNE	MiraInter
+	SUBQ.B	#1,PetInt38(A3)
+	BNE	MiraInter
+	BCLR	#0,DVDPS1(A3)
+	JMP	MiraInter
 
 	CNOP	0,4
 MiraInter255:
@@ -18797,7 +19017,18 @@ HMMC:
 
 	AND.W	#$000F,D2
 	MOVE.L	$34(A4),A0		; (4.0) the layout's routines
+	MOVE.W	D2,D1			; (4.6) IMP (op 0 or 4) with 2 dots of
+	AND.W	#$000B,D1		; 4 bits a byte (SCREEN 5/7): HMMCI4,
+	BNE.S	HMMCGen			; the routine kept just before the
+	CMP.W	#2,$1C(A4)		; layout's table.
+	BNE.S	HMMCGen
+	CMP.W	#4,$10(A4)
+	BNE.S	HMMCGen
+	MOVE.L	-4(A0),A0
+	BRA.S	HMMCGo
+HMMCGen:
 	MOVE.L	(A0,D2.W*4),A0
+HMMCGo:
 
 	MOVE.B	DVDPCL(A3),D2
 
@@ -18904,7 +19135,8 @@ NoIniLMMC:
 
 	JMP	(A0)
 
-	CNOP	0,8
+	CNOP	4,8
+	DC.L	HMMCImp		; -4: (4.6) HMMC IMP, 2 dots of 4 bits (HMMC)
 LMMCPunteros:
 	DC.L	LMMCImp		; 0
 	DC.L	LMMCAnd		; 1
@@ -19061,17 +19293,111 @@ LMMCTAndP:	LMMCRut	Cero,And,64
 LMMCTOrP:	LMMCRut	Cero,Or,64
 LMMCTXorP:	LMMCRut	Cero,Xor,64
 
-	CNOP	0,8
+	CNOP	4,8
+	DC.L	HMMCImpW	; -4: (4.6) HMMC IMP (HMMC)
 LMMCPunterosW:
 	DC.L	LMMCImpW,LMMCAndW,LMMCOrW,LMMCXorW
 	DC.L	LMMCImpW,LMMCAndW,LMMCOrW,LMMCXorW
 	DC.L	LMMCTImpW,LMMCTAndW,LMMCTOrW,LMMCTXorW
 	DC.L	LMMCTImpW,LMMCTAndW,LMMCTOrW,LMMCTXorW
+	DC.L	HMMCImpP	; -4: (4.6) HMMC IMP (HMMC)
 LMMCPunterosP:
 	DC.L	LMMCImpP,LMMCAndP,LMMCOrP,LMMCXorP
 	DC.L	LMMCImpP,LMMCAndP,LMMCOrP,LMMCXorP
 	DC.L	LMMCTImpP,LMMCTAndP,LMMCTOrP,LMMCTXorP
 	DC.L	LMMCTImpP,LMMCTAndP,LMMCTOrP,LMMCTXorP
+
+; (4.6) HMMC with IMP in SCREEN 5/7 (2 dots of 4 bits a byte): what
+; LMMCRut Copy,Imp does for the byte's two dots, with each plane's 2 bits in
+; one bit-field write from TABOUTSC5 (port 98h's table: bits 1-0 the last
+; plane .. 7-6 the first, 9-8 the mask plane, the left dot the high bit of
+; each), so 5 chip RAM writes a byte instead of 10 (10 instead of 20 with the
+; wide layouts' copy at \1). Same planes, mask, TABSPR mark, counters and end
+; as the dot loop. The dot loop (\2) when the two dots could part: an odd bit
+; offset, or the row could end after the first dot (CONTA2CX odd or under 2;
+; HMMC keeps DX and NX even, so neither happens). Zanac EX: about 20% of the
+; 030's time was this loop. No stack (A7 is the Restas table).
+HMMCI4:	MACRO
+	MOVEM.L	CPUCopyBuf,D1/D4/D5/D6/A5
+	MOVE.W	CONTA2CX(A3),D7
+	CMP.W	#2,D7
+	BCS	\2
+	OR.W	D1,D7
+	BTST	#0,D7
+	BNE	\2
+	MOVEQ	#0,D3
+	MOVE.B	D2,D3
+	MOVE.W	(TABOUTSC5.L,D3.W*2),D3
+	MOVE.L	$16(A4),D7		; a plane's size
+	MOVE.L	A5,A6			; the last plane
+	BFINS	D3,(A6){D1:2}
+	IFNC	"\1","0"
+	BFINS	D3,\1(A6){D1:2}
+	ENDC
+	SUB.L	D7,A6
+	LSR.W	#2,D3
+	BFINS	D3,(A6){D1:2}
+	IFNC	"\1","0"
+	BFINS	D3,\1(A6){D1:2}
+	ENDC
+	SUB.L	D7,A6
+	LSR.W	#2,D3
+	BFINS	D3,(A6){D1:2}
+	IFNC	"\1","0"
+	BFINS	D3,\1(A6){D1:2}
+	ENDC
+	SUB.L	D7,A6
+	LSR.W	#2,D3
+	BFINS	D3,(A6){D1:2}		; the first plane
+	IFNC	"\1","0"
+	BFINS	D3,\1(A6){D1:2}
+	ENDC
+	SUB.L	D7,A6
+	LSR.W	#2,D3
+	BFINS	D3,(A6){D1:2}		; the mask plane (dot not 0)
+	IFNC	"\1","0"
+	BFINS	D3,\1(A6){D1:2}
+	ENDC
+	ADD.L	D5,D5
+	ADD.L	D5,CPUCopyBuf		; two dots on
+	SUBQ.W	#2,CONTA2CX(A3)
+	BNE.S	\@Row
+	ADD.L	D6,CPUCopyBuf
+	SUBQ.W	#1,CONTA2C(A3)
+	BEQ.S	\@Fin
+	MOVE.W	CONTA3CX(A3),CONTA2CX(A3)
+\@Row:
+	IFC	"\1","0"		; (wide layouts: marked at the start)
+	ADDQ.L	#2,D1
+	LSR.L	#8,D1
+	TST.W	$1E(A4)
+	BEQ.S	\@NoRot
+	LSR.L	#1,D1
+\@NoRot:
+	ST	(TABSPR.L,D1.W)
+	ENDC
+	MOVEM.L	BUFER(A3),D0-D7/A0-A6
+	FInsBuc
+	SWAP	D2
+	RTS
+\@Fin:
+	BCLR	#0,DVDPS2(A3)		; Ejecucion SI terminada.
+	IFD	TRVLMMC
+	CMP.W	#TRVLMMC,CONTA3CX(A3)
+	BNE.S	\@nt
+	ST	TrvLmmcDone
+\@nt:
+	ENDC
+	MOVEM.L	BUFER(A3),D0-D7/A0-A6
+	FInsBuc
+	SWAP	D2
+	RTS
+	ENDM
+
+	CNOP	0,8
+HMMCImp:	HMMCI4	0,LMMCImp
+HMMCImpW:	HMMCI4	32,LMMCImpW
+HMMCImpP:	HMMCI4	64,LMMCImpP
 
 
 
@@ -21242,6 +21568,9 @@ NoBase22:
 	MOVEQ	#0,D2
 	MOVEQ	#0,D4
 
+	SF	MagPass
+	BTST	#0,REGS+DVDP1		; (4.6) R#1 MAG: cut into 16x16 sprites.
+	BNE	SprMagGo
 	MOVE.L	SP,SPR2_Pila
 
 ; ---------------------------------------
@@ -21319,7 +21648,7 @@ SprBandOK:
 	MOVE.B	(A4)+,D4	; Coordenada X.
 	MOVE.W	SprECOff(PC),D1
 	BTST	#7,(A0,D1.W)		; EC: X - 32.
-	BNE.S	SprEC
+	BNE	SprECFst
 SprECx:
 	LEA	(TABCORX.W,PC,D4.W*8),A2
 	MOVE.L	(A2)+,A1
@@ -21343,6 +21672,44 @@ SprECd:
 
 	JMP	SPR2_16-SPR2_16b(A7)	; Sprits de 16*16 o 8*8.
 ; ---
+; (4.6) One X per sprite here, so EC comes from the first line with dots, not
+; the first line: a blank line's EC moves nothing (DEVA's hero has colour FFh
+; on the empty rows over his head). A sprite that mixes EC on lines with dots
+; is still drawn whole at one X.
+SprECFst:
+	LEA	(A0,D1.W),A1		; The colour lines.
+	MOVEQ	#0,D3
+	MOVE.B	(A4),D3			; Pattern.
+	MOVE.L	D6,A2
+	CMP.W	#16,SprNL
+	BNE.S	SprEF8
+	TST.B	MagPass			; (4.6) A slot number here (SprMagBuild).
+	BEQ.S	SprEFn
+	MOVE.W	(A4),D3
+	LSL.W	#5,D3
+	BRA.S	SprEFa
+SprEFn:	AND.W	#$FC,D3
+	LSL.W	#3,D3
+SprEFa:	ADD.W	D3,A2
+	MOVEQ	#16-1,D3
+SprEF16:
+	MOVE.B	-16(A2),D1
+	OR.B	(A2)+,D1
+	BNE.S	SprEFd
+	ADDQ.W	#1,A1
+	DBF	D3,SprEF16
+	BRA.S	SprEC
+SprEF8:	LSL.W	#3,D3
+	ADD.W	D3,A2
+	MOVEQ	#8-1,D3
+SprEF8L:
+	TST.B	(A2)+
+	BNE.S	SprEFd
+	ADDQ.W	#1,A1
+	DBF	D3,SprEF8L
+	BRA.S	SprEC
+SprEFd:	TST.B	(A1)
+	BPL	SprECx
 SprEC:	SUB.W	#32,D4
 	BCC.S	SprECx			; X 32-255: X - 32 as usual.
 	CMP.W	#-16,D4			; Off the left edge: not drawn
@@ -21485,6 +21852,201 @@ SPR2_8Xd:
 	IFNE	(SPR2_8-SPR2_8b)-(SPR2_16-SPR2_16b)
 	FAIL	"SPR2_8 entry"
 	ENDC
+; (4.6) R#1 MAG in sprite mode 2: SprMagBuild cuts each sprite into 16x16 ones
+; whose last two attribute bytes hold a slot of MagPat, so these two read that
+; instead of a pattern number.
+	CNOP	0,8
+SPR2_M16:
+	MOVE.L	D6,A2
+	MOVE.W	(A4)+,D1
+	LSL.W	#5,D1
+	ADD.W	D1,A2
+	NOP
+	NOP
+	NOP
+	NOP
+	MOVEQ	#16-1,D1
+SPR2_M16b:
+	MOVEQ	#0,D3
+	MOVE.W	-16(A2),D3
+	MOVE.B	(A2)+,D3
+	LSL.L	D4,D3
+	MOVE.B	(A0)+,D2
+	MOVE.B	D2,(A5)+
+	JMP	([A1,D2.W*4])
+	CNOP	0,8
+SPR2_M16X:
+	MOVE.L	D6,A2
+	MOVE.W	(A4)+,D1
+	LSL.W	#5,D1
+	ADD.W	D1,A2
+	NOP
+	NOP
+	NOP
+	NOP
+	MOVEQ	#16-1,D1
+SPR2_M16Xb:
+	MOVEQ	#0,D3
+	MOVE.W	-16(A2),D3
+	MOVE.B	(A2)+,D3
+	LSL.L	D4,D3
+	MOVE.B	(A0)+,D2
+	CMP.W	SprD1Hi(PC),D1
+	BGT.S	SPR2_M16Xz
+	CMP.W	SprD1Lo(PC),D1
+	BGE.S	SPR2_M16Xd
+SPR2_M16Xz:
+	MOVEQ	#0,D2
+SPR2_M16Xd:
+	MOVE.B	D2,(A5)+
+	JMP	([A1,D2.W*4])
+	IFNE	(SPR2_M16-SPR2_M16b)-(SPR2_16-SPR2_16b)
+	FAIL	"SPR2_M16 entry"
+	ENDC
+	IFNE	(SPR2_M16X-SPR2_M16Xb)-(SPR2_16-SPR2_16b)
+	FAIL	"SPR2_M16X entry"
+	ENDC
+
+; The tables are in place for IMPSPR2's loop: every record of CLEARSPR2's list
+; is a 16-line one here (8 + 16 bytes), with either sprite size.
+SprMagGo:
+	JSR	SprMagBuild
+	MOVE.W	D0,([NUMSPR2])
+	BMI	SPR2RET
+	ST	MagPass
+	MOVE.L	SP,SPR2_Pila
+	LEA	SPR2_M16b(PC),SP
+	TST.B	BandPass
+	BEQ.S	SprMagN
+	LEA	SPR2_M16Xb(PC),SP
+SprMagN:
+	CLR.W	SprECOff
+	MOVE.W	#16,SprNL
+	TST.B	BandLater
+	BNE	SPR2PBUC
+	SF	-4(A5)
+	BRA	SPR2PBUC
+
+; The overlay core draws 16 dots by 16 lines a sprite, so a magnified sprite is
+; drawn as 16x16 sprites made here: four for a 16x16 sprite (32x32 on screen), in
+; the order top left, top right, bottom left, bottom right, one for an 8x8 sprite
+; (16x16 on screen). Each has its own attributes (Y, X, slot word), 16 colour
+; lines and a 32-byte slot of doubled dots; a quarter with no dots is left out.
+; In: A4 attributes, A0 colours, D6 pattern table + 16, D0 sprites - 1, A5 list.
+; Out: A4/A0/D6 = the new tables, D0 = their sprites - 1. Keeps all but
+; D0-D3. The new ones never exceed what the list has room for.
+SprMagBuild:
+	MOVEM.L	D4-D5/D7/A1-A3/A5-A6,-(SP)
+	MOVE.L	A5,D1
+	SUB.L	#BUFERSPR2,D1		; Records already in this list...
+	CMP.L	#SPRBUFN*24,D1
+	BCS.S	SMBList
+	SUB.L	#BUFERSPR2b-BUFERSPR2,D1
+SMBList:
+	NEG.L	D1
+	ADD.L	#SPRBUFN*24,D1
+	DIVU	#24,D1			; ...and the room left.
+	CMP.W	#MAGMAX,D1
+	BLS.S	SMBRoom
+	MOVE.W	#MAGMAX,D1
+SMBRoom:
+	MOVE.W	D1,MagRoom
+	MOVEQ	#0,D7			; New sprites so far.
+	MOVE.W	D0,D5
+	SUB.L	#16,D6
+	LEA	MagAttr,A1
+	LEA	MagCol,A2
+	LEA	MagPat,A3
+SMBSpr:
+	MOVEQ	#0,D1
+	MOVE.B	2(A4),D1
+	BTST	#1,REGS+DVDP1
+	BEQ.S	SMBPat
+	AND.W	#$FC,D1
+SMBPat:	LSL.W	#3,D1
+	MOVE.L	D6,A6
+	ADD.W	D1,A6
+	MOVE.L	A0,A5
+	MOVE.B	(A4),D2			; Y
+	MOVEQ	#0,D3
+	MOVE.B	1(A4),D3		; X
+	BSR.S	SMBQuad
+	BTST	#1,REGS+DVDP1
+	BEQ.S	SMBNext
+	ADD.W	#16,A6			; Top right: the right column of dots.
+	ADD.W	#16,D3
+	BSR.S	SMBQuad
+	SUB.W	#16-8,A6		; Bottom left.
+	ADDQ.W	#8,A5
+	ADD.B	#16,D2
+	SUB.W	#16,D3
+	BSR.S	SMBQuad
+	ADD.W	#16,A6			; Bottom right.
+	ADD.W	#16,D3
+	BSR.S	SMBQuad
+SMBNext:
+	ADDQ.W	#4,A4
+	ADD.W	#16,A0
+	DBF	D5,SMBSpr
+	MOVE.W	D7,D0
+	SUBQ.W	#1,D0
+	MOVEM.L	(SP)+,D4-D5/D7/A1-A3/A5-A6
+	LEA	MagAttr,A4
+	LEA	MagCol,A0
+	MOVE.L	#MagPat+16,D6
+	RTS
+; One new sprite: A6 = 8 pattern bytes, A5 = 8 colour lines, D2 = Y, D3.W = X
+; (256-271 for the right half of a sprite at X 240-255). A1-A3 and D7 move on.
+SMBQuad:
+	CMP.W	MagRoom,D7
+	BCC.S	SMBQx
+	MOVE.L	(A6),D1
+	OR.L	4(A6),D1
+	BEQ.S	SMBQx
+	MOVEQ	#-1,D4			; Colour mask.
+	MOVE.W	D3,D0
+	CMP.W	#256,D0
+	BCS.S	SMBQa
+	MOVEQ	#-1,D1			; Off the right edge, unless EC: the
+SMBQe:	ADDQ.W	#1,D1			; first line with dots tells (as
+	TST.B	(A6,D1.W)		; IMPSPR2), and X then has room for it.
+	BEQ.S	SMBQe
+	TST.B	(A5,D1.W)
+	BPL.S	SMBQx
+	SUB.W	#32,D0
+	MOVEQ	#$7F,D4
+SMBQa:	MOVE.B	D2,(A1)+
+	MOVE.B	D0,(A1)+
+	MOVE.W	D7,(A1)+
+	ADDQ.W	#1,D7
+	MOVEQ	#8-1,D0
+SMBQc:	MOVE.B	(A5)+,D1
+	AND.B	D4,D1
+	TST.B	(A6)+			; A line with no dots: nothing to draw or
+	BNE.S	SMBQd			; clear (chip RAM time), only its EC stays.
+	AND.B	#$80,D1
+SMBQd:	MOVE.B	D1,(A2)+
+	MOVE.B	D1,(A2)+
+	DBF	D0,SMBQc
+	SUBQ.W	#8,A5
+	SUBQ.W	#8,A6
+	MOVEQ	#8-1,D0
+SMBQp:	MOVEQ	#0,D1
+	MOVE.B	(A6)+,D1
+	MOVE.W	(SCDbl.L,D1.W*2),D1
+	MOVE.B	D1,16(A3)		; Right column: two lines...
+	MOVE.B	D1,17(A3)
+	LSR.W	#8,D1
+	MOVE.B	D1,(A3)+		; ...and the left one.
+	MOVE.B	D1,(A3)+
+	DBF	D0,SMBQp
+	SUBQ.W	#8,A6
+	ADD.W	#16,A3
+SMBQx:	RTS
+
+MagRoom:	DC.W	0
+MagPass:	DC.B	0		; Drawing from SprMagBuild's tables.
+		EVEN
 SprNL:		DC.W	16		; Lines of a sprite (16 or 8).
 SprD1Hi:	DC.W	0
 SprD1Lo:	DC.W	0
@@ -22346,21 +22908,6 @@ SPCBF:
 
 	CNOP	0,8
 NUMSPR2:DC.L	0
-	DC.W	0
-	DC.W	-1
-BUFERSPR2:
-	REPT	100		; (34; sprite bands draw a sprite once per band.)
-	DC.L	SPC2TABLA,SPRIT0+16,0,0,0,0
-	ENDR
-
-	CNOP	0,8
-	DC.L	0
-	DC.W	0
-	DC.W	-1
-BUFERSPR2b:
-	REPT	100		; (34; sprite bands draw a sprite once per band.)
-	DC.L	SPC2TABLA,SPRIT0b+16,0,0,0,0
-	ENDR
 
 ;  *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 ;  *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
@@ -22432,7 +22979,10 @@ ED11:				; DSKIO   $4010
 
 	CNOP	0,8
 rSIDISCO:
+	TST.L	KeyScrPtr		; (4.6) Not in a key-script run: the test
+	BNE.S	rSIDLed			; harness takes a lit power LED for a SNAP
 	BCLR	#1,$BFE001			; Filtro ON
+rSIDLed:				; freeze (Gradius III Legends: shots shifted).
 	MOVEM.L	D0-D4/A0-A2,BUFER(A3)
 
 	MOVE.L	PagRead+(2*4)(A3),PUNTER
@@ -24079,6 +24629,10 @@ AcCoNoL0:
 	BEQ.S	AcCoL0c
 	ST	L0Split
 AcCoL0c:
+	BTST	#0,D5			; (4.6) The last pointer event's line, for
+	BEQ.S	AcCoNoGbL		; a SCREEN 8 display-on (AcCoRutBlank).
+	MOVE.W	D7,BlGbyLn
+AcCoNoGbL:
 	LSR.B	#1,D5
 	CALLCS	AcCoRutGBY
 	TST.W	D7
@@ -24188,6 +24742,13 @@ ACPalNone:
 ; register to the border colour (bitplane DMA stays on, so the planes' line
 ; pointers keep moving). Enabled again (BlankTab 2): the palette in effect at
 ; that line (the last palette event at or above it, else PalTop).
+; (4.6) SCREEN 8 on AGA (no pair split) uses all 256 colours, so 16 colours
+; left the picture showing (Manbow 2's dim logo copy below its title split):
+; there BPLCON0 drops to no planes (COLOR00, SCREEN 8's black, as the
+; border) and back to 8 planes. Without planes the bitplane DMA stops, so at
+; display on the pointers are set again for this line from the last pointer
+; event above it (BlGbyLn: its R#2/R#23, this line's offset), unless the
+; line has its own event. One MOVE to blank, 17 at most to show again.
 AcCoRutBlank:
 	MOVEM.L	D1-D2/D4/A0-A1,-(SP)
 	MOVE.B	(BlankTab.L,D7.W),D1
@@ -24195,7 +24756,7 @@ AcCoRutBlank:
 	CMP.W	#$01FC,MCAGA		; AGA, not SCREEN 8: switch the planes to
 	BNE.S	ACBlEcs			; the blank bank (colours 32-47, filled
 	CMP.B	#$07,REGS+ScrModo	; at line 0 by AcCoRutPal) and back: one
-	BEQ.S	ACBlEcs			; MOVE each, so it fits in the blanking.
+	BEQ.W	ACBl8			; MOVE each, so it fits in the blanking.
 	MOVE.W	#$010C,(A3)+		; BPLCON4 as MASTERCOPPER has it (its
 	MOVE.W	MCAGA+10,D2		; BPLAM is R#7's colour: the hardware
 	CMP.B	#1,D1			; does the colour EOR), and to blank,
@@ -24262,6 +24823,24 @@ ACBlPNx:
 ACBlFin:
 	MOVEM.L	(SP)+,D1-D2/D4/A0-A1
 	RTS
+ACBl8:
+	TST.B	BMSOn			; (Pair split: colours as before.)
+	BNE.W	ACBlEcs
+	CMP.B	#1,D1
+	BNE.S	ACBl8On
+	MOVE.L	#$01000000,(A3)+	; BPLCON0: no planes.
+	BRA.S	ACBlFin
+ACBl8On:
+	CMP.B	#2,D1
+	BNE.S	ACBlFin
+	MOVE.L	#$01000010,(A3)+	; BPLCON0: 8 planes (as NPLA8).
+	CMP.W	BlGbyLn,D7		; Pointers set on this line already.
+	BEQ.S	ACBlFin
+	MOVE.W	BlGbyLn,D1
+	LEA	(TabRasDATA.L,D1.W*8),A0
+	BSR	AcCoRutGBY8		; (D1, A0 and A3 only)
+	BRA.S	ACBlFin
+BlGbyLn:	DC.W	0		; Line of the last pointer event (AcCoRut).
 
 AcCoRutAdjust:
 
@@ -28615,7 +29194,8 @@ DirROM:	DS.B	4*($4100)
 DirDOS:	DS.B	4*($4000)+$100
 NOMEM:	DS.B	(16*1024)
 	DS.B	$100
-MMUSIC:	DS.B	(16*1024)		; (4.0) MSX-Music signature page.
+MMusic:	DS.B	(16*1024)		; (4.6) The user's MSXMUSIC.ROM (MMusLoad).
+	DS.B	$100
 SramRaw:	DS.B	$2000		; (4.4) Cartridge SRAM (2 or 8 KB),
 SramView:	DS.B	$4180		; and its 16 KB page (see Mapper4S).
 ESROM=NOMEM+1
@@ -28755,6 +29335,18 @@ SCREENP:	DS.B	8*BMSPAGE	; (4.0) The page above a bitmap-pair mode
 	SECTION	BANDS,BSS
 ; --------------------------------
 BandBuf:	DS.B	640*BANDMAX	; Sprite mode 2 band snapshots.
+SPRBUFN=200				; (34; sprite bands draw a sprite once per band,
+					; MAG sprites are up to four.)
+MAGMAX=32*4				; SprMagBuild: new sprites a pass.
+	DS.L	1
+	DS.W	2			; (The count word is at BUFERSPR2-2.)
+BUFERSPR2:	DS.B	24*SPRBUFN	; CLEARSPR2's lists, one per overlay buffer.
+	DS.L	1
+	DS.W	2
+BUFERSPR2b:	DS.B	24*SPRBUFN
+MagAttr:	DS.L	MAGMAX
+MagCol:		DS.B	16*MAGMAX
+MagPat:		DS.B	32*MAGMAX
 
 	IFD	PERF
 ; --------------------------------

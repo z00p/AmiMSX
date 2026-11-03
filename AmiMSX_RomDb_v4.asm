@@ -22,6 +22,7 @@ RDB_CACHEMAX=512		; cache entries (8 bytes: CheckId.L, PagCart.W,
 RomDbCheck:
 	SF	RomDbHit
 	CLR.B	RomDbSram		; (4.4)
+	CLR.B	RomDbFM			; (4.6)
 	CLR.B	RomDbMach		; (4.4) Every ROM now (the machine, for
 	MOVEM.L	D0-D7/A0-A6,-(SP)	; the per-game defaults; the mapper for
 					; MegaROMs only, as MiraCheckCart).
@@ -95,6 +96,9 @@ RomDbGot:
 	LSR.B	#2,D0			; 2 MSX2+, 3 turbo R).
 	AND.B	#3,D0
 	MOVE.B	D0,RomDbMach
+	BTST	#1,RomDbFlags		; (4.6) An exception to the Sound rule.
+	SNE	RomDbFM
+	BSR	RomDbOpllFind
 	CMP.L	#($2080*5),BucCart	; (4.4) The mapper: MegaROMs only.
 	BCS.S	RomDbX
 	TST.B	SiNewMapp		; A saved mapper: not the database's.
@@ -106,6 +110,27 @@ RomDbGot:
 RomDbX:
 	MOVEM.L	(SP)+,D0-D7/A0-A6
 RomDbRts:
+	RTS
+
+; (4.6) RomDbOpll: the text "OPLL" is in the file, as a game that looks for
+; MSX-Music has "APRLOPLL" or "OPLL" to compare (GPSndRule).
+RomDbOpllFind:
+	SF	RomDbOpll
+	MOVE.L	DirCart,A0
+	ADD.W	#$80,A0
+	MOVE.L	BucFileCart,D0
+	SUBQ.L	#4,D0
+	BCS.S	RdOpX
+	MOVEQ	#"O",D1
+	MOVE.L	#"OPLL",D2
+RdOpL:	CMP.B	(A0)+,D1
+	BEQ.S	RdOpC
+RdOpN:	SUBQ.L	#1,D0
+	BCC.S	RdOpL
+RdOpX:	RTS
+RdOpC:	CMP.L	-1(A0),D2
+	BNE.S	RdOpN
+	ST	RomDbOpll
 	RTS
 
 ; -------------------------------------> Disks (4.4).
@@ -229,6 +254,28 @@ DiskDbLoad:
 	MOVE.L	RomDbHdr+8,DiskDbN
 DkDbLC:	JSR	CloseFile
 DkDbLR:	RTS
+
+; (4.6) PROGDIR:MSXMUSIC.ROM (once): the user's MSX-Music ROM, 16 KB, or the
+; first 16 KB of a bigger file. It needs the ID's OPLL; 'AB' goes, so the BIOS
+; leaves it alone. See NoEsMMus and NoSlot1Cart.
+MMusLoad:
+	TST.B	MMusTried
+	BNE.S	MMusLR
+	ST	MMusTried
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	MOVE.L	#tMMusRom,D1
+	MOVE.L	#$3ED,D2
+	JSR	OpenFile
+	BEQ.S	MMusLX
+	MOVE.L	#MMusic,D2
+	MOVE.L	#16*1024,D3
+	JSR	ReadFile
+	CMP.L	#"OPLL",MMusic+$1C
+	SEQ	MMusOK
+	CLR.W	MMusic
+	JSR	CloseFile
+MMusLX:	MOVEM.L	(SP)+,D0-D7/A0-A6
+MMusLR:	RTS
 
 ; -------------------------------------> The database file (once).
 RomDbLoadFile:
@@ -535,6 +582,8 @@ RomCacheN:	DC.W	0
 RomCacheRing:	DC.W	0
 RomDbHit:	DC.B	0		; RomDbCheck found a mapper for this load
 RomDbCode:	DC.B	0
+RomDbFM:	DC.B	0		; (4.6) An exception to the Sound rule.
+RomDbOpll:	DC.B	0		; (4.6) "OPLL" is in the file.
 RomDbType:	DC.B	0		; openMSX type number (AmiMSX4_types.txt)
 RomDbFlags:	DC.B	0		; (4.4) its flags (make_romdb.py)
 	EVEN
@@ -547,6 +596,9 @@ Cart8K:		DC.B	0		; (8-16 Kb file: one 16 Kb page)
 tRomDb:		DC.B	"PROGDIR:AmiMSX4.romdb",0
 tRomCache:	DC.B	"PROGDIR:AmiMSX4.romcache",0
 tDiskDb:	DC.B	"PROGDIR:AmiMSX4.diskdb",0
+tMMusRom:	DC.B	"PROGDIR:MSXMUSIC.ROM",0
+MMusTried:	DC.B	0
+MMusOK:		DC.B	0
 	EVEN
 DiskDbDir:	DC.L	0		; (4.4) the disk database, its size, entries
 DiskDbSize:	DC.L	0

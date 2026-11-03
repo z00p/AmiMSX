@@ -1,6 +1,10 @@
 # AmiMSX 4.x roadmap
 
-What is planned after 4.5. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+What is planned after 4.6. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+
+## Shipped in 4.6
+
+Your own MSX-Music ROM with its music driver (R-Type's FM music), PSG+FM only for games with FM, R-Type in Slot 2 on the MSX2+, magnified sprites on the Amiga output (Shoulder Blade OVERDRIVE's title), Uridium's status bar, Space Manbow 2's title, and Zanac EX's speed on the 68030. See `CHANGES_4.x.md`.
 
 ## Shipped in 4.5
 
@@ -17,17 +21,17 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 
 ## Still open, not yet scheduled
 
-Koei's SRAM cartridges, Shoulder Blade OVERDRIVE title logo, Nemesis 2 cyan stars and a missing ship frame, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, CPIR/CPDR per-repeat timing, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). The YJK modes (SCREEN 10-12) wait for a game that uses them.
+Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, CPIR/CPDR per-repeat timing, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). The YJK modes (SCREEN 10-12) wait for a game that uses them.
 
 About window (a tester, 28 Oct): keep its date in step with each release (it is typed in by hand). (The menu tidy-up is done: branch menus, Docs/agent_notes/v46_menus.md.)
 
-Cartridges (a tester, 30 Oct): The R-Type mapper is done (4.5, branch rtype: Docs/agent_notes/v45_rtype.md). Ashguine 2's FM/MSX-Audio patch (English translation) plays its sound effects but no music.
+Cartridges (a tester, 30 Oct): The R-Type mapper is done (4.5, branch rtype: Docs/agent_notes/v45_rtype.md). Ashguine 2's FM/MSX-Audio patch (English translation) should play its music now it finds the ID (WinUAE logs the FM writes): a tester to listen.
 
-Manbow 2 title on RTG (a tester, 31 Oct, A1200): nearly right, but a very brief video glitch remains.
+After 4.6 (3 Nov): R-Type's FM music sounds thin (an envelope's decay runs past its sustain level, and the output is quiet: it needs an automatic gain). The Z80's block instructions (LDIR, INIR, OTIR) can't be interrupted, so a line interrupt can come up to 16 lines late (Space Manbow 2's title split, now and then). Uridium 2's stars are written across the line where AmiMSX draws the frame, so one-dot stars shimmer. Zanac EX still dips to about 80% on the 68030/50 (HMMC). From reading the code, not yet reproduced: on AGA, LMMC's XOR acts as OR, LMMC ops 4-7 differ from the VDP, and HMMC uses the command's logical op, which the VDP ignores.
 
-Uridium 2 sound (a tester, 31 Oct, A1200): silent on RTG and AGA, with Sound on PSG+FM and on SCC, so not a setting. Trace its sound writes in openMSX alongside Ashguine 2. Also check that Sound moves to SCC by itself when this cartridge is inserted.
+Sound on Konami SCC cartridges with FM (2 Nov): with no game settings, a Konami SCC mapper moves Sound to SCC, from PSG+FM too. Batman and Head over Heels are SCC games, so that stays. DEVA is FM, so the ROM database now keeps its Sound as set. Other ROMs with no "OPLL" in the file drop from PSG+FM to PSG, as FM takes the PSG's noise channel (GPSndRule). Exceptions either way go in SOUND_EXCEPTIONS in tools/make_romdb.py: a compressed FM game could need one. Uridium 2 is not a bug: that ROM has no sound code (openMSX, Docs/agent_notes/overnight_2026-11-01.md).
 
-R-Type FM (a tester, 31 Oct, A1200): the loader rtype-fm.rom never offers MSX-MUSIC on the MSX2 machine. Debugger at its menu: E050h = FFh (not found), E052h = 0 (its BIOS check passed), FCC1h = 0. It only looks in slot 0-2, where AmiMSX puts the APRLOPLL signature, if EXPTBL says slot 0 is expanded. Find out why FCC1h is not 80h although slot 0 has sub-slots; it may matter to other games that look for MSX-Music. The pair also gives a black screen on the MSX2+ machine, with Sound on PSG and on PSG+FM.
+MSX-Music ROM driver (1 Nov): R-Type calls the ROM at 4110h-4122h (INIOPL, MSTART, MSTOP, RDDATA, OPLDRV, TSTBGM) and plays its FM music with OPLDRV. With the maintainer's own MSXMUSIC.ROM next to AmiMSX that works: the real ROM sits in Slot 1 if it is empty, otherwise in slot 3 RAM, where a game can overwrite it, and R-Type plays FM (WinUAE: 4264 OPLL writes in 65 s, openMSX 4400 in 50 s). Without the file AmiMSX has no driver, C-BIOS music is only a stub, and R-Type stays on the PSG (the ID is left out when a slot uses the R-Type mapper). A rewrite of the driver is still open, for those without the ROM; other games that use OPLDRV find the stubs and play no FM music.
 
 Drive B and .MVD files (a tester, 31 Oct): drive B only takes plain 360K and 720K images, drive A takes .MVD too. Loading an .MVD into B now says so; add support.
 

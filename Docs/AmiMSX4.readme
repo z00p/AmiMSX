@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.5
+Short:        MSX/MSX2/MSX2+ emulator, 4.6
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.5
+Version:      4.6
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -85,8 +85,27 @@ What's new
 
 See Docs/CHANGES_4.x.txt for the full list.
 
-New since 4.5 beta
-------------------
+New in 4.6
+----------
+- MSX-Music ROM: put your own 16 KB MSXMUSIC.ROM next to AmiMSX and,
+  with Sound on PSG+FM, games find the real ROM and its music driver.
+  R-Type then plays its FM music, and Gradius III Legends plays FM from
+  disk. Without the file, games that look for MSX-Music still find it.
+- PSG+FM only for games with FM: a ROM with no FM in it runs on the
+  PSG and keeps the PSG's noise channel. Save Game Settings still wins,
+  and disks are not touched. DEVA keeps the Sound you set.
+- MSX2+: R-Type runs in Slot 2.
+- Sprites: magnified sprites at their real size on the Amiga output
+  (Shoulder Blade OVERDRIVE's title, Neon Revenant), and DEVA's hero
+  keeps his head.
+- Uridium: the whole status bar shows (score, lives and logo).
+- Space Manbow 2's title: no dim copy of the logo under it, and no
+  frames with the bottom half's picture at the top.
+- Zanac EX runs faster on a 68030: in WinUAE's 68030/50 about 94% of
+  full speed on average (was 91%), and 81% at its slowest (was 74%).
+
+New in 4.5
+----------
 - The menus are rearranged into seven: Project, Emulation, Input,
   Disks, Cartridges, Tape and Tools, with plainer names (the guide gives
   the old name of each line, and says more about what the settings do).
@@ -249,8 +268,7 @@ Known limits
 - MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games choose a
   different video mode on an MSX2+, so the picture size differs
   (Gradius 2, Pampas & Selene); run MSX2 games as MSX2.
-- Nemesis 2: the stars are drawn cyan instead of white, and the ship
-  can be missing for a frame in the hangar intro.
+- Nemesis 2: the stars are drawn cyan instead of white.
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
 - CD32 pads: on Standard a pad is read as a plain two-button joystick
@@ -260,7 +278,7 @@ Known limits
   button 2.
 - Rarely, a game doesn't start on the first Power ON after the
   cartridge was changed (a black screen): press Power ON again.
-- RTG (beta): SCREEN 5 and 7 are drawn on RTG only with "100% Refresh
+- RTG: SCREEN 5 and 7 are drawn on RTG only with "100% Refresh
   in Screen Changes" on (the default); without it those frames go to
   the Amiga's own output, and the RTG screen keeps its last picture and
   goes black after a second. On a screen too small for the 2x picture
@@ -269,10 +287,19 @@ Known limits
 - Slot 2 can't be used while an MSX Disk ROM is chosen: AmiMSX offers
   to switch it off.
 - Drive B takes plain 360K and 720K images, not .MVD files.
-- The R-Type FM loader doesn't offer MSX-MUSIC, so R-Type plays with
-  the PSG; on the MSX2+ machine the pair shows a black screen. Use
-  MSX2.
-- Uridium 2 has no sound.
+- R-Type's FM music needs the MSX-Music ROM, which isn't included. Put
+  your own next to AmiMSX as MSXMUSIC.ROM (16 KB); without it R-Type
+  plays with the PSG. The ROM tested, dumped from a running FS-A1WX or
+  FS-A1WSX, has SHA-1
+  6354ccc5c100b1c558c9395fa8c00784d2e9b0a3.
+  The clean image of the same ROM, with FFh in place of the last 16
+  bytes, has SHA-1
+  aad42ba4289b33d8eed225d42cea930b7fc5c228.
+- Uridium 2 has no sound, and its one-dot stars can shimmer.
+- Space Manbow 2's title: now and then the split comes a few lines
+  late for a frame, showing a strip of the logo below it.
+- Zanac EX (the original, not the Enhanced version) still slows to
+  about 80% in busy scenes on a 68030/50.
 
 
 Credits

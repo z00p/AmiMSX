@@ -13,7 +13,8 @@ File format (big-endian):
                         4 Konami SCC (also its flash variants), 6 R-Type (4.5;
                         menu index 7, 5 is unused), $FE not emulated
     type.B              openMSX type number (TYPES list below; for messages)
-    flags.B             bit 0: has SRAM, bit 1: flash; bits 2-3: machine (4.4: 0 MSX or
+    flags.B             bit 0: has SRAM, bit 1: an exception to the Sound rule (4.6;
+                        SOUND_EXCEPTIONS); bits 2-3: machine (4.4: 0 MSX or
                         unknown, 1 MSX2, 2 MSX2+, 3 turbo R; the per-game defaults);
                         bits 4-5: SRAM size AmiMSX
                         emulates (1: 2 KB, 2: 8 KB), bit 6: ASCII16 (else ASCII8):
@@ -41,7 +42,12 @@ CODES = {"Normal": 0, "Konami": 1, "GenericKonami": 1, "ASCII8": 2, "ASCII16": 3
          "KonamiSCC": 4, "manbow2": 4, "Manbow2_2": 4, "KonamiUltimateCollection": 4,
          "RBSC_Flash_KonamiSCC": 4, "R-Type": 6}
 SRAM = re.compile(r"SRAM")
-FLASH = {"manbow2", "Manbow2_2", "KonamiUltimateCollection", "RBSC_Flash_KonamiSCC"}
+# Exceptions to the Sound rule (GPSndRule), by SHA-1. The rule: a Konami SCC mapper
+# means SCC, otherwise FM if "OPLL" is in the file. An entry here turns that round.
+SOUND_EXCEPTIONS = {
+    "a648774129139bd9fa2394f6eed29ad03c3af7ff",  # Angelic Warrior DEVA: FM on an SCC mapper
+    "71ff3a9dc048d92a853f6ebbe33b827c18f1bf0f",  # Uwol: looks for FM, never plays it
+}
 PLAIN = {"Mirrored", "page2", "page23", "page12", "page1", "page3", "16kb", "8kB", "Mirrored4000",
          "Mirrored0000", "Mirrored8000", "MirroredC000", "Normal0000", "Normal4000", "Normal8000"}
 TAGS = {"konamiscc": "KonamiSCC", "scc": "KonamiSCC", "konami": "Konami", "konami4": "Konami",
@@ -172,7 +178,7 @@ def main():
     out, keys = [], {}
     for h, (t, title, mach) in entries.items():
         key = int(h[:8], 16)
-        flags = (1 if SRAM.search(t) or t.startswith("Koei") else 0) | (2 if t in FLASH else 0) | sram_bits(t)
+        flags = (1 if SRAM.search(t) or t.startswith("Koei") else 0) | (2 if h in SOUND_EXCEPTIONS else 0) | sram_bits(t)
         flags |= mach << 2
         code = CODE_PLAIN if t in PLAIN else code_for(t)
         rec = (key, code, types.index(t), flags)

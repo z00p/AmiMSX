@@ -1,11 +1,11 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.5 (31.10.2026)
+@version $VER: AmiMSX.guide 4.6 (03.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.5
-                          ( 30.10.2026 - Freeware )
+                          AmiMSX Emulator v4.6
+                          ( 03.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 
@@ -112,7 +112,7 @@ Fast memory.  PSG, PAL, sprites every frame.
 [Auto] (60 Hz games in NTSC, at full speed), Use Japanese ID (60 Hz),
 Audio filter and Smooth display.
 
-@{fg highlight}    <*> AmiMSX RTG:  (beta)
+@{fg highlight}    <*> AmiMSX RTG:
 @{fg text}    ---------------
 
     The PiStorm preset on a Picasso96 (RTG) screen, such as the PiStorm's
@@ -262,7 +262,7 @@ THIS SOFTWARE...
                           @{"Cheat Window          " link FinestraPoke}
                           @{"RAMSX: Drive          " link RAMSX}
 
-    The menus were rearranged in 4.6.  Where a line was renamed, its old
+    The menus were rearranged in 4.5.  Where a line was renamed, its old
 name is given in brackets.
 @endnode
 
@@ -289,7 +289,8 @@ in the file named by the icon's PREFS ToolType.  (See @{"Presets" link Presets}.
     Saves the sound chip, sprite refresh, edge mask, audio filter, the
 pads and the machine next to the Slot 1 cartridge, as <cartridge>.prefs.
 They are used whenever this cartridge is inserted.  Without them, a Konami
-SCC cartridge gets the SCC sound chip.
+SCC cartridge gets the SCC sound chip, unless the ROM database knows its
+music is FM (DEVA), and on PSG+FM a game with no FM gets the PSG.
 
 @{fg highlight}    <*> Forget Game Settings:  [Forget game settings]
 @{fg text}    -------------------------------------------------
@@ -546,7 +547,7 @@ sector, of the type chosen below.
 
     - Boot Sector: Auto (0) / 1DD (1) / 2DD (2).
 
-    (The Imploder compressor, Implode MVD, is gone in 4.6.  Packed images
+    (The Imploder compressor, Implode MVD, is gone in 4.5.  Packed images
 still load.)
 
 @endnode
@@ -957,7 +958,22 @@ channels, channel 5 will not be emulated.
 mixed into Amiga channel 3.  The PSG keeps channels 0-2.  FM lite mixes
 only the 4 loudest voices, for less CPU time.  Both need a fast CPU.
 
-    Konami SCC cartridges still get the SCC.
+    FM takes the PSG's noise channel, so PSG+FM is only for games with
+FM.  Without game settings, a cartridge that has no "OPLL" in it runs on
+the PSG, and your setting comes back when it is taken out.  A compressed
+game could be caught by this: choose PSG+FM and Save Game Settings.
+Konami SCC cartridges still get the SCC, DEVA apart.
+
+    MSX-Music ROM:  AmiMSX shows games the MSX-Music ID, but not the
+ROM's own music driver, and a few games need that (R-Type's FM
+loader).  If you have the ROM, put it next to AmiMSX as MSXMUSIC.ROM
+(16 Kb, read once at start).  With Sound chip PSG+FM games then find
+the real ROM, in Slot 1 if that is empty, otherwise a copy in the RAM
+of slot 3.  It is not included with AmiMSX.  The ROM tested, dumped
+from a running FS-A1WX or FS-A1WSX, has SHA-1
+6354ccc5c100b1c558c9395fa8c00784d2e9b0a3.
+The clean image of the same ROM, with FFh in place of the last 16
+bytes, has SHA-1 aad42ba4289b33d8eed225d42cea930b7fc5c228.
 
 @endnode
 
