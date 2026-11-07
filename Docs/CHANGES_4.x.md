@@ -4,6 +4,17 @@ AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 4.7 (7 Nov 2026)
+
+- **Controller lag:** a press reaches the screen sooner on all three ways of showing the picture.
+  - **RTG:** each frame is drawn as soon as it is emulated, not after the next frame tick. On a PiStorm A1200 over HDMI, from the input read to the end of drawing: 3 ms median (was about 29 ms).
+  - **Smooth Display** (SCREEN 4, double buffered): the frame is drawn into the back buffer and committed as soon as it is emulated, so it is shown a frame sooner. On the A1200, from the input read to the screen: 2 VBlanks (was 3).
+  - **The Amiga output, other modes:** the keyboard and joysticks are read just before the next frame starts instead of straight after the last one was drawn, as late as the slowest of the last 32 frames allows, with a margin. On the A1200 with a SCREEN 2 game, the read and the frame drawn from it fall in the same field for 88% of frames, about a field sooner than before. A 68030 has little time to spare, so little changes there. The sound is updated where it was.
+- **Sound Mix** (Emulation > Sound Mix, for PSG+FM): **Classic** plays the PSG on Paula channels 0-2 and FM on channel 3, as before (FM from the left only, and FM takes the PSG's noise). **Mono** and **Stereo** make the PSG in software, noise included, and mix it with the FM into one 14-bit stream at the MSX's own balance, with a gentle automatic gain. Stereo puts PSG A, B and C left, centre and right, and the FM in the centre. Without a setting: Mono on fast CPUs, Classic otherwise. A change takes effect at the next Power ON or Reset. The mix costs CPU time: Lilly's Saga on WinUAE's 68030/50 runs at 72% of full speed with it (87% with Classic).
+- **FM:** a fast decay stops at the sustain level instead of overshooting it (R-Type's harpsichord rang for a frame or two only). An attack that moves to a shorter curve ends cleanly. An automatic gain lifts quiet FM music: R-Type's was far quieter than the PSG.
+- **Z80 block instructions** (LDIR, LDDR, CPIR, CPDR, INIR, INDR, OTIR, OTDR) stop at line ends as on a real Z80, so an interrupt can come between steps. Before, the whole loop ran at once and a line interrupt could come up to 16 lines late (Space Manbow 2's title split). CPIR and CPDR take 23 cycles a step (was 18). A test cartridge (tools/make_blktest.py, 14 tests) matches openMSX.
+- **Emulation menu:** grouped as Speed, Japanese Machine (60 Hz) and Kanji ROM; Sound Mix and Audio Filter; RTG Scanlines and Amiga Video. Mask Screen Edges, Smooth Display and Compatibility are off the menu; their settings stay in the settings files, the presets and the per-game settings.
+
 ## 4.6 (3 Nov 2026)
 
 - **MSX-Music detection:** with Sound on PSG+FM, games that scan for the MSX-Music ID now find it. It was never visible before: AmiMSX has no sub-slots, so "slot 0-2" did not exist. The ID is now in the RAM at 4018h of slot 3, the last slot games scan, with stubs behind it at 4110h for the ROM entry points (OPLL register writes work; the music driver is not there).

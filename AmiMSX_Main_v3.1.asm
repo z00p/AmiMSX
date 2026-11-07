@@ -24,6 +24,9 @@ HPeriod=228		; Z80 cycles per line (3.58 MHz / 15.7 kHz). The MSX adds a
 VPeriodPAL=313
 VPeriodNTSC=262
 
+	IFD	NO_EARLYDRAW		; (4.7) The late input read (LrRead) needs
+NO_LATEREAD=1			; the 4.7 frame order.
+	ENDC
 ColorDebug=1
 	IFND	MSX2PLUS		; (4.0) MSX2+ machine: V9958 R#25/R#27 (fine
 MSX2PLUS=1			; scroll, mask). The symbol only has to exist
@@ -595,7 +598,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.6 ("
+	DC.B	"$VER:AmiMSX Emulator v4.7 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -1303,6 +1306,7 @@ SiAGA:
 
 ; ---------------------------------------=> PSG Outs On/Off
 	MOVE.L	#OUTA1S,OUTS+($A1*4)
+	SF	FMXMixOn		; (4.7) Sound mix off until FMXInit.
 	SF	FMXOn			; (4.0) Sound chip 3: the PSG, plus
 	MOVE.W	#9,FMXMaxV		; MSX-Music by FMX on channel 3; 4: the
 	CMP.B	#3,D7			; same with the 4 loudest FM voices only
@@ -1476,6 +1480,8 @@ SiJapanId:
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Pone ROM en Slots.
+	ST	FMXMixNew		; (4.7) Power ON / Reset: FMXInit picks the
+					; sound mix again (not on Continue).
 	CLR.W	DIRCONTI
 	MOVE.L	#BUCLE,DIRCONTI+2
 	MOVE.L	#COPPERN,NEXTCOPP
@@ -6457,13 +6463,87 @@ OUTDfZ:
 	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	Otra	16
 
-INIR:
-	MOVE.W	D5,D1
-	LSR.W	#8,D1
-	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
-	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
-	SUB.W	D1,(A3)			; * Resta Cycles *
+; (4.7) Block instructions, interruptible. A Z80 runs LDIR, CPIR, INIR,
+; OTIR (and the D forms) a step at a time: after each step that leaves the
+; count non-zero the PC goes back 2 and the instruction runs again, so an
+; interrupt can come between steps. AmiMSX ran the whole loop in one go and
+; charged its cycles together (LDIR capped at 7000h): a long one ran across
+; many line ends, and the next line interrupt came up to 16 lines late
+; (Space Manbow 2's title split under the logo, now and then). Now each one
+; runs the steps that fit in the line's cycles (23 a step: 21 + the ED's and
+; the opcode's M1 waits; the last 18) and, when the line's cycles run out
+; with the count not done, puts the PC back on the ED and takes the line end
+; as after any other instruction (BLKYLD): an interrupt lands within a step
+; of where it would on the MSX. The registers between steps are the Z80's:
+; HL, DE, BC or B moved on; P/V = 1 (BC != 0) for LDIR/LDDR/CPIR/CPDR, Z = 0
+; (B != 0) for the I/O ones (the other I/O flags are not modelled, as INI).
+; LDIR/LDDR keep their bulk copy loop: the steps that fit are counted first
+; (LDRCNT: one MULU, and a DIVU only when they don't all fit). The I/O and
+; compare ones charge each step as it runs (BLKSTEP), so a port handler sees
+; the time of its own step, not of the end of the whole run.
 
+; PC back to the ED (it may be on the page before), the opcode fetched again
+; as Otra does, then the line end: the line's counter is already negative.
+; D1 only.
+BLKYLD:	MACRO
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1			; Z80 address after the opcode
+	SUBQ.W	#2,D1			; back to the ED
+	CogePag	D1,A5
+	LEA	Restas(A3,D1.W*8),A7
+	MOVE.B	(A5)+,D2
+	JMP	(MiraInter-Regs.W,A3)
+	CNOP	0,4
+	ENDM
+
+; A step that leaves the count non-zero: 22 cycles, + 1 for the next step's
+; prefix wait, then the next step (\1); \2 when the line's cycles have run
+; out (the counter negative after this step's 22, as Otra's BMI).
+BLKSTEP:	MACRO
+	SUB.W	#23,(A3)
+	BPL.S	\1
+	ADDQ.W	#1,(A3)
+	BMI.S	\2
+	SUBQ.W	#1,(A3)
+	BRA.S	\1
+	ENDM
+
+; LDIR/LDDR: the steps to run now. All of BC when its first BC-1 steps leave
+; the counter >= 0 (the last may end the line, as any instruction): BlkBC =
+; 0. Otherwise q+1 steps, q = (cycles left + 1) / 23 (the step that takes
+; the counter negative is the last one), and BlkBC = the BC left after them.
+; D5 = the loop count (steps - 1). Charges steps*23 - 12: with the final
+; Otra 5 a whole run costs (BC-1)*23 + 18 as on the MSX (the prefix's wait
+; included); a yield adds 11 (steps*23 - 1, the next prefix's wait being the
+; ED's own). D1, A4; D1's high word stays zero.
+LDRCNT:	MACRO
+	MOVE.W	(A3),A4
+	ADDQ.L	#1,A4			; cycles left + 1, sign-extended
+	MOVE.W	D5,D1
+	SUBQ.W	#1,D1			; BC - 1 (BC = 0: 65535)
+	MULU.W	#23,D1
+	CMP.L	A4,D1
+	BLE.S	\@A			; all the steps fit
+	MOVE.L	A4,D1
+	BGT.S	\@Q
+	MOVEQ	#0,D1			; no cycles left: one step
+	BRA.S	\@S
+\@Q:	DIVU.W	#23,D1
+	AND.L	#$FFFF,D1		; q
+\@S:	SUBQ.W	#1,D5
+	SUB.W	D1,D5
+	MOVE.W	D5,BlkBC		; BC left after q+1 steps (>= 1)
+	MOVE.W	D1,D5
+	MULU.W	#23,D1
+	BRA.S	\@C
+\@A:	CLR.W	BlkBC
+	SUBQ.W	#1,D5
+\@C:	ADD.W	#11,D1
+	SUB.W	D1,(A3)			; * Resta Cycles *
+	ENDM
+
+
+INIR:
 	MOVE.B	D5,D2
 INIRB:
 	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
@@ -6475,18 +6555,14 @@ INIRB:
 	SUB.W	D2,D5
 	BEQ.S	INIRF
 	MOVE.B	D2,D5
-	BRA.S	INIRB
+	BLKSTEP	INIRB,INIRY
 INIRF:	MOVE.B	D2,D5
 	OR.B	#$04,D3		; Flag Z a 'ON'
-	Otra	5
+	Otra	16
+INIRY:	AND.B	#$FB,D3		; Z off: B != 0
+	BLKYLD
 
 INDR:
-	MOVE.W	D5,D1
-	LSR.W	#8,D1
-	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
-	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
-	SUB.W	D1,(A3)			; * Resta Cycles *
-
 	MOVE.B	D5,D2
 INDRB:
 	JSR	([Ins-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
@@ -6498,53 +6574,49 @@ INDRB:
 	SUB.W	D2,D5
 	BEQ.S	INDRF
 	MOVE.B	D2,D5
-	BRA.S	INDRB
+	BLKSTEP	INDRB,INDRY
 INDRF:	MOVE.B	D2,D5
 	OR.B	#$04,D3		; Flag Z a 'ON'
-	Otra	5
+	Otra	16
+INDRY:	AND.B	#$FB,D3		; Z off: B != 0
+	BLKYLD
 
 
 OTIR:
-	MOVE.W	D5,D1
-	LSR.W	#8,D1
-	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
-	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
-	SUB.W	D1,(A3)			; * Resta Cycles *
-
-	MOVE.B	D5,D2
 OTIRCon:
-	MOVE.B	D2,D5
 	CogePag	D4,A4
+	MOVE.B	D5,D2
 	MOVE.B	(A4),D1
 	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	ADDQ.W	#1,D4
 	MOVE.B	D5,D2
 	SUB.W	D2,D5
-	BNE.S	OTIRCon
-	OR.B	#$04,D3		; Flag Z a 'ON'
+	BEQ.S	OTIRF
 	MOVE.B	D2,D5
-	Otra	5
+	BLKSTEP	OTIRCon,OTIRY
+OTIRF:	MOVE.B	D2,D5
+	OR.B	#$04,D3		; Flag Z a 'ON'
+	Otra	16
+OTIRY:	AND.B	#$FB,D3		; Z off: B != 0
+	BLKYLD
 
 OTDR:
-	MOVE.W	D5,D1
-	LSR.W	#8,D1
-	MULU	#23,D1			; B*(21+2) - 12, + the final Otra 5:
-	SUB.W	#12,D1			; (B-1)*23 + 18 as on the MSX.
-	SUB.W	D1,(A3)			; * Resta Cycles *
-
-	MOVE.B	D5,D2
 OTDRCon:
-	MOVE.B	D2,D5
 	CogePag	D4,A4
+	MOVE.B	D5,D2
 	MOVE.B	(A4),D1
 	JSR	([OUTS-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	SUBQ.W	#1,D4
 	MOVE.B	D5,D2
 	SUB.W	D2,D5
-	BNE.S	OTDRCon
-	OR.B	#$04,D3		; Flag Z a 'ON'
+	BEQ.S	OTDRF
 	MOVE.B	D2,D5
-	Otra	5
+	BLKSTEP	OTDRCon,OTDRY
+OTDRF:	MOVE.B	D2,D5
+	OR.B	#$04,D3		; Flag Z a 'ON'
+	Otra	16
+OTDRY:	AND.B	#$FB,D3		; Z off: B != 0
+	BLKYLD
 
 
 LDI:
@@ -6569,18 +6641,8 @@ LDD:
 
 
 LDIR:
-	MOVEQ	#0,D1
-	MOVE.W	D5,D1
-	MULU.L	#23,D1			; BC*(21+2) - 12, + the final Otra 5,
-	SUB.L	#12,D1			; at most $7000 (~125 lines: the
-	CMP.L	#$7000,D1		; counter is a word).
-	BLS.S	BlkCyc1
-	MOVE.L	#$7000,D1
-BlkCyc1:
-	SUB.W	D1,(A3)			; * Resta Cycles *
-
+	LDRCNT
 	MOVE.L	A0,-(SP)
-	SUBQ.W	#1,D5
 	CogePag	D4,A0
 	CogePagE D6,A4
 LDIRBUC:MOVE.B	(A0)+,(A4)+
@@ -6593,29 +6655,23 @@ LDIRC0:	ADDQ.B	#1,D6
 	ADDI.W	#$100,D6
 	CogePagE D6,A4
 	DBF	D5,LDIRBUC
-LDIRC1:	MOVEQ	#0,D5
-	MOVE.L	(SP)+,A0
+LDIRC1:	MOVE.L	(SP)+,A0
+	MOVE.W	BlkBC,D5
+	BNE.S	LDIRY
 	AND.B	#$FD,D3		; Flag V a 'OFF'
 	Otra	5
 LDIRD0:	ADDI.W	#$100,D4
 	CogePag	D4,A0
 	BRA.S	LDIRC0
 	CNOP	0,4
+LDIRY:	OR.B	#$02,D3			; P/V: BC != 0
+	SUB.W	#11,(A3)
+	BLKYLD
 
 
 LDDR:
-	MOVEQ	#0,D1
-	MOVE.W	D5,D1
-	MULU.L	#23,D1			; BC*(21+2) - 12, + the final Otra 5,
-	SUB.L	#12,D1			; at most $7000 (~125 lines: the
-	CMP.L	#$7000,D1		; counter is a word).
-	BLS.S	BlkCyc2
-	MOVE.L	#$7000,D1
-BlkCyc2:
-	SUB.W	D1,(A3)			; * Resta Cycles *
-
+	LDRCNT
 	MOVE.L	A0,-(SP)
-	SUBQ.W	#1,D5
 	CogePag	D4,A0
 	ADDQ.W	#1,A0
 	CogePagE D6,A4
@@ -6631,8 +6687,9 @@ LDDRC0:	SUBQ.B	#1,D6
 	CogePagE D6,A4
 	ADDQ.W	#1,A4
 	DBF	D5,LDDRBUC
-LDDRC1:	MOVEQ	#0,D5
-	MOVE.L	(SP)+,A0
+LDDRC1:	MOVE.L	(SP)+,A0
+	MOVE.W	BlkBC,D5
+	BNE.S	LDDRY
 	AND.B	#$FD,D3		; Flag V a 'OFF'
 	Otra	5
 LDDRD0:	SUBI.W	#$100,D4
@@ -6640,47 +6697,54 @@ LDDRD0:	SUBI.W	#$100,D4
 	ADDQ.W	#1,A0
 	BRA.S	LDDRC0
 	CNOP	0,4
+LDDRY:	OR.B	#$02,D3			; P/V: BC != 0
+	SUB.W	#11,(A3)
+	BLKYLD
 
 
 
-; (4.0) CPIR/CPDR: each iteration 23 cycles (21 + 2 M1 waits), the last 18,
-; as INIR (it was a flat 16 for the whole search); S and Z from the last
-; compare (Z set on a match), P/V = BC != 0 (it was always set on a match), C
-; unchanged. H and N are not modelled. BC = 0 searches 65536 bytes; the cycle
-; count is capped at $7000 as LDIR's (the counter is a word).
+; (4.0) CPIR/CPDR: S and Z from the last compare (Z set on a match), P/V =
+; BC != 0, C unchanged; H and N are not modelled. BC = 0 searches 65536
+; bytes. (4.7) A step at a time as the Z80 (BLKSTEP): 23 cycles a step, the
+; last 18 (it was a flat 18 for the whole search: a per-step charge in one
+; block drove the line counter deep negative in the DOS directory search;
+; now a search that runs out of the line's cycles yields to the line end).
+; Between steps: the flags of the last compare (no match), P/V = 1.
 CPIR:
-	MOVE.W	D5,BlkBC		; BC before (0 = 65536)
-	SUBQ.W	#1,D5
 CPIRB:
 	CogePag	D4,A4
-	CMP.B	(A4),D7
-	BEQ.S	CPIR0
 	ADDQ.W	#1,D4
-	DBF	D5,CPIRB
-	MOVEQ	#0,D5
-	BRA.S	CPIRF
-	CNOP	0,4
-CPIR0:	ADDQ.W	#1,D4
+	CMP.B	(A4),D7
+	BEQ.S	CPIRM
+	SUBQ.W	#1,D5
+	BEQ.S	CPIRF
+	BLKSTEP	CPIRB,CPIRY
+CPIRM:	SUBQ.W	#1,D5
 CPIRF:	MOVE.B	D3,D1			; old flags (C) before the compare:
 	CMP.B	(A4),D7			; flags of the last compare
 	BRA.S	BlkCmpF
+CPIRY:	MOVE.B	D3,D1
+	CMP.B	(A4),D7
+	BRA.S	BlkCmpY
 	CNOP	0,4
 
 CPDR:
-	MOVE.W	D5,BlkBC		; BC before (0 = 65536)
-	SUBQ.W	#1,D5
 CPDRB:
 	CogePag	D4,A4
-	CMP.B	(A4),D7
-	BEQ.S	CPDR0
 	SUBQ.W	#1,D4
-	DBF	D5,CPDRB
-	MOVEQ	#0,D5
-	BRA.S	CPDRF
-	CNOP	0,4
-CPDR0:	SUBQ.W	#1,D4
+	CMP.B	(A4),D7
+	BEQ.S	CPDRM
+	SUBQ.W	#1,D5
+	BEQ.S	CPDRF
+	BLKSTEP	CPDRB,CPDRY
+CPDRM:	SUBQ.W	#1,D5
 CPDRF:	MOVE.B	D3,D1			; old flags (C) before the compare:
 	CMP.B	(A4),D7			; flags of the last compare
+	BRA.S	BlkCmpF
+CPDRY:	MOVE.B	D3,D1
+	CMP.B	(A4),D7
+	BRA.S	BlkCmpY
+	CNOP	0,4
 BlkCmpF:				; (a MOVE.B here set the CCR and lost the
 	MOVE.W	CCR,D3			; compare's Z: DOS's CPIR searches failed)
 	BFINS	D1,D3{31:1}		; C unchanged
@@ -6689,11 +6753,14 @@ BlkCmpF:				; (a MOVE.B here set the CCR and lost the
 	BEQ.S	BlkCmpV
 	OR.B	#$02,D3			; P/V = BC != 0
 BlkCmpV:
-	Otra	16			; (4.0) flat, as 3.x: a per-iteration charge in one
-					; block drove the line counter deep negative
-					; inside the DOS directory search (disk boot hang).
+	Otra	16			; the last step: 18 with the two waits
+BlkCmpY:
+	MOVE.W	CCR,D3
+	BFINS	D1,D3{31:1}		; C unchanged
+	OR.B	#$02,D3			; P/V: BC != 0
+	BLKYLD
 
-BlkBC:	DC.W	0
+BlkBC:	DC.W	0			; LDIR/LDDR: BC left after this run
 	CNOP	0,4
 
 ; (4.0) CPI/CPD: S and Z from A - (HL) (only Z was set), P/V = BC != 0, C
@@ -6860,6 +6927,14 @@ InXX:	ST	D1
 INA9:
 	MOVE.B	PAA(A3),D1
 	AND.W	#$0F,D1
+	IFD	LAGLOG			; (lag test) first read of a changed row.
+	TST.B	LagKArm
+	BEQ.S	INA9n
+	CMP.B	LagKRow,D1
+	BNE.S	INA9n
+	JSR	LagT1K
+INA9n:
+	ENDC
 	MOVE.B	KEY(A3,D1.W),D1
 	RTS
 
@@ -6930,8 +7005,22 @@ OUTA1:
 	MOVE.B	DA0(A3),D1
 	AND.W	#$000F,D1
 	MOVE.B	D2,PSG(A3,D1.W)
-	JMP	([SOUND.W,PC,D1.W*4])
-	RTS
+	TST.B	FMXMixOn		; (4.7) Sound mix: registers 0-13 into
+	BNE.S	OUTA1M			; the log with the line and its cycle
+	JMP	([SOUND.W,PC,D1.W*4])	; count; PsxFrame plays them.
+OUTA1M:	CMP.W	#14,D1
+	BCC.S	OUTA1P
+	CMP.W	#PSGLOGMAX*8,PsgLogN
+	BCC.S	OUTA1X
+	LEA	PsgLog,A4
+	ADDA.W	PsgLogN,A4
+	MOVE.B	D1,(A4)+
+	MOVE.B	D2,(A4)+
+	MOVE.W	CurLine(A3),(A4)+
+	MOVE.W	(A3),(A4)
+	ADDQ.W	#8,PsgLogN
+OUTA1X:	RTS
+OUTA1P:	JMP	([SOUND.W,PC,D1.W*4])	; (ports A and B)
 
 	CNOP	0,8
 OUTA1S:
@@ -6974,6 +7063,12 @@ INA2:
 	MOVE.B	PSG(A3,D1.W),D1
 	RTS
 ESLEERJOY:
+	IFD	LAGLOG			; (lag test) first R#14 read after a change.
+	TST.B	LagJArm
+	BEQ.S	ESLJn
+	JSR	LagT1J
+ESLJn:
+	ENDC
 	BTST	#6,PSG+$F(A3)
 	BNE.S	ES_PORT2B
 	MOVE.B	DATOJOY1(A3),D1
@@ -17851,6 +17946,9 @@ PausaBuc:
 	BSR	Emula1Frame
 ;	---
 	LEA	Regs(PC),A3
+	IFND	NO_LATEREAD
+	JSR	LrRead			; (4.7) AGA live drawing: the input read
+	ENDC				; just before the next tick (lag-4.7.md).
 
 	BTST	#3,KEY+$E(A3)		; Modo MSX PAUSE
 	BNE.S	PauseFin
@@ -18058,14 +18156,47 @@ BufBasura:	DS.L	20
 ; ---------------------------------=> Emulaci�n de 1 Frame.
 	CNOP	0,4
 Emula1Frame:
+	IFD	LAGLOG			; (4.7 lag test build) end of the
+	JSR	LagEntry		; emulated frame: beam and VBlank.
+	ENDC
+	IFND	NO_LATEREAD
+	BSR	LrEntry			; (4.7) this frame's emulation time
+	ENDC
+	IFND	NO_EARLYDRAW		; (4.7) An RTG frame is drawn as soon as
+	SF	EarlyDone		; it is emulated, not after the wait for
+	JSR	RtgUse			; the next tick: on screen a frame sooner
+	TST.B	RtgNow			; (Docs/agent_notes/lag-4.7.md); so is a
+	IFND	NO_EARLYDB		; Smooth Display frame (E1FEarDb). Other
+	BEQ.S	E1FEarA			; AGA frames as before: drawn after the
+	ELSE				; wait.
+	BEQ.S	E1FLate
+	ENDC
+	BSR	E1FTail
+	ST	EarlyDone
+	IFND	NO_EARLYDB
+	BRA.S	E1FLate
+E1FEarA:
+	BSR	E1FEarDb
+	ENDC
+E1FLate:
+	TST.B	EarlyDone		; (committed after the early render)
+	BNE.S	E1FComX
+	ENDC
 	JSR	DbCommitF		; (4.0) double buffer: show the last frame
 					; (or drop it, if late: DbCommitF)
+E1FComX:
 	IFD	PERF
 	JSR	PerfStamp		; A: Z80 frame done.
 	MOVE.L	PerfNow,PerfA
 	ENDC
 
+	IFND	NO_LATEREAD
+	BSR	LrPreW			; (4.7) will it wait for the tick?
+	ENDC
 	BSR	Wait60fps
+	IFND	NO_LATEREAD
+	BSR	LrTickSt		; (4.7) the tick's time
+	ENDC
 
 	IFD	PERF
 	JSR	PerfStamp		; B: waited for the Amiga frame.
@@ -18096,7 +18227,13 @@ DispLg1:
 	MOVEM.L	(SP)+,D0-D1/A0
 	ENDC
 
+	IFND	NO_EARLYDRAW
+	TST.B	EarlyDone		; (4.7) Drawn before the wait: its copper
+	BNE.S	E1FRtgL			; list too.
+	TST.B	RtgNow			; (4.7: RtgUse ran before the wait)
+	ELSE
 	JSR	RtgUse			; (4.5) An RTG frame: RtgFrame reads the
+	ENDC
 	BNE.S	E1FRtgL			; line events, no copper list is built.
 	JSR	DbLineSafe		; (4.0) not the copper list on screen
 	IFD	COPLINEDB
@@ -18107,6 +18244,9 @@ DispLg1:
 E1FRtgL:
 
 	LEA	Regs(PC),A3
+	IFND	NO_LATEREAD
+	BSR	LrDecide		; (4.7) LateRd: the input waits for LrRead
+	ENDC
 	JSR	Act_Hardware
 
 	BTST	#0,KEY+14(A3)		; (4.0) Left Amiga (0 = pressed): swap the
@@ -18143,6 +18283,9 @@ DskSwFin:
 	JSR	StDumpGo
 	ENDC
 NoKeyScr:
+	IFD	LAGLOG			; (lag test) the input as sampled.
+	JSR	LagSample
+	ENDC
 
 	IFD	PERFSPACE
 ; Test input that doesn't depend on window focus: Space (MSX row 8 bit 0,
@@ -18204,6 +18347,16 @@ PerfDnFin:
 	MOVE.L	PerfNow,PerfC
 	ENDC
 
+	IFND	NO_EARLYDRAW		; (4.7) Drawn before the wait: only this
+	TST.B	EarlyDone		; pass's key-script SNAP is left (the
+	BEQ.S	E1FTail			; frame it holds is the one just drawn).
+	TST.W	SnapPend
+	BEQ.S	E1FEarX
+	JSR	KeySnapDo
+E1FEarX:
+	RTS
+	ENDC
+E1FTail:
 	TST.W	Refresh(PC)
 	BNE	RefrCon
 	MOVE.W	DirPrefs+$14,Refresh
@@ -18245,6 +18398,9 @@ RendNoSt:
 	JSR	CopLineFlip		; (4.0 draft) the list just built shows next
 	ENDC
 RendDone:
+	IFD	LAGLOG			; (lag test) render done, VRAM sum.
+	JSR	LagRender
+	ENDC
 	TST.W	SnapPend		; Key-script SNAP: hold this frame.
 	BEQ.S	NoSnapDo
 	JSR	KeySnapDo
@@ -18256,6 +18412,39 @@ NoSnapDo:
 	JSR	PerfFrame
 	ENDC
 	RTS
+	IFND	NO_EARLYDRAW
+	IFND	NO_EARLYDB
+; (4.7) A Smooth Display frame (SCREEN 4, PRINT4S, the double buffer
+; running) before the wait: its copper list, the render into the back buffer
+; and the commit, then the wait for the tick and the input read. Shown from
+; the second VBlank after the read of the input it answers, not the third.
+; Not the frame that starts the double buffer (DbPre, in the render), nor
+; one where DbPre would stop it (option off, MSX-Music).
+E1FEarDb:
+	LEA	Regs(PC),A3
+	TST.B	DbOn
+	BEQ.S	E1FEdX
+	TST.B	PrefDbuf
+	BEQ.S	E1FEdX
+	TST.B	FmUsed
+	BNE.S	E1FEdX
+	CMP.L	#PRINT4S,RVDP(A3)
+	BNE.S	E1FEdX
+	JSR	ActBorder		; (the border colour goes in the snapshot)
+	JSR	DbLineSafe
+	IFD	COPLINEDB
+	JSR	CopLineSafe
+	ENDC
+	JSR	BMSPrep
+	JSR	ActCopperLine
+	LEA	Regs(PC),A3		; (ActCopperLine's list pointer)
+	BSR	E1FTail
+	JSR	DbCommitF
+	ST	EarlyDone
+E1FEdX:
+	RTS
+	ENDC
+	ENDC
 RefrCon:
 	SUBQ.W	#1,Refresh
 	TST.B	RtgNow			; (4.5) RTG frame skipped: its line
@@ -18273,6 +18462,139 @@ RefrNoRtg:
 
 
 Refresh:DC.W	0
+	IFND	NO_EARLYDRAW
+EarlyDone:	DC.B	0		; (4.7) this frame was drawn before the wait
+		EVEN
+	ENDC
+
+	IFND	NO_LATEREAD
+; (4.7) Fix B, the late input read (Docs/agent_notes/lag-4.7.md). With AGA
+; live drawing the frame is drawn at the tick, the Z80 then emulates the
+; next one and the loop idles until the next tick. LrRead moves the
+; keyboard and joystick read from the tick to the end of that idle time:
+; the next tick (this one plus the measured period) less the slowest
+; emulation of the last 32 frames and a margin. Times are CIA-B TOD counts
+; (one a native line, in any display mode). A late frame costs no frame
+; (Wait60fps returns at once, the render starts late). The sound stays at
+; the tick (Act_Hardware). Off for RTG, Smooth Display, Fast CPU, Turbo.
+LRMARGIN=24
+TodNow:					; D0.L = CIA-B TOD (the high byte
+	MOVEQ	#0,D0			; latches, the low byte last).
+	MOVE.B	$BFDA00,D0
+	LSL.L	#8,D0
+	MOVE.B	$BFD900,D0
+	LSL.L	#8,D0
+	MOVE.B	$BFD800,D0
+	RTS
+LrEntry:				; Emula1Frame entry: the Z80 frame is done.
+	MOVEM.L	D0-D1/A0,-(SP)
+	BSR.S	TodNow
+	SUB.L	LrRd(PC),D0
+	AND.L	#$FFFFFF,D0
+	CMP.L	#$7FFF,D0
+	BLS.S	LrEn1
+	MOVE.W	#$7FFF,D0
+LrEn1:	MOVE.W	LrIdx(PC),D1
+	ADDQ.W	#2,D1
+	AND.W	#62,D1
+	MOVE.W	D1,LrIdx
+	LEA	LrRing(PC),A0
+	MOVE.W	D0,(A0,D1.W)
+	MOVEM.L	(SP)+,D0-D1/A0
+	RTS
+LrPreW:					; Before Wait60fps: does it wait?
+	MOVE.L	A0,-(SP)
+	LEA	Regs(PC),A0
+	SF	LrWait
+	CMP.B	#2,DirPrefs+$7E		; (Turbo: no wait)
+	BEQ.S	LrPw1
+	TST.B	fps60Dat(A0)		; (0: the tick has passed already)
+	SNE	LrWait
+LrPw1:	MOVE.L	(SP)+,A0
+	RTS
+LrTickSt:				; After Wait60fps: the tick's time.
+	MOVEM.L	D0-D1,-(SP)
+	BSR.S	TodNow
+	TST.B	LrWait
+	BEQ.S	LrTs2			; (no wait: not the tick's time)
+	TST.B	LrTOk
+	BEQ.S	LrTs1
+	MOVE.L	D0,D1			; two ticks in a row: the period
+	SUB.L	LrTick(PC),D1
+	AND.L	#$FFFFFF,D1
+	CMP.L	#200,D1
+	BCS.S	LrTs0
+	CMP.L	#330,D1
+	BHI.S	LrTs0
+	MOVE.W	D1,LrPer
+	BRA.S	LrTs1
+LrTs0:	CLR.W	LrPer
+LrTs1:	MOVE.L	D0,LrTick
+LrTs2:	MOVE.B	LrWait,LrTOk
+	MOVEM.L	(SP)+,D0-D1
+	RTS
+LrDecide:				; Before Act_Hardware: read late?
+	SF	LateRd
+	TST.B	EarlyDone		; (RTG, early Smooth Display: drawn)
+	BNE.S	LrDcX
+	TST.B	RtgNow
+	BNE.S	LrDcX
+	TST.B	DbOn			; (double buffer: the commit's timing)
+	BNE.S	LrDcX
+	TST.B	DirPrefs+$7E		; (Fast CPU, Turbo)
+	BNE.S	LrDcX
+	TST.B	LrTOk			; (this tick's time is known)
+	BEQ.S	LrDcX
+	TST.W	LrPer
+	BEQ.S	LrDcX
+	ST	LateRd
+LrDcX:	RTS
+LrRead:					; After Emula1Frame (EmulaGfx).
+	TST.B	LateRd
+	BEQ.S	LrRdT
+	LEA	LrRing(PC),A0		; D2 = the slowest of the last 32
+	MOVEQ	#31,D1
+	MOVEQ	#0,D2
+LrMx:	CMP.W	(A0)+,D2
+	BCC.S	LrMx2
+	MOVE.W	-2(A0),D2
+LrMx2:	DBF	D1,LrMx
+	MOVEQ	#0,D1
+	MOVE.W	LrPer(PC),D1
+	SUB.L	D2,D1
+	SUB.L	#LRMARGIN,D1		; lines from the tick to the read
+	BLE.S	LrRdK			; (no time to spare: read now)
+	ADD.L	LrTick(PC),D1
+	AND.L	#$FFFFFF,D1		; D1 = the time of the read
+LrWt:	BSR	TodNow
+	MOVE.L	D1,D2
+	SUB.L	D0,D2
+	AND.L	#$FFFFFF,D2		; lines still to wait
+	BEQ.S	LrRdK
+	CMP.L	#400,D2			; (past it)
+	BLS.S	LrWt
+LrRdK:	LEA	Regs(PC),A3
+	JSR	ActKeyJoy
+	IFD	LAGLOG			; (lag test) the read's time in this
+	MOVE.L	LagRPtr,A0		; frame's record (LagSample's VBlank
+	MOVE.W	FMXVbl,-4(A0)		; and beam words).
+	JSR	LagBeam
+	MOVE.W	D0,-2(A0)
+	ENDC
+LrRdT:	BSR	TodNow
+	MOVE.L	D0,LrRd
+	LEA	Regs(PC),A3
+	RTS
+LrTick:	DC.L	0			; TOD at the last tick
+LrRd:	DC.L	0			; TOD at the last input read
+LrPer:	DC.W	0			; tick to tick, lines (0: not known)
+LrIdx:	DC.W	0
+LrRing:	DS.W	32			; emulation times, lines
+LateRd:	DC.B	0			; this frame's input is read in LrRead
+LrWait:	DC.B	0			; Wait60fps will wait for the tick
+LrTOk:	DC.B	0			; LrTick is this tick's time
+		EVEN
+	ENDC
 
 	IFD	COPLINEDB
 ; (4.0 draft, vasm -DCOPLINEDB=1) The per-line copper list double-buffered
@@ -20968,7 +21290,11 @@ Pet_Inter:DC.W	0,0
 ; -------------------------------------> Actualiza MSX2 Hardware.
 	CNOP	0,8
 Act_Hardware:
+	BSR.S	ActBorder
+	BRA.S	ActHwMot
 ; -------------------------------------> Actualiza Color de borde.
+; (4.7) Also before an early Smooth Display render (E1FEarDb). Uses D1.
+ActBorder:
 	MOVE.W	#$1A0,D1
 	BTST	#5,DVDP8(A3)
 	BNE.S	COLORBCON
@@ -20979,7 +21305,9 @@ Act_Hardware:
 COLORBCON:
 	MOVE.W	D1,COLBORDE
 	MOVE.W	([COL00]),COLBORDE+2	;	 Color del Borde.
+	RTS
 ; -------------------------------------<
+ActHwMot:
 
 ; -------------------------------------> Apaga Motor de Disquetera.
 	TST.B	CONTASEC
@@ -21004,6 +21332,14 @@ CONTASECON:
 	BNE.S	NoCapsLock
 	BSET	#3,KEY+6(A3)
 NoCapsLock:
+	IFND	NO_LATEREAD		; (4.7) Keyboard and joysticks: here, or
+	TST.B	LateRd			; later in LrRead (AGA live drawing).
+	BNE.S	ActKJSk
+	BSR.S	ActKeyJoy
+ActKJSk:
+	BRA.S	ActKJEnd
+ActKeyJoy:
+	ENDC
  	TST.B	$BFEC01
 	BEQ.S	INTERCON
 	JSR	MTECLADO
@@ -21017,6 +21353,10 @@ INTERCON:
 
 ; -------------------------------------> Actualiza estado de JoySticks.
 	BSR	TESTEAJOY
+	IFND	NO_LATEREAD
+	RTS
+ActKJEnd:
+	ENDC
 ; -------------------------------------<
 
 ; -------------------------------------> Emulaci�n de Sonido.
@@ -21028,9 +21368,12 @@ INTERCON:
 	BRA	SfxFin
 EsFMPak:BSR	TocaFMPak
 	BRA	SfxFin
-EsPSG:	BSR	TocaPSG
+EsPSG:	TST.B	FMXMixOn		; (4.7) Sound mix: the PSG is FMX's.
+	BNE.S	EsPsx
+	BSR	TocaPSG
 	TST.B	FMXOn			; (4.0) MSX-Music (FMX).
 	BEQ	SfxFin
+EsPsx:
 	PERFMARK
 	JSR	FMXFrame
 	PERFSUB	7			; 7: FMX
@@ -27094,6 +27437,131 @@ BMSKey:		DC.L	-1		; Top mode, page, bottom mode in SCREENP.
 BMSList:	DC.L	COPPER8		; The frame's copper list (PRINT5/8).
 ; ---------------------------------------------------------------------
 
+	IFD	LAGLOG
+; ---------------------------------------=> Lag test build (4.7).
+; Per MSX frame (LagRec, 16 bytes): KeyFrN; VBlank count and beam line at the
+; end of the emulated frame (pass entry); the same after the wait and the
+; input read (sample); the same when the render is done (-1: not rendered).
+; LagSum: a sum of the 128 KB VRAM at the render. LagT1 (12 bytes): frame an
+; input change was sampled, frame and line the Z80 first read it (keyboard
+; row at port A9, or PSG R#14), 0 keyboard / 1 joystick. Into perf.bin.
+LAGRN=4096
+	CNOP	0,4
+LagBeam:
+	MOVE.L	$DFF004,D0
+	LSR.L	#8,D0
+	AND.W	#$1FF,D0
+	RTS
+LagEntry:
+	MOVE.L	D0,-(SP)
+	BSR	LagBeam
+	MOVE.W	D0,LagEL
+	MOVE.W	FMXVbl,LagEV
+	MOVE.L	(SP)+,D0
+	RTS
+LagSample:
+	MOVEM.L	D0-D2/A0-A1,-(SP)
+	MOVE.L	LagN,D0
+	AND.L	#LAGRN-1,D0
+	LSL.L	#4,D0
+	LEA	LagRec,A0
+	ADD.L	D0,A0
+	MOVE.L	KeyFrN,(A0)+
+	MOVE.W	LagEV,(A0)+
+	MOVE.W	LagEL,(A0)+
+	MOVE.W	FMXVbl,(A0)+
+	BSR	LagBeam
+	MOVE.W	D0,(A0)+
+	MOVE.L	#-1,(A0)
+	MOVE.L	A0,LagRPtr
+	LEA	KEY(A3),A0
+	LEA	LagKPrev,A1
+	MOVEQ	#0,D1
+LagSmK:	MOVE.B	(A0,D1.W),D0
+	MOVE.B	(A1,D1.W),D2
+	MOVE.B	D0,(A1,D1.W)
+	EOR.B	D0,D2
+	BEQ.S	LagSmK2
+	TST.B	LagKArm
+	BNE.S	LagSmK2
+	MOVE.B	D1,LagKRow
+	ST	LagKArm
+	MOVE.L	KeyFrN,LagKFr
+LagSmK2:
+	ADDQ.W	#1,D1
+	CMP.W	#11,D1
+	BNE.S	LagSmK
+	MOVE.B	DATOJOY1(A3),D0
+	CMP.B	LagJPrev,D0
+	BEQ.S	LagSmJ
+	MOVE.B	D0,LagJPrev
+	ST	LagJArm
+	MOVE.L	KeyFrN,LagJFr
+LagSmJ:	ADDQ.L	#1,LagN
+	TST.B	RtgNow			; (an RTG frame: perf_rtg.bin)
+	BEQ.S	LagSmR
+	ST	LagRtgSeen
+LagSmR:
+	MOVEM.L	(SP)+,D0-D2/A0-A1
+	RTS
+LagRender:
+	MOVEM.L	D0-D1/A0-A1,-(SP)
+	MOVE.L	LagRPtr,A0
+	MOVE.W	FMXVbl,(A0)+
+	BSR	LagBeam
+	MOVE.W	D0,(A0)
+	LEA	DIRVRAM,A1
+	MOVE.L	#(128*1024)/4-1,D1
+	MOVEQ	#0,D0
+LagRS:	ADD.L	(A1)+,D0
+	ROL.L	#1,D0
+	SUBQ.L	#1,D1
+	BPL.S	LagRS
+	MOVE.L	LagN,D1
+	SUBQ.L	#1,D1
+	AND.L	#LAGRN-1,D1
+	LSL.L	#2,D1
+	LEA	LagSum,A1
+	MOVE.L	D0,(A1,D1.L)
+	MOVEM.L	(SP)+,D0-D1/A0-A1
+	RTS
+LagT1K:	SF	LagKArm
+	MOVEM.L	D0-D1/A0,-(SP)
+	MOVE.L	LagKFr,D1
+	CLR.W	LagT1Ty
+	BRA.S	LagT1
+LagT1J:	SF	LagJArm
+	MOVEM.L	D0-D1/A0,-(SP)
+	MOVE.L	LagJFr,D1
+	MOVE.W	#1,LagT1Ty
+LagT1:	MOVE.L	LagT1N,D0
+	CMP.L	#64,D0
+	BCC.S	LagT1x
+	ADDQ.L	#1,LagT1N
+	MULU.W	#12,D0
+	LEA	LagT1Buf,A0
+	ADD.L	D0,A0
+	MOVE.L	D1,(A0)+
+	MOVE.L	KeyFrN,(A0)+
+	MOVE.W	CurLine(A3),(A0)+
+	MOVE.W	LagT1Ty,(A0)
+LagT1x:	MOVEM.L	(SP)+,D0-D1/A0
+	RTS
+LagEV:		DC.W	0
+LagEL:		DC.W	0
+LagRPtr:	DC.L	LagDummy
+LagDummy:	DC.L	0
+LagKPrev:	DCB.B	16,$FF
+LagKRow:	DC.B	0
+LagKArm:	DC.B	0
+LagJPrev:	DC.B	$FF
+LagJArm:	DC.B	0
+LagRtgSeen:	DC.B	0
+		EVEN
+LagKFr:		DC.L	0
+LagJFr:		DC.L	0
+LagT1Ty:	DC.W	0
+	ENDC
 ; ---------------------------------------=> Key script (CLI test hook).
 ; Records of 8 bytes: frame (MSX frames since power on), keyboard matrix
 ; row, key mask, hold frames; frame -1 ends the list. A key is down (its
@@ -29420,6 +29888,8 @@ FMXWrite:	DS.W	1		; next ring block FMXFrame writes
 FMXLen:		DS.W	8		; samples in each ring block
 FMXUnder:	DS.W	1		; blocks repeated (emulation late)
 FMXOver:	DS.W	1		; frames dropped (ring full)
+FMXAgcK:	DS.W	1		; (4.7) automatic gain: table 0-4
+FMXAgcN:	DS.W	1		; frames counted towards a step up
 FMXQ:		DS.W	1
 FMXMaxV:	DS.W	1		; voices mixed: 9, or 4 (lite)
 FMXSel:		DS.W	1		; this frame's voices (bit per channel)
@@ -29439,6 +29909,14 @@ FMXVbl0:	DS.W	1
 FMXLines:	DS.W	1		; frame length at the last resync (313/262)
 FMXBeam:	DS.W	1		; BEAMCON0 last written by R#9 (60/50 Hz)
 FMXOn:		DS.B	1		; sound chip 3
+FMXMixOn:	DS.B	1		; (4.7) Sound mix: 0 Classic, 1 Mono, 2 Stereo
+FMXMixRun:	DS.B	1		; (4.7) the mix since Power ON / Reset
+FMXMixNew:	DS.B	1		; (4.7) set: FMXInit picks it from PrefMix
+PsxStereo:	DS.B	1		; FFh: Stereo
+PsxTabOK:	DS.B	1		; noise and bit-count tables built
+PsxEhold:	DS.B	1		; envelope: hold,
+PsxEalt:	DS.B	1		; alternate,
+PsxEheld:	DS.B	1		; holding (no more steps)
 FMXFast:	DS.B	1		; 313 samples a frame
 FMXVolOK:	DS.B	1
 FMXPDirty:	DS.B	1
@@ -29459,10 +29937,42 @@ FMXVol:		DS.W	64*256		; volume tables (gain index, sample)
 FMXUser:	DS.B	8*256		; custom instrument tables
 FMXMix:		DS.W	320
 FMXCh:		DS.B	9*CH_SIZE
+; (4.7) Sound mix (AmiMSX_Psx_v4.asm)
+	CNOP	0,4
+PsxR:		DS.B	16		; its copy of the PSG registers
+PsxCh:		DS.B	3*PX_SIZE	; tone channels
+PsxNpos:	DS.L	1		; noise bit position, 18.14
+PsxNdn:		DS.L	1		; noise bits a sample, 18.14
+PsxEper:	DS.L	1		; envelope step period, 18.14
+PsxEcnt:	DS.L	1
+PsxT:		DS.L	1		; tone ticks a sample, 16.16
+PsxXL:		DS.L	1		; high-pass: last input,
+PsxXR:		DS.L	1
+PsxYL:		DS.L	1		; output x 256
+PsxYR:		DS.L	1
+PsxBlk:		DS.L	1		; this frame's ring block offset
+FMXRingR:	DS.L	1		; right side rings (high, low)
+FMXRingRL:	DS.L	1
+PsxEstep:	DS.W	1
+PsxEatt:	DS.W	1
+PsxEv:		DS.W	1		; envelope level this sample
+PsxInvT:	DS.W	1		; 2^32 / T
+PsxMxK:		DS.W	1		; automatic gain: step 0-6,
+PsxMxN:		DS.W	1		; frames towards a step up
+PsxVP:		DS.W	1		; MSX frame lines (313/262)
+PsgLogN:	DS.W	1		; bytes in PsgLog
+PsgLog:		DS.B	8*(PSGLOGMAX+1)	; register, value, CurLine, cycles, sample
+PsxBufL:	DS.W	320
+PsxBufR:	DS.W	320
+PsxNoiseTab:	DS.B	16400		; the LFSR's bits (131071 + 32)
+PsxPop:		DS.B	256		; ones in a byte
 ; --------------------------------
 	SECTION	FMXC,BSS_C
 ; --------------------------------
 FMXBuf:		DS.B	FMXBUFSZ	; Paula channel 3 (two halves)
+FMXBufLL:	DS.B	FMXBUFSZ	; (4.7) Sound mix: channel 0 (left, low),
+FMXBufHR:	DS.B	FMXBUFSZ	; 2 (right, high, Stereo),
+FMXBufLR:	DS.B	FMXBUFSZ	; 1 (right, low, Stereo)
 	IFD	FMXREC
 ; --------------------------------
 	SECTION	FMXR,BSS
@@ -29477,6 +29987,15 @@ FMXRecW:	DS.B	65536
 FMXRecWEnd:
 FMXRecO:	DS.B	1048576
 FMXRecOEnd:
+	ENDC
+	IFD	PSXREC
+PsxRecInit:	DS.B	16		; (Sound mix check build) PSG registers,
+PsxRecEP:	DS.L	1		; pointers,
+PsxRecOP:	DS.L	1
+PsxRecE:	DS.B	262144		; writes (frame.W, sample.W, reg, value, 0.W),
+PsxRecEEnd:
+PsxRecO:	DS.B	4194304		; output (N.W, then FM, PSG, out words a side)
+PsxRecOEnd:
 	ENDC
 
 ; --------------------------------
@@ -29523,6 +30042,16 @@ DispLog:	DS.B	4096		; Amiga frames since the MSX frame before
 DispLine:	DS.B	4096		; beam line / 2 when each frame ended
 SprHwHdr:	DS.L	1		; (4.4) "SPRL" (set by PerfDump), then
 DispTick:	DS.B	4096		; PerfTick (low byte) when each frame ended,
+	IFD	LAGLOG
+	CNOP	0,4
+LagHdr:		DC.B	"LAGL"
+LagN:		DC.L	0
+LagT1N:		DC.L	0
+LagRec:		DS.B	16*LAGRN
+LagSum:		DS.L	LAGRN
+LagT1Buf:	DS.B	12*64
+LagEnd:
+	ENDC
 SprTick:	DS.B	4096		; and when its sprite pass ended (SPRLOG),
 SprLine:	DS.B	4096		; with the beam line / 2.
 AclN:		DS.L	1		; ActCopperLine runs, and those begun

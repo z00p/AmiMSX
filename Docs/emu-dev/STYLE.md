@@ -26,8 +26,8 @@ Write for people first and agents second. Use plain English and short sentences,
 - Say which machine or setting shows the problem (PiStorm, 68030/50, BigMig, WinUAE config).
 
 ## Licensing of excerpts
-- Quote only our own projects' code: **AmiMSX** (freeware by Juan Antonio Gómez Gálvez; 4.x changes; quoted with his permission) and **Arnold for the Amiga** (GPL-2.0, derived from Kevin Thacker's Arnold).
-- Put the source and licence under each excerpt, e.g. *Source: AmiMSX 4.1.2, AmiMSX_Main_v3.1.asm (freeware, used with permission)* or *Source: Arnold-m68k 0.6, cpc/crtc.c (GPL-2.0)*.
+- Quote only our own projects' code: **AmiMSX** (freeware by Juan Antonio Gómez Gálvez; 4.x changes; quoted with his permission) **Arnold for the Amiga** (GPL-2.0, derived from Kevin Thacker's Arnold) and **AmiPCEngine** (freeware by Juan Antonio Gómez Gálvez and z00p; quoted with permission).
+- Put the source and licence under each excerpt, e.g. *Source: AmiMSX 4.1.2, AmiMSX_Main_v3.1.asm (freeware, used with permission)*, *Source: Arnold-m68k 0.6, cpc/crtc.c (GPL-2.0)* or *Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission)*.
 - Never quote third-party sources kept for reference (other emulators, ROM disassemblies, commercial game code). Describe what a game does in your own words.
 
 ## Privacy

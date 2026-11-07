@@ -1,8 +1,8 @@
-# The test machine: an OS 3.2.3 PiStorm A1200
+# Testing on the real A1200: the machine and its tools
 
-The emulators are tested on a real A1200 with a PiStorm32-lite and a Raspberry Pi CM4 running Emu68 1.1 (it reports a 68040 with FPU). It runs AmigaOS 3.2.3, Picasso96 3.x on the VideoCore RTG driver, PiStorm3D (`minigl.library` 29.1), AHI and Roadshow with wired Ethernet. Large data lives on a NAS share mounted with `smb2-handler` (called `NAS:` in the examples below). Agents drive it over the network with amimcp (see [Real hardware over the network](06-testing.md#real-hardware-over-the-network-amimcp)).
+The emulators are tested on a real A1200 with a PiStorm32-lite and a Raspberry Pi CM4 running Emu68 1.1 (it reports a 68040 with FPU). It runs AmigaOS 3.2.3, Picasso96 3.x on the VideoCore RTG driver, AHI and Roadshow with wired Ethernet. Large data lives on a NAS share mounted with `smb2-handler` (called `NAS:` in the examples below). Agents drive it over the network with amimcp (see [Real hardware over the network](06-testing.md#real-hardware-over-the-network-amimcp)).
 
-The lessons below were learned while setting this machine up and running PC game ports and 3D programs on it. They are about the machine and its tools, not about one emulator, but every emulator test run depends on them.
+The lessons below are about the machine and its tools, not about one emulator, but every emulator test run on real hardware depends on them: how to start programs remotely, how to move files without hanging the share, what a remote screenshot can and cannot see, and what the hardware does to your measurements. Most of them were learned while running other programs (game ports and 3D demos) on the same machine; the examples keep that origin, and the 3D-specific lessons are in the [appendix](#appendix-3d-on-pistorm-pistorm3d--minigl) at the end.
 
 ## Launching programs remotely
 
@@ -36,36 +36,33 @@ started remotely as `Run >NIL: <NIL: Execute "Play A1200"`.
 
 ### Paths with spaces break programs that start helpers by full path
 
-**Problem.** Quake III could not load its native game modules. A console window showed `NAS:PC: Unknown command`, and the game fell back to the much slower bytecode modules (the ones that then crashed on the small stack).
+**Problem.** A game port could not load its native modules. A console window showed `NAS:My: Unknown command`, and the game fell back to much slower bytecode modules.
 
-**Before:** the game ran from a drawer whose path contains spaces (on the share: `PC Games/_Needs PiStorm 3D/Quake III Arena (...)`). Its log read:
+**Before:** the program ran from a drawer whose path contains spaces (`NAS:My Games/Some Game/...`). It started each module as a separate program by building a command line from the full path, and AmigaOS splits a command line at the first space, so `NAS:My` was taken as the command name. Setting `CD` alone does not help: the program resolves the current directory to its full path.
 
-    Sys_LoadDll(NAS:PC Games/_Needs PiStorm 3D/.../baseq3/ui68k.dll)...
-    Failed loading dll, trying next
+**After:** the launch script above. It assigns a space-free name to the drawer (`Assign Q3D: ""`, then `CD Q3D:Q3`) and passes that name as the program's base path, so every path the program builds is free of spaces.
 
-**After:** the launch script above. The game lives in a subdrawer `Q3`, the script assigns a space-free name to the drawer and passes it as `fs_basepath`. The log then reads `Sys_LoadDll(Q3D:Q3/baseq3/ui68k.dll)...` with no failure.
+**Why.** Anything that rebuilds a command line from a path string breaks on a space. An assign (or a space-free drawer name) is the cheap cure. An emulator that starts helper programs, or passes a ROM path on to a second program, has the same exposure.
 
-**Why.** The port starts each module as a separate program by building a command line from the full path. AmigaDOS splits that command line at the first space, so `NAS:PC` is taken as the command name. Setting `CD` alone is not enough: the engine resolves the current directory to its full path. The base path must be given explicitly as a path without spaces.
+**Evidence.** The program's own log before and after (it wrote `Failed loading dll, trying next`, then loaded cleanly through the assigned path). A sibling port by the same author showed the same failure on another machine and the same fix worked.
 
-**Evidence.** Two log runs, before and after. A Quake II port by the same author showed the same failure on another machine, and the same fix worked there.
-
-**Look up.** The game's `qconsole.log` (`+set logfile 2` writes it line by line, so it survives a crash).
+**Look up.** The program's log file, if it has one that flushes line by line, so it survives a crash.
 
 ### Brackets are wildcards for Copy and List
 
-**Problem.** A copy of a game drawer called `Star Wars Jedi Knight - Dark Forces II (OpenJKDF2)` copied nothing and printed no error (`QUIET`). `List` of a drawer named `157 Heliobane (2026)` printed nothing at all.
+**Problem.** A copy of a game drawer called `Some Game - Part II (Port)` copied nothing and printed no error (`QUIET`). `List` of a drawer named `157 Another Game (2026)` printed nothing at all.
 
 **Before:**
 
-    Copy "NAS:PC Games/Syndicate (FreeSynd)" "Games:PC Games/Syndicate (FreeSynd)" ALL CLONE QUIET
+    Copy "NAS:My Games/Some Game (Port)" "Games:My Games/Some Game (Port)" ALL CLONE QUIET
 
 Result: `Wildcard destination invalid`.
 
 **After:**
 
-    Assign DST: "Games:PC Games/Syndicate (FreeSynd)"
-    Copy "NAS:PC Games/Syndicate '(FreeSynd')" DST: ALL CLONE QUIET
-    Copy "NAS:PC Games/Syndicate '(FreeSynd').info" "Games:PC Games/" CLONE QUIET
+    Assign DST: "Games:My Games/Some Game (Port)"
+    Copy "NAS:My Games/Some Game '(Port')" DST: ALL CLONE QUIET
+    Copy "NAS:My Games/Some Game '(Port').info" "Games:My Games/" CLONE QUIET
     Assign DST: REMOVE
 
 **Why.** `(`, `)` and `|` are AmigaDOS pattern characters. A source name with brackets is treated as a pattern that no longer matches the literal name. Escape each bracket with `'` in a source. A destination may not contain a pattern at all, even an escaped one, so reach it through an assign. `CD`, `Assign` and `MakeDir` take plain names and are not affected.
@@ -76,7 +73,7 @@ Result: `Wildcard destination invalid`.
 
 `C:WBRun` is not part of every OS 3.2 install. This machine has `C:WBLoad` instead, which starts an icon (including an Installer script with its tooltypes) as if it were double-clicked:
 
-    CD "NAS:Install/PrinceOfPersia2/PoP2 Install"
+    CD "NAS:Install/Some Game/Game Install"
     Run >NIL: <NIL: C:WBLoad Install
 
 The Installer window can then be driven remotely with clicks on its gadgets (see the next section).
@@ -91,7 +88,23 @@ The agent's native capture reads the screen's bitmap. It worked on 640x480 and 3
 
 Exult and FreeSynd (SDL2) accepted injected clicks only where their own pointer already was: moving the Intuition pointer did not move the game's pointer. They did accept keys, so the menus were driven with cursor keys, Return and Escape. The agent's key tool also has no letter keys (type them as text instead). There is therefore no Right-Amiga+X to clear a string gadget: click into it and send Backspace and Delete instead.
 
-## 3D on PiStorm (PiStorm3D / MiniGL)
+## The machine itself
+
+### A marginal power supply looks like random resets under load
+
+The A1200 rebooted every few minutes at a CM4 clock of 2.2 GHz (`arm_freq=2200`, `over_voltage=9`, `force_turbo=1`). The Emu68 meter showed no CPU or temperature fault. Setting `avoid_warnings=2` (no throttling on undervoltage) made it worse. At `arm_freq=1800`, with no over-voltage and no forced turbo, it has run for days with 3D games. The supply on this machine cannot feed a CM4 at 2.2 GHz plus the Amiga board. So **record the CM4 clock with every performance figure**: a measurement taken at 1.8 GHz is not comparable with one taken at 2.2 GHz.
+
+### Run big data from local disk, and copy it in small pieces
+
+Games that stream a lot of data loaded slowly from the NAS share (Hurrican 90 s, FreeSynd 70 s), and Jedi Knight was too slow to play from it. One long copy of several gigabytes from the share hung `smb2-handler`. Every program waiting on the share then froze, including `Info SMB0:`, which ignored Ctrl-C, and only a reboot cleared it. Copy one drawer per command and compare file counts and byte totals with the source after each one. (`List ... LFORMAT "%l"` prints `empty`, not `0`, for a zero-byte file. Count those too, or the totals never match.) Then a hang costs one drawer, and you know exactly where it stopped. The hang was repeatable: both times it stopped at the same game-generated cache folder (a dozen small files and subfolders, nothing unusual in the names), and a second reboot was needed. Skipping cache folders, which the programs rebuild anyway, avoided it. If the share hangs on one folder, go round it rather than retrying it. A third hang came in the middle of a 315 MB file while a web browser on the Amiga was also using the network; with the browser closed, the same file and 3.3 GB more copied without a hang. Keep other network programs closed during long transfers.
+
+### After a reboot the network may stay down
+
+On this machine a flag file (`S:NoNetworkAtBoot`) skips the network at boot, so after any reboot or crash the remote agent cannot be reached until someone starts the network on the machine. When a test can reset the machine, plan for a person to bring it back online. Either have the network start at boot, or write results to the share as you go, so they survive the reset.
+
+## Appendix: 3D on PiStorm (PiStorm3D / MiniGL)
+
+This appendix is not about writing emulators. It records what went wrong while running 3D game ports on the same machine, because it cost time and the same symptoms can show up in any program that opens a window on the RTG Workbench.
 
 ### Windowed MiniGL needs a 32-bit BGRA Workbench
 
@@ -112,17 +125,3 @@ Exult and FreeSynd (SDL2) accepted injected clicks only where their own pointer 
 ### Keep all Picasso96 parts on the same version
 
 The disk imager installed the Picasso96 2.0 monitor driver next to the 3.x libraries. RTG worked, but PiStorm3D tests were only reliable once every part (rtg, emulation, API libraries, `DEVS:Monitors` driver) carried the same date. Check them with `Version` before blaming the 3D driver.
-
-## The machine itself
-
-### A marginal power supply looks like random resets under load
-
-The A1200 rebooted every few minutes at a CM4 clock of 2.2 GHz (`arm_freq=2200`, `over_voltage=9`, `force_turbo=1`). The Emu68 meter showed no CPU or temperature fault. Setting `avoid_warnings=2` (no throttling on undervoltage) made it worse. At `arm_freq=1800`, with no over-voltage and no forced turbo, it has run for days with 3D games. The supply on this machine cannot feed a CM4 at 2.2 GHz plus the Amiga board. So **record the CM4 clock with every performance figure**: a measurement taken at 1.8 GHz is not comparable with one taken at 2.2 GHz.
-
-### Run big data from local disk, and copy it in small pieces
-
-Games that stream a lot of data loaded slowly from the NAS share (Hurrican 90 s, FreeSynd 70 s), and Jedi Knight was too slow to play from it. One long copy of several gigabytes from the share hung `smb2-handler`. Every program waiting on the share then froze, including `Info SMB0:`, which ignored Ctrl-C, and only a reboot cleared it. Copy one drawer per command and compare file counts and byte totals with the source after each one. (`List ... LFORMAT "%l"` prints `empty`, not `0`, for a zero-byte file. Count those too, or the totals never match.) Then a hang costs one drawer, and you know exactly where it stopped. The hang was repeatable: both times it stopped at the same game-generated cache folder (a dozen small files and subfolders, nothing unusual in the names), and a second reboot was needed. Skipping cache folders, which the programs rebuild anyway, avoided it. If the share hangs on one folder, go round it rather than retrying it. A third hang came in the middle of a 315 MB file while a web browser on the Amiga was also using the network; with the browser closed, the same file and 3.3 GB more copied without a hang. Keep other network programs closed during long transfers.
-
-### After a reboot the network may stay down
-
-On this machine a flag file (`S:NoNetworkAtBoot`) skips the network at boot, so after any reboot or crash the remote agent cannot be reached until someone starts the network on the machine. When a test can reset the machine, plan for a person to bring it back online. Either have the network start at boot, or write results to the share as you go, so they survive the reset.

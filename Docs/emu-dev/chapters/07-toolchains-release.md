@@ -89,13 +89,74 @@ Every debug aid is chosen on the vasm command line (`-DTRACE=1`, `-DPERF=1`, `-D
 
 **Look up.** Commits cac36a3, 0872b43; the `IFD` blocks around `TRACE`, `PERF`, `STATEDUMP`, `CORRCHK`, `HANGCHK`, `EXCCHK`; `Docs/CHANGES_4.x.md`, "Debug builds".
 
+### INCBIN into a BSS section gives zeros, silently
+
+**Problem.** The first boot of AmiPCEngine with a test ROM built in was black. It was not a crash: a per-instruction serial trace showed the first opcode at `$0000`, and the emulated ROM was all zeros.
+
+**Before** (`src/Main.asm`, the embedded test build, from the original sources): the ROM's label sat in a BSS section.
+
+	SECTION	Tablas,BSS
+	...
+	GameCart:
+		IFD	EMBED
+		INCLUDE	"embed.i"	; written by build_embed.sh: INCBIN of the test ROM
+		ENDC
+
+**After** (AmiPCEngine commit 1d703ca):
+
+	SECTION	Juego,DATA	; the ROM needs real data: GameCart was in Tablas,BSS
+
+*Source: AmiPCEngine 1.1, src/Main.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** A BSS section has a size and no contents in the executable, so the file's data never reaches the program. **Evidence.** With the ROM in a DATA section the title screen renders correctly. **Look up.** AmiPCEngine commit 1d703ca.
+
+### Big buffers belong in a BSS section, not among the code
+
+The other side of the lesson above. A debug build of AmiPCEngine kept two 67 KB snapshots of the guest's video state (chapter 06, "When the rows say "slow" but not why"). With the `DS.B` lines next to the code that fills them, the assembly stopped with branch-out-of-range errors: 137 KB now sat between short branches and their targets. In a code or data section, `DS` is real space in the file too.
+
+**After** (AmiPCEngine commit 3384ec0): the buffers moved to the BSS section that already held the emulator's tables, inside the build switch.
+
+	SECTION	Tablas,BSS
+	...
+	IFNE	DbgProbe
+	PrbSnapA:	DS.B	PrbSnapLen	; DbgProbeScan's snapshots (DbgRows.asm)
+	PrbSnapB:	DS.B	PrbSnapLen
+	ENDC
+
+*Source: AmiPCEngine 1.4 development, src/Main.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Rule.** Zeroed space goes in BSS, data that must be loaded goes in DATA, and only code and small constants sit among the code.
+
+### A build stamp the script writes goes stale when you call the assembler yourself
+
+**Problem.** A tester's photo of the menu showed a test build stamped 985f569+. The binary was db36ef2, byte for byte.
+
+**Why.** The stamp is not in the source. `build.sh` writes it to an include file (not in git) before it runs vasm, with the date, the commit, and a `+` if the source has changes:
+
+	printf "	DC.B	'AmiPC-Engine Emulator v1.0  -  test build %s (%s)',0\n" \
+	  "$(date +%d.%m.%Y)" \
+	  "$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- src || echo +)" > src/buildinfo.i
+
+*Source: AmiPCEngine 1.4 development, build.sh (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+That test build was assembled by calling vasm directly, for a quick set of variants, so the include still held the stamp from an earlier `build.sh` run. Nothing failed. The stamp just named the wrong build, and a stamp exists so that a photo can say which build was run.
+
+**Rule.** Build anything that goes to a tester through the script, or have every way of building write the stamp. When a stamp and a binary disagree, compare the bytes (`cmp`) with a fresh build of the commit before trusting either.
+
+**Look up.** `build.sh`, `src/buildinfo.i`; compare AmiMSX's `tools/buildid.sh` (first lesson in this chapter).
+
 ## amiga-gcc
 
 *Arnold.* Arnold is written in C and built with gcc 6.5 from the amiga-gcc toolchain, running under a Linux environment (WSL) on the PC. The 68k assembler tools of the AmiMSX chapters are not used.
 
-### Five builds from one source, and a build that is the same except for its time stamp
+### Two builds from one source, and a build that is the same except for its time stamp
 
-Arnold ships five binaries: `Arnold` (68040, `-O2`), `Arnold-040-Max`, `Arnold-060`, `Arnold-060-Max` and `Arnold-030`. All come from one source tree through one script, built with the same profile (chapter 10). Things worth knowing:
+Arnold 1.0 to 1.6 shipped five binaries: `Arnold` (68040, `-O2`), `Arnold-040-Max`, `Arnold-060`, `Arnold-060-Max` and `Arnold-030`. Since 1.7 there are two: `Arnold`, for the PiStorm (Emu68 presents a 68040, so this is the PiStorm build, not one for real 68040 machines), and `Arnold-060`, for BigMig. Both come from one source tree through one script, built with the same profile (chapter 10). Why the other three went:
+
+- **The `-Max` builds (`-O3`) bought too little for what they cost.** The last head-to-head on the A1200 was 49.6 against 49.3 fps, before profile-guided builds, and no preset icon used them. They also broke save states in 1.5: states would not load in the `-Max` builds only. A bisect by file found that building the save-state file at `-O2` fixed it, and 1.6 shipped that, but the cause was never found. Every extra build is another binary to test after each change.
+- **`Arnold-030` could not reach full speed.** A 68030 machine is too slow for a C emulator of a CPC Plus. A build that cannot run its target at full speed is better dropped than shipped.
+
+Things worth knowing:
 
 - **Compare builds by content, not by hash.** Two builds of the same source differ in the `__TIME__` string and the `$VER` date, nothing else. The size of the build is a quick check (for example 403,732 bytes for the 1.0 `Arnold`).
 - **Profile-guided builds need `libgcov` linked explicitly** for the 68020 multilib, and the profile directory is part of the option because `GCOV_PREFIX` is ignored (chapter 10). Use `-Wno-error=coverage-mismatch` for builds that only changed cold code.

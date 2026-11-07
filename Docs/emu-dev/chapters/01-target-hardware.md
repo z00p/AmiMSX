@@ -2,7 +2,7 @@
 
 ## PiStorm (Emu68), 68030/50 and BigMig compared
 
-*Reading notes (Arnold).* All Arnold figures in these notes were measured on one machine: an A1200 with a PiStorm (CM4) running Emu68, OS 3.2.3, no Zorro cards, with the emulator in `Arnold` (68040, `-O2`) builds. The other builds Arnold ships (`-030`, `-040-Max`, `-060`, `-060-Max`) are built and checked in WinUAE only. We have not timed Arnold on a real 68030/50 or on a BigMig, so this section says what the PiStorm numbers do and do not transfer to, and does not invent figures for the others.
+*Reading notes (Arnold).* All Arnold figures in these notes were measured on one machine: an A1200 with a PiStorm (CM4, running Emu68) in the trapdoor slot and no other expansions, OS 3.2.3, with the emulator in `Arnold` (68040, `-O2`) builds. Arnold 1.0 to 1.6 also shipped `-030`, `-040-Max`, `-060` and `-060-Max` builds; since 1.7 only `Arnold` and `Arnold-060` ship (chapter 07). `Arnold-060` is checked in WinUAE and has run on the A1200, but has not been timed on a BigMig. We have not timed Arnold on a real 68030/50 or on a BigMig, so this section says what the PiStorm numbers do and do not transfer to, and does not invent figures for the others.
 
 **What the target is for Arnold.** Arnold runs a whole CPC (Z80, CRTC, gate array, and on the Plus the ASIC with sprites and DMA) as C code, draws a chunky 384 x 272 picture, and converts it to 8 bitplanes (chunky-to-planar, c2p) for an AGA screen. Every 20 ms it must finish the emulation, the c2p and the sound for one CPC frame. The budget is therefore about 20 ms a frame; chapter 10 shows the figures per game.
 
@@ -17,6 +17,18 @@ Two consequences for anyone porting an emulator:
 
 - **Do not carry optimisations across CPUs on instruction counts.** An x86 profile of Arnold (callgrind) cut the Plus sprite merge by 36% in instructions and the PiStorm run came out slower (chapter 10). Use the x86 profile to find what is hot, and the real machine to decide whether a change helps.
 - **Keep an exact path.** Because speed work changes code layout and timing, every change in Arnold sits behind a `NO_x` switch that restores the old behaviour byte for byte (chapter 06), so a correctness check never depends on the speed of the machine.
+
+*AmiMSX.* A different shape of emulator gives a different picture of the same machines. AmiMSX is 68k assembly that takes the machine over. On AGA it draws the MSX tiles straight into bitplanes (blitter and CPU, only what changed since the last frame), so there is no chunky picture and no c2p. Its cost per frame is the tiles and sprites that changed, not the screen size.
+
+| | PiStorm (Emu68) | 68030/50 | BigMig |
+|---|---|---|---|
+| AmiMSX figures | the player's timing logs (A1200) | WinUAE's 68030 config only; no real 68030/50 timed | measured on the machine (4.0) |
+| SCREEN 4 scrolling game, AGA render | Space Manbow, live drawing: 76 beam lines median, 163 at the 99th percentile (6 of 728 frames late) | Lilly's Saga at 87% of full speed (72% with the software sound mix) | 120 to 140 lines from about line 252, so the drawing lands partly in the next frame |
+| RTG, input read to end of drawing | 50 lines median (3 ms), 99th percentile 9 ms | not measured | not measured |
+
+What carries over to other projects: on the fast machines the frame's work is short, and the time goes in *when* it is done, not in doing it (chapter 05, controller lag). On the BigMig the drawing still crosses the frame start, which is why the double buffer exists (chapter 02). Presets per machine (chapter 07) keep the 68030 away from features it cannot afford, such as the software sound mix (chapter 04), the double buffer and 60 Hz from the VDP.
+
+*AmiPCEngine.* The third project measured on the same A1200 PiStorm, and its figures do not transfer either. AmiPCEngine is 68k assembly with the operating system frozen in play. On the PiStorm the CPU was never its limit: speed work that gained 75% on WinUAE's 68030/50 config changed nothing on the A1200, where the frames lost on AGA were the renderer's chip RAM writes, and the RTG output is busy 13 to 28% of the frame ([chapter 10](10-performance-emu68.md#what-a-speed-up-buys-depends-on-the-machine-amipcengine), [chapter 12](12-rtg.md#measure-before-tuning-rtg-is-busy-13-to-28-of-the-frame-on-a-pistorm)). Its 68030 figures come from WinUAE only. It has none from a real 68030/50 or a BigMig either.
 
 ## Chip RAM bandwidth and the CPU
 

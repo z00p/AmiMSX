@@ -359,7 +359,7 @@ CEPOLL:	MACRO				; in each S#2 read handler, D1 only
 	ENDM
 ```
 
-*Source: AmiMSX 4.3 (development), AmiMSX_Main_v3.1.asm (freeware by Juan Antonio GÃ³mez GÃ¡lvez; 4.x changes; used with permission).*
+*Source: AmiMSX 4.3 (development), AmiMSX_Main_v3.1.asm (freeware by Juan Antonio Gómez Gálvez; 4.x changes; used with permission).*
 
 **Why.** Games pace their own mid-frame work on the video chip's busy flag, so "instant" is a timing change, not a speed-up. The model costs nothing per line: the end time is computed once when the command starts and only compared when a game reads the status register. The costs come from the reference emulator's per-access timing (VDP cycles, 1368 a line): 48 a byte for a fill (HMMV), 88 for a byte copy (HMMM), 64 for YMMM, 96 a dot for a logical fill, 120 for a logical copy, 112 a dot plus 32 a minor step for LINE, plus 56 to 64 a row. Inside the display window the chip gets fewer memory slots: the model multiplies by 3/2 with sprites on and 5/4 with them off. The time is walked through display and blank segments, so a long command can end frames later.
 
@@ -406,7 +406,7 @@ INSDD:	...
 
 `NOCO` charges the prefix as a 4-cycle NOP (plus its M1 wait) and re-dispatches the opcode, as the table already did for every other plain opcode.
 
-*Source: AmiMSX 4.3 (development), AmiMSX_Main_v3.1.asm (freeware by Juan Antonio GÃ³mez GÃ¡lvez; 4.x changes; used with permission).*
+*Source: AmiMSX 4.3 (development), AmiMSX_Main_v3.1.asm (freeware by Juan Antonio Gómez Gálvez; 4.x changes; used with permission).*
 
 **Why.** Both bugs are invisible when you read the handler (the right macro is there) and only show up when you measure. A macro with an empty argument assembles quietly in Devpac mode.
 
@@ -580,3 +580,465 @@ and the fast cell paths take only positive counts.
 **Evidence.** Headless 33 of 33 tests: save to a standard and to an extended image, reload and save again, `.bak` made once, byte compare with the reference emulator (identical except 126 bytes of uninitialised RAM), `FORMAT` of all 40 tracks of drive B by patching and by changing the layout, a high-score write beside a weak sector (only those bytes change), a write-protected file untouched, no change means no write. WinUAE on the PiStorm configuration 7 of 7 (standard, resave through the temp, old and rename path, extended, read-only).
 
 **Look up.** Commits 86888ee, 805df0f, cbb5e01; `DSKWRITE.md`; switches `NO_DSK80`, `DISKWRITE=0`.
+
+## Fast-forward and tape auto-start (Arnold)
+
+*Reading notes.* Two conveniences of Arnold 1.5 for tape games and slow intros. Both live entirely in the host: the emulated machine runs exactly as without them, which is what made them safe to test.
+
+### Fast-forward: no pacing, a picture every 100 ms, sound paused, no catch-up
+
+**Problem.** A tester asked for a key that runs the game fast while it is held (long loads with fast tape off, slow intros, waiting in a game). It must not change the emulation, the sound must stop at once and come back cleanly, and letting go must not cause a burst of fast frames or skipped frames.
+
+**After** (`host_amiga.c`, `Host_Throttle` and the frame-skip hook, Arnold-m68k 1.5):
+
+    if (ffwd_key != ffwd_on) {               /* only here, between two frames */
+        ffwd_on = ffwd_key;
+        if (ffwd_on) { Sys_AudioPause(); Sys_OsdHold(">>"); ... }
+        else         { Sys_OsdRelease(">>"); Sys_PacingRestart(); ... }
+    }
+    if (ffwd_on) fast = 1;
+    ...
+    if (fast) { behind_us = 0; ...; return; }  /* no 50 Hz wait */
+
+    /* frame-skip hook: a frame about every 100 ms of real time */
+    if (ffwd_key) {
+        unsigned long t = Sys_Micros();
+        if (t - ffwd_drawn < FFWD_SHOW_US) return 1;   /* not drawn */
+        ffwd_drawn = t; return 0;
+    }
+
+*Source: Arnold-m68k 1.5, `arnold/src/amiga/host_amiga.c` (GPL-2.0, derived from Kevin Thacker's Arnold).*
+
+**The design, point by point.**
+
+- **Change state only between frames.** The keyboard handler only records the key; the frame loop switches on and off. Nothing changes in the middle of a frame.
+- **Pacing off.** No frame wait, and the "behind" figure the frame skip uses is held at 0, so the normal frame skip does not react.
+- **Draw by real time, not by frame count.** A frame every 100 ms, whatever the speed, so the chunky-to-planar conversion does not eat the gain and the user still sees where the game is. Drawn frames are exact (frame skip never changes a drawn frame), so this is display only.
+- **Sound paused, but every block still made.** Paula stops at once and its queue is emptied. The core still produces each frame's sound block, and each block still goes through the host's DC filter, but none is queued. The sound after release is then the same, to the sample, as in a run without fast-forward.
+- **No catch-up on release.** The pacer counts frames against a 50 Hz schedule. After an unpaced stretch it would see itself hundreds of frames ahead or behind and burst or skip. `Sys_PacingRestart` makes the next frame wait restart the schedule from now. The same restart is now used when fast tape loading ends (it used to report one frame behind).
+- **The symbol is not in the picture.** The ">>" (two solid triangles) is drawn over a copy of the frame on its way to the screen, so screenshots, test snapshots and save states never contain it.
+- **A key that is not a CPC key.** The key left of 1 was a second CPC `^` (the `=` key gives `^` too). It is tested before the key remap, so no key map can take it.
+
+**Evidence.** Headless (the test host's `FFWD=a-b` draws 1 frame in 8 between frames a and b): 19 cartridges and 3 tapes loaded by auto-start, 3000 frames each, 638 snapshots (25 per title inside the fast stretch) identical to the plain run, and the final frames and WAV files byte-identical. WinUAE, AGA and RTG: the key held by a key script for 400 frames gives the same snapshots as the plain run, and window grabs show ">>" at the top left for exactly the time it is held.
+
+**Look up.** `FFWD_SHOW_US`, `Sys_PacingRestart`, `Sys_AudioSkip`, `Sys_OsdHold`; headless `FFWD=`; key script `A:FFWD`.
+
+### Tape auto-start: type the load command at frame ends, like a key script
+
+**Problem.** Every tape game needs a command before it loads: `RUN"` on a CPC 464, `|TAPE` and then `RUN"` on a 664 or 6128 (on the 6128 Plus, f1 for BASIC first), and a key at "Press PLAY then any key". On an Amiga keyboard `|` is Shift and the key right of P, which nobody finds.
+
+**After** (`tapeauto.c`, Arnold-m68k 1.5, option `AUTOTAPE`, on by default):
+
+    s = ta_text(ta_kind); n = ta_len(s); first = ta_first(ta_kind);
+    if (ta_t >= first && ta_t < first + (long)n * TA_STEP) {
+        i = (ta_t - first) / TA_STEP; ph = (ta_t - first) % TA_STEP;
+        key = ta_key(s[i], &shift);
+        if (ph == 0)       { if (shift) setkey(CPC_KEY_SHIFT, 1); setkey(key, 1); }
+        if (ph == TA_HOLD) { setkey(key, 0); if (shift) setkey(CPC_KEY_SHIFT, 0); }
+    }
+    end = first + (long)n * TA_STEP + TA_PLAY_WAIT;
+    if (ta_t == end) setkey(CPC_KEY_SPACE, 1);       /* "Press PLAY then any key" */
+
+*Source: Arnold-m68k 1.5, `arnold/src/amiga/tapeauto.c` (GPL-2.0, derived from Kevin Thacker's Arnold).*
+
+**Why this way.**
+
+- **Keys into the keyboard matrix at frame ends**, the same place the test key scripts act. The emulated machine just sees someone typing: no ROM patch, no memory poke, no firmware trap, so it works with every model's ROM and with the Plus cartridge menu.
+- **Measure the earliest frame, then add a margin.** Power ON is a power cycle, so BASIC's Ready comes at the same frame every time. The test host found that typing works from frame 40 on every model (the Plus menu takes f1 from frame 40, and BASIC takes keys 100 frames after f1). Typing starts at frame 100 (Plus: f1 at 150, typing at 300).
+- **Hold 4 frames, release 4.** The firmware needs a release of at least one keyboard scan, and two for the same key twice.
+- **Only for a tape game:** a tape in the deck and no disk in drive A (a 464 has no drive); on the Plus only with the system cartridge (a game cartridge starts itself); never on the GX4000. Reset does it again only when the tape is at its start.
+- **In the save state.** The auto-start's position (kind and frame) is part of the host data, so a state taken while it types resumes exactly. When it finishes it must clear its state fully: a first version kept the frame count, and four save-load-save round trips were not byte-identical.
+- **Plain C, no OS calls**, so the Amiga host and the test host use the same file.
+
+**Evidence.** The test host with no keys typed: 4 tapes (including one with a custom loader) on the 464, 664, 6128 and Plus, 16 of 16 load to their last block; for each, auto-start at real speed and with fast loading give the same frame and RAM, and the picture 150 frames after loading equals the hand-typed run's. Motor on at frame 192 (464), 240 (664, 6128) and 439 (Plus). Save states: 3 extra cases taken while it types resume exactly. WinUAE: auto-start on the 464 and the Plus loads to the same picture as the test host. A tester confirmed it on the A1200, also together with fast-forward.
+
+**Look up.** `tapeauto.c`, `TapeAuto_GetState`; headless `AUTOTAPE=1`; option `AUTOTAPE=0|1`, prefs `autotape=`.
+
+## Hidden details games rely on: the HuC6280 and its video chip (AmiPCEngine)
+
+*AmiPCEngine.* The PC Engine's CPU, the HuC6280, is a relative of the 65C02 with block-move instructions, two clock speeds (7.16 and 1.79 MHz) and eight page registers (MPRs) that map 8 KB pages into its 64 KB. The video chip (the VDC) and the rest of the hardware sit on an I/O page. The core runs in lines of 455 CPU cycles and, as in the Z80 lessons above, it checks for interrupts at line starts. Commits and `docs/agent_notes/` in this section belong to the AmiPCEngine development repository.
+
+An early read of the code listed the T flag, decimal mode, the TSB and TRB flags and block moves across pages as things one game did not use, and left them. Each of the four later turned out to be another game's fault. Percentages are pixels that differ from the reference emulator at the same frame. The method for proving such details is in chapter 06, "[Test ROMs compared byte for byte with the reference emulator](06-testing.md#test-roms-compared-byte-for-byte-with-the-reference-emulator)".
+
+### The T flag: SET was a NOP, and it can be one step with the next instruction
+
+**Problem.** The Legendary Axe's background had every other column missing (34.7%).
+
+**What the hardware does.** After SET, the next ORA, AND, EOR or ADC works on the zero-page byte at offset X instead of on A, and A is left alone. The game uses that to mask tile-map addresses in zero page. With SET ignored the AND hit A, the address stayed even, and every second word landed on the one before.
+
+**Before** (`src/CPU.asm`, AmiPCEngine 1.0):
+
+	SETnn:
+		NextOP	2
+
+**After** (commit af5d591, switch `NO_TFLAG`), reduced:
+
+	; T flag: the next instruction, if ORA/AND/EOR/ADC, works on zero page byte X in place of A
+	; and leaves A alone. It is one step with SET, so no flag to test on the hot path
+	; and no IRQ can fall in between.
+	SETnn:
+		...				; next opcode one of those? D0 = its slot in SetTab
+		ADDQ.L	#1,A5
+		MOVE.B	D7,SetSaveA		; A aside; the zero page byte takes its register
+		MOVEQ	#0,D1
+		MOVE.B	D4,D1
+		MOVE.B	(IRAM,D1.L),D7
+		MOVE.L	(SetTab.L,D0.W*4),A4
+		JMP	(A4)
+
+	SetDone:				; D1 = the instruction's cycles
+		MOVEQ	#0,D0
+		MOVE.B	D4,D0
+		MOVE.B	D7,(IRAM,D0.L)
+		MOVE.B	SetSaveA,D7
+		ADDQ.W	#5,D1			; SET 2, T 3
+		NextOP	D1
+
+*Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** The obvious design is a flag that every ORA, AND, EOR and ADC tests, a cost on some of the hottest handlers for an instruction few games use. Here SET runs the following instruction itself through a table of 36 extra handlers made from the normal macro with one more argument (9 more for decimal ADC). The other handlers do not change.
+
+**Evidence.** The Legendary Axe 34.7% to 0.00%. A test ROM against the reference emulator (T flag and decimal mode) shows no real differences; the two it leaves are listed in chapter 06.
+
+**Look up.** Commit af5d591; `SETnn`, `SetTab`, `SetDone`; switch `NO_TFLAG`.
+
+### Decimal mode costs nothing while it is off: repoint the dispatch table
+
+**Problem.** SED was ignored, although nearly all titles carry SED code for scores and timers. The Legendary Axe's health bar was two cells long.
+
+**Before** (`src/CPU.asm`, AmiPCEngine 1.0): the D flag changes, and ADC and SBC never look at it.
+
+	SEDnn:
+		OR.B	#$7F,DFF(A3)
+		NextOP	2
+
+**After** (commit 15a5f1f, switch `NO_BCD`), reduced:
+
+	SEDnn:
+		ST	BFF(A3)
+		TST.B	DecMode
+		BNE.S	.sed
+		MOVEQ	#-1,D1
+		BSR	DecSwitch
+	.sed:	NextOP	2
+		...
+	; Decimal mode costs nothing while it is off: SED points the 18 ADC/SBC slots of Instr at
+	; the ABCD/SBCD handlers, CLD, an interrupt, RTI or PLP point them back.
+	DecSwitch:				; D1.B = 0 binary, $FF decimal. D0, D1, A4
+		...
+		MOVEQ	#18-1,D1
+	.lp:	MOVEQ	#0,D0
+		MOVE.B	(A4)+,D0		; opcode
+		MOVE.L	(A0)+,(Instr.L,D0.W*4)	; its handler for this mode
+		DBRA	D1,.lp
+
+*Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** Binary code pays nothing in ADC or SBC, only one BSR in RTI and PLP, which can change D. The 68k's own ABCD and SBCD do the arithmetic, with two traps: they leave N undefined, so N is taken from the result (commit 93629f2), and they leave V undefined, which shows up as the only differences in the opcode test ROM (chapter 06). Two older faults came out with this: PHP took D from the byte PLP had left B in, and CLD did not clear it.
+
+The same trick keeps a mapper off every other game's hot path. Street Fighter II' changes banks with STZ to four addresses, so for that one 2.5 MB card alone the two STZ slots of the table point at handlers that check the address first (`NO_SF2`, `Sf2Setup`).
+
+**Evidence.** The Legendary Axe's health bar 0.26% to 0.00%. The test ROM for T flag and decimal mode matches the reference on N, Z, D and C. Speed: all of this batch's switches together cost +1.0 to +1.5% in vblanks on WinUAE's AGA 68030/50 and nothing measurable on the A1200.
+
+**Look up.** Commits 15a5f1f, 93629f2, 21281d1; `DecSwitch`, `DecPop`; `tools/testrom_bcd.py`.
+
+### RTI must take a pending interrupt, or a split lands one line late
+
+**Problem.** Parodius' HUD moved up and down by one pixel. The split entry was on the right line in 232 frames and one line late in 69 of 301.
+
+**Before** (`src/CPU.asm`, `RTInn`, AmiPCEngine 0.5): the check was there, commented out.
+
+	;	BSR	CheckInterrupt
+		NextOP	7
+
+**After** (commit 0c37ab2, switch `NO_RTIIRQ`):
+
+	;	BSR	CheckInterrupt
+		IFEQ	NO_RTIIRQ
+		BSR	CheckInterrupt		; I clear again: a pending IRQ is taken now, as on the 6280
+		ENDC
+		NextOP	7
+
+*Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** Parodius runs its timer interrupt about every 4.5 lines for sampled sound. When the timer handler was running at the start of the HUD's line, the raster interrupt raised there waited for the next line start instead of being taken at the handler's RTI. This is the same kind of fault as [the instruction after EI](#a-pending-interrupt-is-taken-after-the-instruction-following-ei-not-at-the-end-of-the-line): any instruction that re-enables interrupts is a place where a pending one must be looked at. It was in the emulation, not the host, so it happens at any speed. The check costs one TST.B and BNE per RTI.
+
+**Evidence.** 301 of 301 frames on the reference's line, and 804 of 804 on the 68030 RTG config below full speed. R-Type, Parodius, HuCNoid and Soldier Blade RTG frames are pixel-identical with the build before, and R-Type's sound log is identical. HuZERO, with a raster interrupt on every line, moves closer to the reference.
+
+**Look up.** Commit 0c37ab2; notes `docs/agent_notes/rel10.md`, with the frame table.
+
+### Raster and vblank on one line are two interrupts
+
+**Problem.** The Great Fumo Binning stayed on its title. It puts the raster compare on line 240, which is also its vblank line.
+
+**Before** (`src/PCE.asm`, AmiPCEngine 1.0): both status bits were set in one pass, so one interrupt saw status `$24`.
+
+**After** (commit bda6ad6, switch `NO_VDLATE`), reduced:
+
+	; RCR on the vblank line: the raster IRQ comes first, the vblank later in that line, as two IRQs
+	; (fumobinning's handler looks at RR and, only without it, at VD). One line on: the next PCE line.
+		BEQ.S	.vdNow
+		CMP.W	VdLate,D0
+		BNE.S	.vdNo
+		MOVE.W	#-1,VdLate
+		BRA.S	.vdRun
+	.vdNow:	CMP.W	RrLine,D0
+		BNE.S	.vdRun
+		MOVE.W	#-1,RrLine
+		ADDQ.W	#1,D2
+		MOVE.W	D2,VdLate
+		BRA.S	.vdNo
+	.vdRun:	...
+
+*Source: AmiPCEngine 1.1, src/PCE.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** The game's handler tests the raster bit first and looks at the vblank bit only when raster is clear. So the vblank routine, which frees the main loop, never ran. Merging two events into one because they fall on one line is safe only if no handler distinguishes them.
+
+**Evidence.** Frame 1800: 18% to 0.61%, and the game starts.
+
+**Look up.** Commit bda6ad6; notes `docs/agent_notes/night.md`, part 2b item 7.
+
+### The vblank interrupt follows the game's display height
+
+**Problem.** Atlantean's playfield and the parallax rows at the bottom of the screen jumped every other frame (frame 1000 8.29%, frame 1001 0.52%, frame 1002 8.54%).
+
+**Before** (`src/PCE.asm`, AmiPCEngine 0.5):
+
+	CMP.W	#(240+11),D0		; vBlank Interrupt?
+
+**After** (commit 71e726a, switch `NO_VBLLINE`):
+
+	MOVE.W	VDP_Regs+($0D*2),D2	; vblank after the last display line: VDW + 1
+	AND.W	#$01FF,D2		; (as Mesen: R-Type 240, HuCNoid/Atlantean 224)
+	ADDQ.W	#1,D2
+	CMP.W	#128,D2			; R0D not set yet or past the frame: line 251 as before
+	BCS.S	.vbOld
+	CMP.W	#263,D2
+	BCS.S	.vbCmp
+	.vbOld:	MOVE.W	#(240+11),D2
+	.vbCmp:	CMP.W	D2,D0		; vBlank Interrupt?
+
+*Source: AmiPCEngine 1.1, src/PCE.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** The game's vblank handler writes the first raster compare of the next frame. With the interrupt 27 lines late for this game, that work finished after the compare's line every other frame, so the frame's first raster interrupt, and the whole chain of splits behind it, never came. A dump of our own scroll log showed it at once: every other frame had no splits at all.
+
+**Evidence.** All 100 dumped frames have the 7 splits on the reference's lines. Frames 1000, 1001, 1002: 0.18%, 0.52%, 0.25%.
+
+**Look up.** Commit 71e726a; test switch `ScrDump`; notes `docs/agent_notes/video.md`, part 2.
+
+### A scroll write just after our line start still belongs to the line before
+
+**Problem.** Dungeon Explorer's status panel split came on the wrong line (2.57%: horizontal edges one line off).
+
+**Why.** The core's line starts where the VDC raises the raster interrupt, about 56 cycles before the VDC's own line ends (at about clock 1200 of 1365 in the reference). A game that writes the scroll in its raster handler can get in before the VDC's line ends: the panel's scroll write comes at clock 1353. The core put every scroll write on the next line, however early it came.
+
+**Before** (`src/IO.asm`, `logScrollXY`, AmiPCEngine 1.0): no test.
+
+**After** (commit e60b102, switch `NO_RCRLATE`):
+
+	; Our line starts where the VDC raises the raster IRQ, about 56 cycles before its line
+	; ends (Mesen: IRQ at hclock 1190-1200 of 1365). A write that soon still takes effect
+	; on this line (Dungeon Explorer's status panel: R8 at hclock 1353).
+		cmp.l	#(455-56)<<16,d2	; (upper word of D2: cycles left in the line)
+		bcs.s	.sl2
+		tst.b	CpuSlow
+		bne.s	.sl2
+		subq.w	#1,d0
+	.sl2:
+
+*Source: AmiPCEngine 1.1, src/IO.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Evidence.** 0.00% at frames 1200, 1800 and 2400, and no other title moved. A line model has two clocks in it, the emulated line and the chip's own: place a write by its cycle within the line, not only by the line number.
+
+**Look up.** Commit e60b102; notes `docs/agent_notes/night.md`, part 2b item 3.
+
+### VRAM reads go through a read-ahead buffer
+
+**Problem.** The demo ninjabutai showed a broken logo and ran late (26% and 10.6%). Its LZ unpacker reads VRAM back through the data port.
+
+**Before** (`src/IO.asm`, `read_0002_3`, AmiPCEngine 1.0): a read of the data port returned VRAM at the read address on the spot.
+
+**After** (commit 303e071, switch `NO_VDCREAD`):
+
+	; The VDC reads ahead (test ROM against Mesen): a write to MARR's high byte, or a read
+	; of $0003, loads the buffer from MARR and then steps MARR. A read gives the buffer, always.
+		BTST	#0,D0
+		BNE.S	.vrHi
+		MOVE.B	VdcBuf+1,(A4)
+		RTS
+	.vrHi:	MOVE.B	VdcBuf,(A4)
+		MOVE.B	VDP_Index(A3),D1
+		AND.B	#$1F,D1
+		CMP.B	#2,D1
+		BNE.S	VdcRet
+	VdcFetch:
+		MOVE.W	VDP_Regs+(1*2),D1
+		AND.L	#$7FFF,D1
+		MOVE.W	(VRAM,D1.L*2),VdcBuf
+		...				; MARR steps by the increment in R5
+
+*Source: AmiPCEngine 1.1, src/IO.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** "Reads VRAM" and "reads a buffer filled earlier" differ when a game writes over a word it is about to read, changes the read address (MARR) in the middle, or reads one byte twice. The exact rule came from a generated test ROM that tried the address orders and increments against the reference emulator (chapter 06). Both read addresses give the buffer whatever register is selected; only register 2 steps.
+
+**Evidence.** The test ROM: 0 of 76 bytes differ. ninjabutai 26% and 10.6% to about 1.4-1.6%, and it runs on time. Soldier Blade got better from the same fix: frame 1200 65% to 48.8%, frame 2400 35% to 9.4%.
+
+**Look up.** Commit 303e071; `tools/testrom_vdcread.py`; notes `docs/agent_notes/night.md`.
+
+### Read-modify-write instructions must reach the I/O handlers too
+
+**Problem.** Parasol Stars' title tiles were all the same junk pattern (38.97% at frame 600). The game draws them by read-modify-write on the VDC data port: it sets or clears one bit plane at a time with TSB and TRB on the port.
+
+**Before** (`src/CPU.asm`, AmiPCEngine 0.5): the handlers for TSB, TRB, ASL, INC and the like work on the host's copy of the I/O page (`IOAM`). No VRAM read, no VRAM write:
+
+	\1	\3,(A4)
+	UpdateFlags NxZx
+	NextOP	\5
+
+**After** (commit 25d88c6, switches `NO_TSBTRB`, `NO_RMWIO`):
+
+	TST.B	D1			; I/O page: read and write through the I/O handlers
+	BEQ	\@io
+	\1	\3,(A4)
+	UpdateFlags NxZx
+	NextOP	\5
+	\@io:	BSR	ReadIO
+	\1	\3,(A4)
+	UpdateFlags NxZx
+	BSR	WriteIO
+	NextOP	\5
+
+*Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** A core that decides "is this I/O?" in LDA and STA needs the same decision in every other instruction that touches memory, and those are the ones that get forgotten. A script on the reference emulator found the game's method: it follows the write address through the ports and prints the port accesses before a write to a given VRAM word. A second fault sat in the same macro: N and V came from A, and so did TRB's Z. A log of 350 distinct TSB and TRB cases from the reference gave the rule: N and V are bits 7 and 6 of the memory byte before the operation, and Z comes from the result. `BIT $0000` also never cleared the VDC status, because it read the host's copy.
+
+**Evidence.** Frame 600 38.97% to 0.20%, frame 900 0.00%. Cost outside the I/O page: one TST.B and BEQ per read-modify-write on an absolute address.
+
+**Look up.** Commit 25d88c6; `tools/mesen_vramwho.lua` (prints the port accesses before a write to a given VRAM word), `tools/mesen_rmwflags.lua`; notes `docs/agent_notes/video.md`, part 3.
+
+### A block move goes through the page register of every byte
+
+**Problem.** Four homebrew titles looked like four faults: wrong text colours in Nantettatte Engine and Reflectron, leftovers on Meteor Blaster DX's title, and a black screen in Atlantean. They were one.
+
+**Before** (`src/CPU.asm`, `TIInn`, AmiPCEngine 0.5): the host address is worked out once.
+
+	CalPag	D1,A0
+	...
+	CalPagE	D1,A4
+	...
+	TIIBuc:
+		MOVE.B	(A0)+,(A4)+
+		DBF	D1,TIIBuc
+
+**After** (commit 43c551d, switch `NO_BLKFIX`): one routine, `BlkGo`, for the five block instructions. Between ordinary pages it copies piece by piece up to the next page end of either side, and I/O takes a byte path through the handlers:
+
+	.i2:	SUB.L	D0,D5
+		ADD.W	D0,D3			; logical source and destination, 16 bits, wrapping
+		ADD.W	D0,D4
+		SUBQ.W	#1,D0
+	.ii:	MOVE.B	(A0)+,(A4)+
+		DBF	D0,.ii
+		TST.L	D5
+		BNE.S	.loop			; next piece: page lookups again
+
+*Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** A run over an 8 KB page boundary carried on in host memory instead of through the next page register. The I/O page worked only as a TIA or TIN destination and a TAI source, so other block moves to or from I/O did nothing. TAI's source also used a stale upper register word. On a machine with paged memory, a host pointer stays valid only up to the end of its page.
+
+**Evidence.** Nantettatte Engine and Reflectron 0.00% at frames 300-1200. Meteor Blaster's leftovers are gone. Atlantean runs, and needed one more fix: it wants formatted backup RAM at power-on (`NO_BRAMFMT`).
+
+**Look up.** Commit 43c551d; notes `docs/agent_notes/faults.md`, B1-B4.
+
+### CSL is not a NOP: a delay loop ran four times too fast
+
+**Problem.** Soldier Blade, with no input, faded to black at about frame 700 and stayed there. The reference shows its intro and title.
+
+**Before** (`src/CPU.asm`, AmiPCEngine 0.5):
+
+	CSLnn:				; Speed Low
+		NextOP	1
+
+**After** (commit 5a35b95, switch `NO_CSL`): CSL sets `CpuSlow`, CSH clears it, reset starts slow, and the line budget follows:
+
+	MOVE.W	#455,D0		; 7.16 MHz / 15.73 kHz = 455 CPU cycles per scan-line
+	TST.B	CpuSlow
+	BEQ.S	.fast
+	MOVE.W	#114,D0		; CSL: 1.79 MHz, 455 / 4
+	.fast:
+
+*Source: AmiPCEngine 1.1, src/CPU.asm, src/PCE.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** A per-frame trace of the PC against the reference showed it: the reference sat in a delay loop for frames 1-66, and ours left it at frame 16. The loop runs after CSL, so it ran four times too fast, and from then on the game's state went wrong. A timing fault at boot looked like a graphics fault 700 frames later.
+
+**Evidence.** Frames 600 and 1200: 0.62% and 0.53%, the same scenes as the reference.
+
+**Look up.** Commit 5a35b95; notes `docs/agent_notes/faults.md`, B7.
+
+### Writes past the end of VRAM are lost, not wrapped
+
+**Problem.** In HuZERO's race, scrambled tiles filled the screen from about line 150 (17.78% at frame 1800).
+
+**Before** (`src/IO.asm`, `writeVDP_02`, AmiPCEngine 1.0): the write address is masked to 15 bits.
+
+	MOVE.W	VDP_Regs,D1
+	AND.W	#$7FFF,D1
+
+**After** (commit 31f517c, switch `NO_VRAMEND`):
+
+	TST.B	VDP_Regs		; MAWR $8000+: no VRAM, the write is lost, MAWR steps
+	BMI.S	writeVDP_02x
+
+*Source: AmiPCEngine 1.1, src/IO.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** The game's last load runs $E00 words past the end of VRAM. Masking wrapped the tail to word 0, over the tile map. The scroll values were right all along. The clue came from comparing VRAM dumps: only words $0000-$0DFF differed, and ours held ROM data. A log of VDC writes with frame, line and PC then showed the load. When you add a mask to keep a pointer in range, check that the real chip wraps.
+
+**Evidence.** Frame 1800 0.02%. Cost: one TST.B and BMI per VRAM write.
+
+**Look up.** Commit 31f517c; test switch `VdcLog`; notes `docs/agent_notes/p1.md`, part 1.
+
+## Block instructions run a step at a time (AmiMSX)
+
+### A long LDIR must let a line interrupt in between its steps
+
+**Problem.** Space Manbow 2's title screen sometimes showed its split under the logo up to 16 lines late: a line interrupt fired well after its line.
+
+**Before** (`AmiMSX_Main_v3.1.asm`, 4.6): the whole block instruction ran at once, and its cycles were charged together.
+
+    INIR:
+        MOVE.W  D5,D1
+        LSR.W   #8,D1
+        MULU    #23,D1          ; B*(21+2) - 12, + the final Otra 5:
+        SUB.W   #12,D1          ; (B-1)*23 + 18 as on the MSX.
+        SUB.W   D1,(A3)         ; * Resta Cycles *  (all of it, now)
+        ...
+
+**After** (commit ec132fa, merged into 4.7): each block instruction runs the steps that fit in the current line's cycles. When the line runs out with the count not done, the PC goes back to the `ED` prefix and the line end is taken, as after any other instruction, so the next line can raise its interrupt.
+
+    ; A step that leaves the count non-zero: 22 cycles, + 1 for the next
+    ; step's prefix wait, then the next step (\1); \2 when the line's
+    ; cycles have run out.
+    BLKSTEP: MACRO
+        SUB.W   #23,(A3)
+        BPL.S   \1
+        ADDQ.W  #1,(A3)
+        BMI.S   \2
+        SUBQ.W  #1,(A3)
+        BRA.S   \1
+        ENDM
+
+    ; PC back to the ED, the opcode fetched again, then the line end.
+    BLKYLD: MACRO
+        MOVE.W  A5,D1
+        SUB.W   (A7),D1         ; Z80 address after the opcode
+        SUBQ.W  #2,D1           ; back to the ED
+        ...
+        JMP     (MiraInter-Regs.W,A3)
+        ENDM
+
+*Source: AmiMSX 4.7 (in development), AmiMSX_Main_v3.1.asm (freeware, used with permission).*
+
+**Why.** A Z80 runs `LDIR`, `CPIR`, `INIR`, `OTIR` and the D forms one step at a time: after each step that leaves the count non-zero, the PC goes back two bytes and the instruction runs again, so an interrupt can arrive between steps. An emulator that runs the loop in one go is faster, but the line interrupt that should land mid-copy waits for the whole copy. The registers between steps must be the Z80's (HL, DE, BC or B moved on; P/V or Z set from the count), because the interrupt handler can see them. `LDIR`/`LDDR` keep a bulk copy loop: they count the steps that fit first (one multiply, and a divide only when they don't all fit). The I/O and compare forms charge each step as it runs, so a port handler sees the time of its own step.
+
+**Evidence.** 14 test programs for the block instructions give the same results as openMSX. Space Manbow 2's title in consecutive-frame bursts: 0 late splits on AGA and RTG, was 2 in 32 frames. Full regression: 53 of 87 titles changed, as expected when long copies at boot now take real time; the sheets checked showed gameplay drift (enemies, score and positions moved), no corruption.
+
+**Look up.** Commit ec132fa; notes `Docs/agent_notes/blockint_2026-11-03.md`; `tools/make_blktest.py`.

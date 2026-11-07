@@ -2,7 +2,7 @@
 
 ## JIT branch prediction and code layout
 
-*Reading notes (Arnold).* Times are per CPC frame on a PiStorm A1200 (Emu68, `Arnold` 68040 `-O2` build, Sonic GX key script, sound on, no frame skip). "Work" is the whole frame, "c2p" the chunky-to-planar conversion, and "core" is work minus c2p (the CPC emulation and its drawing into the chunky buffer). The budget is 20 ms a frame. Chapter 01 describes the machine; the measuring method is the last section of this chapter.
+*Reading notes (Arnold).* Times are per CPC frame on a PiStorm A1200 (Emu68, `Arnold` 68040 `-O2` build, Sonic GX key script, sound on, no frame skip). "Work" is the whole frame, "c2p" the chunky-to-planar conversion, and "core" is work minus c2p (the CPC emulation and its drawing into the chunky buffer). The budget is 20 ms a frame. Chapter 01 describes the machine; the measuring method is in "Measuring per frame on real hardware" below.
 
 ### On Emu68, the shape of the branches matters more than the instruction count
 
@@ -147,3 +147,71 @@ The CRTC step (switch `NO_DEFER`, commit dd72fd4) draws the cycles between two e
 **Before you measure.** Make sure nothing else is running on the machine (another session's program, a stuck network copy), and record the machine's CPU clock with the figures ([chapter 11](11-test-machine.md)).
 
 **Look up.** `SONIC-SPEED.md`; the A1200 run scripts and the log reader under `tools/vscroll` and `tools/sprites` in the development repository.
+
+## What a speed-up buys depends on the machine (AmiPCEngine)
+
+*AmiPCEngine.* An interpreted CPU core in 68k assembly, with the low-spec target a 68030/50. The figures below are vblanks in WinUAE's 68030/50 config (no JIT, data cache on). How close that config is to a real 68030/50 is not known. The goal of this work was no change at all in emulated behaviour. Commits and `docs/agent_notes/` in this section belong to the AmiPCEngine development repository.
+
+**Problem.** On the 68030 config the five test titles ran at 0.23 to 0.64 frames per vblank. A sampling profiler (a CIA-B timer at about 2 kHz adding the interrupted PC to a histogram, `ProfOn=1`, mapped to source through the assembler listing) showed dispatch at 23-41% of the time, and polling loops in three titles: 60% of PCE Invaders (CMP abs + BEQ), 44% of R-Type (CMP zp + BEQ, with their dispatch), 22% of Soldier Blade (LDA zp + BNE).
+
+### Do not interpret a loop that can only wait
+
+**Before.** The core runs every pass of a game's waiting loop. Parodius runs its whole game in interrupt handlers and spends over half its CPU time on the title in a JMP to itself (54% of cycles over frames 903-1110, in the reference emulator). R-Type, Soldier Blade and PCE Invaders poll a memory byte with a load or compare and a branch back.
+
+**After** (`src/CPU.asm`, commits ca7d085 and 8c087b5, switches `NO_IDLESKIP`, `NO_POLLSKIP`). A jump onto itself ends the line at once:
+
+	IFEQ	NO_IDLESKIP
+	MOVE.L	A5,D0
+	SUBQ.L	#3,D0
+	SUB.W	(A2),D0			; logical address of this JMP
+	CMP.W	D1,D0
+	BNE.S	.notIdle
+	CLR.W	(A3)			; JMP onto itself: end this line now (same end state)
+	.notIdle:
+
+A polling loop drops whole passes from the cycles left:
+
+	; Polling loop: LDA/CMP zp (or abs, not in MPR slot 0) then this branch back onto it.
+	; If the branch would be taken again after that load/compare, every pass is the same
+	; (only the CPU can change memory within a line), so whole passes are dropped from the
+	; cycles left: R-2 -> (R-2) mod pass. The last pass(es) then run as normal, so the end
+	; state (PC, A, flags, D0/D1, cycles over) is the same as running them all.
+
+*Source: AmiPCEngine 1.1, src/CPU.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why it is exact.** Interrupts and chip events only happen at line starts in this core, so nothing can change inside a line except the CPU itself. If interrupts were ever checked mid-line, the skip would have to stop at the next event instead. `abs` loops are skipped only outside MPR slot 0, because that slot can hold the I/O page, where a read can change.
+
+**Evidence.** The steps, total of the five titles (15971 vblanks at the start):
+
+| Step | Switch | Gain |
+|---|---|---|
+| The original debugger out of the default build: one BSR per emulated opcode | `NO_NODEBUG` | +36.7% |
+| Line cycles in a register's upper word, not in memory | `NO_CYCREG` | +4.1% |
+| Polling loops | `NO_POLLSKIP` | +22.1% |
+| Page base by rotate, not MULU | `NO_MAPSHIFT` | +0.4% |
+
+Total 15971 to 9143 vblanks (+74.7%): R-Type +167%, Soldier Blade +119%, PCE Invaders +191%, HuZERO +23%, Parodius +18.5%. Each step rebuilds the one before byte for byte with its switch. Per-frame traces of registers and RAM, VRAM, video register and sprite table checksums are identical over 2400 frames for Parodius and R-Type, and WinUAE grabs are pixel-identical. Idle skip alone, on a slower 020 config: 12272 to 6951 vblanks for Parodius.
+
+**Tried and dropped, each measured:** dispatch through an address register instead of the memory-indirect JMP (-2.4% on the 68030), skipping a page-table write when the bank is unchanged (-0.2%: games nearly always change it), a fast path for block moves to the VDC port (no gain). Moving code by a few bytes moved a title by up to about 1.5% either way (the 68030's 256-byte cache), so a gain under about 2% on one title is not readable from one build.
+
+**Look up.** Commits ca7d085, 464961d, 8c087b5, a038f00; `ProfOn`, `tools/profmap.py`, `tools/tracecmp.py`; notes `docs/agent_notes/speed.md`.
+
+### The same work changed nothing on the PiStorm
+
+**Problem.** Would that 75% reach the A1200?
+
+**After** (A1200 PiStorm, AGA, before and after the work, frames / vblanks, guards clean):
+
+| Title | Before | After |
+|---|---|---|
+| R-Type | 1500 / 1545 | 1500 / 1544 |
+| Soldier Blade | 1500 / 1639 | 1500 / 1637 |
+| HuZERO | 1500 / 1557 | 1500 / 1556 |
+| PCE Invaders | 1500 / 1530 | 1500 / 1530 |
+| Parodius | 2400 / 2571 | 2400 / 2569 |
+
+**Why.** R-Type, Invaders and HuZERO were already at full rate (the extra 30-55 vblanks are start-up), and the frames Parodius and Soldier Blade dropped were not the 68k emulation. On the PiStorm the CPU is quick and chip RAM is the slow part, so the likely cost was the renderer's chip writes (compare [Chip RAM bandwidth and the CPU](01-target-hardware.md#chip-ram-bandwidth-and-the-cpu)). The RTG output, which writes no chip RAM, then gave frames = vblanks on all five (chapter 12). The speed work was still right for its target: it is a 68030 gain.
+
+**Lesson.** Decide which machine a speed goal is for, and measure on that machine before and after. A profile on one machine says nothing about where the time goes on the other.
+
+**Look up.** STATUS, 30 Oct entries.

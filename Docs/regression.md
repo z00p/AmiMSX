@@ -1,15 +1,30 @@
 # AmiMSX regression testing
 
-There are three tiers, run by `tools/regress.py`. Each title runs in WinUAE with its own key script, and the captures are compared pixel for pixel with an accepted baseline.
+There are several tiers, run by `tools/regress.py`. Each title runs in WinUAE with its own key script, and the captures are compared pixel for pixel with an accepted baseline.
 
 ## Tiers
 
 | Tier | Command | When |
 |---|---|---|
-| Smoke | `python tools/regress.py smoke` | Every change. 15 titles × 3 captures, about 50 minutes. |
+| Smoke | `python tools/regress.py smoke` | Every change. 15 titles × 3 captures, about 14 minutes, or 6 with `--jobs 3`. |
 | Feature | `python tools/regress.py feature:<name>` | Changes to one area. For example `feature:cmd:LMMC`, `feature:split:mode` or `feature:mapper:KonamiSCC` runs every title that uses it. |
 | Full | `python tools/regress.py full` | Before committing Z80-core, timing or VDP changes, and at milestones. |
 | Named | `python tools/regress.py ids:a,b` | Ad hoc checks. |
+| Auto | `python tools/regress.py auto[:REF]` | Picks from the files changed since REF, working tree included. REF defaults to where the branch left master, or `HEAD~1` on master. `--list` shows the choice without running it. |
+
+The auto tier's rules are `AUTO_RULES` in `tools/regress.py`:
+
+- Docs and tools need no run.
+- Sound, menu, saves, RTG and Smooth Display sources need the smoke set. The captures are pictures, and the 030 runs don't use RTG or Smooth Display, so smoke only shows that nothing broke.
+- The ROM and disk databases need the mapper and disk titles.
+- A changed key script needs the titles that use it.
+- Anything else needs the full set. Main holds the Z80 core and the VDP, so any change to it runs everything.
+
+## Running faster
+
+- **`--jobs 3`** runs three WinUAEs side by side, in slots 1 to 3. On a 6-core i5-9600KF a title takes about 24 s this way, against 55 s one at a time, so the full set takes about 35 minutes instead of 80. On 4 Nov 2026, 30 of 30 captures matched a one-at-a-time run of the same build bit for bit. Each slot works on its own copy of `run/` and the Workbench in `build/slots/<n>/`, mirrored at the start of each title, with a copy of the config pointing at them. Each slot closes only its own WinUAE. Without `--jobs`, a run uses the shared `run/` folder as before.
+- **`--lock`** takes the shared `build/winuae.lock` first. It waits until no WinUAE is running and checks every 5 s. It gives the lock up between titles every `--hold` minutes (12 by default), so other sessions get a turn. All the slots run inside the one lock hold.
+- **`--base <run>`** compares with an earlier run instead of the baseline, for A/B checks of two builds.
 
 Each run writes `build/regress/<run>/report.md`. If anything changed it also writes `changed.png`, a side-by-side sheet of baseline and new captures for the changed titles only. To make a run the new baseline, add `--accept` to the run, or use `--accept-run <run> [--ids a,b]` afterwards.
 

@@ -1646,7 +1646,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.6 (Pro) '
+    DC.B    'AmiMSX Emulator v4.7 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -3122,7 +3122,7 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v4.6',0
+    DC.B    'AmiMSX Emulator v4.7',0
 
 AboutIText1:
     DC.B    '(November 3rd, 2026)',0
@@ -3299,6 +3299,46 @@ MSX2NewMenu26:
     DC.W    $0009
     DC.L    0,0
 
+	MDI	MN_EmulationBar0
+MSX2NewMenu_EmulationBar0:
+    DC.B    2,0
+    DC.L    $FFFFFFFF,0
+    DC.W    0
+    DC.L    0,0
+
+	MDI	MN_Mix
+MSX2NewMenu_Mix:
+    DC.B    2,0
+    DC.L    MSX2MName_Mix
+    DC.L    0
+    DC.W    0
+    DC.L    0,0
+
+	MDS	MN_MixClassic
+MSX2NewMenu_MixC:
+    DC.B    3,0
+    DC.L    MSX2MName_MixC
+    DC.L    0
+    DC.W    $0101
+    DC.L    $06,0
+
+	MDS	MN_MixMono
+MSX2NewMenu_MixM:
+    DC.B    3,0
+    DC.L    MSX2MName_MixM
+    DC.L    0
+    DC.W    $0001
+    DC.L    $05,0
+
+	MDS	MN_MixStereo
+MSX2NewMenu_MixS:
+    DC.B    3,0
+    DC.L    MSX2MName_MixS
+    DC.L    0
+    DC.W    $0001
+    DC.L    $03,0
+
+	MDSCNT	NS_Mix
 	MDI	MN_Filter
 MSX2NewMenu41c:
     DC.B    2,0
@@ -3307,52 +3347,11 @@ MSX2NewMenu41c:
     DC.W    $0009
     DC.L    0,0
 
-	MDI	MN_EmulationBar0
-MSX2NewMenu_EmulationBar0:
+	MDI	MN_EmulationBar1
+MSX2NewMenu_EmulationBar1:
     DC.B    2,0
     DC.L    $FFFFFFFF,0
     DC.W    0
-    DC.L    0,0
-
-	MDI	MN_Mask
-MSX2NewMenu_Mask:
-    DC.B    2,0
-    DC.L    MSX2MName_Mask
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-	MDS	MN_MaskOff
-MSX2NewMenu41b:
-    DC.B    3,0
-    DC.L    MSX2MName41b
-    DC.L    0
-    DC.W    $0101
-    DC.L    $06,0
-
-	MDS	MN_Mask8
-MSX2NewMenu41e:
-    DC.B    3,0
-    DC.L    MSX2MName41e
-    DC.L    0
-    DC.W    $0001
-    DC.L    $05,0
-
-	MDS	MN_Mask16
-MSX2NewMenu41f:
-    DC.B    3,0
-    DC.L    MSX2MName41f
-    DC.L    0
-    DC.W    $0001
-    DC.L    $03,0
-
-	MDSCNT	NS_Mask
-	MDI	MN_Smooth
-MSX2NewMenu41d:
-    DC.B    2,0
-    DC.L    MSX2MName41d
-    DC.L    0
-    DC.W    $0009
     DC.L    0,0
 
 	MDI	MN_Scan
@@ -3445,39 +3444,6 @@ MSX2NewMenu6:
     DC.L    0,0
 
 	MDSCNT	NS_ScrMode
-	MDI	MN_Internal
-MSX2NewMenu37:
-    DC.B    2,0
-    DC.L    MSX2MName37
-    DC.L    0
-    DC.W    0
-    DC.L    0,0
-
-	MDS	MN_SprLate
-MSX2NewMenu38:
-    DC.B    3,0
-    DC.L    MSX2MName38
-    DC.L    0
-    DC.W    $0009
-    DC.L    0,0
-
-	MDS	MN_FullRedraw
-MSX2NewMenu39:
-    DC.B    3,0
-    DC.L    MSX2MName39
-    DC.L    0
-    DC.W    $0109
-    DC.L    0,0
-
-	MDS	MN_TRBit
-MSX2NewMenu41:
-    DC.B    3,0
-    DC.L    MSX2MName41
-    DC.L    0
-    DC.W    $0109
-    DC.L    0,0
-
-	MDSCNT	NS_Internal
 	MDICNT	NI_Emulation
 	MDT	MT_Input
 MSX2NewMenu_Input:
@@ -4173,8 +4139,18 @@ MSX2MName_SpeedO:
 MSX2MName_SpeedL:
     DC.B    'No Limit',0
 
-MSX2MName_Mask:
-    DC.B    'Mask Screen Edges',0
+
+MSX2MName_Mix:
+    DC.B    'Sound Mix (PSG+FM)',0
+
+MSX2MName_MixC:
+    DC.B    'Classic',0
+
+MSX2MName_MixM:
+    DC.B    'Mono',0
+
+MSX2MName_MixS:
+    DC.B    'Stereo',0
 
 MSX2MName_Input:
     DC.B    'Input  ',0
@@ -4305,32 +4281,16 @@ MSX2MName31:
 MSX2MName32:
     DC.B    'Warn if Changed',0
 
-MSX2MName37:
-    DC.B    'Compatibility',0
 
-MSX2MName38:
-    DC.B    'Sprites a Frame Late',0
 
-MSX2MName39:
-    DC.B    'Full Redraw on Mode Change',0
 
-MSX2MName41:
-    DC.B    'VDP Always Ready (TR bit)',0
 
-MSX2MName41b:
-    DC.B    'Off',0
 
 MSX2MName41c:
     DC.B    'Audio Filter (less hiss)',0
 
-MSX2MName41d:
-    DC.B    'Smooth Display (fast CPUs)',0
 
-MSX2MName41e:
-    DC.B    '8 dots',0
 
-MSX2MName41f:
-    DC.B    '16 dots',0
 
 MSX2MName43:
     DC.B    'Lock Cheats and Debugger',0

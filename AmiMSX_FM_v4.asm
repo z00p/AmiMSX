@@ -51,6 +51,7 @@ FMXBUFSZ=8*FMXRBSZ	; DMA ring: 8 blocks (FMXAud)
 FMXInit:
 	MOVEM.L	D0-D7/A0-A6,FMXSave
 	LEA	FMXDat,A5
+	CLR.L	FMXAgcK			; (4.7) Gain x1, no count (and FMXAgcN).
 	MOVE.W	#227,FMXN		; Paula mode: 227 samples/frame at
 	MOVE.W	#313,FMXPer		; period 313, or 313 at period 227.
 	MOVE.L	#FMX_K227,FMXK
@@ -117,6 +118,25 @@ FMXInCh:
 	MOVE.L	#FMXRecO,FMXRecOP
 FMXInRc:
 	ENDC
+	SF	FMXMixOn		; (4.7) Sound mix (PrefMix): 0 automatic
+	MOVE.B	FMXMixRun,D0		; = Mono on a fast CPU (FMXFast), else
+	TST.B	FMXMixNew		; Classic; 1 Classic, 2 Mono, 3 Stereo.
+	BEQ.S	FMXInX3			; Chosen at Power ON / Reset only: on
+	SF	FMXMixNew		; Continue the running mix stays (a switch
+	MOVE.B	PrefMix,D0		; mid-game left the PSG on the other path).
+	BNE.S	FMXInX1
+	MOVEQ	#1,D0
+	TST.B	FMXFast
+	BEQ.S	FMXInX1
+	MOVEQ	#2,D0
+FMXInX1:SUBQ.B	#1,D0
+	MOVE.B	D0,FMXMixRun
+FMXInX3:MOVE.B	D0,FMXMixOn		; (0 Classic, 1 Mono, 2 Stereo)
+	BEQ.S	FMXInX2
+	CMP.B	#2,D0
+	SEQ	PsxStereo
+	BSR	PsxInit
+FMXInX2:
 	BSR	FMXSetQ
 	LEA	FMXBuf,A0		; Silence in the DMA buffer.
 	MOVE.W	#(FMXBUFSZ/4)-1,D0
@@ -199,7 +219,7 @@ FMXVLin:
 FMXAud:
 	MOVEM.L	D0/A0,-(SP)
 	BTST	#2,$DFF01F-1		; INTREQR bit 10 (AUD3)?
-	BEQ.S	FMXAuX
+	BEQ	FMXAuX
 	MOVE.W	#$0400,$DFF09C
 	MOVE.W	FMXQueued,D0
 	MOVE.W	D0,FMXPlay
@@ -217,6 +237,21 @@ FMXAuQ:	MOVE.W	D0,FMXQueued
 	MOVE.W	(SP)+,D0
 	LSR.W	#1,D0
 	MOVE.W	D0,$DFF0D4
+	TST.B	FMXMixOn		; (4.7) Sound mix: channels 0-2 take
+	BEQ	FMXAuX			; the same block of their rings.
+	MOVE.W	D0,$DFF0A4
+	MOVE.W	D0,$DFF0B4
+	MOVE.W	D0,$DFF0C4
+	SUB.L	#FMXBuf,A0
+	MOVE.L	A0,D0
+	ADD.L	#FMXBufLL,D0
+	MOVE.L	D0,$DFF0A0
+	MOVE.L	A0,D0
+	ADD.L	FMXRingRL,D0
+	MOVE.L	D0,$DFF0B0
+	MOVE.L	A0,D0
+	ADD.L	FMXRingR,D0
+	MOVE.L	D0,$DFF0C0
 FMXAuX:	MOVEM.L	(SP)+,D0/A0
 	NOP
 	RTE
@@ -252,8 +287,16 @@ FMXFrC0:CLR.L	(A0)+
 	MOVE.W	D0,$DFF0D4		; (words)
 	MOVE.W	FMXPer,$DFF0D6
 	MOVE.W	#64,$DFF0D8
+	TST.B	FMXMixOn		; (4.7) Sound mix: channels 0-2 too.
+	BEQ.S	FMXFrR1
+	BSR	PsxStart
+FMXFrR1:
 	MOVE.W	#$0400,$DFF09C
-	MOVE.W	#$8008,$DFF096		; Paula takes block 0 and asks (AUD3)
+	MOVE.W	#$8008,D0
+	TST.B	FMXMixOn
+	BEQ.S	FMXFrR2
+	MOVE.W	#$800F,D0
+FMXFrR2:MOVE.W	D0,$DFF096		; Paula takes block 0 and asks (AUD3)
 	MOVE.W	#$8400,$DFF09A		; for the next at once.
 	MOVE.W	FMXVbl,FMXVbl0
 	ST	FMXSync
@@ -459,6 +502,11 @@ FMXChNx:
 	CMP.W	#9,D7
 	BNE	FMXChan
 
+	TST.B	FMXMixOn		; (4.7) Sound mix: the PSG in software
+	BEQ.S	FMXOuCl			; and the 14-bit mix out (PsxFrame).
+	BSR	PsxFrame
+	BRA	FMXOuEnd
+FMXOuCl:
 	MOVE.W	FMXWrite,D2		; Output: the next ring block, mix >> 4
 	CMP.W	FMXPlay,D2		; through the 8-bit table (soft knee).
 	BEQ	FMXOuFull		; (Ring full: this frame's FM is dropped;
@@ -467,12 +515,31 @@ FMXChNx:
 	LEA	(FMXBuf,D0.L),A1
 	LEA	FMXMix,A0
 	LEA	FMX_CLIP+FMX_CLIPC(A5),A4
+	MOVE.W	FMXAgcK,D0		; (4.7) The automatic gain's table
+	MULU	#2*FMX_CLIPC,D0		; (x1 to x4, 3 dB steps), and this
+	ADD.L	D0,A4			; frame's peak: highest D5, lowest D6.
+	MOVEQ	#0,D5
+	MOVEQ	#0,D6
 	MOVE.W	FMXN,D1
 	SUBQ.W	#1,D1
 FMXOuL:	MOVE.W	(A0)+,D0
 	ASR.W	#4,D0
 	MOVE.B	(A4,D0.W),(A1)+
+	CMP.W	D0,D5
+	BGE.S	FMXOuHi
+	MOVE.W	D0,D5
+FMXOuHi:
+	CMP.W	D0,D6
+	BLE.S	FMXOuLo
+	MOVE.W	D0,D6
+FMXOuLo:
 	DBF	D1,FMXOuL
+	NEG.W	D6
+	CMP.W	D6,D5
+	BGE.S	FMXOuPk
+	MOVE.W	D6,D5
+FMXOuPk:
+	BSR	FMXAgc
 	MOVE.W	FMXN,(FMXLen,D2.W*2)	; (length first: FMXAud reads it once
 	ADDQ.W	#1,D2			; FMXWrite has moved on)
 	AND.W	#7,D2
@@ -502,8 +569,41 @@ FMXRcL:	MOVE.B	(A1)+,(A0)+
 	MOVE.L	A0,FMXRecOP
 FMXRcO:	ADDQ.W	#1,FMXFrN
 	ENDC
+FMXOuEnd:
 	MOVEM.L	FMXSave,D0-D7/A0-A6
 	RTS
+
+; (4.7) Automatic gain, once a frame after the output (tools/fm_synth.py
+; Synth.agc). D5.W = the frame's peak |mix >> 4|. Down at once while the
+; peak passes AGCDN for the gain; up a step after FMX_AGCHOLD frames under
+; AGCUP, counting only frames with a peak of FMX_AGCFLOOR or more (silence
+; keeps the gain). Uses D3, D4.
+FMXAgc:
+	MOVE.W	FMXAgcK,D3
+	MOVE.W	D3,D4
+FMXAgD:	TST.W	D4
+	BEQ.S	FMXAgN
+	CMP.W	FMX_AGCDN(A5,D4.W*2),D5
+	BLS.S	FMXAgN
+	SUBQ.W	#1,D4
+	BRA.S	FMXAgD
+FMXAgN:	CMP.W	D3,D4
+	BEQ.S	FMXAgU
+	MOVE.W	D4,FMXAgcK
+	CLR.W	FMXAgcN
+	RTS
+FMXAgU:	CMP.W	#4,D3
+	BEQ.S	FMXAgR
+	CMP.W	#FMX_AGCFLOOR,D5
+	BCS.S	FMXAgR
+	CMP.W	FMX_AGCUP(A5,D3.W*2),D5
+	BCC.S	FMXAgZ
+	ADDQ.W	#1,FMXAgcN
+	CMP.W	#FMX_AGCHOLD,FMXAgcN
+	BCS.S	FMXAgR
+	ADDQ.W	#1,FMXAgcK
+FMXAgZ:	CLR.W	FMXAgcN
+FMXAgR:	RTS
 
 ; -------------------------------------> The voices to mix (FMXSel, bit per
 ; channel). All of them, or (FMXMaxV < 9, 'PSG+FM lite') the FMXMaxV loudest
@@ -623,8 +723,12 @@ FMXEnv:
 	AND.W	#$F,D1
 	BSR	FMXRix
 	ADD.W	D1,D1
-	MOVE.W	FMX_ATTOFF(A5,D1.W),D1
-	LEA	FMX_ATT(A5,D1.W),A1
+	MOVE.W	FMX_ATTOFF+2(A5,D1.W),D2	; (4.7) This curve's length: the rate
+	MOVE.W	FMX_ATTOFF(A5,D1.W),D1	; can change mid-attack (patch, pitch)
+	SUB.W	D1,D2			; to a shorter curve; past its end the
+	LEA	FMX_ATT(A5,D1.W),A1	; attack is done.
+	CMP.W	CH_CPOS(A2,D0.W*2),D2
+	BLS.S	FMXEnAz
 	MOVE.W	CH_CPOS(A2,D0.W*2),D2
 	MOVE.B	(A1,D2.W),D1
 	CMP.B	#$FF,D1
@@ -633,6 +737,7 @@ FMXEnv:
 	MOVE.W	D2,CH_CPOS(A2,D0.W*2)
 	TST.B	D1
 	BNE.S	FMXEnAs
+FMXEnAz:
 	CLR.W	CH_CEG(A2,D0.W*2)
 	MOVE.B	#ST_DEC,CH_CST(A2,D0.W)
 	RTS
@@ -684,7 +789,10 @@ FMXEnMx:
 	AND.W	#$F,D2
 	CMP.W	D2,D1
 	BCS.S	FMXEnR
-	MOVE.B	#ST_SUS,CH_CST(A2,D0.W)
+	LSL.W	#8,D2			; (4.7) Stop at SL: a frame's step can be
+	LSL.W	#3,D2			; much bigger than the distance left (a
+	MOVE.W	D2,CH_CEG(A2,D0.W*2)	; fast DR with SL 0 silenced a
+	MOVE.B	#ST_SUS,CH_CST(A2,D0.W)	; harpsichord in a frame or two).
 	RTS
 FMXEnNs:
 	CMP.B	#ST_REL,D2		; Release reaches silence: off.
@@ -879,3 +987,5 @@ FMXOpQ:	ADD.W	D1,D1
 	RTS
 FMXOpZ:	MOVEQ	#0,D0
 	RTS
+
+	INCLUDE	"AmiMSX_Psx_v4.asm"	; (4.7) Sound mix: the PSG in software.

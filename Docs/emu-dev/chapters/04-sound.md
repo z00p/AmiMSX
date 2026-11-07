@@ -2,7 +2,7 @@
 
 ## Paula output paths and the AUD0 interrupt storm on NTSC
 
-*Reading notes (Arnold).* Arnold's sound is the Amstrad's AY-3-8912 sound chip (the PSG) mixed in the core, then converted to Paula samples. The core makes one block of 444 samples per CPC frame (22.24 kHz at 50 frames a second), so the frame rate and the sound rate are locked together.
+*Reading notes (Arnold).* Arnold's sound is the Amstrad's AY-3-8912 sound chip (the PSG) mixed in the core, then converted to Paula samples. The core makes one block of 444 samples per CPC frame (about 22.2 kHz at 50 frames a second), so the frame rate and the sound rate are locked together.
 
 ### Two ways of feeding Paula, and what the display decides
 
@@ -217,3 +217,210 @@ Lilly's Saga already ran below full speed on a 68020 A1200 (42 to 50%) and 68030
 
 **Look up.** `AmiMSX_FM_v4.asm` (`FMXInit`, `FMXFrame`, `FMXSetN`, `FMXAud`); `Docs/sound_fm_moonsound.md` (options and measurements); `tools/fm_synth.py`, `tools/fmx_check.py` (replays logged register writes through the model), `tools/fm_compare.py`; build switch `FMXREC` (logs every register write and output byte).
 
+## Six channels on four Paula voices (AmiPCEngine)
+
+*AmiPCEngine.* The PC Engine's sound chip has six channels. Each plays a 32-sample wave of the game's own, channels 5 and 6 can play noise, and any channel can be driven sample by sample (DDA), which is how games play voices and drums. The design here does almost nothing per sample: once per Amiga vblank each Paula voice gets its pointer, length, period and volume, and the game's waves play from chip RAM. Paula voices are hard left or right. Commits and `docs/agent_notes/` in this section belong to the AmiPCEngine development repository.
+
+Nothing here could be heard on the PC: WinUAE's WAV output is a GUI feature, and the reference emulator's scripting has no WAV recording. So the proof is in logs and renders, and the verdict on sound still comes from a tester's ears.
+
+### Pick the four loudest channels each vblank instead of mixing
+
+**Problem.** The original `PSG.asm` was a stub: four voices for channels 0-3, one fixed square wave, frequency and volume only. Games use all six channels.
+
+**After** (`src/PSG.asm`, `PSGAllocate`, commit 378a9f9, switch `NO_PSG6`): score each channel by its Paula volume, and give a voice's current owner a bonus, so that near-equal channels do not swap every frame.
+
+	.score:	BSR	PSGChScore
+		MOVE.W	D1,(PSGScore.L,D6.W*2)
+		MOVE.B	D2,(PSGPan.L,D6.W)
+		...
+		MOVEQ	#3,D0			; voice owners get the bonus
+	.bonus:	MOVEQ	#0,D1
+		MOVE.B	(PSGVoiceOwner.L,D0.W),D1
+		BMI.S	.nob
+		TST.W	(PSGScore.L,D1.W*2)
+		BEQ.S	.nob
+		ADDQ.W	#6,(PSGScore.L,D1.W*2)
+	.nob:	DBF	D0,.bonus
+
+*Source: AmiPCEngine 1.1, src/PSG.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** Mixing two channels into one voice is per-sample work on the 68k (about 300 samples x 2 voices a frame), with a buffer locked to real time. It adds aliasing and latency to every channel. Selection is about 1500 cycles a vblank on a 68030 and keeps each played channel at its exact pitch from its own 32-byte loop, and what gets dropped is the games' quietest channels. A channel that gains a voice takes a free one on its side when its balance leans one way. Loops are at most about a frame long, so a voice changes channel within a frame without restarting DMA.
+
+**Evidence.** R-Type (Run at 600, 1500 frames), by a log with one line per frame from the emulator and the same line from a script on the reference emulator: all six channels' registers and wave checksums equal for frames 601-1250 at a steady lag, and a checker that recomputes each voice from the registers passes 1499 of 1499 frames. Tone pitch against the registers: median error 0.09%. Six channels were playable in 425 of the 1500 frames, and voices changed owner only 23 times. Cost: within the run-to-run spread on the 68030 config, so below about 2%.
+
+**The limit.** Bonk's Revenge plays 5 or 6 channels, and its chord (amplitude 21-25) outranks its bass (20), so the bass mostly drops out. A tester called the sound "off". A switch that lifts low tones in the score exists (`NO_PSGBASS=0`, off by default). The log can show who gets a voice, not which sounds better, so that is left to ears. Tried by ear on the real machine, it was liked less than the default, so it stays off.
+
+**Look up.** Commit 378a9f9; `tools/mesen_psg.lua`, `psgcmp.py`, `psglag.py`, `psgcheck.py`; test switch `PSGLog`; notes `docs/agent_notes/psg.md`.
+
+### Drums 100 ms late: a voice that was never given a period
+
+**Problem.** A tester on the A1200: sound good apart from the sampled parts, and Soldier Blade's drums "off". Up to then samples had only been checked by counting writes against the reference.
+
+**Before** (`src/PSG.asm`, `InitPSG`): pointer, length and volume are set; the period is left as it was.
+
+**After** (commit 3ddc3f9, switch `NO_DDAQUEUE`):
+
+	MOVE.W	#124,$A6(A6)	; period: the 2-byte silent loop ends at once (left unset, WinUAE took 47 frames)
+	MOVE.W	#124,$B6(A6)
+	MOVE.W	#124,$C6(A6)
+	MOVE.W	#124,$D6(A6)
+
+and a busy stream outranks any tone for its voice:
+
+	BSR	PSGDdaBusy
+	BEQ.S	.nobusy
+	MOVEQ	#100,D1			; a DDA stream with samples to play: above any tone
+
+*Source: AmiPCEngine 1.1, src/PSG.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** A dump of every queued and played buffer showed the chain. Voice 0 had never played, so the first buffer waited 47 frames in WinUAE for the old loop to end, 42 frames were dropped with the queue full, and the queue then stayed 4 to 6 deep. Each drum chunk ended with the game turning the channel into a tone. The voice was stopped at once with 3 buffers still queued, and those stale buffers played first at the next chunk. So the end of each drum pattern was replayed at the start of the next, about 100 ms behind the music. The fix sets the period at start-up, lets a stream play out its queue, keeps only the newest 2 buffers at a start, carries the volume with each buffer, and drops the oldest when 4 or more wait.
+
+**The listening loop.** To hear this without a WAV from the reference, a script logs every sound write there with its master clock, and a Python model renders that log by zero-order hold. A test switch (`DdaDump`) writes every buffer event from our side, and the model replays them through a simple Paula at their periods. Both come out as WAV files, also as a stereo file with the reference on the left and ours on the right.
+
+**Evidence.** Soldier Blade: latency from buffer queued to buffer played 5-7 frames (up to 12 and 49) down to 2-3 frames, no dropped frames, first start 3 lines instead of 47 frames. Against the reference in 0.25 s windows: delay 120 ms to 52 ms, correlation median 0.52 to 0.80, best windows 0.99. A tester on the A1200 then called the drums right.
+
+**Look up.** Commit 3ddc3f9; test switches `DdaDump`, `DdaStat` (a health line in the result file); `tools/mesen_dda.lua`, `pcmcmp.py`, `pcmwin.py`; notes `docs/agent_notes/pcm.md`.
+
+### Samples written by a timer belong on the timer's grid, not the line grid
+
+**Problem.** Sampled sound was noisy at 1-3 kHz. Parodius and Soldier Blade write one sample per timer interrupt, every 4.5 and 2.25 lines, but the capture held one sample per line. Our timer interrupt is taken at a line end, so the spacing came out as 4 and 5 lines, or 2, 2, 2 and 3, which adds a pattern tone (1748 Hz in Soldier Blade).
+
+**After** (`src/PSG.asm`, commit eb68d5a, switch `NO_DDATICK`): each sample is filed by timer tick as well as by line. A frame is played from the tick buffer if no tick had two writes and at least 7/8 of the ticks have one, at a period worked out from the timer:
+
+	MOVE.W	#610,PSGTkPer		; PAL screen: 313 x 227.5 / 116.9 ticks = 609.3
+	...
+	MOVE.W	#513,PSGTkPer		; 512 per tick = a 263-line frame per 116.9 ticks; 0.2% long
+
+*Source: AmiPCEngine 1.1, src/PSG.asm (freeware by Juan Antonio Gómez Gálvez and z00p; used with permission).*
+
+**Why.** The written values were already right. The error was when they played, and a simulation of only the line grid on the reference's own writes gave the same figures, which proved it. The period is meant to be 0.2% long, so the queue fills rather than runs dry; on a PAL screen it is in fact 0.36% long, because the comment's 227.5 colour clocks a line is NTSC's average and a PAL line is 227 (313 x 227 / 116.9 = 607.8, so 609 would be 0.2% long). The queue still fills, and only the drops come a little more often; with 3 or more buffers waiting, 2 samples are left off. Streams that are not timer-driven (Moto Roader II's bursts) stay on the line grid.
+
+**Evidence.** Parodius "1 PLAYER" against the reference, signal-to-noise ratio in dB:
+
+| capture | under 1 kHz | 1-3 kHz | 3-8 kHz | overall |
+|---|---|---|---|---|
+| by line | 35.3 | 10.5 | 6.8 | 22.4 |
+| by tick | 37.5 | 18.8 | 10.9 | 26.6 |
+| model: the reference's writes on a line grid | 34.1 | 10.1 | 5.8 | 21.9 |
+
+The tick buffers hold the reference's write sequence, identical apart from the frame edge. Of the buffers queued, 1143 of 1288 went by tick in Soldier Blade and 241 of 246 in Parodius. Cost on the heaviest DDA title, 68030/50: 1135 to 1148 vblanks for 600 frames (+1.1%).
+
+**Look up.** Commit eb68d5a; `PSGTickPut`; `tools/pcmseq.py`; notes `docs/agent_notes/pcm.md`, step 3.
+
+### A software mix that measured well and sounded worse
+
+**Problem.** With six channels on four voices, the quietest two are dropped each frame. The obvious answer on a fast machine is to mix all six in software and play the result through Paula.
+
+**Tried.** On the RTG path of a PiStorm A1200, with the OS frozen: all six channels, noise and DDA samples mixed once a frame at 22 kHz, nearest sample from the 32-sample waves, 16-bit inside and 14-bit out on all four voices, with a ring and rate feedback.
+
+**Evidence.** It was cheap: +1.7% of a frame on average across eight titles, +3.3% at worst, against an estimate of +7 to 11%. No underruns in 22 runs. Pitch and level matched a model of the chip. PC renders of the mix sounded, if anything, slightly more detailed.
+
+**Result.** On the real machine, played A/B against the four hardware voices through the same amp, it sounded worse, so it was left out of the build. We did not establish why. Hardware voices play each wave at its own rate and don't resample it; a mix at a fixed rate does, but that is a guess, not a finding.
+
+**Why it's here.** Good figures only say a thing is affordable. The numbers, the model and the PC render all agreed, and none of them was the test that counted. Build the smallest version behind a switch, and put it in front of someone's ears on the real output chain before deciding anything that depends on it.
+
+**Look up.** AmiPCEngine branch `mix`, tag `mix-rtg`, not in any release; notes `docs/agent_notes/mix.md`.
+
+## One software mix for PSG and FM, chosen at power on (AmiMSX)
+
+AmiMSX 4.7 can play the PSG in software and mix it with the FM synthesis into one 14-bit stream per side (two Paula voices each), instead of giving the PSG channels and the FM their own voices. The player picks Classic (the old voice layout), Mono or Stereo. It costs CPU time, so it is a choice, with the default set by the CPU: Mono on a fast machine, Classic otherwise.
+
+**Evidence for the mix.** The software PSG follows a Python model of the chip; a check build records the 68k output, which matches the model bit for bit (Lilly's Saga mono and stereo, R-Type with FM). Both were compared with captures from openMSX. Cost in Lilly's Saga gameplay, beam lines a frame for the sound: 68030 24 lines before, 86 with the mix (speed 87% to 72%); 68060 27 before, 68 mono, 89 stereo (speed 100%, 99.6%, 95%). The player's ear test on the PiStorm was good in both modes, with no loss of speed there. So the 68030 preset keeps Classic.
+
+### A sound path switched mid-game left a channel on the old path
+
+**Problem.** Changing the mix in the menu and pressing Continue broke the sound: the PSG was moved to the other path while it was playing.
+
+**Before** (`AmiMSX_FM_v4.asm`, the first mix build): every return from the menu read the choice again.
+
+    FMXInit:
+        ...
+        MOVE.B  PrefMix,D0      ; 0 automatic, 1 Classic, 2 Mono, 3 Stereo
+        BNE.S   FMXInX1
+        ...
+    FMXInX1:
+        SUBQ.B  #1,D0
+        MOVE.B  D0,FMXMixOn
+
+**After** (commit bbeb7ce): the choice is taken at Power ON or Reset only; Continue keeps the mix the game started with.
+
+        MOVE.B  FMXMixRun,D0    ; the mix since Power ON / Reset
+        TST.B   FMXMixNew       ; set by Power ON / Reset
+        BEQ.S   FMXInX3         ; Continue: keep it
+        SF      FMXMixNew
+        MOVE.B  PrefMix,D0
+        ...
+        MOVE.B  D0,FMXMixRun
+    FMXInX3:
+        MOVE.B  D0,FMXMixOn
+
+*Source: AmiMSX 4.7 (in development), AmiMSX_FM_v4.asm (freeware, used with permission).*
+
+**Why.** The PSG's state lives in different places on the two paths (the hardware voices' registers or the software chip's counters), and the game does not write every register again after the menu, so a switch mid-game leaves notes and envelopes stranded on the path no longer played. Switching only when the machine starts again avoids converting live state. The user guide says the change takes effect at the next Power ON or Reset.
+
+**Evidence.** The player's report of the broken sound after a mid-game switch. The fix removes the mid-game switch rather than converting live state; the player's retest was still to come when this was written.
+
+**Look up.** Commits f915fb2 (the mix), bbeb7ce (the latch); `tools/psg_synth.py`, `tools/psx_check.py`; option `mix` in key scripts.
+
+## HDMI sound through AHI, and one tone for both outputs (Arnold)
+
+*Arnold.* On the PiStorm, Emu68 has an AHI driver that plays sound over the Pi's HDMI output. Arnold 1.6 added it as a second sound path on the RTG screen, next to Paula. Arnold uses the driver only through AHI, as any program would, so its own code needs no driver-specific part beyond a mode ID.
+
+### Ask for the driver's low-latency mode, and queue whole frames
+
+**Problem.** In the driver's plain mode, a click test wandered by about 85 ms against the picture.
+
+**Before.** The driver's plain mode.
+
+**After** (`amiga_audio.c`, Arnold 1.6). The mode is fixed at the driver's 16-bit low-latency mode. The core's frame block (444 samples) goes into a ring of 8 slots in fast RAM, played as one dynamic sound. A sound hook queues the next slot each time one starts, as Paula latches its next pointer:
+
+    /* AHI back end: the frame's block in 16 bits, after the same DC filter as Paula's, in a
+     * ring of slots in fast RAM played as one dynamic sound. SoundFunc runs when a slot
+     * starts and queues the next, as Paula latches its pointer: no block ready, the slot
+     * repeats. AHI's clock isn't the frame's, so the rate moves 0.2% to hold the queue. */
+    #define AHI_HDMI_MODE 0x001f0012
+    #define AHI_SLOTS 8
+    #define AHI_START 2                   /* blocks queued before the sound starts */
+    #define AHI_QMAX  4
+    ...
+    ahi_ctrl = AHI_AllocAudio(AHIA_AudioID, mode, AHIA_MixFreq, 48000, AHIA_Channels, 1, AHIA_Sounds, 1, ...
+
+*Source: Arnold-m68k 1.7, `arnold/src/amiga/amiga_audio.c` (GPL-2.0).*
+
+**Why.** The default mode mixes 96 ms at a time, so a program that wants the sound in step with the picture would have to keep about 5 frames queued, and the delay then drifts. The low-latency mode takes one frame at a time. A queue of whole frames, in the same shape as the Paula path, means the emulator's sound code is the same for both outputs up to the last step. If the frames are locked to the HDMI refresh ([chapter 12](12-rtg.md#with-hdmi-sound-time-the-frames-to-the-hdmi-refresh)), the rate is set to exactly one block per frame, and the queue stays at 1 to 2 blocks.
+
+**Evidence.** Tester: no buzz, and the sound in step with the action, locked and unlocked. A film test at 120 frames a second used a BASIC program in the emulated CPC that flashed the border and beeped every 800 ms, so both went through Arnold's real path. Paula, by cable to the amplifier, was 94 ms before the picture. HDMI sound, from the TV's own speakers, was 28 ms after it. Neither run went through Bluetooth. The solid figure is the difference between the two paths, about 122 ms: BASIC's timing and the camera's own offset are in both absolute figures. Paula beats the picture because the picture goes through the hub and the TV, which an earlier direct click test (a flash and click with no emulator) put at about 131 ms. In that direct test, Paula was 131 ms and the HDMI low-latency mode 19 ms before the picture. Against those figures, Arnold's path made the sound about 37 ms later on Paula and 47 ms later on HDMI. Arnold's queue holds 1 to 2 frames, and the driver's low-latency ring is 30 to 50 ms by its own documentation. Speed cost on the A1200: none measurable.
+
+**Look up.** `AHI_HDMI_MODE`, `Sys_AudioAhi`, `Sys_AudioLock`; `SetEnv ArnoldAHI <mode id in hex>` tries another mode; notes `Docs/agent_notes/hdmiahi.md`.
+
+### Take the A1200's own filter out, then apply one tone to both outputs
+
+**Problem.** The tester found raw 16-bit sound over HDMI a little harsh. On Paula the tone was not the program's to choose: the A1200's low-pass filter follows the power LED, so it depended on the machine's state.
+
+**Before** (Arnold 1.6). Paula played through whatever filter state the machine was in. HDMI played the core's output as made.
+
+**After** (Arnold 1.7, Options > Sound tone, `TONE=BRIGHT|SOFT|WARM`, preference `tone=`). One low-pass filter runs in software before either output: Bright (none), Soft (6 dB per octave at 4.5 kHz, about the A500's fixed filter; the default) or Warm (12 dB per octave at 3.3 kHz, about the A1200's LED filter). While Paula plays, the A1200's filter is switched off, and it is put back as it was when the sound stops:
+
+    static int led_saved = -1;            /* CIA-A PRA bit 1 (0: LED bright, filter on) as it was; -1: not switched */
+
+    static void led_filter_off(void)
+    {
+        Disable();
+        if (led_saved < 0) { led_saved = ciaa.ciapra & CIAF_LED; ciaa.ciapra |= CIAF_LED; }
+        Enable();
+    }
+
+    static void led_filter_back(void)
+    {
+        Disable();
+        if (led_saved >= 0) { if (led_saved) ciaa.ciapra |= CIAF_LED; else ciaa.ciapra &= ~CIAF_LED; led_saved = -1; }
+        Enable();
+    }
+
+*Source: Arnold-m68k 1.7, `arnold/src/amiga/amiga_audio.c` (GPL-2.0).*
+
+**Why.** A filter the user cannot see makes two outputs sound different and makes A/B listening meaningless. Turning it off and doing the filtering in software gives the same sound on both outputs, and the choice becomes a menu item. The filter is a bilinear transform at the core's 22168 Hz rate, so it costs a few multiplies per sample. Put the LED bit back on every exit path, including the menu, or the user's Workbench sound changes after the emulator quits.
+
+**Evidence.** The settings copy the Amiga's own filters; they were not measured against a real CPC or GX4000, whose output stage is still to be looked up. Bright on Paula is the 1.6 conversion, unchanged.
+
+**Look up.** `Sys_AudioTone`, `audio_tone`, `led_filter_off`, `led_filter_back`; notes `Docs/agent_notes/release-1.7.md`.

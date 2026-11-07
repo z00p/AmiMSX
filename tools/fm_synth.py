@@ -85,6 +85,17 @@ def _clip(y):
 
 CLIP = [_clip(y - CLIPC) for y in range(2 * CLIPC)]
 
+# (4.7) Automatic gain: one of five output tables, x1 to x4 in 3 dB steps,
+# chosen each frame from the last frame's peak (|mix >> 4|). Down at once
+# while the peak would pass about 110 of 127 (into the soft knee); up a
+# step after AGC_HOLD frames under about 80 at the next gain, counting only
+# frames with something playing (peak >= AGC_FLOOR), so silence keeps it.
+AGC_G = [2 ** (k / 2) for k in range(5)]
+AGC_DOWN = [int(440 / g) for g in AGC_G]
+AGC_UP = [int(320 / g) for g in AGC_G[1:]] + [0]
+AGC_FLOOR, AGC_HOLD = 8, 50
+CLIPS = [[_clip((y - CLIPC) * g) for y in range(2 * CLIPC)] for g in AGC_G]
+
 
 def decode(d):
     def slot(i):
@@ -233,6 +244,7 @@ class Synth:
         s.period = MODES[n_frame]
         s.rate = PAULA_CLOCK / s.period
         s.K = step_k(s.period)
+        s.agc_k, s.agc_n = 0, 0
         t = tables_static()
         s.gain, s.dec, s.att, s.modlv, s.kslt = t["gain"], t["dec"], t["att"], t["modlv"], t["ksl"]
         s.voltab = [[(((u ^ 0x80) - 0x80) * g) >> 4 for u in range(256)] for g in s.gain]
@@ -266,6 +278,9 @@ class Synth:
             return
         if e.state == ATTACK:
             cur = s.att[s.rix(n, sl, sl["AR"])]
+            if e.pos >= len(cur):         # (4.7) a shorter curve: done
+                e.eg, e.state = 0, DECAY
+                return
             e.pos += 1
             v = cur[e.pos - 1]
             if v == 255:
@@ -283,7 +298,7 @@ class Synth:
             r = 5 if s.regs[0x20 + n] & 0x20 else (sl["RR"] if sl["EG"] else 7)
         e.eg = min(127 * 256, e.eg + s.dec[s.rix(n, sl, r)])
         if e.state == DECAY and (e.eg >> 11) >= sl["SL"]:
-            e.state = SUSTAIN
+            e.eg, e.state = sl["SL"] << 11, SUSTAIN   # (4.7) stop at SL
         if e.state == RELEASE and e.eg >= 127 * 256:
             e.state = OFF
 
@@ -367,9 +382,25 @@ class Synth:
             c["frac"], c["idx"] = frac, idx
         return mix
 
-    @staticmethod
-    def out8(mix):
-        return [CLIP[(v >> 4) + CLIPC] for v in mix]
+    def out8(s, mix):
+        t = CLIPS[s.agc_k]
+        out = [t[(v >> 4) + CLIPC] for v in mix]
+        s.agc(max((abs(v >> 4) for v in mix), default=0))
+        return out
+
+    def agc(s, p):
+        k = s.agc_k
+        while k > 0 and p > AGC_DOWN[k]:
+            k -= 1
+        if k != s.agc_k:
+            s.agc_k, s.agc_n = k, 0
+        elif k < 4 and p >= AGC_FLOOR:
+            if p < AGC_UP[k]:
+                s.agc_n += 1
+                if s.agc_n >= AGC_HOLD:
+                    s.agc_k, s.agc_n = k + 1, 0
+            else:
+                s.agc_n = 0
 
 
 def write_wav(path, rate, samples):
@@ -451,8 +482,11 @@ def fmxdat(folder):
     for c in t["att"]:
         offs.append(len(curves))
         curves += bytes(c)
-    parts.append(("CLIP", bytes(v & 255 for v in CLIP)))
-    parts.append(("ATTOFF", struct.pack(">64H", *offs)))
+    parts.append(("CLIP", bytes(v & 255 for t in CLIPS for v in t)))
+    parts.append(("AGCDN", struct.pack(">5H", *AGC_DOWN)))
+    parts.append(("AGCUP", struct.pack(">5H", *AGC_UP)))
+    offs.append(len(curves))             # (4.7) the end of the last curve
+    parts.append(("ATTOFF", struct.pack(">65H", *offs)))
     parts.append(("ATT", bytes(curves)))
     data, inc = bytearray(), []
     for name, b in parts:
@@ -461,6 +495,8 @@ def fmxdat(folder):
         if len(data) & 1:
             data += b"\0"
     inc.append(f"FMX_SIZE=\t{len(data)}")
+    inc.append(f"FMX_AGCFLOOR=\t{AGC_FLOOR}\t\t; automatic gain: peak that counts as playing")
+    inc.append(f"FMX_AGCHOLD=\t{AGC_HOLD}\t\t; frames under AGCUP before a step up")
     inc.append(f"FMX_K227=\t{step_k(313)}\t\t; phase step factor, 227 samples/frame (period 313)")
     inc.append(f"FMX_K313=\t{step_k(227)}\t\t; 313 samples/frame (period 227)")
     open(os.path.join(folder, "fmx.dat"), "wb").write(data)

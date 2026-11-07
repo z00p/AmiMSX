@@ -1,6 +1,10 @@
 # AmiMSX 4.x roadmap
 
-What is planned after 4.6. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+What is planned after 4.7. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+
+## Shipped in 4.7
+
+Quicker controller response on RTG, Smooth Display and the Amiga output, Sound Mix (Classic, Mono, Stereo) for PSG+FM, FM decay and gain fixes, Z80 block instructions that stop at line ends, and the Emulation menu grouped. See `CHANGES_4.x.md`.
 
 ## Shipped in 4.6
 
@@ -21,7 +25,7 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 
 ## Still open, not yet scheduled
 
-Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, CPIR/CPDR per-repeat timing, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). The YJK modes (SCREEN 10-12) wait for a game that uses them.
+Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). The YJK modes (SCREEN 10-12) wait for a game that uses them.
 
 About window (a tester, 28 Oct): keep its date in step with each release (it is typed in by hand). (The menu tidy-up is done: branch menus, Docs/agent_notes/v46_menus.md.)
 

@@ -105,14 +105,14 @@ MJEND	MACRO
 	MSCOUNT	NS_Speed
 	MITEM	MN_JapID		; Japanese Machine (60 Hz)
 	MITEM	MN_Kanji		; Kanji ROM
-	MITEM	MN_Filter		; Audio Filter (less hiss)
 	MITEM	MN_EmulationBar0		; ---
-	MITEM	MN_Mask		; Mask Screen Edges
-	MSUB	MN_MaskOff		;   Off
-	MSUB	MN_Mask8		;   8 dots
-	MSUB	MN_Mask16		;   16 dots
-	MSCOUNT	NS_Mask
-	MITEM	MN_Smooth		; Smooth Display (fast CPUs)
+	MITEM	MN_Mix		; Sound Mix (PSG+FM)
+	MSUB	MN_MixClassic		;   Classic
+	MSUB	MN_MixMono		;   Mono
+	MSUB	MN_MixStereo		;   Stereo
+	MSCOUNT	NS_Mix
+	MITEM	MN_Filter		; Audio Filter (less hiss)
+	MITEM	MN_EmulationBar1		; ---
 	MITEM	MN_Scan		; RTG Scanlines
 	MSUB	MN_ScanOff		;   Off
 	MSUB	MN_ScanH25		;   Hard 25%
@@ -126,11 +126,6 @@ MJEND	MACRO
 	MSUB	MN_SetPAL		;   Menu in PAL
 	MSUB	MN_SetNTSC		;   Menu in NTSC
 	MSCOUNT	NS_ScrMode
-	MITEM	MN_Internal		; Compatibility
-	MSUB	MN_SprLate		;   Sprites a Frame Late
-	MSUB	MN_FullRedraw		;   Full Redraw on Mode Change
-	MSUB	MN_TRBit		;   VDP Always Ready (TR bit)
-	MSCOUNT	NS_Internal
 	MICOUNT	NI_Emulation
 
 	MTITLE	MT_Input		; Input

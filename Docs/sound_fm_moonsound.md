@@ -98,6 +98,23 @@ So the right notes, at the right times, with close to the right timbre. Listenin
 
 - **Listening:** `build/fm/lilly_amiga_fmx.wav` is what the Amiga played (from the check build); against openMSX it scores chroma 0.94 (the two runs' timing differs a little).
 
+## Sound mix: the PSG in software (4 Nov, 4.7 work)
+
+Emulation > Sound Mix (key-script `option mix`, PrefMix): Classic (PSG on Paula 0-2, FM on 3, as 4.6), Mono, or Stereo. Mono and Stereo make the PSG in software (`AmiMSX_Psx_v4.asm`), noise included, and mix it with the FM into one 14-bit stream: channels 3 (high byte, volume 64) and 0 (low 6 bits, volume 1) on the left, 2 and 1 on the right; Mono points the right pair at the left rings. Stereo pans PSG A/B/C at 6:2, 4:4 and 2:6 quarters, FM in the centre. Default: Mono on a fast CPU (FMXFast), else Classic.
+
+- **Spec:** `tools/psg_synth.py` (class `Psg`), from openMSX's AY8910.cc (YM2149). Tone as a box filter over each sample, noise as the fraction of LFSR bits that were 1, envelope in 32 steps of 1.5 dB, a one-pole high-pass (about 10 Hz). PSG writes are logged with their beam line and cycle (OUTA1) and applied at their sample. Levels: openMSX's mix of the reference machine (PSG volume 21000, MSX-MUSIC 9000) gives a full PSG channel 7182 mix units against 2032 for a full FM voice; a fit to openMSX's own mix of Lilly's Saga confirms it (0.95).
+- **Against openMSX** (`tools/snd_capture.py`, `tools/psg_compare.py`, phase-blind): Lilly's Saga and Metal Gear, each channel: level 0.98-1.07, loudness envelope correlation 0.99, spectral distance 3.5-4.2 dB (point sampling: 5.2-11.2 dB, and the noise 6-28% too loud).
+- **Gain:** the real balance lets the mix peak at about 1.8x the FM-only full scale, so the automatic gain runs on the mix: x0.5 to x4 in 3 dB steps, down only for a peak the soft knee can't take, up after 3 s under the next gain's limit. Lilly's Saga: 3 changes a minute (the FM-only rule on the mix: 45), under 0.1% of samples in the knee (`tools/mix_compare.py`).
+- **Check:** a check build (`-DPERF=1 -DFMXREC=1 -DPSXREC=1`) records the PSG registers, every PSG write as applied and each sample's FM, PSG and output; `tools/psx_check.py` replays the writes through `Psg` and the gain and compares. Bit-exact on the 030 config: Lilly's Saga Mono (3,063 frames), Stereo (1,816 frames, 60 Hz display) and R-Type FM (3,100 frames).
+- **Cost in Lilly's gameplay** (perf sub-timer 7, FMX with the mix):
+
+| Config | Classic | Mono | Stereo |
+|---|---|---|---|
+| 68030 | 24 lines, speed 87% | 86 lines, 72% | 94 lines, 73% |
+| 68060 | 27 lines, 100% | 68 lines, 99.6% | 89 lines, 95% |
+
+Not done yet: the mix for PSG-only games (FMX off), and a speed pass on the per-sample loop (tone, noise and output).
+
 ## PSG+FM lite (12 Oct)
 
 Sound chip 4 ('FM lite' in the menu): the same FMX engine, but it mixes only the 4 loudest FM voices, chosen each frame by the last frame's gain (a key-on counts as loudest). About half the mixer's cost, meant for the A1200 and 68030 when someone wants FM there (their presets keep PSG). Lilly's Saga against openMSX: chroma 0.95 (all 9 voices: 0.96).

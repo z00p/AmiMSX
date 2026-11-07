@@ -207,3 +207,21 @@ MagCopy:	DS.B	256		; Per 16x16 slot or 8x8 pattern: the copy written last
 **Sharing WinUAE.** Several sessions use the same WinUAE install. A lock file is created before WinUAE starts and removed afterwards; a lock more than 30 minutes old with no WinUAE process running is stale and may be removed. Hold it for minutes, not hours: a full regression is split into runs. The details and one failure of the lock itself are in "A lock made with `mkdir`" above.
 
 **Look up.** `Docs/agent_notes/release-1.0.md` (step 7: the wedged share), `STATUS.md`, `PERF50.md` (the missing key file).
+
+## Background jobs that outlive their task
+
+### A subshell sent to the background keeps running after its task "finishes"
+
+**Problem.** A regression run reported four titles with no captures at all, the same four on a second attempt. Part of that was a real fault, but the first run's figures were also mixed with a second, stray run that nobody was watching.
+
+**Before.** Two regression runs chained in a subshell with `&` inside a command that was itself started in the background:
+
+    (python tools/regress.py smoke ... ; python tools/regress.py smoke ...) &
+
+**After.** One command per run, no `&` inside: the agent's tool already runs it in the background and reports when it ends.
+
+    python tools/regress.py smoke ... ; python tools/regress.py smoke ...
+
+**Why.** The `&` detached the subshell, so the outer command ended at once and was reported as complete, while the subshell went on. When the agent started the runs again, two harnesses shared the same WinUAE slot folders and the same output log, and one of them deleted the other's run folder. The shared lock did not help, because each harness takes it only around its own starts. Before rerunning anything, check that no earlier run of yours is still alive (`ps`, `tasklist`), and never give two runs the same run name.
+
+**Evidence.** A traceback from the stray run (its run folder deleted under it) in the middle of the second run's log.

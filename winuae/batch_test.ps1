@@ -5,7 +5,14 @@ param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX"
       [int]$SpaceFrom = 0, [int]$SpaceTo = 0, [int]$SpaceEvery = 2, [int]$ExitAt = 0, [string]$Hold = "",
       [string]$Config = "AmiMSX-test.uae", [string]$WaitFile = "", [int]$MaxWait = 300, [string]$Tag = "",
       [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "", [string]$ExtraArg = "",
-      [string]$RtBurst = "", [string]$Wb = "wb", [int]$SnapRepeat = 1)
+      [string]$RtBurst = "", [string]$Wb = "wb", [int]$SnapRepeat = 1, [int]$Slot = 0, [string]$Prefs = "")
+# -Prefs file (with -Slot): that settings file as the slot's S:AmiMSX2.prefs, e.g. a
+#   copy of a preset's ("AmiMSX PiStorm") when the third argument is taken (S2=)
+# -Slot n (1, 2, ...): one of several WinUAE runs side by side (tools\regress.py --jobs).
+#   The slot runs on its own copies of run\ and the Workbench in build\slots\<n>\
+#   (mirrored at each start), with a copy of the config pointing at them, shots in
+#   build\shots\slot<n>, and it closes only its own WinUAE. Slot 0 is the one shared
+#   run\ and Workbench as before, and closes every WinUAE.
 # -SnapRepeat n: the key script runs n times (AmiMSX test hook R2=, a second cartridge after
 #   a HELP in the script): expect its SNAPs n times, named <s>_r2... after the first
 # -RtBurst t:n : at t s, grab n frames back to back while the game runs (no freeze;
@@ -28,8 +35,23 @@ $base = Split-Path -Parent $PSScriptRoot
 $Shots = @($Shots | ForEach-Object { $_ -split "," } | Where-Object { $_ } | ForEach-Object { [int]$_ })
 $Roms = @($Roms | ForEach-Object { $_ -split "," } | Where-Object { $_ })   # -File passes "a,b" as one string
 if (-not $Roms) { $Roms = (Get-Content "$PSScriptRoot\linear_todo.json" | ConvertFrom-Json).rom }
-$out = Join-Path $base "build\shots"; New-Item -ItemType Directory -Force $out | Out-Null
-Copy-Item "$base\build\$Exe" "$base\run\AmiMSX" -Force   # e.g. -Exe AmiMSX_trace
+$runDir = "$base\run"; $wbRoot = "$base\winuae"; $cfgPath = "$base\winuae\$Config"
+$out = Join-Path $base "build\shots"
+if ($Slot -gt 0) {
+  $sd = "$base\build\slots\$Slot"
+  $runDir = "$sd\run"; $wbRoot = $sd; $cfgPath = "$sd\$Config"
+  $out = Join-Path $out "slot$Slot"
+  foreach ($m in @(@("$base\run", $runDir), @("$base\winuae\$Wb", "$sd\$Wb"))) {
+    robocopy $m[0] $m[1] /MIR /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "slot $Slot copy of $($m[0]) failed ($LASTEXITCODE)" }
+  }
+  Remove-Item "$sd\$Wb\S\AmiMSX2.prefs" -ErrorAction SilentlyContinue   # a tester's saved settings
+  if ($Prefs) { Copy-Item $Prefs "$sd\$Wb\S\AmiMSX2.prefs" -Force }
+  $c = [IO.File]::ReadAllText("$base\winuae\$Config")
+  [IO.File]::WriteAllText($cfgPath, $c.Replace("$base\winuae\", "$sd\").Replace("$base\run,", "$runDir,"))
+}
+New-Item -ItemType Directory -Force $out | Out-Null
+Copy-Item "$base\build\$Exe" "$runDir\AmiMSX" -Force   # e.g. -Exe AmiMSX_trace
 Add-Type -AssemblyName System.Drawing
 Add-Type @"
 using System; using System.Runtime.InteropServices;
@@ -85,7 +107,7 @@ public class WU {
 }
 "@ -ReferencedAssemblies System.Drawing
 [void][WU]::SetProcessDPIAware()   # physical pixels for both GetWindowRect and CopyFromScreen
-$seq = "$base\winuae\$Wb\S\Startup-Sequence"   # -Wb wbrtg: the RTG config's Workbench (AmiMSX-rtg.uae)
+$seq = "$wbRoot\$Wb\S\Startup-Sequence"   # -Wb wbrtg: the RTG config's Workbench (AmiMSX-rtg.uae)
 $latin1 = [Text.Encoding]::GetEncoding(28591)
 # The AmiMSX Tester (winuae\AmiMSX-Tester.ps1) shares this Workbench and WinUAE:
 # wait for a play session to end rather than closing the user's WinUAE.
@@ -107,7 +129,7 @@ foreach ($rom in $Roms) {
   $dir = if ($rom -match '\.dsk$') { "Disks" } else { "Roms" }   # disk images boot from drive A (run\Disks)
   $keyArg = ""; $snaps = @()
   if ($Keys) {
-    $kd = Join-Path $base "run\Keys"; New-Item -ItemType Directory -Force $kd | Out-Null
+    $kd = Join-Path $runDir "Keys"; New-Item -ItemType Directory -Force $kd | Out-Null
     $kn = [IO.Path]::GetFileNameWithoutExtension($rom) -replace '[\[\]]', '_'
     $snapf = Join-Path $kd "$kn.snaps"
     & python "$base\tools\keyscript.py" $Keys --amimsx (Join-Path $kd "$kn.key") --snaps $snapf | Out-Null
@@ -121,15 +143,17 @@ foreach ($rom in $Roms) {
   $pre = if ($NoRun) { "; " } else { "" }
   $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', "${pre}Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"$keyArg")
   [IO.File]::WriteAllText($seq, $s, $latin1)
-  Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1
-  Start-Process "C:\Program Files\WinUAE\winuae64.exe" -ArgumentList "-f `"$base\winuae\$Config`"" -WorkingDirectory "C:\Program Files\WinUAE"
+  if ($Slot -eq 0) { Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1 }
+  elseif ($proc -and -not $proc.HasExited) { $proc | Stop-Process -Force; Start-Sleep 1 }
+  $proc = Start-Process "C:\Program Files\WinUAE\winuae64.exe" -ArgumentList "-f `"$cfgPath`"" -WorkingDirectory "C:\Program Files\WinUAE" -PassThru
   $t0 = Get-Date; $hwnd = [IntPtr]::Zero
   while ($hwnd -eq [IntPtr]::Zero -and ((Get-Date) - $t0).TotalSeconds -lt 15) {
     Start-Sleep -Milliseconds 300
+    if ($Slot -gt 0) { $proc.Refresh(); if ($proc.MainWindowHandle -ne 0) { $hwnd = $proc.MainWindowHandle }; continue }
     $p = Get-Process winuae64 -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
     if ($p) { $hwnd = $p.MainWindowHandle }
   }
-  [void][WU]::SetWindowPos($hwnd, [IntPtr]::Zero, 300, 40, 0, 0, 5)
+  [void][WU]::SetWindowPos($hwnd, [IntPtr]::Zero, 300 + 40 * $Slot, 40 + 30 * $Slot, 0, 0, 5)
   $name = [IO.Path]::GetFileNameWithoutExtension($rom)
   [void][WU]::SetForegroundWindow($hwnd)
   $events = @($Shots | ForEach-Object { [pscustomobject]@{ t = $_; kind = "shot" } })
@@ -203,7 +227,7 @@ foreach ($rom in $Roms) {
     }
   }
   if ($WaitFile) {
-    $wf = Join-Path "$base\run" $WaitFile; $got = $false
+    $wf = Join-Path $runDir $WaitFile; $got = $false
     while (((Get-Date) - $t0).TotalSeconds -lt $MaxWait) {
       if ((Test-Path $wf) -and (Get-Item $wf).LastWriteTime -gt $t0) { Start-Sleep 2; $got = $true; break }
       Start-Sleep 1
@@ -217,7 +241,8 @@ foreach ($rom in $Roms) {
   }
   "$(Get-Date -Format HH:mm:ss) $rom done"
 }
-Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force
+if ($Slot -gt 0) { if ($proc -and -not $proc.HasExited) { $proc | Stop-Process -Force } }
+else { Get-Process winuae64 -ErrorAction SilentlyContinue | Stop-Process -Force }
 "ALL DONE"
 
 

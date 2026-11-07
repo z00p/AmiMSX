@@ -447,6 +447,12 @@ PerfDump:
 	MOVE.B	$129(A0),PerfCPU	; ExecBase AttnFlags (low byte).
 	MOVE.B	EsUn060,PerfCPU+1
 	MOVE.L	#PerfName,D1
+	IFD	LAGLOG			; (4.7 lag test) a run on RTG writes
+	TST.B	LagRtgSeen		; perf_rtg.bin, so the AGA and RTG
+	BEQ.S	PerfDNm			; runs of one session both stay.
+	MOVE.L	#PerfNameR,D1
+PerfDNm:
+	ENDC
 	MOVE.L	#$3EE,D2
 	BSR	OPENFILE
 	TST.L	D0
@@ -582,6 +588,22 @@ PerfDump:
 	MOVE.L	#1048576,D3
 	BSR	WRITEFILE
 	ENDC
+	IFD	PSXREC			; (4.7, Sound mix check build) PSG
+	MOVE.L	#PsxRecInit,D2		; registers, pointers, writes (frame.W,
+	MOVE.L	#16+8,D3		; sample.W, register, value, 0.W), output
+	BSR	WRITEFILE		; (N.W and N 14-bit words a side).
+	MOVE.L	#PsxRecE,D2
+	MOVE.L	#262144,D3
+	BSR	WRITEFILE
+	MOVE.L	#PsxRecO,D2
+	MOVE.L	#4194304,D3
+	BSR	WRITEFILE
+	ENDC
+	IFD	LAGLOG			; (4.7 lag test) LAGL block, see LagRec.
+	MOVE.L	#LagHdr,D2
+	MOVE.L	#LagEnd-LagHdr,D3
+	BSR	WRITEFILE
+	ENDC
 	BSR	CLOSEFILE
 PerfDFin:
 PerfDRet:
@@ -590,8 +612,16 @@ PerfDone:	DC.B	0
 		EVEN
 	IFD	PERFLOCAL		; (measurement builds: the current
 PerfName:	DC.B	"perf.bin",0		; directory, no AmiMSX: assign)
+	IFD	LAGLOG
+PerfNameR:	DC.B	"perf_rtg.bin",0
+	ENDC
+	ELSE
+	IFD	LAGLOG			; (lag test: next to the program, as a
+PerfName:	DC.B	"PROGDIR:perf.bin",0	; tester's A1200 has no AmiMSX:
+PerfNameR:	DC.B	"PROGDIR:perf_rtg.bin",0	; assign)
 	ELSE
 PerfName:	DC.B	"AmiMSX:perf.bin",0
+	ENDC
 	ENDC
 		EVEN
 	EVEN
@@ -2835,7 +2865,6 @@ GPGUIToPrefs:
 	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
 	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
-	BSR	MaskFromGUI		; Mask screen edges (4.2: 3 sub-items).
 	MOVE.L	#MN_Filter,D0		; Audio filter.
 	BSR	COGECHECK
 	SNE	PrefFilter
@@ -2867,28 +2896,6 @@ GPShowGUI:
 	MOVEQ	#0,D1
 	MOVE.W	DirPrefs+$16,D1
 	BSR	CanviTags
-	MOVE.L	#MN_MaskOff,D0		; Mask screen edges (4.2): Off,
-					; 8 dots or 16 dots ticked.
-	BSR	COGECHECK
-	BCLR	#0,$C(A0)
-	TST.B	PrefMask
-	BNE.S	GPShow2
-	BSET	#0,$C(A0)
-GPShow2:
-	MOVE.L	#MN_Mask8,D0
-	BSR	COGECHECK
-	BCLR	#0,$C(A0)
-	CMP.B	#8,PrefMask
-	BNE.S	GPShow2b
-	BSET	#0,$C(A0)
-GPShow2b:
-	MOVE.L	#MN_Mask16,D0
-	BSR	COGECHECK
-	BCLR	#0,$C(A0)
-	CMP.B	#16,PrefMask
-	BNE.S	GPShow2c
-	BSET	#0,$C(A0)
-GPShow2c:
 	MOVE.L	#MN_Filter,D0		; Audio filter.
 	BSR	COGECHECK
 	BCLR	#0,$C(A0)
@@ -2905,6 +2912,38 @@ GPShow4:
 	BSR	GPShowPad
 	MOVEM.L	(SP)+,D2/D3
 	RTS
+; (4.7) Emulation > Sound Mix from the menu: PrefMix 1 Classic, 2 Mono,
+; 3 Stereo.
+MixFromGUI:
+	MOVE.B	#1,PrefMix
+	MOVE.L	#MN_MixMono,D0
+	BSR	COGECHECK
+	BEQ.S	MixFG1
+	MOVE.B	#2,PrefMix
+MixFG1:	MOVE.L	#MN_MixStereo,D0
+	BSR	COGECHECK
+	BEQ.S	MixFG2
+	MOVE.B	#3,PrefMix
+MixFG2:	RTS
+; (4.7) PrefMix not set (0, or a prefs file from before 4.7): the default
+; for this machine, as FMXInit has it: Mono on a fast CPU (68040/68060,
+; or Smooth Display on), else Classic.
+MixNorm:
+	TST.B	PrefMix
+	BEQ.S	MixNm1
+	CMP.B	#3,PrefMix
+	BLS.S	MixNmR
+MixNm1:	MOVE.B	#1,PrefMix
+	MOVE.L	A0,-(SP)
+	MOVE.L	$4.W,A0
+	MOVE.W	$128(A0),D0
+	MOVE.L	(SP)+,A0
+	AND.W	#$88,D0
+	BNE.S	MixNm2
+	TST.B	PrefDbuf
+	BEQ.S	MixNmR
+MixNm2:	MOVE.B	#2,PrefMix
+MixNmR:	RTS
 ; (4.6) Emulation > Speed from the menu: prefs $7E, 0 Normal, 1 Overclock,
 ; 2 No Limit.
 SpeedFromGUI:
@@ -2919,21 +2958,6 @@ SpeedFG1:
 	BEQ.S	SpeedFG2
 	MOVE.B	#2,DIRPrefs+$7E
 SpeedFG2:
-	RTS
-; (4.2) Mask screen edges from the menu: sub-item 4 of item 15 = 8 dots,
-; 5 = 16 dots, else (3) Off.
-MaskFromGUI:
-	CLR.B	PrefMask
-	MOVE.L	#MN_Mask8,D0
-	BSR	COGECHECK
-	BEQ.S	MaskFG1
-	MOVE.B	#8,PrefMask
-MaskFG1:
-	MOVE.L	#MN_Mask16,D0
-	BSR	COGECHECK
-	BEQ.S	MaskFG2
-	MOVE.B	#16,PrefMask
-MaskFG2:
 	RTS
 ; (4.2) PrefMask as 0, 8 or 16 (dots each side): an older prefs or per-game
 ; file's FFh (4.0-4.1 'Mask screen edges (always)') reads as 8.
@@ -6511,29 +6535,23 @@ PONPREFS:
 	MOVE.B	$79(A5),D0
 	BFINS	D0,MSX2NewMenu32+10{7:1}	; Avisar al Salir si MVD modificado.
 ; -=-
-	MOVE.B	$64(A5),D0
-	BFINS	D0,MSX2NewMenu38+10{7:1}	; MSX2 Sprites Y.
-
-	MOVE.B	$6B(A5),D0
-	BFINS	D0,MSX2NewMenu39+10{7:1}	; 100% Refresh
-
-	MOVE.B	$6E(A5),D0
-	BFINS	D0,MSX2NewMenu41+10{7:1}	; VDP 'TR bit' always ready
-
-	BSR	MaskNorm			; Mask screen edges (4.2): one
-	TST.B	PrefMask			; of Off / 8 dots / 16 dots.
-	SEQ	D0
-	BFINS	D0,MSX2NewMenu41b+10{7:1}
-	CMP.B	#8,PrefMask
-	SEQ	D0
-	BFINS	D0,MSX2NewMenu41e+10{7:1}
-	CMP.B	#16,PrefMask
-	SEQ	D0
-	BFINS	D0,MSX2NewMenu41f+10{7:1}
+	BSR	MaskNorm			; (4.7) Sprites a frame late ($64), full
+					; redraw ($6B), TR bit ($6E), the edge
+					; mask and Smooth display are no longer
+					; on the menu: the prefs (presets) and
+					; per-game files keep them.
 	MOVE.B	PrefFilter,D0
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
-	MOVE.B	PrefDbuf,D0
-	BFINS	D0,MSX2NewMenu41d+10{7:1}	; Smooth display (4.0)
+	BSR	MixNorm				; Sound mix (4.7): one of
+	CMP.B	#1,PrefMix			; Classic / Mono / Stereo.
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_MixC+10{7:1}
+	CMP.B	#2,PrefMix
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_MixM+10{7:1}
+	CMP.B	#3,PrefMix
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_MixS+10{7:1}
 	MOVE.B	PrefScan,D0			; RTG scanlines (Emulation > RTG Scanlines):
 	JSR	ScanSet				; the prefs' choice, if one, wins
 	JSR	ScanCode			; over the ToolType SCANLINES;
@@ -6660,6 +6678,10 @@ KeyOpt8:
 	TST.B	7(A0)
 	SNE	PrefDbuf
 KeyOpt9:
+	CMP.B	#10,5(A0)		; 10 = Sound mix (PrefMix, this run).
+	BNE.S	KeyOpt9b
+	MOVE.B	7(A0),PrefMix
+KeyOpt9b:
 	CMP.B	#9,5(A0)		; 9 = RTG scanlines, a PrefScan code
 	BNE.S	KeyOptNx		; (this run only).
 	MOVE.L	D0,-(SP)
@@ -6747,30 +6769,14 @@ ACTUPREFS:
 	BSR	COGECHECK
 	SNE	$79(A5)			; Avisar al Salir si MVD modificado.
 ; -=-
-	MOVE.L	#MN_SprLate,D0
-	BSR	COGECHECK
-	SNE	$64(A5)			; Sprites Base 2
-
-	MOVE.L	#MN_FullRedraw,D0
-	BSR	COGECHECK
-	SNE	$6B(A5)			; 100% Refresh Screen
-
 	SF	$6C(A5)			; 'Sprites collisions ON (always)': the
 					; menu item is gone in 4.0 (the real
 					; collision check always runs, and the
 					; old forced flag broke most games).
-	MOVE.L	#MN_TRBit,D0
-	BSR	COGECHECK
-	SNE	$6E(A5)			; VDP 'TR bit'
-
-	BSR	MaskFromGUI		; Sub-items 3-5 of item 15: mask screen
-					; edges Off / 8 / 16 dots (4.2).
-	MOVE.L	#MN_Filter,D0		; Sub-item 6: audio filter (4.0).
+	MOVE.L	#MN_Filter,D0		; Audio filter (4.0).
 	BSR	COGECHECK
 	SNE	PrefFilter
-	MOVE.L	#MN_Smooth,D0		; Sub-item 7: smooth display (4.0).
-	BSR	COGECHECK
-	SNE	PrefDbuf
+	BSR	MixFromGUI		; Sound mix (4.7).
 	MOVEQ	#0,D2			; RTG scanlines: sub-items 0-6 =
 ScnFG:	MOVE.L	D2,D0			; PrefScan 1-7 (none ticked: as it
 	ROR.W	#5,D0			; was, PrefScan 0 and the ToolType's
@@ -6936,6 +6942,9 @@ PrefScan:	DC.B	0		; RTG scanlines (Emulation > RTG Scanlines): 0 =
 					; not set (the ToolType SCANLINES, else
 					; Off), 1 = Off, 2-4 = hard 25/50/75%,
 					; 5-7 = blended light/normal/strong.
+PrefMix:	DC.B	0		; (4.7) Sound mix with PSG+FM: 0 = not set
+					; (Mono on a fast CPU, else Classic), 1 =
+					; Classic, 2 = Mono, 3 = Stereo.
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 
@@ -7745,13 +7754,12 @@ MM_Emulation:
 	MJ	MM_Emulation,MN_Speed,MS_Speed
 	MJ	MM_Emulation,MN_JapID,CONTROLRET
 	MJ	MM_Emulation,MN_Kanji,CONTROLRET
-	MJ	MM_Emulation,MN_Filter,CONTROLRET
 	MJ	MM_Emulation,MN_EmulationBar0,CONTROLRET
-	MJ	MM_Emulation,MN_Mask,MS_Mask
-	MJ	MM_Emulation,MN_Smooth,CONTROLRET
+	MJ	MM_Emulation,MN_Mix,MS_Mix
+	MJ	MM_Emulation,MN_Filter,CONTROLRET
+	MJ	MM_Emulation,MN_EmulationBar1,CONTROLRET
 	MJ	MM_Emulation,MN_Scan,MS_Scan
 	MJ	MM_Emulation,MN_ScrMode,MS_ScrMode
-	MJ	MM_Emulation,MN_Internal,MS_Internal
 	MJEND	MM_Emulation,NI_Emulation
 
 MM_Input:
@@ -7804,11 +7812,11 @@ MM_Tools:
 	MJ	MM_Tools,MN_NewDisk,MS_NewDisk
 	MJEND	MM_Tools,NI_Tools
 
-MS_Mask:
-	MJS	MS_Mask,MN_MaskOff,CONTROLRET
-	MJS	MS_Mask,MN_Mask8,CONTROLRET
-	MJS	MS_Mask,MN_Mask16,CONTROLRET
-	MJEND	MS_Mask,NS_Mask
+MS_Mix:
+	MJS	MS_Mix,MN_MixClassic,CONTROLRET
+	MJS	MS_Mix,MN_MixMono,CONTROLRET
+	MJS	MS_Mix,MN_MixStereo,CONTROLRET
+	MJEND	MS_Mix,NS_Mix
 
 MS_Scan:
 	MJS	MS_Scan,MN_ScanOff,CONTROLRET
@@ -7831,11 +7839,6 @@ MS_ScrMode:
 	MJS	MS_ScrMode,MN_SetNTSC,SETNTSC
 	MJEND	MS_ScrMode,NS_ScrMode
 
-MS_Internal:
-	MJS	MS_Internal,MN_SprLate,CONTROLRET
-	MJS	MS_Internal,MN_FullRedraw,CONTROLRET
-	MJS	MS_Internal,MN_TRBit,CONTROLRET
-	MJEND	MS_Internal,NS_Internal
 
 MS_Pad2:
 	MJS	MS_Pad2,MN_Pad2Std,CONTROLRET

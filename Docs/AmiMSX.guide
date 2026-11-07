@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.6 (03.11.2026)
+@version $VER: AmiMSX.guide 4.7 (07.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.6
+                          AmiMSX Emulator v4.7
                           ( 03.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -60,13 +60,15 @@ https://github.com/z00p/AmiMSX/issues
       left mask (R#25).  (See @{"MSX2 Display Emulation" link Dibuixos}.)
 
     - Sound:  MSX-Music (FM) on Amiga channel 3, PSG volume in 3 dB
-      steps.  (See @{"MSX2 Sound Emulation" link Soroll}.)
+      steps; with FM, a Mono or Stereo mix of PSG and FM (4.7).
+      (See @{"MSX2 Sound Emulation" link Soroll}.)
 
-    - Display:  double-buffered sprites, Smooth display for fast CPUs,
-      an edge mask of 8 or 16 dots for games that scroll sideways.
+    - Display:  double-buffered sprites, Smooth display for fast CPUs
+      (in the PiStorm and RTG presets).
 
-    - Options:  Use Japanese ID (60 Hz), Mask screen edges (Off, 8 or
-      16 dots), Audio filter, Smooth display.  (See @{"Emulation Menu" link MenuOpt}.)
+    - Options:  Speed, Use Japanese ID (60 Hz), Kanji ROM, Sound mix
+      (Classic, Mono or Stereo), Audio filter, RTG scanlines.  (See
+      @{"Emulation Menu" link MenuOpt}.)
 
     - Cartridges:  mapper from a ROM database, 8Kb, 48/64Kb and 4Mb
       ROMs, flash Konami SCC cartridges with saves, per-game settings.
@@ -286,7 +288,7 @@ in the file named by the icon's PREFS ToolType.  (See @{"Presets" link Presets}.
 @{fg highlight}    <*> Save Game Settings:  [Save game settings]
 @{fg text}    ---------------------------------------------
 
-    Saves the sound chip, sprite refresh, edge mask, audio filter, the
+    Saves the sound chip, sprite refresh, audio filter, the
 pads and the machine next to the Slot 1 cartridge, as <cartridge>.prefs.
 They are used whenever this cartridge is inserted.  Without them, a Konami
 SCC cartridge gets the SCC sound chip, unless the ROM database knows its
@@ -354,31 +356,36 @@ MSX, MSX2 and MSX2+.
 
     Emulates MSX Kanji ROM.
 
+@{fg highlight}    <*> Sound Mix (PSG+FM):  Classic / Mono / Stereo
+@{fg text}    ------------------------------------------------
+
+    How the PSG and the FM reach the speakers when the sound chip is
+PSG+FM or FM lite and the game plays FM.
+
+    Classic:  the PSG plays on Amiga channels 0-2 and the FM on channel 3,
+as in 4.6.  The FM comes from the left speaker only, and the PSG's noise
+(drums, explosions) is lost.  The least CPU time.
+
+    Mono:  the PSG is made in software, noise included, and mixed with the
+FM at the MSX's own balance into one 14-bit stream, played in the centre
+of both speakers.  The volume follows the music on its own, in 3 dB steps.
+
+    Stereo:  as Mono, with the PSG's channels spread a little: A to the
+left, B in the centre, C to the right.  The FM stays in the centre.
+
+    Without a setting saved, fast CPUs (68040/68060, or the PiStorm preset)
+get Mono and the others Classic.  Mono and Stereo need much more CPU
+time than Classic: on a 68030 at 50 Mhz, Lilly's Saga drops from about
+87% to 72% speed.  They are for PiStorm and other fast CPUs.
+
+    A change takes effect at the next Power ON or Reset.  Continue keeps
+the mix the game started with.
+
 @{fg highlight}    <*> Audio Filter (less hiss):
 @{fg text}    -----------------------------
 
     Keeps the Amiga's low-pass filter on while a game runs, for less hiss
 from the FM and PSG sound.  The power LED stays lit.
-
-@{fg highlight}    <*> Mask Screen Edges:  Off / 8 dots / 16 dots
-@{fg text}    ----------------------------------------------
-
-    Hides that many dots at each side of the picture, where games that
-scroll sideways redraw columns.  (A TV's overscan hid them on a real MSX.)
-Off, the default, shows the whole picture, as openMSX does.  8 dots covers
-the columns most games redraw (Lilly's Saga); 16 dots is for wider ones.
-Text screens (SCREEN 0, 40 and 80 columns) are never masked.  The MSX2+
-left mask (V9958 R#25) is always shown: it is part of the machine.
-
-    The edge mask and the audio filter are kept in a game's own settings
-too.  (See @{"Project Menu" link MenuPro}.)
-
-@{fg highlight}    <*> Smooth Display (fast CPUs):
-@{fg text}    -------------------------------
-
-    SCREEN 4 is double-buffered, so each frame is shown complete.  Needs a
-fast CPU and about 90Kb more Chip memory.  Other screen modes are not
-changed.
 
 @{fg highlight}    <*> RTG Scanlines:
 @{fg text}    ------------------
@@ -415,28 +422,22 @@ the icon is used (Off without it).  Greyed when AmiMSX is not on RTG.
 (PAL on a PAL machine).  [Screen Mode on Exit is gone; an old setting of it
 in a settings file is ignored.]
 
-@{fg highlight}    <*> Compatibility:  [Internal Emulation]
-@{fg text}    ----------------------------------------
+@{fg highlight}    <*> Settings no longer on the menu:
+@{fg text}    -----------------------------------
 
-    For games that misbehave.  Leave them as they are otherwise.
+    Since 4.7 these are set by the presets or a game's own settings,
+and settings files from earlier versions keep what they had:
 
-    - Sprites a Frame Late:  [Sprites Y coor. from Line interrupt]  draws
-the sprites from the previous frame's tables.  Off by default.  Try it if
-a game's sprites jump or sit a frame ahead of the picture.  It costs nothing.
+    - Smooth Display:  SCREEN 4 double-buffered, so each frame is shown
+complete (about 90Kb more Chip memory).  On in the PiStorm and RTG
+presets, off in the 030 preset.
 
-    - Full Redraw on Mode Change:  [100% Refresh in Screen Changes]  when a
-game enters a graphics mode such as SCREEN 5, the whole picture is built
-again from the MSX video memory, so nothing the game drew before the change
-is lost.  On by default.  Off, mode changes are quicker, but the picture can
-be wrong until the game redraws it, and several things that need the
-picture to match the video memory are lost:  SCREEN 5 and 7 on RTG, the
-MSX2+ fine scroll on the Amiga's output and SCREEN 5 split screens.  Leave
-it on unless a slow Amiga struggles with a game that changes mode a lot.
+    - Mask Screen Edges:  Off, the whole picture as openMSX shows it.  A
+game's settings saved with 8 or 16 dots still hide that many dots at
+each side.
 
-    - VDP Always Ready (TR bit):  [VDP 'TR bit' always ready]  when a program
-reads the VDP's status, the TR bit says the VDP is ready for the next byte of
-a command, every time.  On by default.  Off, the bit follows the VDP command
-being drawn.  Try Off if a game goes wrong while it feeds a VDP command.
+    - Compatibility:  Sprites a Frame Late off, Full Redraw on Mode
+Change on, VDP Always Ready (TR bit) on.
 
 @endnode
 
@@ -958,8 +959,9 @@ channels, channel 5 will not be emulated.
 mixed into Amiga channel 3.  The PSG keeps channels 0-2.  FM lite mixes
 only the 4 loudest voices, for less CPU time.  Both need a fast CPU.
 
-    FM takes the PSG's noise channel, so PSG+FM is only for games with
-FM.  Without game settings, a cartridge that has no "OPLL" in it runs on
+    With Sound Mix on Classic, FM takes the PSG's noise channel, so
+PSG+FM is only for games with FM.  Mono and Stereo keep the noise.  (See
+@{"Emulation Menu" link MenuOpt}.)  Without game settings, a cartridge that has no "OPLL" in it runs on
 the PSG, and your setting comes back when it is taken out.  A compressed
 game could be caught by this: choose PSG+FM and Save Game Settings.
 Konami SCC cartridges still get the SCC, DEVA apart.
