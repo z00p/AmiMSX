@@ -1,6 +1,10 @@
 # AmiMSX 4.x roadmap
 
-What is planned after 4.7. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+What is planned after 4.8. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+
+## Shipped in 4.8
+
+Speed on the 68030/50: SCREEN 8 games (Uridium 2 to 98%), SCREEN 4 games with a table split (Space Manbow), and games that wait for the next frame in a short loop (Lilly's Saga to 98%). See `CHANGES_4.x.md`.
 
 ## Shipped in 4.7
 
@@ -33,7 +37,7 @@ Cartridges (a tester, 30 Oct): The R-Type mapper is done (4.5, branch rtype: Doc
 
 After 4.6 (3 Nov): R-Type's FM music sounds thin (an envelope's decay runs past its sustain level, and the output is quiet: it needs an automatic gain). The Z80's block instructions (LDIR, INIR, OTIR) can't be interrupted, so a line interrupt can come up to 16 lines late (Space Manbow 2's title split, now and then). Uridium 2's stars are written across the line where AmiMSX draws the frame, so one-dot stars shimmer. Zanac EX still dips to about 80% on the 68030/50 (HMMC). From reading the code, not yet reproduced: on AGA, LMMC's XOR acts as OR, LMMC ops 4-7 differ from the VDP, and HMMC uses the command's logical op, which the VDP ignores.
 
-Sound on Konami SCC cartridges with FM (2 Nov): with no game settings, a Konami SCC mapper moves Sound to SCC, from PSG+FM too. Batman and Head over Heels are SCC games, so that stays. DEVA is FM, so the ROM database now keeps its Sound as set. Other ROMs with no "OPLL" in the file drop from PSG+FM to PSG, as FM takes the PSG's noise channel (GPSndRule). Exceptions either way go in SOUND_EXCEPTIONS in tools/make_romdb.py: a compressed FM game could need one. Uridium 2 is not a bug: that ROM has no sound code (openMSX, Docs/agent_notes/overnight_2026-11-01.md).
+Sound on Konami SCC cartridges with FM (2 Nov): with no game settings, a Konami SCC mapper moves Sound to SCC, from PSG+FM too. Batman and Head over Heels are SCC games, so that stays. DEVA is FM, so the ROM database now keeps its Sound as set. Other ROMs with no "OPLL" in the file drop from PSG+FM to PSG, as FM takes the PSG's noise channel (GPSndRule). Exceptions either way go in SOUND_EXCEPTIONS in tools/make_romdb.py: a compressed FM game could need one. Uridium 2 is not a bug: the widely shared ROM is the author's build after the "Music disabled" commit (Maneldemo/Uridium-2-for-msx, 29 Dec 2015). The earlier build b605cd0 (14 Jun 2015) writes PSG and SCC and plays in openMSX.
 
 MSX-Music ROM driver (1 Nov): R-Type calls the ROM at 4110h-4122h (INIOPL, MSTART, MSTOP, RDDATA, OPLDRV, TSTBGM) and plays its FM music with OPLDRV. With the maintainer's own MSXMUSIC.ROM next to AmiMSX that works: the real ROM sits in Slot 1 if it is empty, otherwise in slot 3 RAM, where a game can overwrite it, and R-Type plays FM (WinUAE: 4264 OPLL writes in 65 s, openMSX 4400 in 50 s). Without the file AmiMSX has no driver, C-BIOS music is only a stub, and R-Type stays on the PSG (the ID is left out when a slot uses the R-Type mapper). A rewrite of the driver is still open, for those without the ROM; other games that use OPLDRV find the stubs and play no FM music.
 

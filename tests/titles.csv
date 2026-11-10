@@ -87,3 +87,9 @@ T_MaskTest,masktest.dsk,disk,tools,,masktest,030,"22,32,42",,edge-mask test disk
 rtype,rtype.rom,rom,set2,R-Type,rtype,030,"18,30,40",,R-Type mapper (4.5; 4000h fixed to bank 17h; header there),machine:MSX1 mapper:R-Type
 rtypefm,rtype-fm.rom,rom,set2,,rtypefm,030,"20,32,42",,R-Type FM loader (Bifi) in Slot 1 with R-Type in Slot 2 (test hook S2=),machine:MSX2 mapper:R-Type slot2:rtype.rom
 slotscan,slotscan.rom,rom,set2,,slotscan,030,"12",,Slot scan cartridge: EXPTBL and the MSX-MUSIC ID per slot,machine:MSX2
+T_ZexQuick,T_ZexQuick.rom,rom,z80,,none,030,"60,300",,Z80 core test cartridge (Docs/z80_audit.md),z80test
+T_ZexBlk,T_ZexBlk.rom,rom,z80,,none,030,"150,300",,Z80 core test cartridge (Docs/z80_audit.md),z80test
+T_ZexSzpc,zex_szpc.rom,rom,z80,,none,030,"150,300",,Z80 core test cartridge (Docs/z80_audit.md),z80test
+T_Z80Flags,T_z80flags.rom,rom,z80,,none,030,"20",,Z80 core test cartridge (Docs/z80_audit.md),z80test
+T_Z80Ops,T_z80ops.rom,rom,z80,,none,030,"20",,Z80 core test cartridge (Docs/z80_audit.md),z80test
+R2K_VampireKillerSmooth,R2K_VampireKillerSmooth.rom,rom,set2,KonamiSCC,vk_smooth,030,"34,38,42",,"Vampire Killer smooth-scroll hack (ToughkidCST, File-Hunter MSX2+ ROM, 512 KB SCC): MSX2+ only, walks right from 30 s; added 9 Nov 2026, not yet scanned",machine:MSX2+

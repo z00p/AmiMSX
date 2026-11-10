@@ -100,6 +100,13 @@ DbPostClr:
 	CLR.L	(A0)+
 	CLR.L	(A1)+
 	DBF	D0,DbPostClr
+	IFND	NO_HUDKEY
+	LEA	HudKV1,A0		; (4.8) its row keys: not valid.
+	MOVE.W	#212-1,D0
+DbPostKV:
+	SF	(A0)+
+	DBF	D0,DbPostKV
+	ENDC
 	SF	DbTD			; SCREENT (mode split): buffer 0 is
 	MOVE.L	MSFKey,DbTKey		; current, 1 gets a full copy.
 	ST	DbTD+1

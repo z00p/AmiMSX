@@ -353,3 +353,19 @@ Both reports are with ROM = MSX2+ only and fine as MSX2, so the suspects were MS
 
 - **Seen:** A1200, 4.1/4.1.1, ROM = MSX2+: a different picture size or position than with ROM = MSX2, for a SCREEN 5 game that never writes R#25-27 (Pampas & Selene) and for grad2tr; an MSX1 disk game is the same on both. WinUAE showed no difference.
 - **Fix:** the MSX2+ SCREEN 5 path (wide layout, FMODE $D 32-bit fetch, 36-byte modulo, Adj5Calc's window delay) is taken only once a game writes R#26 with a non-zero value (`V9R26Used`; any of its 6 bits: with SP2, 32 is a real scroll); until then SCREEN 5 on the MSX2+ machine is the MSX2 machine's display path by construction. WinUAE: Pampas & Selene MSX2 vs MSX2+ captures pixel-identical (build/g2p/pm1, pm2). grad2tr is SCREEN 4 (tiles), untouched by this: if its picture still differs on the A1200, the cause is elsewhere (MSK moving DIWSTRT by 8 is intended: the V9958 blanks the left 8 dots).
+
+## Sound changed in the menu, then Continue: the picture breaks (open, 9 Nov 2026; also in 4.7)
+- **Seen:** on the A1200, PiStorm preset. Vampire Killer smooth-scroll hack (MSX2+): Power ON with Sound SCC, Help, Sound PSG+FM, Continue. The game crashes: the playfield breaks up (garbage tiles, a partly blank screen) while the HUD stays, and the FM music plays on. Help still returns to the menu: the MSX program has crashed, not the emulator.
+- **Also in 4.7:** a tester repeated it on the 4.7 release build (7df21bf) with the same result, so it isn't a 4.8 change.
+- **Maybe the hack:** the smooth-scroll version is a ROM hack with added FM music (a tester). Space Manbow (not hacked), same steps: the MSX restarted from scratch instead of crashing. Neither carries on, so switching Sound mid-game is not seamless in general.
+- **Not investigated.** Changing the sound chip mid-game is like plugging in an FM cartridge on a running MSX. Options: a reset, a warning, or keeping the slot layout until the next Power ON.
+
+## Space Manbow: one full freeze on the A1200, c030 test build (not reproducible, 9 Nov 2026)
+- **Seen once:** a tester, A1200 PiStorm preset (Smooth display on), c030 build 8c63f5e (HudKey, P8Skip, IdleSkip, CountSkip). Space Manbow froze to a white screen during play, and Help did nothing. The machine had to be rebooted.
+- **Not seen again:**
+  - a tester played Space Manbow again: twice on the watchdog build (HANGCHK + EXCCHK, AmiMSX-watchdog), then once each on the four speed-log builds.
+  - A 20-minute WinUAE soak (watchdog build, PiStorm prefs, HudKey with Smooth display) reached its scripted Help at MSX frame 60000. The trace had no HANGCHK record.
+- **Reviewed:** HudKey, IdleJR and CountNC. No endless loop found.
+- **Untested:** whether 4.7 can freeze the same way.
+- **If it comes back:** use the watchdog build. trace.bin goes next to the program, and the C8-CB records give the interrupted PC (build/soak hangscan.py). A freeze with no trace.bin means interrupts were off.
+- **Marked not reproducible (a tester).**

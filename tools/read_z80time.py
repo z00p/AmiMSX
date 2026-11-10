@@ -79,6 +79,11 @@ print(f"trace: {count} instructions; tests {sum(1 for e in E if e['test'])}: {ok
 print(f"{'instruction':32} {'Z80+M1':>7} {'AmiMSX':>7}")
 for t, e, g in sorted(diffs):
     print(f"{t:32} {e!s:>7} {g!s:>7}")
+if "--costs" in sys.argv:                 # every measured cost, for a build-to-build diff
+    with open(sys.argv[sys.argv.index("--costs") + 1], "w") as f:
+        for i, e in enumerate(E):
+            if i in cost:
+                f.write(f"{e['addr']:04X} {e['ins']:24} {e['test'] or '-':32} {cost[i]}\n")
 if "--all" in sys.argv:
     print("helper instructions (setup), costs seen:")
     for k2, v in sorted(helpers.items()):

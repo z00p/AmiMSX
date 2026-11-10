@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.7 (07.11.2026)
+@version $VER: AmiMSX.guide 4.8 (10.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.7
+                          AmiMSX Emulator v4.8
                           ( 03.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.

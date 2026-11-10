@@ -620,7 +620,11 @@ PerfNameR:	DC.B	"perf_rtg.bin",0
 PerfName:	DC.B	"PROGDIR:perf.bin",0	; tester's A1200 has no AmiMSX:
 PerfNameR:	DC.B	"PROGDIR:perf_rtg.bin",0	; assign)
 	ELSE
+	IFD	PERFPROG		; (speed log build: next to the program,
+PerfName:	DC.B	"PROGDIR:perf_",'A'-1+PERFPROG,".bin",0	; -DPERFPROG=n: perf_A..)
+	ELSE
 PerfName:	DC.B	"AmiMSX:perf.bin",0
+	ENDC
 	ENDC
 	ENDC
 		EVEN
@@ -687,8 +691,13 @@ TraceDump:
 	BSR	CLOSEFILE
 TrDumpFin:
 	RTS
+	IFD	TRACEPROG		; (-DTRACEPROG: next to the program, for
+TraceName:	DC.B	"PROGDIR:trace.bin",0	; a real Amiga with no AmiMSX: assign)
+ScrDumpName:	DC.B	"PROGDIR:screen.bin",0
+	ELSE
 TraceName:	DC.B	"AmiMSX:trace.bin",0
 ScrDumpName:	DC.B	"AmiMSX:screen.bin",0
+	ENDC
 	EVEN
 	ENDC
 AutoCart:	DC.B	0		; Test hook flags (see ANEM).
@@ -7130,6 +7139,9 @@ SIREINTM:
 	JSR	MSXEMUL			; A5=Dir Prefs.
 	JSR	RtgPlayClose		; (4.5) the RTG play screen, OS back.
 	ENDC
+	IFD	TRACE
+	JSR	TraceDump		; Every return to the menu (Power ON,
+	ENDC				; Continue, Reset and the test hook).
 	IFD	PERF
 	JSR	PerfDump		; (4.0) also after a Power ON run
 	ENDC
@@ -7548,10 +7560,7 @@ AutoGoW2:
 	AND.W	#$1FF,D0
 	BNE.S	AutoGoW2
 AutoGoNow:
-	JSR	MSX_GO
-	IFD	TRACE
-	JSR	TraceDump		; Trap fired, or Ctrl+Alt: last 4096
-	ENDC				; instructions before leaving.
+	JSR	MSX_GO			; (TraceDump: after MSXEMUL.)
 	IFD	PERF
 	JSR	PerfDump		; Frame timing windows.
 	ENDC

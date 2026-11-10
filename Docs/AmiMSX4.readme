@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.7
+Short:        MSX/MSX2/MSX2+ emulator, 4.8
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.7
+Version:      4.8
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -84,6 +84,16 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 4.8
+----------
+- Faster on a 68030/50 (WinUAE's cycle-exact 68030/50, which matches
+  a real Blizzard 030/50 within a few points): SCREEN 8 games skip
+  picture blocks that haven't changed (Uridium 2 from 77% to 98% of
+  full speed), SCREEN 4 games with a table split skip unchanged rows
+  below it (Space Manbow from 75% to 79%), and games that wait for
+  the next frame in a short loop skip whole passes of it (Lilly's
+  Saga from 90% to 98%). PiStorm already ran these at full speed.
 
 New in 4.7
 ----------
@@ -312,9 +322,12 @@ Known limits
   The clean image of the same ROM, with FFh in place of the last 16
   bytes, has SHA-1
   aad42ba4289b33d8eed225d42cea930b7fc5c228.
-- Uridium 2 has no sound, and its one-dot stars can shimmer.
+- Uridium 2: one-dot stars can shimmer. The widely shared 2015 build
+  has its music switched off by its author, so it plays silent.
 - Zanac EX (the original, not the Enhanced version) still slows to
   about 80% in busy scenes on a 68030/50.
+- Changing Sound in the menu during a game and pressing Continue
+  restarts or crashes the game: change it, then Power ON.
 
 
 Credits

@@ -1,3 +1,15 @@
+	IFND	HALIGN
+HALIGN	EQU	4
+	ENDC
+P8INV:	MACRO
+	IFND	NO_P8SKIP		; (4.8) the SCREEN 8 conversion's copies: void
+	ADDQ.B	#1,P8G
+	BNE.S	\@g
+	ST	P8GWrap
+\@g:
+	ENDC
+	ENDM
+
 
 ;	 -----------------------------------------------
 ;	/  AmiMSX Emulator v3.1  (For AMIGA Computers)  \
@@ -598,7 +610,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.7 ("
+	DC.B	"$VER:AmiMSX Emulator v4.8 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -1820,6 +1832,7 @@ ExcInst:MOVE.L	(A1),(A2)+
 	DBF	D0,ExcInst
 	ENDC
 	MOVE.W	#$86E0,$096(A6)		; BPL Off
+	P8INV
 ;;;	MOVE.W	#$C028,$09A(A6)
 	JMP	MSX			; (BRA: out of range with TRACE code.)
 ; ---------------------------------------<=
@@ -3277,6 +3290,19 @@ ClrKeyBuf:
 	DC.B	"RAFY"
 BUCLE:
 	MOVE.B	(A5)+,D2
+	IFD	CENSUS
+	IFD	ZPCHIST
+	MOVE.L	D1,ZPHSave
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	SUBQ.W	#1,D1
+	LSR.W	#2,D1
+	ADDQ.L	#1,(PerfPCBuf,D1.W*4)
+	MOVE.L	ZPHSave,D1
+	ELSE
+	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
+	ENDC
+	ENDC
 	JMP	([A3,D2.W*8])
 
 	CNOP	0,8
@@ -3292,6 +3318,19 @@ NADA:
 ;	JMP	SALIR
 ;	MOVE.W	#$0F0,$DFF180
 	MOVE.B	(A5)+,D2
+	IFD	CENSUS
+	IFD	ZPCHIST
+	MOVE.L	D1,ZPHSave
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	SUBQ.W	#1,D1
+	LSR.W	#2,D1
+	ADDQ.L	#1,(PerfPCBuf,D1.W*4)
+	MOVE.L	ZPHSave,D1
+	ELSE
+	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
+	ENDC
+	ENDC
 	JMP	([A3,D2.W*8])
 
 ; -----------------------------------------
@@ -3526,6 +3565,19 @@ FInsBuc:MACRO
 
 Otra:	MACRO				; (T-states + the M1 wait, see HPeriod)
 	MOVE.B	(A5)+,D2
+	IFD	CENSUS			; (opcode census, PERF: PerfPCBuf[0-255])
+	IFD	ZPCHIST
+	MOVE.L	D1,ZPHSave
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	SUBQ.W	#1,D1
+	LSR.W	#2,D1
+	ADDQ.L	#1,(PerfPCBuf,D1.W*4)
+	MOVE.L	ZPHSave,D1
+	ELSE
+	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
+	ENDC
+	ENDC
 	IFNE	(\1+1)>(8)
 	SUB.W	#(\1+1),(A3)			; * Resta Cycles *
 	ELSEIF
@@ -3534,20 +3586,46 @@ Otra:	MACRO				; (T-states + the M1 wait, see HPeriod)
 	BMI.S	\@Buc
 	JMP	([A3,D2.W*8])
 \@Buc:	JMP	(MiraInter-Regs.W,A3)
-	CNOP	0,4
+	CNOP	0,HALIGN
 	ENDM
 
 Otra2:	MACRO
 	MOVE.B	(A5)+,D2
+	IFD	CENSUS			; (opcode census, PERF: PerfPCBuf[0-255])
+	IFD	ZPCHIST
+	MOVE.L	D1,ZPHSave
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	SUBQ.W	#1,D1
+	LSR.W	#2,D1
+	ADDQ.L	#1,(PerfPCBuf,D1.W*4)
+	MOVE.L	ZPHSave,D1
+	ELSE
+	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
+	ENDC
+	ENDC
 	JMP	([A3,D2.W*8])
-	CNOP	0,4
+	CNOP	0,HALIGN
 	ENDM
 
 OtraEI:	MACRO
 	MOVE.B	(A5)+,D2
+	IFD	CENSUS			; (opcode census, PERF: PerfPCBuf[0-255])
+	IFD	ZPCHIST
+	MOVE.L	D1,ZPHSave
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	SUBQ.W	#1,D1
+	LSR.W	#2,D1
+	ADDQ.L	#1,(PerfPCBuf,D1.W*4)
+	MOVE.L	ZPHSave,D1
+	ELSE
+	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
+	ENDC
+	ENDC
 	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles *
 	JMP	([A3,D2.W*8])
-	CNOP	0,4
+	CNOP	0,HALIGN
 	ENDM
 
 
@@ -4078,7 +4156,7 @@ MLDRR:	MACRO
 	ROR.W	#8,D1
 	MOVE.L	D1,A4
 	ADDQ.B	#1,D1
-	BEQ.S	\@D
+	BEQ.W	\@D
 	CogePag2 D1,A4
 	MOVE.W	(A4),\1
 	ROR.W	#8,\1
@@ -4138,7 +4216,7 @@ MLDRR:	MACRO
 	ROR.W	#8,D1
 	MOVE.L	D1,A4
 	ADDQ.B	#1,D1
-	BEQ.S	\@D
+	BEQ.W	\@D
 	CogePag2 D1,A4
 	MOVE.W	(A4),D1
 	ROR.W	#8,D1
@@ -4235,7 +4313,7 @@ MLDRR:	MACRO
 	ROR.W	#8,D1
 	MOVE.L	D1,A4
 	ADDQ.B	#1,D1
-	BEQ.S	\@D
+	BEQ.W	\@D
 	CogePagE2 D1,A4
 	MOVE.W	\1,D1
 	ROR.W	#8,D1
@@ -4505,6 +4583,36 @@ MJRC:	MACRO
 	ADDQ.W	#1,A5
 	Otra	\3
 \@:	MJR	\2
+	ENDM
+
+; (4.8) MJRC for JR Z/NZ: a jump of -6 back to 'LD A,(nn) / OR A' is a
+; wait for a flag only an interrupt can change (IdleJR).
+MJRCI:	MACRO
+	MOVE.W	D3,CCR
+	B\1.S	\@
+	ADDQ.W	#1,A5
+	Otra	\3
+\@:
+	IFND	NO_IDLESKIP
+	CMP.B	#$FA,(A5)
+	BEQ	IdleJR
+	ENDC
+	MJR	\2
+	ENDM
+
+; (4.8) MJRC for JR NC: a jump of -4 back to 'INC BC / CP (HL)' is a
+; wait that counts its passes (CountNC).
+MJRCN:	MACRO
+	MOVE.W	D3,CCR
+	B\1.S	\@
+	ADDQ.W	#1,A5
+	Otra	\3
+\@:
+	IFND	NO_IDLESKIP
+	CMP.B	#$FC,(A5)
+	BEQ	CountNC
+	ENDC
+	MJR	\2
 	ENDM
 
 ; ---------------------------------------------------------------------
@@ -5577,10 +5685,102 @@ NODJNZ:	MOVE.B	D2,D5
 	Otra	8
 
 JR:	MJR	12
-JRNZ:	MJRC	NE,12,7
-JRZ:	MJRC	EQ,12,7
-JRNC:	MJRC	CC,12,7
+JRNZ:	MJRCI	NE,12,7
+JRZ:	MJRCI	EQ,12,7
+JRNC:	MJRCN	CC,12,7
 JRC:	MJRC	CS,12,7
+
+	IFND	NO_IDLESKIP
+; (4.8) JR Z/NZ,-6 taken, closing 'LD A,(nn) / OR A / JR cc,-6' (or AND A,
+; DEC A, INC A): a wait for a flag in memory. Nothing but an interrupt
+; changes it, and those come at the line's event. Whole passes (LD 14 +
+; OR 5 + JR 13 = 32 cycles) are taken off the line's count in one go, never
+; past the event: the state after is the same as running them (A, flags,
+; PC; R comes from the time). Only while (nn) still holds the value the LD
+; loaded: an interrupt taken after the LD (at the event, or forced by EI)
+; may have set the flag, and then this JR loops on the old A once and the
+; next pass leaves (Caos Begins: its frame started up to a line late). The
+; loop must sit in this 8 KB segment (the host bytes are the Z80's).
+; Uridium 2 and Lilly's Saga: about 40% of their Z80 instructions.
+	CNOP	0,4
+IdleJR:	MOVE.W	A5,D1
+	SUB.W	(A7),D1			; Z80 address of the displacement
+	AND.W	#$1FFF,D1
+	CMP.W	#5,D1
+	BCS.S	IdleNo
+	MOVE.B	-2(A5),D1		; OR A, AND A, DEC A or INC A
+	CMP.B	#$B7,D1
+	BEQ.S	IdlMid
+	CMP.B	#$A7,D1
+	BEQ.S	IdlMid
+	CMP.B	#$3D,D1			; (Lilly's Saga: LD A,(nn) / DEC A)
+	BEQ.S	IdlMid
+	CMP.B	#$3C,D1
+	BNE.S	IdleNo
+IdlMid:
+	CMP.B	#$3A,-5(A5)		; LD A,(nn)
+	BNE.S	IdleNo
+	MOVEQ	#0,D1
+	MOVE.B	-3(A5),D1		; nn: page 0's first 256 bytes go through
+	BEQ.S	IdleNo			; LDAM's CheckW, not here.
+	LSL.W	#8,D1
+	MOVE.B	-4(A5),D1
+	CogePag	D1,A4
+	MOVE.B	(A4),D1			; (nn) now, as the next LD reads it,
+	CMP.B	#$3D,-2(A5)		; against the value the last LD loaded
+	BNE.S	IdlNDec			; (A, A+1 after DEC A, A-1 after INC A).
+	SUBQ.B	#1,D1
+IdlNDec:	CMP.B	#$3C,-2(A5)
+	BNE.S	IdlNInc
+	ADDQ.B	#1,D1
+IdlNInc:	CMP.B	D7,D1
+	BNE.S	IdleNo			; Changed since: the next pass leaves.
+	MOVE.W	(A3),D1
+	SUB.W	#13,D1			; (this JR)
+	BLE.S	IdleNo
+	AND.W	#-32,D1			; whole passes
+	SUB.W	D1,(A3)
+IdleNo:	MOVE.B	(A5)+,D1
+	EXT.W	D1
+	ADD.W	D1,A5
+	Otra	12
+; (4.8) JR NC,-4 taken, closing 'INC BC / CP (HL) / JR NC,-4': a wait for
+; an interrupt to move (HL) past A that counts its passes in BC (Space Manbow:
+; about 13% of its Z80 instructions). As IdleJR: whole passes (INC BC 7 +
+; CP (HL) 8 + JR 13 = 28 cycles) come off the line's count, never past the
+; event, BC goes up by the passes and the flags are the last CP's, as if the
+; passes ran. Only while (HL) still keeps the loop going (an interrupt after
+; the CP may have moved it: then the next pass leaves), and HL in page 3
+; (RAM: no register that changes as it is read).
+	CNOP	0,4
+CountNC:	MOVE.W	A5,D1
+	SUB.W	(A7),D1			; Z80 address of the displacement
+	AND.W	#$1FFF,D1
+	CMP.W	#3,D1
+	BCS.S	IdleNo
+	CMP.B	#$BE,-2(A5)		; CP (HL)
+	BNE.S	IdleNo
+	CMP.B	#$03,-3(A5)		; INC BC
+	BNE.S	IdleNo
+	CMP.W	#$C000,D4
+	BCS.S	IdleNo
+	CogePag	D4,A4
+	CMP.B	(A4),D7
+	BCS.S	IdleNo			; A < (HL) now: the next pass leaves.
+	MOVE.W	(A3),D1
+	SUB.W	#13,D1			; (this JR)
+	BLE.S	IdleNo
+	EXT.L	D1
+	DIVU.W	#28,D1			; whole passes
+	TST.W	D1
+	BEQ.S	IdleNo
+	ADD.W	D1,D5			; BC
+	MULU.W	#28,D1
+	SUB.W	D1,(A3)
+	CMP.B	(A4),D7			; the last pass's CP (HL)
+	MOVE.W	CCR,D3
+	BRA.S	IdleNo
+	ENDC
 
 JP:	MJP	10
 JPNZ:	MJPC	NE,10
@@ -8761,17 +8961,17 @@ InD9:
 ED18:
 	TST.B	ModoCaset
 	BEQ.S	CasetError2
-	BSR.S	MiraCtrlStop
+	BSR.W	MiraCtrlStop
 	Otra2
 ; -=-=-
 ED19:
 	TST.B	ModoCaset
 	BEQ.S	CasetError2
-	BSR.S	MiraCtrlStop
+	BSR.W	MiraCtrlStop
 	MOVE.B	([LoadCaset]),D7
 	ADDQ.L	#1,LoadCaset
 	SUBQ.W	#1,SizeCaset
-	BCS.S	CasetError
+	BCS.W	CasetError
 	Otra2
 ; -=-=-
 ED1A:
@@ -9463,7 +9663,7 @@ Asc16:
 	SUB.W	#$800,D1
 	BCS	Pag2S1
 
-	BRA.S	Pag3S1
+	BRA.W	Pag3S1
 
 ; (4.4) Cartridge SRAM: the ASCII8/ASCII16 SRAM types (openMSX ASCII8SRAM2/8,
 ; ASCII16SRAM2/8: RomAscii8_8, RomAscii16_2). Mapper3S/Mapper4S replace the
@@ -10005,7 +10205,7 @@ Asc16b:
 	SUB.W	#$800,D1
 	BCS	Pag2S1b
 
-	BRA.S	Pag3S1b
+	BRA.W	Pag3S1b
 
 ; -------------------------------------<=
 ; -------------------------------------<=
@@ -10792,6 +10992,7 @@ M7LayN:
 ; ---------------------------------------=> Screen 8
 	CNOP	0,4
 ModoGfx8:
+	P8INV
 	MOVE.L	(A7)+,RetOut(A3)
 	JSR	([DirModoChg.W,A3])	; (4.1.2) Leaving SCREEN 5/7: the bands VDP
 	MOVE.L	#ModoChgRET,DirModoChg(A3)	; commands drew in the planes
@@ -12294,6 +12495,22 @@ NoInterlaz8:
 ; -------------------------------=> Actualiza VRAM PUN8 a BPL8 (realtime)
 	CNOP	0,4
 PasaPun8Bpl:
+	IFND	NO_P8SKIP
+	TST.B	P8GWrap			; (4.8) 255 voids: every stamp cleared,
+	BEQ.S	P8NoWr			; the count from 1.
+	SF	P8GWrap
+	MOVE.B	#1,P8G
+	LEA	P8Gen,A1
+	MOVE.W	#4096/4-1,D0
+P8GClr:	CLR.L	(A1)+
+	DBF	D0,P8GClr
+P8NoWr:	MOVE.L	#P8Copy0,D0
+	SUB.L	#DirVRAM,D0
+	MOVE.L	D0,P8Off0
+	MOVE.L	#P8Copy1,D0
+	SUB.L	#DirVRAM+$10000,D0
+	MOVE.L	D0,P8Off1
+	ENDC
 
 	LEA	Scr0,A0
 	LEA	PasPun8Fast,A2
@@ -12324,6 +12541,58 @@ PaPu8BpBuc1:
 	CNOP	0,4
 PaPu8BpRut:
 	CLR.L	-4(A4)
+	IFND	NO_P8SKIP
+; (4.8) A marked block whose 32 bytes (16 a bank) are the ones last
+; converted here, with no other conversion since (P8Gen = P8G), is already
+; in the planes: skipped. Uridium 2 rewrites ~98% of its marked bytes
+; with the same values every frame (HMMM strip, HMMV column).
+	MOVE.B	P8G,D0
+	CMP.B	(P8Gen.L,D5.W),D0
+	BNE.S	P8New
+	MOVE.L	P8Off0,D0
+	MOVE.L	0(A6),D1
+	CMP.L	0(A6,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	4(A6),D1
+	CMP.L	4(A6,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	8(A6),D1
+	CMP.L	8(A6,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	12(A6),D1
+	CMP.L	12(A6,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	P8Off1,D0
+	MOVE.L	0(A3),D1
+	CMP.L	0(A3,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	4(A3),D1
+	CMP.L	4(A3,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	8(A3),D1
+	CMP.L	8(A3,D0.L),D1
+	BNE.S	P8Cp
+	MOVE.L	12(A3),D1
+	CMP.L	12(A3,D0.L),D1
+	BNE.S	P8Cp
+	ADDQ	#4,A0			; Skipped.
+	LEA	16(A6),A6
+	LEA	16(A3),A3
+	DBF	D5,PaPu8BpBuc1
+	MOVE.L	P8SvA3,A3
+	RTS
+P8New:	MOVE.B	D0,(P8Gen.L,D5.W)
+P8Cp:	MOVE.L	P8Off0,D0		; The bytes converted, kept.
+	MOVE.L	0(A6),0(A6,D0.L)
+	MOVE.L	4(A6),4(A6,D0.L)
+	MOVE.L	8(A6),8(A6,D0.L)
+	MOVE.L	12(A6),12(A6,D0.L)
+	MOVE.L	P8Off1,D0
+	MOVE.L	0(A3),0(A3,D0.L)
+	MOVE.L	4(A3),4(A3,D0.L)
+	MOVE.L	8(A3),8(A3,D0.L)
+	MOVE.L	12(A3),12(A3,D0.L)
+	ENDC
 
 	MOVE.W	#(4)-1,D4
 	MOVEQ	#0,D7
@@ -12378,6 +12647,61 @@ PaPuMa8:MACRO				; (4.3) PaPuMac from bank \1 (VMAP).
 
 	DBF	D4,PaPu8BpBuc
 
+	IFD	P8NOCHIP		; (experiment: the chip writes' cost)
+	ADDQ.L	#4,A0
+	SUBQ.L	#4,A2
+	ELSE
+	IFD	P8STAT
+	ADDQ.L	#8,PerfRec+32
+	MOVE.L	-4(A2),D0
+	CMP.L	(A0),D0
+	BNE.S	P8SW0
+	ADDQ.L	#1,PerfRec+36
+P8SW0:	MOVE.L	D0,(A0)+
+	LEA	-4(A0,D2.W),A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW1
+	ADDQ.L	#1,PerfRec+36
+P8SW1:	MOVE.L	D0,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW2
+	ADDQ.L	#1,PerfRec+36
+P8SW2:	MOVE.L	D0,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW3
+	ADDQ.L	#1,PerfRec+36
+P8SW3:	MOVE.L	D0,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW4
+	ADDQ.L	#1,PerfRec+36
+P8SW4:	MOVE.L	D0,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW5
+	ADDQ.L	#1,PerfRec+36
+P8SW5:	MOVE.L	D0,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW6
+	ADDQ.L	#1,PerfRec+36
+P8SW6:	MOVE.L	D0,(A1)
+	ADD.W	D2,A1
+	MOVE.L	(A2)+,D0
+	CMP.L	(A1),D0
+	BNE.S	P8SW7
+	ADDQ.L	#1,PerfRec+36
+P8SW7:	MOVE.L	D0,(A1)
+	SUB.W	D3,A2
+	ELSE
 	MOVE.L	-4(A2),(A0)+
 	LEA	-4(A0,D2.W),A1
 	MOVE.L	(A2)+,(A1)
@@ -12395,6 +12719,8 @@ PaPuMa8:MACRO				; (4.3) PaPuMac from bank \1 (VMAP).
 	MOVE.L	(A2)+,(A1)
 
 	SUB.W	D3,A2
+	ENDC
+	ENDC
 
 	DBF	D5,PaPu8BpBuc1
 	MOVE.L	P8SvA3,A3
@@ -12403,6 +12729,13 @@ PaPuMa8:MACRO				; (4.3) PaPuMac from bank \1 (VMAP).
 	CNOP	0,16
 PasPun8Fast:	DS.L	8
 P8SvA3:		DC.L	0
+	IFND	NO_P8SKIP
+P8Off0:		DC.L	0		; P8Copy0 - bank 0, P8Copy1 - bank 1
+P8Off1:		DC.L	0
+P8G:		DC.B	1		; the stamp now (P8INV)
+P8GWrap:	DC.B	0
+		EVEN
+	ENDC
 
 ; (4.4) SprShChk: SPRSH is the logical view of VRAM that the sprite code
 ; reads in G6/G7. The port writes (OUT98A7, OUT98B, OUT98XM8) and SCREEN 7's
@@ -21115,6 +21448,7 @@ PerfIntNoMax:
 	MOVE.L	(SP)+,D0
 	ENDC
 	IFD	PERF
+	IFND	CENSUS
 	MOVE.L	A0,-(SP)		; PC sample (profile): the interrupted
 	MOVE.L	PerfPCPtr,A0		; PC, 2 bytes into the exception frame.
 	MOVE.L	4+2(SP),(A0)+
@@ -21124,6 +21458,7 @@ PerfIntNoMax:
 PerfPCv:	MOVE.L	A0,PerfPCPtr
 	ADDQ.L	#1,PerfPCCnt
 	MOVE.L	(SP)+,A0
+	ENDC
 	ENDC
 	IFD	PERFTICKS
 	CMP.L	#PERFTICKS,PerfTick	; Optional escape after n VBlanks, even if
@@ -21143,6 +21478,7 @@ PerfNoEsc:
 VDP_Emul:
 	MOVE.L	A3,-(SP)
 	IFD	PERF
+	IFND	CENSUS
 	MOVE.L	A0,-(SP)		; PC sample (profile): the interrupted
 	MOVE.L	PerfPCPtr,A0		; PC, 2 bytes into the exception frame.
 	MOVE.L	8+2(SP),(A0)+
@@ -21152,6 +21488,7 @@ VDP_Emul:
 PerfPCc:	MOVE.L	A0,PerfPCPtr
 	ADDQ.L	#1,PerfPCCnt
 	MOVE.L	(SP)+,A0
+	ENDC
 	ENDC
 
 
@@ -27280,6 +27617,7 @@ BMSPoRet:
 	CNOP	0,4
 BMSConv8:
 	MOVEM.L	D0-D7/A0-A6,-(SP)
+	P8INV
 	MOVEQ	#0,D0
 	MOVE.B	MS_DVDP2,D0
 	AND.W	#$20,D0
@@ -27910,6 +28248,9 @@ HUDSplit4:
 	MOVE.W	#212,D6			; split at line 81.
 HUDS4N192:
 HUDS4Lin:
+	IFD	HUDSTAT
+	ADDQ.L	#1,PerfRec+32
+	ENDC
 	MOVEQ	#0,D0
 	MOVE.B	VDPLinY(A3),D0		; VRAM line = display line + R#23.
 	ADD.W	D7,D0
@@ -27943,6 +28284,72 @@ HUDS4Lin:
 	LEA	DIRVRAM,A6
 	ADD.L	D3,A6
 	ADD.W	D0,A6
+	IFND	NO_HUDKEY
+; (4.8) A row's picture depends only on its 32 pattern/colour pairs
+; (TABLA7E is fixed), so each buffer row keeps the pairs it was last built
+; from (HudKey/HudKey1, 64 bytes a row; HudKV/HudKV1: the row's keys are
+; valid). A row whose pairs all match is already in the buffer and its
+; shadow: skipped. Otherwise the new pairs are stored and the line is
+; built from them. Space Manbow: about half its 131 playfield rows a frame.
+	MOVE.L	A1,D0
+	SUB.L	DbHudB,D0
+	LSR.L	#7,D0			; Buffer row.
+	MOVE.L	D0,D3
+	LSL.L	#6,D3
+	LEA	HudKV,A0
+	ADD.L	#HudKey,D3
+	CMP.L	#HudShadow1,DbHudSh
+	BNE.S	HUDKb0
+	LEA	HudKV1,A0
+	ADD.L	#HudKey1-HudKey,D3
+HUDKb0:	ADD.W	D0,A0
+	MOVEQ	#32,D5			; (keys not valid: store all 32)
+	TST.B	(A0)
+	ST	(A0)			; (valid once this row is done)
+	MOVE.L	D3,A0			; This row's keys.
+	BEQ.S	HUDKSt2
+	MOVEQ	#32-1,D5
+HUDKScan:
+	MOVEQ	#0,D1
+	MOVE.B	(A4)+,D1
+	LSL.W	#3,D1			; Name * 8.
+	MOVE.B	(A5,D1.W),D2		; Pattern byte...
+	LSL.W	#8,D2
+	MOVE.B	(A6,D1.W),D2		; ...and colour byte.
+	CMP.W	(A0)+,D2
+	DBNE	D5,HUDKScan
+	BNE.S	HUDKDif
+	LEA	128(A1),A1		; All the same: as built.
+	BRA	HUDS4Nxt
+HUDKDif:
+	MOVE.W	D2,-2(A0)		; D5 characters left: store theirs.
+	BRA.S	HUDKSt2
+HUDKSt:
+	MOVEQ	#0,D1
+	MOVE.B	(A4)+,D1
+	LSL.W	#3,D1
+	MOVE.B	(A5,D1.W),D2
+	LSL.W	#8,D2
+	MOVE.B	(A6,D1.W),D2
+	MOVE.W	D2,(A0)+
+HUDKSt2:
+	DBF	D5,HUDKSt
+	LEA	-64(A0),A0		; The line from the keys,
+	LEA	HudLine,A4		; built in fast RAM.
+	MOVEQ	#0,D2
+	MOVEQ	#32-1,D5
+HUDS4Col:
+	MOVE.W	(A0)+,D2
+	MOVE.L	(A2,D2.L*4),D3
+	MOVE.B	D3,96(A4)		; Plane 3.
+	LSR.L	#8,D3
+	MOVE.B	D3,64(A4)		; Plane 2.
+	LSR.L	#8,D3
+	MOVE.B	D3,32(A4)		; Plane 1.
+	LSR.W	#8,D3
+	MOVE.B	D3,(A4)+		; Plane 0.
+	DBF	D5,HUDS4Col
+	ELSE
 	LEA	HudLine,A0		; (built in fast RAM)
 	MOVEQ	#32-1,D5
 HUDS4Col:
@@ -27962,21 +28369,36 @@ HUDS4Col:
 	LSR.W	#8,D3
 	MOVE.B	D3,(A0)+		; Plane 0.
 	DBF	D5,HUDS4Col
+	ENDC
 	LEA	HudLine,A0		; Changed longs only to chip RAM.
 	MOVE.L	A1,D1
 	SUB.L	DbHudB,D1
 	MOVE.L	DbHudSh,A4		; (and its shadow)
 	ADD.L	D1,A4
 	MOVEQ	#32-1,D5
+	IFD	HUDSTAT
+	MOVEQ	#0,D4
+	ENDC
 HUDS4Cmp:
 	MOVE.L	(A0)+,D3
 	CMP.L	(A4)+,D3
 	BEQ.S	HUDS4Same
 	MOVE.L	D3,-4(A4)
 	MOVE.L	D3,(A1)
+	IFD	HUDSTAT
+	ADDQ.L	#1,D4
+	ENDC
 HUDS4Same:
 	ADDQ.L	#4,A1
 	DBF	D5,HUDS4Cmp
+HUDS4Nxt:
+	IFD	HUDSTAT
+	ADD.L	D4,PerfRec+40
+	TST.L	D4
+	BNE.S	HUDS4Wr
+	ADDQ.L	#1,PerfRec+36
+HUDS4Wr:
+	ENDC
 	ADDQ.W	#1,D7
 	CMP.W	D6,D7
 	BCS	HUDS4Lin
@@ -28123,7 +28545,12 @@ PerfStPos:
 
 ; Accumulate one frame: core = A - last D, wait = B - A, other = C - B,
 ; render = D - C. Every PERFWIN frames a record goes to PerfRing.
+	IFND	PERFWIN			; (-DPERFWIN=50: one-second records)
 PERFWIN=250
+	ENDC
+	IFND	PERFRECS		; Records in the ring.
+PERFRECS=128
+	ENDC
 PerfFrame:
 	MOVEM.L	D0-D1/A0-A1,-(SP)
 	LEA	PerfRec,A0
@@ -28197,7 +28624,7 @@ PerfVMax:	DC.W	0			; Highest VPOSR line seen.
 PerfIntMin:	DC.W	0			; ScrModo, R#0 of the last render.
 PerfIntMax:	DC.W	0			; Latest VBlank int line.
 PerfCPU:	DC.W	0			; AttnFlags, Modo060.
-PerfRing:	DS.L	16*128
+PerfRing:	DS.L	16*PERFRECS
 PerfRingEnd:
 PerfPCBase:	DC.L	Emula1Frame	; Profile: anchor for the listing,
 PerfPCCnt:	DC.L	0		; samples taken,
@@ -29821,6 +30248,9 @@ MagPat:		DS.B	32*MAGMAX
 	SECTION	PROFILE,BSS
 ; --------------------------------
 PerfPCBuf:	DS.L	16384		; Interrupted PCs (PERF profile).
+	IFD	ZPCHIST
+ZPHSave:	DS.L	1
+	ENDC
 PerfPCEnd:
 	ENDC
 
@@ -30031,6 +30461,17 @@ HudShadow1:	DS.B	(212*32*4)
 	CNOP	0,8
 HudLine:	DS.B	32*4
 HudShadow:	DS.B	(212*32*4)
+	IFND	NO_HUDKEY
+HudKey:		DS.B	212*64		; (4.8) HUDSplit4's row keys, buffer 0
+HudKey1:	DS.B	212*64		; and 1,
+HudKV:		DS.B	212		; and their valid flags.
+HudKV1:		DS.B	212
+	ENDC
+	IFND	NO_P8SKIP
+P8Copy0:	DS.B	$10000		; (4.8) PasaPun8Bpl: bank 0 bytes converted,
+P8Copy1:	DS.B	$10000		; bank 1,
+P8Gen:		DS.B	4096		; and each block's stamp (by D5).
+	ENDC
 
 	IFD	PERF
 ; --------------------------------

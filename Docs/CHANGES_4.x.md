@@ -4,6 +4,13 @@ AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 4.8 (10 Nov 2026)
+
+- **Speed on the 68030/50.** Measured in WinUAE's cycle-exact 68030/50, which runs Lilly's Saga within a few points of a real Blizzard 030/50. PiStorm already ran these games at full speed: an A1200 speed log of Space Manbow shows 100% on 4.7 and 4.8 alike.
+  - **SCREEN 8 to bitplanes:** AmiMSX keeps the 32 VRAM bytes it last converted for each 32-pixel block. A block whose bytes haven't changed since is already in the bitplanes and is skipped. A Power ON, a mode change or a return from the menu starts afresh. Uridium 2: 77% to 98.5% of full speed.
+  - **SCREEN 4 below a table split:** the rows below a split are drawn line by line from VRAM. A row whose tiles and colours are the same as last frame is now skipped. Space Manbow's playfield is below its split: 75% to 79%.
+  - **Frame waits:** a game that polls a flag set by the interrupt (`LD A,(nn)` / `OR A` / `JR Z`, also with `AND A`, `DEC A` or `INC A`) or counts passes until the next frame (`INC BC` / `CP (HL)` / `JR NC`) now skips whole passes of the loop at once. The registers and the count come out as if every pass had run, and the next interrupt lands on the same instruction. Lilly's Saga: 90% to 98%.
+
 ## 4.7 (7 Nov 2026)
 
 - **Controller lag:** a press reaches the screen sooner on all three ways of showing the picture.

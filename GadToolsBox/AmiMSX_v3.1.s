@@ -1646,7 +1646,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.7 (Pro) '
+    DC.B    'AmiMSX Emulator v4.8 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -3122,7 +3122,7 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v4.7',0
+    DC.B    'AmiMSX Emulator v4.8',0
 
 AboutIText1:
     DC.B    '(November 3rd, 2026)',0
