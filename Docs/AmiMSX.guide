@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.8 (10.11.2026)
+@version $VER: AmiMSX.guide 4.9 (14.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.8
+                          AmiMSX Emulator v4.9
                           ( 03.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -100,24 +100,26 @@ https://github.com/z00p/AmiMSX/issues
 
     Start AmiMSX from one of the three preset icons.  Each one has its own
 settings file, and Save Settings writes to the preset you started.
+Until 4.8 the presets were called AmiMSX 030, AmiMSX PiStorm and
+AmiMSX RTG.
 
-@{fg highlight}    <*> AmiMSX 030:
-@{fg text}    ---------------
+@{fg highlight}    <*> AGA 030:
+@{fg text}    ------------
 
     The low-spec target:  an A1200 or similar with a 68030 at 50Mhz and
 Fast memory.  PSG, PAL, sprites every frame.
 
-@{fg highlight}    <*> AmiMSX PiStorm:
-@{fg text}    -------------------
+@{fg highlight}    <*> AGA:
+@{fg text}    --------
 
     PiStorm (Emu68), BigMig and other fast CPUs.  PSG+FM, Display
 [Auto] (60 Hz games in NTSC, at full speed), Use Japanese ID (60 Hz),
 Audio filter and Smooth display.
 
-@{fg highlight}    <*> AmiMSX RTG:
-@{fg text}    ---------------
+@{fg highlight}    <*> RTG:
+@{fg text}    --------
 
-    The PiStorm preset on a Picasso96 (RTG) screen, such as the PiStorm's
+    The AGA preset on a Picasso96 (RTG) screen, such as the PiStorm's
 HDMI output:  every MSX dot is 2x2 pixels (960x540 is an exact 2x on a
 1080p display), the menu is drawn at double height, and every second row
 is 50% darker (scanlines).  SCREEN 0 (40 and 80 columns) and 1 to 8 are
@@ -229,11 +231,10 @@ THIS SOFTWARE...
 @{fg highlight}    <*>  Recommended:
 @{fg text}    -----------------
 
-    - MC68030 at 50Mz with 32-bit Fast memory  (the "AmiMSX 030" preset)
+    - MC68030 at 50Mz with 32-bit Fast memory  (the "AGA 030" preset)
 
     - PiStorm (Emu68), BigMig or another fast CPU for MSX-Music (FM),
-      60 Hz games at full speed and Smooth display  (the "AmiMSX PiStorm"
-      preset)
+      60 Hz games at full speed and Smooth display  (the "AGA" preset)
 
     - For the RTG preset:  Picasso96 and a 16 or 32-bit screen mode of at
       least 544x460  (960x540 on a 1080p display), and a fast CPU

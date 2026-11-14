@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.8
+Short:        MSX/MSX2/MSX2+ emulator, 4.9
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.8
+Version:      4.9
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -43,15 +43,19 @@ Installation
 ------------
 Copy the AmiMSX drawer anywhere and start one of the preset icons:
 
-  AmiMSX 030      68030/50 with fast RAM: PSG, PAL, sprites every frame
-  AmiMSX PiStorm  PiStorm, BigMig and other fast CPUs: PSG+FM, display
-                  frequency from the VDP, Japanese ID (60 Hz), audio
-                  filter, smooth display
-  AmiMSX RTG      the PiStorm preset on a Picasso96 (RTG) screen, with
-                  50% scanlines (ToolTypes RTG and SCANLINES=50)
+  AGA 030   68030/50 with fast RAM: PSG, PAL, sprites every frame
+  AGA       PiStorm, BigMig and other fast CPUs: PSG+FM, display
+            frequency from the VDP, Japanese ID (60 Hz), audio
+            filter, smooth display
+  RTG       the AGA preset on a Picasso96 (RTG) screen, with 50%
+            scanlines (ToolTypes RTG and SCANLINES=50)
 
 Each preset keeps its own settings file (ToolType PREFS=<file>), and
 Project > Save Settings writes to the preset you started.
+
+Updating from 4.8: the preset icons have new names (AmiMSX 030 is now
+AGA 030, AmiMSX PiStorm is AGA, AmiMSX RTG is RTG). Delete the three
+old ones; settings you saved in them are not carried over.
 
 AmiMSX4.romcache is created next to the program on first use: each
 MegaROM is hashed once and its mapper looked up in AmiMSX4.romdb. Leave
@@ -84,6 +88,15 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 4.9
+----------
+- Z80 fixes: DAA after INC A or DEC A gives the Z80's result (Invasion
+  of the Zombie Monsters gave 65 lives instead of the continue
+  screen, issue #3), and the R800-only multiply opcodes do nothing on
+  the Z80, as on a real MSX.
+- Disks: GETDPB returns with carry clear, as the real disk driver.
+- The preset icons are now called AGA 030, AGA and RTG.
 
 New in 4.8
 ----------

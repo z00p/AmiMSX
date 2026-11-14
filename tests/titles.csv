@@ -93,3 +93,4 @@ T_ZexSzpc,zex_szpc.rom,rom,z80,,none,030,"150,300",,Z80 core test cartridge (Doc
 T_Z80Flags,T_z80flags.rom,rom,z80,,none,030,"20",,Z80 core test cartridge (Docs/z80_audit.md),z80test
 T_Z80Ops,T_z80ops.rom,rom,z80,,none,030,"20",,Z80 core test cartridge (Docs/z80_audit.md),z80test
 R2K_VampireKillerSmooth,R2K_VampireKillerSmooth.rom,rom,set2,KonamiSCC,vk_smooth,030,"34,38,42",,"Vampire Killer smooth-scroll hack (ToughkidCST, File-Hunter MSX2+ ROM, 512 KB SCC): MSX2+ only, walks right from 30 s; added 9 Nov 2026, not yet scanned",machine:MSX2+
+T_DAA,T_daa.rom,rom,z80,,none,030,"20",,DAA test cartridge (tools/make_daatest.py; issue #3: DAA after INC A / DEC A),z80test

@@ -1,6 +1,10 @@
 # AmiMSX 4.x roadmap
 
-What is planned after 4.8. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
+
+## Shipped in 4.9
+
+Z80 fixes (DAA after INC A / DEC A, issue #3; the R800 multiply opcodes do nothing on the Z80), GETDPB's carry, and the preset icons renamed AGA 030, AGA and RTG. See `CHANGES_4.x.md`.
 
 ## Shipped in 4.8
 
@@ -25,7 +29,7 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 ## Next
 
 - **Sound coverage:** first a measured survey (every test title against openMSX), then the gaps that matter most: FM accuracy, MSX-AUDIO (Y8950), PSG/SCC details. Moonsound only as "bring your own sample ROM" on PiStorm/BigMig.
-- **MSX turbo R:** an R800 mode for the Z80 core (its timing and multiply instructions), PCM, the turbo R system ROMs (supplied by the user). PiStorm and BigMig only.
+- **5.0: MSX turbo R (beta).** The FS-A1GT as a new machine, with the maintainer's own turbo R system ROMs, on the PiStorm and BigMig builds only. Done so far (branch turbor): the R800 multiply instructions and the Z80/R800 switch, BASIC 4.1, the A1GT's disk ROM and MSX-DOS 2, the system timer. Still to do for 5.0: R800 instruction timing, PCM to Paula and AHI, the kanji font, a turbo R entry in the menu, a set of turbo R disks as regression titles, and speed logs on the PiStorm and BigMig. Known so far: S.T.G. Special hangs in its fade-out, and S.T.G.'s score bar is garbled. Left for later: MIDI, PCM recording, and the speed difference between ROM and DRAM mode. 5.0 is a full release; the turbo R machine is marked beta, with its known issues listed.
 
 ## Still open, not yet scheduled
 
@@ -37,7 +41,7 @@ Cartridges (a tester, 30 Oct): The R-Type mapper is done (4.5, branch rtype: Doc
 
 After 4.6 (3 Nov): R-Type's FM music sounds thin (an envelope's decay runs past its sustain level, and the output is quiet: it needs an automatic gain). The Z80's block instructions (LDIR, INIR, OTIR) can't be interrupted, so a line interrupt can come up to 16 lines late (Space Manbow 2's title split, now and then). Uridium 2's stars are written across the line where AmiMSX draws the frame, so one-dot stars shimmer. Zanac EX still dips to about 80% on the 68030/50 (HMMC). From reading the code, not yet reproduced: on AGA, LMMC's XOR acts as OR, LMMC ops 4-7 differ from the VDP, and HMMC uses the command's logical op, which the VDP ignores.
 
-Sound on Konami SCC cartridges with FM (2 Nov): with no game settings, a Konami SCC mapper moves Sound to SCC, from PSG+FM too. Batman and Head over Heels are SCC games, so that stays. DEVA is FM, so the ROM database now keeps its Sound as set. Other ROMs with no "OPLL" in the file drop from PSG+FM to PSG, as FM takes the PSG's noise channel (GPSndRule). Exceptions either way go in SOUND_EXCEPTIONS in tools/make_romdb.py: a compressed FM game could need one. Uridium 2 is not a bug: the widely shared ROM is the author's build after the "Music disabled" commit (Maneldemo/Uridium-2-for-msx, 29 Dec 2015). The earlier build b605cd0 (14 Jun 2015) writes PSG and SCC and plays in openMSX.
+Sound on Konami SCC cartridges with FM (2 Nov): with no game settings, a Konami SCC mapper moves Sound to SCC, from PSG+FM too. Batman and Head over Heels are SCC games, so that stays. DEVA is FM, so the ROM database now keeps its Sound as set. Other ROMs with no "OPLL" in the file drop from PSG+FM to PSG, as FM takes the PSG's noise channel (GPSndRule). Exceptions either way go in SOUND_EXCEPTIONS in tools/make_romdb.py: a compressed FM game could need one. Uridium 2 is not a bug: the widely shared ROM is the author's build after the "Music disabled" commit (Maneldemo/Uridium-2-for-msx, 29 Dec 2015). The earlier build b605cd0 (14 Jun 2015) writes PSG and SCC and plays in openMSX. In AmiMSX 4.7 on the A1200 it runs but plays silent, PSG included (a tester, 11 Nov), while Space Manbow has sound: not looked into yet (in openMSX it rewrites every PSG register each frame and enables the SCC around each write).
 
 MSX-Music ROM driver (1 Nov): R-Type calls the ROM at 4110h-4122h (INIOPL, MSTART, MSTOP, RDDATA, OPLDRV, TSTBGM) and plays its FM music with OPLDRV. With the maintainer's own MSXMUSIC.ROM next to AmiMSX that works: the real ROM sits in Slot 1 if it is empty, otherwise in slot 3 RAM, where a game can overwrite it, and R-Type plays FM (WinUAE: 4264 OPLL writes in 65 s, openMSX 4400 in 50 s). Without the file AmiMSX has no driver, C-BIOS music is only a stub, and R-Type stays on the PSG (the ID is left out when a slot uses the R-Type mapper). A rewrite of the driver is still open, for those without the ROM; other games that use OPLDRV find the stubs and play no FM music.
 
@@ -49,9 +53,13 @@ Multi-disk games (a tester, 31 Oct): find some games that come on several DSK im
 
 Main window (a tester, 31 Oct): Machine: sits a little tight against the left of its frame.
 
+Overclock in steps (a tester, 12 Nov): on the PiStorm, Emulation > Speed > Overclock made Space Manbow very smooth (its own slowdown gone), but Nemesis 2 ran far too fast with it, much like fMSX's unthrottled build. The guide says Overclock keeps the frame rate, so first find out why Nemesis 2 speeds up (what it paces itself on). Then consider a milder setting: a fixed extra share of Z80 time per frame (say +10-25%) instead of all the time left over.
+
 ## Later
 
 - Speed work on the native AGA display.
 - The RTG display (4.5 beta): a 60 Hz output for 60 Hz games (SCREEN 0, 3, 6 and 7, the MSX boot animation and the SCREEN 5/8 and SCREEN 8 mode splits are done: branch rtgscreens).
 - RTG scanlines over the border (a tester, 31 Oct): while the MSX is running they only cover the middle of the picture, as the boot sequence shows; the border area should get them too.
 - Sound output options (Paula 8/14-bit, 16-bit AHI).
+- CD32 pads, a second reader (from Arnold/AmiPCEngine): Options gets a per-port choice, "CD32 pad" (today's reader, the default; right for the KTRL CD32) or "KTRL CD32+" (a "low clock" reader, which also suits the Mega Multi, whose Start and C are dead in CD32 mode). Detection from the pad's ID bits proved unreliable, so it's a setting, saved in the prefs, behind a NO_ build switch. The shared routine is the emu-dev-docs CD32 kit 2 (kits/cd32pad/cd32read.s; credit Afrotechmods / FAmiga).
+- RTG mode choice (from AmiPCEngine 2.1, its issue #1): the automatic 960x540 can be a mode the monitor can't show. Let the user pick the RTG mode: an RTGMODE ToolType/CLI argument (AUTO, <w>x<h> or a ModeID), a saved ModeID in the prefs (0 = automatic), "Pick mode..." and "Automatic" in the menu, and a fallback to the automatic mode when the chosen one doesn't open. AmiMSX_Rtg_v4.asm has the same mode search, so the shared kit fits: rtg-framework asm/rtgmode.s and rtgmode_data.s (RmParse, RmResolve, RmPick, RmLabel), tested on the A1200.

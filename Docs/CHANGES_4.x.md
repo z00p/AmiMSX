@@ -4,6 +4,13 @@ AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 4.9 (14 Nov 2026)
+
+- **Z80 DAA after INC A / DEC A** now gives the Z80's result. DAA worked the correction out again from the operation before it and the carry, but INC and DEC leave the carry alone, and an A of 0 before the operation read as no operation: DEC A from 00h then DAA gave 65h instead of 99h. Invasion of the Zombie Monsters keeps its lives in BCD and went from 00 to 65 lives instead of to the continue screen (issue #3). A test cartridge (tools/make_daatest.py: INC, DEC, ADD and SUB then DAA for every A, carry clear and set) matches openMSX on INC, DEC and ADD; two SUB cases still differ, as before.
+- **Z80: ED C1, C9, D1, D9, C3 and F3** (with C4, CD, D5 and DD) do nothing, as on a real Z80. They ran the R800's multiply instructions, which only the turbo R has. openMSX's MSX2+ leaves every register as it was.
+- **Disk: GETDPB** returns with carry clear, as the real disk driver does. The 4.x disk kernels don't look at it; the turbo R's DOS 2.31 does.
+- **Preset icons renamed:** AmiMSX 030 is now **AGA 030**, AmiMSX PiStorm is **AGA**, AmiMSX RTG is **RTG**. The settings stay the same; each icon keeps its own settings file under its new name, so settings saved in the old icons are not carried over.
+
 ## 4.8 (10 Nov 2026)
 
 - **Speed on the 68030/50.** Measured in WinUAE's cycle-exact 68030/50, which runs Lilly's Saga within a few points of a real Blizzard 030/50. PiStorm already ran these games at full speed: an A1200 speed log of Space Manbow shows 100% on 4.7 and 4.8 alike.

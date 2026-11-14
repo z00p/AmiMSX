@@ -7,7 +7,7 @@ param([string[]]$Roms, [string[]]$Shots = @("12", "25"), [string]$Exe = "AmiMSX"
       [string]$Keys = "", [int]$SnapWait = 200, [switch]$NoRun, [string]$DiskB = "", [string]$ExtraArg = "",
       [string]$RtBurst = "", [string]$Wb = "wb", [int]$SnapRepeat = 1, [int]$Slot = 0, [string]$Prefs = "")
 # -Prefs file (with -Slot): that settings file as the slot's S:AmiMSX2.prefs, e.g. a
-#   copy of a preset's ("AmiMSX PiStorm") when the third argument is taken (S2=)
+#   copy of a preset's ("AGA") when the third argument is taken (S2=)
 # -Slot n (1, 2, ...): one of several WinUAE runs side by side (tools\regress.py --jobs).
 #   The slot runs on its own copies of run\ and the Workbench in build\slots\<n>\
 #   (mirrored at each start), with a copy of the config pointing at them, shots in

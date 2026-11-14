@@ -2,12 +2,12 @@
 # puts a test copy of one preset (default tool AmiMSX:AmiMSX, DONOTWAIT) into
 # the test Workbench's WBStartup, boots without the CLI start (-NoRun) and
 # captures the screen; the AmiMSX menu should show that preset's settings.
-# Usage: powershell -File winuae\wb_preset_test.ps1 [-Preset "AmiMSX 030"] [-Shots 30] [-SpaceAt 35]
+# Usage: powershell -File winuae\wb_preset_test.ps1 [-Preset "AGA 030"] [-Shots 30] [-SpaceAt 35]
 # -Exe: the build to test (default AmiMSX; the Matra splash is off unless
 #   built with -DSPLASH=1, and ignores keys when started from WBStartup).
 # -SpaceAt n: one Space press n s after launch (host keyboard input to the WinUAE
 #   window, foreground only) to close the Matra splash a Workbench start shows.
-param([string]$Preset = "AmiMSX 030", [string]$Shots = "30", [int]$SpaceAt = 0, [string]$Exe = "AmiMSX")
+param([string]$Preset = "AGA 030", [string]$Shots = "30", [int]$SpaceAt = 0, [string]$Exe = "AmiMSX")
 $ErrorActionPreference = "Stop"
 $base = Split-Path -Parent $PSScriptRoot
 Set-Location $base

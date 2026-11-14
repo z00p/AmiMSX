@@ -610,7 +610,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.8 ("
+	DC.B	"$VER:AmiMSX Emulator v4.9 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -2326,6 +2326,7 @@ PVDP6=-288
 PVDP3B=-284
 PVDP4B=-280
 DatDAA=$6F4
+DatKind=$6F5			; DAA after INC A (FFh) / DEC A (01h)
 PEXX=2
 I=$A
 IFF=$B
@@ -5046,6 +5047,7 @@ SBCHLSP:MIns	SUBX.W,D4,D0,2,T,X,15
 ; -------------------  INC / DEC  ---------------
 
 INCA:	PARDAAS
+	ST	DatKind(A3)		; (4.9) for DAA: A was incremented
 	MIns	ADDQ.B,D7,#1,0,S,N,4
 INCH:	MIns	ADDI.W,D4,#0,7B,S,N,4
 INCL:	MIns	ADDQ.B,D4,#1,0,S,N,4
@@ -5071,6 +5073,7 @@ INCSP:
 
 
 DECA:	PARDAAR
+	MOVE.B	#1,DatKind(A3)	; (4.9) for DAA: A was decremented
 	MIns	SUBQ.B,D7,#1,0,S,N,4
 DECH:	MIns	SUB.W,D4,#0,7,S,N,4
 DECL:	MIns	SUBQ.B,D4,#1,0,S,N,4
@@ -5551,6 +5554,9 @@ NOP060:
 
 
 DAA:
+	MOVE.B	DatKind(A3),D1
+	BNE	DAAINC
+DAAOLD:
 	MOVE.B	DatDAA(A3),D2
 	BEQ	MIRAC
 	SF	DatDAA(A3)
@@ -5583,6 +5589,45 @@ MIRAC:
 	MOVE.W	#04,CCR
 	SBCD.B	D2,D7
 	OtraDAA	4			; (4.3) DAA is 4 T-states (was 0 + M1)
+
+; (4.9) DAA after INC A / DEC A, as the Z80: the correction from H, C and A,
+; added after INC and subtracted after DEC (N). The path above rebuilds the
+; operation from A before it and the carry, which INC/DEC leave alone: DEC A
+; from 0 gave 65h instead of 99h (Invasion of the Zombie Monsters, lives).
+; Used only while A is still A before -/+ 1 (else something else changed A).
+DAAINC:
+	SF	DatKind(A3)
+	MOVE.B	DatDAA(A3),D2
+	SUB.B	D7,D2			; 01h after DEC A, FFh after INC A
+	CMP.B	D1,D2
+	BNE	DAAOLD
+	SF	DatDAA(A3)
+	MOVE.B	D7,D2
+	AND.B	#$0F,D2			; the low digit
+	CMP.B	#9,D2
+	BHI.S	DAAI06
+	TST.B	D1
+	BPL.S	DAAI00			; DEC: H means a low digit of Fh, done above
+	TST.B	D2
+	BNE.S	DAAI00			; INC: H when the low digit became 0
+DAAI06:	MOVE.B	#$06,D2		; (byte only: D2's high word is Z80 state)
+	BRA.S	DAAIHI
+DAAI00:	CLR.B	D2
+DAAIHI:	BTST	#0,D3			; C (INC/DEC leave it as it was)
+	BNE.S	DAAI60
+	CMP.B	#$99,D7
+	BLS.S	DAAIGO
+DAAI60:	OR.B	#$61,D2			; 60h, and bit 0: C out
+DAAIGO:	MOVE.B	D2,D3
+	AND.B	#$66,D2
+	TST.B	D1
+	BMI.S	DAAIAD
+	SUB.B	D2,D7			; after DEC: subtract
+	BRA.S	DAAIFL
+DAAIAD:	ADD.B	D2,D7			; after INC: add
+DAAIFL:	AND.W	#$0001,D3		; C, then S Z P/V from the result
+	OR.B	Flags_PAR(A3,D7.W*4),D3
+	Otra	4
 
 SCF:	BSET	#0,D3
 	Otra	4
@@ -10436,13 +10481,13 @@ INSED:
 	DC.L	LDD,ICPD,IND,OUTD,EDNOP,EDNOP,EDNOP,EDNOP		; A8
 	DC.L	LDIR,CPIR,INIR,OTIR,EDNOP,EDNOP,EDNOP,EDNOP		; B0
 	DC.L	LDDR,CPDR,INDR,OTDR,EDNOP,EDNOP,EDNOP,EDNOP		; B8
-	DC.L	EDNOP,MULUBAB,EDNOP,MULUWHLBC,MULUBAB,EDNOP,EDNOP,EDNOP	; C0
-	DC.L	EDNOP,MULUBAC,EDNOP,EDNOP,EDNOP,MULUBAC,EDNOP,EDNOP	; C8
-	DC.L	EDNOP,MULUBAD,EDNOP,EDNOP,EDNOP,MULUBAD,EDNOP,EDNOP	; D0
-	DC.L	EDNOP,MULUBAE,EDNOP,EDNOP,EDNOP,MULUBAE,EDNOP,EDNOP	; D8
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; C0
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; C8
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; D0
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; D8
 	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; E0
 	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; E8
-	DC.L	EDNOP,EDNOP,EDNOP,MULUWHLSP,EDNOP,EDNOP,EDNOP,EDNOP	; F0
+	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; F0
 	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP		; F8
 
 ********************************************************************
@@ -17970,7 +18015,7 @@ SUBSLOT3:		; $620(A3)
 	DC.B	0	; $6EF(A3)	Modo060
 	DC.L	0	; $6F0(A3)	(was CPUCopyBufer: see CPUCopyBuf)
 	DC.B	0	; $6F4(A3)	DatDAA
-	DC.B	0	; $6F5(A3)
+	DC.B	0	; $6F5(A3)	DatKind
 	DC.W	0	; $6F6(A3)	DVDP4
 
 ;	*=*=*  USA POR LA PARTE DE ARRIBA *=*=*   Haz caso Juan.
@@ -24081,6 +24126,8 @@ SIDISCO2:
 	MOVE.W	INTENA2,$DFF09A
 ; -==================================================================-
 ED13:				; GETDPB  $4016
+	BCLR	#0,D3			; no error (carry clear), as the FS-A1GT's own
+				; driver: the DOS 2.31 kernel checks it
 	MOVE.W	D5,D1
 	LSR.W	#8,D1
 	CMP.B	#$F8,D1

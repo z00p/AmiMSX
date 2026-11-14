@@ -7,7 +7,7 @@ The prefs defaults are taken from the built binary (the DIRPrefs block, from
 "MSX2v2.5" to the end of the credits string); only the preset fields change.
 
 Usage: python tools/make_presets.py [build/AmiMSX] [out_dir]   (default release/stage)
-       [--tool AmiMSX:AmiMSX] [--tooltype DONOTWAIT] [--only "AmiMSX 030"]
+       [--tool AmiMSX:AmiMSX] [--tooltype DONOTWAIT] [--only "AGA 030"]
 Writes <out>/AmiMSX <name> + .info for each preset and <out>/presets.png (preview).
 --tool, --tooltype (repeatable) and --only make test copies (winuae/wb_preset_test.ps1)."""
 import argparse, os, struct, sys
@@ -40,13 +40,13 @@ FILTER = -5         # byte (from the end): audio filter (Amiga low-pass, the pow
 BLOCK40 = 6         # bytes after the credits string (PrefMask .. PrefCD32M)
 
 PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
-    ("AmiMSX 030",     "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1), MASK: ("B", 0), NOAUTO: ("B", 0)}),
-    ("AmiMSX PiStorm", "Pi AGA", (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
-    ("AmiMSX RTG",     "RTG",  (30, 100, 200),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("AGA 030",        "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("AGA",            "AGA", (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("RTG",            "RTG",  (30, 100, 200),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
 ]
 # (4.5) Extra ToolTypes: the RTG preset is the PiStorm one on an RTG screen (ToolType RTG,
 # WBToolTypes; the picture through Picasso96, the menu too).
-TOOLTYPES = {"AmiMSX RTG": ["RTG", "SCANLINES=50"]}
+TOOLTYPES = {"RTG": ["RTG", "SCANLINES=50"]}
 
 W, H = 46, 46
 # Classic (planar) image uses the 4 Workbench pens: grey, black, white, blue.

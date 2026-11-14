@@ -28,6 +28,15 @@ self-checks against a ZEXALL-verified Z80 and runs in AmiMSX and openMSX.
   before the operation in `DatDAA`; DAA recovers the operand from it and
   redoes the operation with ABCD/SBCD. `PUSH AF`/`POP AF` save and restore
   `DatDAA` per stack slot (`Flags_DAA`, indexed by the low byte of SP).
+- (4.9) After INC A / DEC A that reconstruction can't work: INC and DEC leave
+  C alone, which DAA used to tell an addition from a subtraction, and an A of
+  0 before the operation reads as "nothing stored". So DEC A from 00h, then
+  DAA, gave 65h instead of 99h (GitHub issue #3, Invasion of the Zombie
+  Monsters: 65 lives instead of the continue screen). INC A / DEC A now also
+  set `DatKind` (FFh / 01h), and DAA then does the Z80's own correction from
+  A, C and H (H follows from A after INC/DEC), while A is still the stored
+  value +/- 1. `tools/make_daatest.py` (T_DAA) checks every A with C clear and
+  set against the Z80 (openMSX matches the model on all 2048 cases).
 
 ## Instruction groups
 
@@ -52,7 +61,7 @@ mentions them where it matters.
 | CB RLC RRC RL RR SLA SRA SLL SRL (r, (HL), (IX+d)) | **differs** | S, Z, C right; **P/V = 0 instead of the parity** of the result (the 68k clears V). SLL right (shifts a 1 in). | `SRL A / JP PE`-style code: rare | no (see fix 3) |
 | BIT n,r / (HL) / (IX+d) | differs | Only Z was set. Z80: P/V = Z, S = bit 7 for BIT 7, H = 1. | `BIT 7,r / JP M` or `JP PE` after BIT: rare | yes (P/V, S) |
 | SET/RES | matches | The undocumented DD CB "op (IX+d),r" forms are NOPs (no memory write). | none | - |
-| DAA | **differs** | Right after a tracked ADD/ADC/SUB/SBC/INC A/DEC A. Wrong after NEG, AND/OR/XOR or anything else (stale `DatDAA`), and when the operand was 0 and A is not BCD. Its S and P/V came from ABCD (undefined on a 68020+): now from the result. H not modelled. | BCD scores and `AND 0Fh / ADD A,90h / DAA / ADC A,40h / DAA` work. No known failure; `MSX Unleashed` is a suspect (open_issues). | flags yes; see fix 2 |
+| DAA | **differs** | Right after a tracked ADD/ADC/SUB/SBC, and (4.9) after INC A/DEC A for every A (T_DAA). T_DAA's SUB 01h and SUB 27h lines still differ from the Z80 (not yet narrowed down; the same in 4.8). Wrong after NEG, AND/OR/XOR or anything else (stale `DatDAA`), and when the operand was 0 and A is not BCD. Its S and P/V came from ABCD (undefined on a 68020+): now from the result. H not modelled. | BCD scores and `AND 0Fh / ADD A,90h / DAA / ADC A,40h / DAA` work. No known failure; `MSX Unleashed` is a suspect (open_issues). | flags yes; see fix 2 |
 | CPL, NEG | matches | NEG: H not modelled (set when A & 0Fh != 0). | none | - |
 | SCF, CCF | matches (C) | SCF should clear H, CCF should copy C to H: not modelled. | none | - |
 | EX DE,HL / EX AF,AF' / EXX | matches | | none | - |
@@ -122,8 +131,9 @@ them with the Z80+M1 column.
   flag-related failure before this audit.
 - H and N only reach a program through DAA and `PUSH AF`. DAA is covered
   by the `DatDAA` reconstruction in the common BCD cases (scores, the
-  hex-digit trick); the holes are DAA after NEG or a logic operation and a
-  zero operand with a non-BCD A.
+  hex-digit trick); the holes are DAA after NEG or a logic operation, a
+  zero operand with a non-BCD A, and some SUB cases (T_DAA). DAA after
+  DEC A from 00h (a BCD counter running out) was wrong until 4.9.
 - The three behaviour bugs with real reach were IM 0 (handler never ran),
   RETI (interrupts enabled behind the program's back) and the P/V after
   shifts/rotates (rarely tested by code). All are fixed or listed.
