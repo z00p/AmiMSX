@@ -610,7 +610,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.9 ("
+	DC.B	"$VER:AmiMSX Emulator v4.9.1 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -17722,7 +17722,12 @@ NOSUMAS18:
 	CNOP	0,8
 BorraSprTab:
 	LEA	TAB98(PC),A6
-	MOVE.L	PVDP6(A3),D0		; Tabla Gfx Sprites VRAM
+	MOVE.L	REGS+PVDP6(PC),D0	; Tabla Gfx Sprites VRAM. (4.9.1) Not
+					; PVDP6(A3): COPIATXT and ACTUALIZA leave A3
+					; on the tile cache (PRINT2's marked-tile
+					; pass, full redraws), and the clear below
+					; then zeroed 256 bytes anywhere within
+					; 32 KB of TAB98 (Nemesis 2 crash).
 	LSR.L	#3,D0
 	ADD.W	#256,D0
 	ADD.W	D0,A6

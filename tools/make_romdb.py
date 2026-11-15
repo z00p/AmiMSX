@@ -1,8 +1,8 @@
 """Build AmiMSX4.romdb: mapper by ROM SHA-1, for AmiMSX's cartridge auto-setup.
 
 Source: openMSX's software database (tools/openmsx/share/softwaredb.xml),
-MSX systems only, plus the local ROMs it doesn't know (run/Roms, mapper from
-tests/titles.csv romtype or the file-name tag).
+MSX systems only, plus the local ROMs it doesn't know (LOCAL_ROMS by SHA-1, and
+run/Roms, mapper from tests/titles.csv romtype or the file-name tag).
 
 File format (big-endian):
   "AMXDB1",0,0          8 bytes
@@ -47,6 +47,12 @@ SRAM = re.compile(r"SRAM")
 SOUND_EXCEPTIONS = {
     "a648774129139bd9fa2394f6eed29ad03c3af7ff",  # Angelic Warrior DEVA: FM on an SCC mapper
     "71ff3a9dc048d92a853f6ebbe33b827c18f1bf0f",  # Uwol: looks for FM, never plays it
+}
+# (14 Nov 2026) ROMs openMSX's database doesn't know, by SHA-1, without the file in run/Roms:
+# (openMSX type, title, machine). openMSX's own guess fails on these too.
+LOCAL_ROMS = {
+    "0f2212f44f3a2df3bdf7ec9c3e77b2daa3f27d4a":  # guessed Konami: stripes
+        ("ASCII8", "Daraiayu Taikenban Demo (2026)", 3),
 }
 PLAIN = {"Mirrored", "page2", "page23", "page12", "page1", "page3", "16kb", "8kB", "Mirrored4000",
          "Mirrored0000", "Mirrored8000", "MirroredC000", "Normal0000", "Normal4000", "Normal8000"}
@@ -142,9 +148,15 @@ def main():
                     types.append(t)
                 entries[h] = [t, title, mach]
     known = len(entries)
+    extra = []
+    for h, (t, title, mach) in LOCAL_ROMS.items():
+        if h not in entries:
+            if t not in types:
+                types.append(t)
+            entries[h] = [t, title, mach]
+            extra.append((title, t))
     # local ROMs the database doesn't know
     rows = {r["file"]: r for r in csv.DictReader(open(os.path.join(BASE, "tests", "titles.csv"), encoding="utf-8"))}
-    extra = []
     romdir = os.path.join(BASE, "run", "Roms")
     for f in sorted(os.listdir(romdir)):
         if not f.lower().endswith((".rom", ".mx1", ".mx2")) or (f.startswith("T_") and not a.tests):

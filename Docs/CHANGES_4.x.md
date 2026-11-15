@@ -4,6 +4,10 @@ AmiMSX 4.x is a community update of AmiMSX by Juan Antonio Gómez Gálvez (GUS E
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 4.9.1 (15 Nov 2026)
+
+- **Crash fix: SCREEN 2 sprite tables.** After drawing changed tiles, AmiMSX clears the flags of the sprite patterns it has converted. It found them through a register that by then pointed into the tile cache, so the 256-byte clear could land anywhere within 32 KB, over the emulator's own data. Nemesis 2 crashed after about two minutes of its attract loop on an A1200 (a 5.0 test build) and after 45 seconds in WinUAE (a 4.9 debug build). The line is in Juan's v3.1 source, so every 4.x release has it.
+
 ## 4.9 (14 Nov 2026)
 
 - **Z80 DAA after INC A / DEC A** now gives the Z80's result. DAA worked the correction out again from the operation before it and the carry, but INC and DEC leave the carry alone, and an A of 0 before the operation read as no operation: DEC A from 00h then DAA gave 65h instead of 99h. Invasion of the Zombie Monsters keeps its lives in BCD and went from 00 to 65 lives instead of to the continue screen (issue #3). A test cartridge (tools/make_daatest.py: INC, DEC, ADD and SUB then DAA for every A, carry clear and set) matches openMSX on INC, DEC and ADD; two SUB cases still differ, as before.

@@ -7,7 +7,7 @@ Sources: `AmiMSX_Main_v3.1.asm`, `AmiMSX_Menu_v3.1.asm`, `AmiMSX2.mapper`, openM
 ## Status (12 Oct, implemented)
 
 - **8 KB ROMs:** files of 8-16 KB load as one 16 KB page; an 8 KB file is mirrored. Tested: Sink King, Nohzdyve, Kralizec 8K Tetris and Battle Tetris play (030 config).
-- **ROM database:** `tools/make_romdb.py` writes `AmiMSX4.romdb`, about 25 KB: 3,180 entries keyed by the first 4 bytes of the SHA-1. Codes: 0 standard, 1 Konami, 2 ASCII8, 3 ASCII16, 4 Konami SCC (with its flash variants), $FE not emulated. Plain ROMs are left to the size rules. Local extras come from `tests/titles.csv` romtype or file-name tags: Pampas, DELTA, Neon Revenant MSX1/MSX2.
+- **ROM database:** `tools/make_romdb.py` writes `AmiMSX4.romdb`, about 25 KB: 3,180 entries keyed by the first 4 bytes of the SHA-1. Codes: 0 standard, 1 Konami, 2 ASCII8, 3 ASCII16, 4 Konami SCC (with its flash variants), $FE not emulated. Plain ROMs are left to the size rules. Local extras come from `tests/titles.csv` romtype or file-name tags: Pampas, DELTA, Neon Revenant MSX1/MSX2; and (14 Nov 2026) from `LOCAL_ROMS` in the script, by SHA-1, with no file needed: the Daraiayu Taikenban Demo (2026), ASCII8, turbo R (MSX2+ until AmiMSX has a turbo R).
 - **On the Amiga** (`AmiMSX_RomDb_v4.asm`): at load, for MegaROMs without a saved mapper, it checks the cache (`AmiMSX4.romcache`: AmiMSX checksum + size -> answer). Otherwise it hashes the file (68k SHA-1), binary-searches the database and caches the answer.
   - Order: saved mapper > database > file-name tag > guess.
   - Checked: the 68k SHA-1 found Lilly's Saga (ASCII16) and Uwol (ASCII8). Uwol now plays; it was a blue screen with the guessed Konami mapper.
