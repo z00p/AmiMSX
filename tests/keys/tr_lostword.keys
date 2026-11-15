@@ -1,0 +1,8 @@
+# LostWord - Episode 0 (turbo R only, MSX-BASIC): turbo R machine; it copies
+# its files to a DOS2 RAM disk, then the attract (hi-scores, story, title);
+# Space/Return from 290 s: HOW TO PLAY, then NAME ENTRY.
+option machine 3
+290s SPACE 5
+296s SPACE 5
+302s RETURN 5
+308s SPACE 5 every 50 until 330s

@@ -502,6 +502,9 @@ FMXChNx:
 	CMP.W	#9,D7
 	BNE	FMXChan
 
+	IFD	TURBOR
+	BSR	PcmFrame		; (turbo R) the PCM into the mix.
+	ENDC
 	TST.B	FMXMixOn		; (4.7) Sound mix: the PSG in software
 	BEQ.S	FMXOuCl			; and the 14-bit mix out (PsxFrame).
 	BSR	PsxFrame
@@ -573,6 +576,84 @@ FMXOuEnd:
 	MOVEM.L	FMXSave,D0-D7/A0-A6
 	RTS
 
+
+	IFD	TURBOR
+; -------------------------------------> (turbo R) The PCM, once a frame,
+; into FMXMix: each DAC write (PcmLog, from OUTA4/OUTA5) at its sample as
+; PsxFrame places the PSG's, the level held between writes. A frame without
+; writes adds nothing (a level held would only be an offset). Uses D0-D7,
+; A0-A2.
+	CNOP	0,4
+PcmFrame:
+	MOVE.W	PcmLogN,D6
+	LSR.W	#3,D6
+	BEQ	PcmFrX
+	MOVE.W	#313,D4			; D4 = the MSX frame's lines,
+	BTST	#1,REGS+DVDP9
+	BNE.S	PcmFr1
+	MOVE.W	#262,D4
+PcmFr1:	MOVE.W	D4,D5
+	MULU.W	#HPeriod,D5		; D5 = its cycles.
+	LEA	PcmLog,A0
+	SUBQ.W	#1,D6
+PcmFrI:	MOVEQ	#0,D0
+	MOVE.B	3(A0),D0		; (CurLine: its low byte)
+	CMP.W	#255,D0
+	BNE.S	PcmFrI1
+	MOVE.W	D4,D0			; the rest of the frame
+	SUBQ.W	#1,D0
+PcmFrI1:ADDQ.W	#1,D0
+	MULU.W	#HPeriod,D0		; end of the line
+	SUB.L	#192*HPeriod,D0		; from line 192
+	BGT.S	PcmFrI2
+	ADD.L	D5,D0
+PcmFrI2:MOVE.W	4(A0),D1
+	EXT.L	D1
+	BPL.S	PcmFrI3
+	MOVEQ	#0,D1
+PcmFrI3:SUB.L	D1,D0
+	BPL.S	PcmFrI4
+	MOVEQ	#0,D0
+PcmFrI4:CMP.L	D5,D0
+	BCS.S	PcmFrI5
+	MOVE.L	D5,D0
+	SUBQ.L	#1,D0
+PcmFrI5:MOVEQ	#0,D1
+	MOVE.W	FMXN,D1
+	MULU.L	D1,D0
+	DIVU.L	D5,D0
+	MOVE.W	D0,6(A0)
+	ADDQ.W	#8,A0
+	DBF	D6,PcmFrI
+	MOVE.W	#$7FFF,6(A0)		; (end: no sample reaches it)
+	LEA	PcmLog,A2
+	LEA	FMXMix,A1
+	MOVE.W	PcmLev,D2
+	MOVE.W	FMXN,D3
+	MOVEQ	#0,D7
+PcmFrS:	CMP.W	6(A2),D7
+	BCS.S	PcmFrS1
+	BSR.S	PcmFrW
+	BRA.S	PcmFrS
+PcmFrS1:ADD.W	D2,(A1)+
+	ADDQ.W	#1,D7
+	CMP.W	D3,D7
+	BCS.S	PcmFrS
+PcmFrS2:CMP.W	#$7FFF,6(A2)		; Writes past the end (rounding).
+	BEQ.S	PcmFrS3
+	BSR.S	PcmFrW
+	BRA.S	PcmFrS2
+PcmFrS3:MOVE.W	D2,PcmLev
+	CLR.W	PcmLogN
+PcmFrX:	RTS
+PcmFrW:	MOVEQ	#0,D0			; D2 = the write's level.
+	MOVE.B	1(A2),D0
+	SUB.W	#128,D0
+	MULS.W	#PCMGAIN,D0
+	MOVE.W	D0,D2
+	ADDQ.W	#8,A2
+	RTS
+	ENDC
 ; (4.7) Automatic gain, once a frame after the output (tools/fm_synth.py
 ; Synth.agc). D5.W = the frame's peak |mix >> 4|. Down at once while the
 ; peak passes AGCDN for the gain; up a step after FMX_AGCHOLD frames under

@@ -437,11 +437,11 @@ UnProtectHeight:
 AboutLeft:
     DC.W    149
 AboutTop:
-    DC.W    11
+    DC.W    0
 AboutWidth:
     DC.W    332
 AboutHeight:
-    DC.W    190
+    DC.W    201
 MatraLeft:
     DC.W    0
 MatraTop:
@@ -860,7 +860,7 @@ UnProtectNGads:
     DC.L    $0010,0,0
 
 AboutNGads:
-    DC.W    120,169,92,16
+    DC.W    120,182,92,16
     DC.L    AboutExitText,0
     DC.W    GD_AboutExit
     DC.L    $0010,0,0
@@ -1400,6 +1400,9 @@ ROMLabels:
     IFD     MSX2PLUS                ; (4.0) MSX2+ hidden until the V9958
     DC.L    ROMLab2                 ; is emulated
     ENDC
+    IFD     TURBOR
+ROMLabTR:   DC.L    0               ; (5.0) ROMLab3 with the firmware (TRLoad)
+    ENDC
     DC.L    0
 
 RAMLabels:
@@ -1472,6 +1475,9 @@ INTERLab4:    DC.B    '5 Frames',0
 ROMLab0:    DC.B    'MSX',0
 ROMLab1:    DC.B    'MSX2',0
 ROMLab2:    DC.B    'MSX2+',0
+    IFD     TURBOR
+ROMLab3:    DC.B    'MSXtR',0		; (5.0) 'turbo R' overran the gadget
+    ENDC
 
     CNOP    0,2
 
@@ -1646,7 +1652,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v4.9.1 (Pro) '
+    DC.B    'AmiMSX Emulator v5.0 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -2777,7 +2783,7 @@ AboutText0:
     DC.B    7,0
     DC.B    $00
     DC.B    0
-    DC.W    27,11
+    DC.W    27,7
     DC.L    topaz8
     DC.L    AboutIText0
     DC.L    AboutText1
@@ -2786,7 +2792,7 @@ AboutText1:
     DC.B    4,0
     DC.B    $00
     DC.B    0
-    DC.W    52,25
+    DC.W    52,20
     DC.L    topaz8
     DC.L    AboutIText1
     DC.L    AboutText2
@@ -2795,7 +2801,7 @@ AboutText2:
     DC.B    6,0
     DC.B    $00
     DC.B    0
-    DC.W    24,41
+    DC.W    24,35
     DC.L    topaz8
     DC.L    AboutIText2
     DC.L    AboutText3
@@ -2804,16 +2810,34 @@ AboutText3:
     DC.B    7,0
     DC.B    $00
     DC.B    0
-    DC.W    44,53
+    DC.W    44,47
     DC.L    topaz8
     DC.L    AboutIText3
+    DC.L    AboutText11
+
+AboutText11:
+    DC.B    6,0
+    DC.B    $00
+    DC.B    0
+    DC.W    0,62
+    DC.L    topaz8
+    DC.L    AboutIText11
+    DC.L    AboutText12
+
+AboutText12:
+    DC.B    7,0
+    DC.B    $00
+    DC.B    0
+    DC.W    0,74
+    DC.L    topaz8
+    DC.L    AboutIText12
     DC.L    AboutText4
 
 AboutText4:
     DC.B    6,0
     DC.B    $00
     DC.B    0
-    DC.W    64,71
+    DC.W    64,89
     DC.L    topaz8
     DC.L    AboutIText4
     DC.L    AboutText5
@@ -2822,7 +2846,7 @@ AboutText5:
     DC.B    7,0
     DC.B    $00
     DC.B    0
-    DC.W    98,83
+    DC.W    98,101
     DC.L    topaz8
     DC.L    AboutIText5
     DC.L    AboutText6
@@ -2831,7 +2855,7 @@ AboutText6:
     DC.B    6,0
     DC.B    $00
     DC.B    0
-    DC.W    69,100
+    DC.W    69,116
     DC.L    topaz8
     DC.L    AboutIText6
     DC.L    AboutText7
@@ -2840,7 +2864,7 @@ AboutText7:
     DC.B    7,0
     DC.B    $00
     DC.B    0
-    DC.W    56,112
+    DC.W    56,128
     DC.L    topaz8
     DC.L    AboutIText7
     DC.L    AboutText8
@@ -2849,7 +2873,7 @@ AboutText8:
     DC.B    7,0
     DC.B    $00
     DC.B    0
-    DC.W    22,125
+    DC.W    22,140
     DC.L    topaz8
     DC.L    AboutIText8
     DC.L    AboutText9
@@ -2858,7 +2882,7 @@ AboutText9:
     DC.B    6,0
     DC.B    $00
     DC.B    0
-    DC.W    51,141
+    DC.W    51,155
     DC.L    topaz8
     DC.L    AboutIText9
     DC.L    AboutText10
@@ -2867,7 +2891,7 @@ AboutText10:
     DC.B    2,0
     DC.B    $00
     DC.B    0
-    DC.W    38,153
+    DC.W    38,167
     DC.L    topaz8
     DC.L    AboutIText10
     DC.L    0
@@ -3122,7 +3146,7 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v4.9.1',0
+    DC.B    'AmiMSX Emulator v5.0',0
 
 AboutIText1:
     DC.B    '(November 15th, 2026)',0
@@ -3153,6 +3177,12 @@ AboutIText9:
 
 AboutIText10:
     DC.B    'Zener and Sandman',0
+
+AboutIText11:
+    DC.B    'Community update (4.x, 5.x):',0
+
+AboutIText12:
+    DC.B    'z00p',0
 
     CNOP    0,2
 
@@ -3483,7 +3513,11 @@ MSX2NewMenu18b:
     DC.L    MSX2MName18b
     DC.L    0
     DC.W    $0101
+	IFND	NO_CD32KIT
+    DC.L    6,0
+	ELSE
     DC.L    2,0
+	ENDC
 
 	MDS	MN_Pad2CD32
 MSX2NewMenu18c:
@@ -3491,7 +3525,21 @@ MSX2NewMenu18c:
     DC.L    MSX2MName18c
     DC.L    0
     DC.W    $0001
+	IFND	NO_CD32KIT
+    DC.L    5,0
+	ELSE
     DC.L    1,0
+	ENDC
+
+	IFND	NO_CD32KIT
+	MDS	MN_Pad2KL
+MSX2NewMenu18g:
+    DC.B    3,0
+    DC.L    MSX2MName18g
+    DC.L    0
+    DC.W    $0001
+    DC.L    3,0
+	ENDC
 
 	MDSCNT	NS_Pad2
 	MDI	MN_Pad1
@@ -3508,7 +3556,11 @@ MSX2NewMenu18e:
     DC.L    MSX2MName18b
     DC.L    0
     DC.W    $0101
+	IFND	NO_CD32KIT
+    DC.L    6,0
+	ELSE
     DC.L    2,0
+	ENDC
 
 	MDS	MN_Pad1CD32
 MSX2NewMenu18f:
@@ -3516,7 +3568,21 @@ MSX2NewMenu18f:
     DC.L    MSX2MName18c
     DC.L    0
     DC.W    $0001
+	IFND	NO_CD32KIT
+    DC.L    5,0
+	ELSE
     DC.L    1,0
+	ENDC
+
+	IFND	NO_CD32KIT
+	MDS	MN_Pad1KL
+MSX2NewMenu18h:
+    DC.B    3,0
+    DC.L    MSX2MName18g
+    DC.L    0
+    DC.W    $0001
+    DC.L    3,0
+	ENDC
 
 	MDSCNT	NS_Pad1
 	MDI	MN_InputBar0
@@ -3554,6 +3620,14 @@ MSX2NewMenu22:
 MSX2NewMenu23:
     DC.B    2,0
     DC.L    MSX2MName23
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_JoyKeys		; (5.0)
+MSX2NewMenu23j:
+    DC.B    2,0
+    DC.L    MSX2MName23j
     DC.L    0
     DC.W    $0009
     DC.L    0,0
@@ -4241,6 +4315,10 @@ MSX2MName18b:
 
 MSX2MName18c:
     DC.B    'CD32 Pad',0
+	IFND	NO_CD32KIT
+MSX2MName18g:
+    DC.B    'KTRL CD32+',0,0
+	ENDC
 
 MSX2MName18d:
     DC.B    'Mouse Port',0
@@ -4262,6 +4340,9 @@ MSX2MName22:
 
 MSX2MName23:
     DC.B    'Right Shift as Space',0
+
+MSX2MName23j:
+    DC.B    'Joystick as Cursor Keys',0
 
 MSX2MName25:
     DC.B    'Japanese Machine (60 Hz)',0
@@ -7859,19 +7940,19 @@ AboutRender:
     lea.l   NR,a1
     move.w  #11,d0
     add.w   d4,d0
-    move.w  #5,d1
+    move.w  #3,d1
     add.w   d5,d1
     move.w  #302,d2
-    move.w  #160,d3
+    move.w  #175,d3
     jsr     TallBevel
     move.l  a2,a0
     lea.l   IR,a1
     move.w  #9,d0
     add.w   d4,d0
-    move.w  #4,d1
+    move.w  #2,d1
     add.w   d5,d1
     move.w  #306,d2
-    move.w  #162,d3
+    move.w  #177,d3
     jsr     TallBevel
     move.l  _IntuitionBase,a6
     move.l  AboutWnd,a0

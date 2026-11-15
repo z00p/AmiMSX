@@ -1,17 +1,17 @@
-Short:        MSX/MSX2/MSX2+ emulator, 4.9.1
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.0
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      4.9.1
+Version:      5.0
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
 Distribution: Aminet
-Kurz:         MSX-Emulator (MSX2/2+), mehr Genauigkeit
+Kurz:         MSX-Emulator (MSX2/2+/turbo R), mehr Genauigkeit
 
-AmiMSX 4.x is a community update of AmiMSX, the MSX, MSX2 and MSX2+
-emulator by Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft),
-released with his permission. It is built from his v3.1 source, with parts
+AmiMSX 4.x and 5.x are a community update of AmiMSX, the MSX, MSX2 and
+MSX2+ emulator by Juan Antonio Gomez Galvez (GUS Entertainment / RED
+Soft), released with his permission. It is built from his v3.1 source, with parts
 of his later v3.2/v3.5 source. This version puts accuracy first: many
 games that broke or glitched in 3.x now run as on a real MSX.
 
@@ -38,20 +38,78 @@ Requirements
   games at full speed and Smooth display.
 - For the RTG preset: Picasso96 and a 16 or 32-bit screen mode of at
   least 544x460 (960x540 is best on a 1080p display), and a fast CPU.
+- For the MSX turbo R machine (beta): a fast CPU (PiStorm, BigMig) and
+  the FS-A1GT firmware, which is not included (see below).
 
 Installation
 ------------
 Copy the AmiMSX drawer anywhere and start one of the preset icons:
 
   AGA 030   68030/50 with fast RAM: PSG, PAL, sprites every frame
+            (starts AmiMSX030)
   AGA       PiStorm, BigMig and other fast CPUs: PSG+FM, display
             frequency from the VDP, Japanese ID (60 Hz), audio
-            filter, smooth display
+            filter, smooth display (starts AmiMSX)
   RTG       the AGA preset on a Picasso96 (RTG) screen, with 50%
-            scanlines (ToolTypes RTG and SCANLINES=50)
+            scanlines (ToolTypes RTG and SCANLINES=50; starts AmiMSX)
+
+There are two programs. AmiMSX has the MSX turbo R machine and is for
+fast CPUs; AmiMSX030 is the same emulator without the turbo R, for a
+68030. From a Shell or a launcher on a 68030, start AmiMSX030.
+
+MSX turbo R (beta, AmiMSX only): put the Panasonic FS-A1GT's firmware
+in the drawer as Roms/fs-a1gt_firmware.rom (4 MB), and its kanji font
+as Roms/fs-a1gt_kanjifont.rom (256 KB, optional; without it kanji
+characters are blank). These are the names openMSX uses; the files
+tested have SHA-1
+  e779c338eb91a7dea3ff75f3fde76b8af22c4a3a (firmware)
+  5aff2d9b6efc723bc395b0f96f0adfa83cc54a49 (kanji font).
+With the firmware there, the main window's Machine gadget offers
+MSXtR. Without it, MSXtR is not offered and a turbo R machine saved in
+the settings runs as the MSX2+. PCM sound plays with Sound set to
+PSG+FM (as in the AGA and RTG presets).
 
 Each preset keeps its own settings file (ToolType PREFS=<file>), and
 Project > Save Settings writes to the preset you started.
+
+Starting a game straight away (from a Shell, a script or a game
+launcher such as Lupa):
+
+  AmiMSX [game] [AGA|RTG] [ONEGAME] [MENU] [PROFILE=030|FAST|AUTO]
+         [PREFS=<file>] [B=<disk>] [R2=<cartridge>]
+
+  game       the first word that isn't one of these, or a "quoted"
+             name (with spaces). A .dsk goes into drive A, a .cas into
+             the cassette (Load Tape File's format), anything else into
+             Slot 1. It is loaded as the menu would and powered on.
+  AGA / RTG  the display for this run, over the RTG ToolType.
+  ONEGAME    leaving the game (Help) quits AmiMSX. A game that can't
+             be loaded shows the error, then quits.
+  MENU       load the game but stay in the menu.
+  PROFILE=   030 = the AGA 030 preset's settings, FAST = the AGA
+             preset's (RTG's on RTG), AUTO = FAST on a 68040/68060,
+             030 otherwise.
+  PREFS=     the settings file (also P=); it wins over PROFILE.
+  B= / R2=   drive B's disk image / a cartridge for Slot 2.
+
+Before the game starts, AmiMSX waits (up to about a second) until no
+key, mouse button or fire button is held.
+
+A game's project icon with AmiMSX (full path) as its default tool
+works the same way; its ToolTypes may hold AGA, ONEGAME, MENU and
+PROFILE=.
+
+Return codes: 0 normal, 5 ran with a fallback (RTG asked for but not
+available, the PROFILE's settings file not there, or a turbo R machine
+in the settings run as the MSX2+), 10 the game
+could not be loaded (with ONEGAME), 20 AmiMSX can't run on this Amiga
+(no 68020, no screen or window, a missing library).
+
+Updating from 4.9.1: copy the new files over the old ones, except the
+settings files AGA 030, AGA and RTG if you want to keep the settings
+saved in them. Do copy AGA 030.info: the AGA 030 icon now starts
+AmiMSX030. Shell scripts and launchers on a 68030 that start AmiMSX
+should start AmiMSX030.
 
 Updating from 4.8: the preset icons have new names (AmiMSX 030 is now
 AGA 030, AmiMSX PiStorm is AGA, AmiMSX RTG is RTG). Delete the three
@@ -88,6 +146,22 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 5.0
+----------
+- MSX turbo R machine (beta), a Panasonic FS-A1GT with the R800 CPU,
+  BASIC 4.1, MSX-DOS 2.31, PCM and the kanji ROM, for fast CPUs, with
+  the user's own firmware (see Installation and Known limits).
+- Two programs: AmiMSX (with the turbo R, AGA and RTG presets) and
+  AmiMSX030 (without it, AGA 030 preset).
+- A game on the command line or in a project icon, for scripts and
+  launchers such as Lupa, with return codes (see Installation).
+- KTRL CD32+ pad type in Input > JoyPort 2 Pad / JoyPort 1 Pad.
+- Input > Joystick as Cursor Keys, for games that only read the
+  keyboard (fire 1 is Space, fire 2 is M).
+- MSX2+ and turbo R: no more flashes in SCREEN 4/5 splits with R#26
+  scrolling (S.T.G.), and VDP POINT and SRCH keep their return address
+  (Superiority Fighters' VS mode).
 
 New in 4.9.1
 ------------
@@ -319,6 +393,8 @@ Known limits
 - CD32 pads: on Standard a pad is read as a plain two-button joystick
   (red = fire 1, blue = fire 2); set the port to CD32 pad for the
   other buttons, and set a switchable adapter to its CD32 mode too.
+  A KTRL CD32+ pad (and a pad or adapter that misses or mixes up
+  buttons on CD32 pad) wants the KTRL CD32+ setting.
   Left Amiga (port 2) or Right Amiga (port 1) also press MSX fire
   button 2.
 - Rarely, a game doesn't start on the first Power ON after the
@@ -347,13 +423,33 @@ Known limits
 - Changing Sound in the menu during a game and pressing Continue
   restarts or crashes the game: change it, then Power ON.
 
+The MSX turbo R machine is beta. Known issues:
+- Zone Terra: stays on a blue screen.
+- F-Nano 2: black screen.
+- The Rise (demo): wrong colours (greens show cyan), the player sprite
+  is missing, and the second PSG is not emulated.
+- Superiority Fighters: Register mode waits for a microphone (PCM
+  recording is not emulated).
+- No MIDI, and no speed difference between the R800's ROM and DRAM
+  modes.
+- Once, a key kept repeating at the MSX-DOS prompt (not reproduced).
+- ZeroNoHoukouR: the title (SCREEN 12) is not drawn right, and sprites
+  are missing in some frames.
+- ASO: MSX-DOS 2 does not boot with 512 KB of RAM, and 256 KB is too
+  little for the game.
+- BASIC: the CALL KANJI screen is blank. Earth (1996): black screen.
+- LostWord Episode 0: stays blank on the RTG screen of a PiStorm A1200
+  (it runs on the Amiga's own output, and on RTG in WinUAE).
+
 
 Credits
 -------
 AmiMSX: Juan Antonio Gomez Galvez, GUS Entertainment / RED Soft
         (1994-2000/2009/2021).
+Community update (4.x, 5.x): z00p.
 Graphics: Multivac.
 Thanks: Zener and Sandman.
+CD32 pad reading: Afrotechmods / FAmiga.
 Testing references: openMSX.
 YM2413 instrument data: emu2413 (c) Mitsutaka Okazaki, MIT licence
   (Docs/LICENSE.emu2413).

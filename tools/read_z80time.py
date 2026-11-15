@@ -4,10 +4,13 @@ tools/make_z80time.py; trace.bin is written when the trap fires).
 Each trace entry is (address after the opcode byte, the line's cycles left); an
 instruction's cost is the drop of the counter to the next instruction, +228
 when a line ended in between (HPeriod).
-Usage: python tools/read_z80time.py trace.bin z80time.json [--all]"""
+Usage: python tools/read_z80time.py trace.bin z80time.json [--all] [--hp 456 [--raw]]
+--hp: the line length in counter units (the turbo R build: 456, 7.16 MHz ticks);
+costs are given in Z80 cycles (ticks / 2), or as ticks with --raw (R800 mode)."""
 import json, struct, sys
 
-HP = 228
+HP = int(sys.argv[sys.argv.index("--hp") + 1]) if "--hp" in sys.argv else 228
+SC = 1 if "--raw" in sys.argv else HP // 228
 d = open(sys.argv[1], "rb").read()
 assert d[:4] == b"ATRC"
 off, count = struct.unpack(">II", d[4:12])
@@ -52,10 +55,10 @@ for (i, pc, lefts), nxt in zip(seq, seq[1:]):
         x = a - b
         if x < 0:
             x += HP
-        if x < 0 or x > 120:
+        if x < 0 or x > 120 * (HP // 228):
             bad = True
         c += x
-    cost.setdefault(i, []).append(None if bad else c)
+    cost.setdefault(i, []).append(None if bad else (c // SC if c % SC == 0 else c / SC))
 diffs, ok, missing = [], 0, 0
 for i, e in enumerate(E):
     if not e["test"]:
@@ -77,7 +80,7 @@ for i, e in enumerate(E):
 print(f"trace: {count} instructions; tests {sum(1 for e in E if e['test'])}: {ok} match, "
       f"{len(diffs) - missing} differ, {missing} not in the trace")
 print(f"{'instruction':32} {'Z80+M1':>7} {'AmiMSX':>7}")
-for t, e, g in sorted(diffs):
+for t, e, g in sorted(diffs, key=str):
     print(f"{t:32} {e!s:>7} {g!s:>7}")
 if "--costs" in sys.argv:                 # every measured cost, for a build-to-build diff
     with open(sys.argv[sys.argv.index("--costs") + 1], "w") as f:

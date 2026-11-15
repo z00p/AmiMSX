@@ -84,6 +84,9 @@ YASTC20:
 	MOVE.L	D0,MENSWB
 	MOVE.L	D0,A2
 	BSR	WBToolTypes		; PREFS=<file> from the icon.
+	IFND	NO_LUPA
+	JSR	LupaWB			; A project icon's game, its ToolTypes.
+	ENDC
 	MOVE.L	$24(A2),D0
 	BEQ.S	CLI
 	MOVE.L	_DOSBASE,A6
@@ -141,6 +144,16 @@ NoHayCartS2:
 	CLR.L	DirKanji
 	CLR.L	BucKanji
 NoHayKanji:
+	IFD	TURBOR
+	MOVE.L	TRKFont,D0		; (5.0) the turbo R's kanji font
+	BEQ.S	TRKNoFree
+	MOVE.L	D0,A1
+	MOVE.L	#$40000,D0
+	MOVE.L	$4.W,A6
+	JSR	-$D2(A6)		; Libera memoria.
+	CLR.L	TRKFont
+TRKNoFree:
+	ENDC
 ; <=-----------------------=>
 
 ; <=-----------------------=>
@@ -239,6 +252,9 @@ LibsError:
 	LiberaLib _xpkBase
 	LiberaLib _StcBase
 
+	IFND	NO_LUPA
+	JSR	LupaExitRC		; D0 = the return code (0/5/10/20)
+	ENDC
 	RTS
 
 ; <=-----------------------=>
@@ -301,6 +317,8 @@ DIRINFOTEXT:
 	DC.L	ABOUTTEXT8,324
 	DC.L	ABOUTTEXT9,324
 	DC.L	ABOUTTEXT10,324
+	DC.L	ABOUTTEXT11,324
+	DC.L	ABOUTTEXT12,324
 	DC.L	0,0
 
 ; <=-----------------------=>
@@ -569,6 +587,66 @@ PerfDNm:
 	MOVE.L	#4+4*STDSIZE,D3
 	BSR	WRITEFILE
 	ENDC
+	IFD	TURBOR
+; (turbo R debug) at the exit: "TRDB", the registers SALIR saved (DEBUG:
+; the Z80 or R800 state, A5 the host PC), the interrupted 68k PC, the
+; addresses to place A5 (TRRom, RAM00, NOMEM, ExpEmpty, REGS, DIRVRAM,
+; NORAM), PerfTick, ExpReg, R800Mode, F4h, the S1990 registers; then
+; REGS-$400..+$800, MEMORYMAPPER (64 rows), RAM segments 0-7 (RAM00-$100,
+; $4100 each), the VRAM and both CPU contexts (R8CtxZ, R8CtxR).
+	LEA	TRDbg,A0
+	MOVE.L	#"TRDB",(A0)+
+	LEA	DEBUG,A1
+	MOVEQ	#16-1,D0
+TRDb1:	MOVE.L	(A1)+,(A0)+
+	DBF	D0,TRDb1
+	MOVE.L	DIRCONTI+2,(A0)+
+	MOVE.L	#TRRom,(A0)+
+	MOVE.L	#RAM00,(A0)+
+	MOVE.L	#NOMEM,(A0)+
+	MOVE.L	#ExpEmpty,(A0)+
+	MOVE.L	#REGS,(A0)+
+	MOVE.L	#DIRVRAM,(A0)+
+	MOVE.L	#NORAM,(A0)+
+	MOVE.L	PerfTick,(A0)+
+	MOVE.W	ExpReg,(A0)+
+	MOVE.B	R800Mode,(A0)+
+	MOVE.B	T8F4,(A0)+
+	LEA	S1990Reg,A1
+	MOVEQ	#16/4-1,D0
+TRDb2:	MOVE.L	(A1)+,(A0)+
+	DBF	D0,TRDb2
+	MOVE.L	#TRDbg,D2
+	MOVE.L	#TRDbgLen,D3
+	BSR	WRITEFILE
+	MOVE.L	#REGS-$400,D2
+	MOVE.L	#$C00,D3
+	BSR	WRITEFILE
+	MOVE.L	#MEMORYMAPPER,D2
+	MOVE.L	#64*8,D3
+	BSR	WRITEFILE
+	MOVE.L	#RAM00-$100,D2
+	MOVE.L	#8*$4100,D3
+	BSR	WRITEFILE
+	MOVE.L	#DIRVRAM,D2
+	MOVE.L	#128*1024,D3
+	BSR	WRITEFILE
+	MOVE.L	#R8CtxZ,D2
+	MOVE.L	#2*R8CtxLen,D3
+	BSR	WRITEFILE
+	MOVE.L	#TRPcPtr,D2		; the PC log: next entry, then the
+	MOVEQ	#4,D3			; 4096 entries
+	BSR	WRITEFILE
+	MOVE.L	#TRPcRing,D2
+	MOVE.L	#4*4096,D3
+	BSR	WRITEFILE
+	MOVE.L	#TRDkPtr,D2		; the disk trap log: next entry, then
+	MOVEQ	#4,D3			; 1024 records of 16 bytes
+	BSR	WRITEFILE
+	MOVE.L	#TRDkBuf,D2
+	MOVE.L	#16*1024,D3
+	BSR	WRITEFILE
+	ENDC
 	IFD	BANDCHK
 	MOVE.L	#BcBad,D2		; (band check: bad count, pointer, ring)
 	MOVE.L	#4096+8,D3
@@ -596,7 +674,7 @@ PerfDNm:
 	MOVE.L	#262144,D3
 	BSR	WRITEFILE
 	MOVE.L	#PsxRecO,D2
-	MOVE.L	#4194304,D3
+	MOVE.L	#PSXRECSZ,D3
 	BSR	WRITEFILE
 	ENDC
 	IFD	LAGLOG			; (4.7 lag test) LAGL block, see LagRec.
@@ -610,6 +688,11 @@ PerfDRet:
 	RTS
 PerfDone:	DC.B	0
 		EVEN
+	IFD	TURBOR
+TRDbgLen=4+64+4+(7*4)+4+4+16
+TRDbg:		DS.B	TRDbgLen
+		EVEN
+	ENDC
 	IFD	PERFLOCAL		; (measurement builds: the current
 PerfName:	DC.B	"perf.bin",0		; directory, no AmiMSX: assign)
 	IFD	LAGLOG
@@ -715,6 +798,9 @@ EXAMINE:	DS.B	520
 
 	CNOP	0,4
 PROGRAMA:
+	IFND	NO_LUPA
+	JSR	LupaPrep		; AGA/RTG for this run, PROFILE's settings
+	ENDC
 	BSR	LoadPrefs
 
 	BSR	PonPrefs
@@ -726,13 +812,22 @@ PROGRAMA:
 
 	JSR	RtgInit			; (4.5) RTG ToolType: the modes; the menu
 					; screen then opens on RTG too.
+	IFND	NO_LUPA
+	JSR	LupaRtgCheck		; RTG asked for, not there: return code 5
+	ENDC
 	TST.B	RtgWant			; (4.6) Not on RTG: RTG Scanlines greyed
 	BNE.S	RtgScanMenuOn		; (NM_ITEMDISABLED, before the menus are
 	OR.W	#$0010,MSX2NewMenu45b+10	; made).
 RtgScanMenuOn:
 	JSR	SETUPSCREEN
 	TST.L	D0			; (4.0) No screen (low chip RAM): out.
+	IFND	NO_LUPA
+	BEQ.S	LupaScrOK
+	JMP	LupaNoRun		; (return code 20)
+LupaScrOK:
+	ELSE
 	BNE	QUITAR
+	ENDC
 
 	TST.L	_ASLBASE
 	BNE.S	SIHAYASL
@@ -745,7 +840,13 @@ SIHAYASL:
 
 	BSR	MC68020
 	TST.L	D0
+	IFND	NO_LUPA
+	BNE.S	LupaCpuOK
+	JMP	LupaNoRun		; (return code 20)
+LupaCpuOK:
+	ELSE
 	BEQ	QUITAR
+	ENDC
 
 	BSR	CheckAGA
 
@@ -807,6 +908,9 @@ NoShowMatra:
 	MOVE.L	MSX2Wnd,TAGS1+4
 	MOVE.L	MSX2Wnd,TAGS2+4
 	MOVE.L	MSX2Wnd,TAGS3+4
+	IFND	NO_LUPA
+	JSR	LupaRtgNote		; RTG asked for, not there: the title says so
+	ENDC
 
 	MOVEQ	#0,D0
 	MOVEQ	#0,D1
@@ -855,16 +959,30 @@ MsxPicN:
 	MOVE.L	D0,ReqBaseSlot
 NOHAYASL2:
 
+	IFND	NO_LUPA
+	SF	LupaErr			; (IMPERROR from here: the game's load)
+	ENDC
 	TST.B	AutoCart		; Test hook: Slot 1 cartridge, then GO.
 	BEQ.S	NoAutoCart2
 	BSR	InsertSl1
+	IFND	NO_LUPA
+	TST.B	CartLoadOK		; (not loaded: an error, as IMPERROR)
+	BNE.S	LupaCartOK
+	ST	LupaErr
+LupaCartOK:
+	ENDC
 	BSR	AutoSlot2		; (4.5) and S2=: Slot 2.
+	IFND	NO_LUPA
+	TST.B	LupaMenu		; MENU: inserted, but stay in the menu
+	BNE.S	NoAutoCart2		; (the PC tester's 'Open in AmiMSX menu').
+	ELSE
 	CMP.L	#"MENU",KEYNOM		; 'AmiMSX <cartridge> MENU': inserted, but
 	BNE.S	AutoCartGo		; stay in the menu (the PC tester's
 	TST.B	KEYNOM+4		; 'Open in AmiMSX menu'), no key script.
 	BNE.S	AutoCartGo
 	CLR.B	KEYNOM
 	BRA.S	NoAutoCart2
+	ENDC
 AutoCartGo:
 	ST	AutoGo
 NoAutoCart2:
@@ -887,15 +1005,28 @@ NoKeyScrL:				; (Option records: KeyOptApply, at GO.)
 	SF	AutoDisk
 	BSR	LOADVDAuto
 	JSR	LoadDiskB		; (4.0) B=<image>: drive B.
+	IFND	NO_LUPA
+	TST.B	LupaMenu		; MENU: the disk is in drive A, but stay
+	BNE.S	NoAutoDisk		; in the menu.
+	ELSE
 	CMP.L	#"MENU",KEYNOM		; (4.0) 'AmiMSX <disk> MENU': the disk is in
 	BNE.S	AutoDskGo		; drive A, but stay in the menu (the PC
 	TST.B	KEYNOM+4		; tester's 'Open in AmiMSX menu').
 	BNE.S	AutoDskGo
 	CLR.B	KEYNOM
 	BRA.S	NoAutoDisk
+	ENDC
 AutoDskGo:
 	ST	AutoGo
 NoAutoDisk:
+	IFND	NO_LUPA
+	JSR	LupaTapeLoad		; *.cas: the cassette, then GO
+	JSR	LupaAfterLoad		; not loaded: no GO; ONEGAME: rc 10, out
+	TST.B	LupaQuit
+	BEQ.S	LupaNoQuit
+	JMP	LupaQuitNow
+LupaNoQuit:
+	ENDC
 
 BUCLEMENU:
 
@@ -911,6 +1042,12 @@ BUCLEMENU:
 QUIT:
 	TST.B	MVDMODIFI
 	BNE	QUITMVD
+	IFND	NO_LUPA
+	TST.B	LupaQuit		; ONEGAME: no Quit requester.
+	BEQ.S	LupaQuitAsk
+	JMP	LupaQuitNow
+LupaQuitAsk:
+	ENDC
 
 	BSR	DISMOUSE
 	MOVEM.L	MCEROS,D0-D7/A0-A6
@@ -940,6 +1077,10 @@ SysNTSC:MOVE.W	D1,$DFF1DC		; 59.3 Hz and lost their bottom lines.
 ; (4.0) OpenMSX2Window failed: its menus and gadgets may exist without
 ; the window (CloseMSX2Window would ClearMenuStrip a NULL window).
 MSX2WFail:
+	IFND	NO_LUPA
+	MOVEQ	#20,D0			; (return code 20)
+	JSR	LupaSetRC
+	ENDC
 	TST.L	MSX2Wnd
 	BEQ.S	MSX2WF1
 	JSR	CLOSEMSX2WINDOW
@@ -2403,6 +2544,9 @@ LoadTape:
 	BSR	ArreglaNom
 
 
+	IFND	NO_LUPA
+LoadTapeF:				; (LupaTapeLoad: FILENOM already set.)
+	ENDC
 	MOVE.L	#FILENOM,D1
 	MOVE.L	#$3ED,D2
 	BSR	OPENFILE
@@ -2864,6 +3008,7 @@ GPToPrefs:
 	CMP.B	#$FF,14(A1)		; (4.4) the machine, unless FFh (a file
 	BEQ.S	GPToP1			; from before 4.4)
 	MOVE.B	14(A1),DirPrefs+$10
+	BSR	TRMClamp		; (5.0) turbo R needs the firmware
 GPToP1:	RTS
 
 ; Those settings from the GUI into DirPrefs (ACTUPREFS for just these: all
@@ -2883,7 +3028,11 @@ GPGUIToPrefs:
 	MOVE.L	#MN_Pad1CD32,D0		; JoyPort 1 pad.
 	BSR	COGECHECK
 	SNE	PrefCD32M
+	IFND	NO_CD32KIT
+	BRA	PadKLFromGUI		; (kit 2) and KTRL CD32+
+	ELSE
 	RTS
+	ENDC
 
 ; The GUI from DirPrefs for those settings (gadgets and menu checkmarks).
 GPShowGUI:
@@ -2978,9 +3127,54 @@ MaskNorm:
 	MOVE.B	#8,PrefMask
 MaskNormR:
 	RTS
+	IFND	NO_CD32KIT
+; (CD32 kit 2) The KTRL CD32+ sub-items into the prefs bytes (after the CD32
+; pad ones: CD32KTRL over FFh).
+PadKLFromGUI:
+	MOVE.L	#MN_Pad2KL,D0
+	BSR	COGECHECK
+	BEQ.S	PadKLG1
+	MOVE.B	#CD32KTRL,PrefCD32
+PadKLG1:MOVE.L	#MN_Pad1KL,D0
+	BSR	COGECHECK
+	BEQ.S	PadKLG2
+	MOVE.B	#CD32KTRL,PrefCD32M
+PadKLG2:RTS
+; D0.b = a pad byte -> the ticks of its three sub-items (FFh or 0): D0
+; Standard (0), D1 CD32 pad (any other), D2 KTRL CD32+ (CD32KTRL).
+PadTicks:
+	MOVE.B	D0,D1
+	CMP.B	#CD32KTRL,D1
+	SEQ	D2			; KTRL CD32+
+	TST.B	D1
+	SEQ	D0			; Standard
+	SNE	D1			; CD32 pad...
+	TST.B	D2
+	BEQ.S	PadTk1
+	SF	D1			; ...unless KTRL CD32+.
+PadTk1:	RTS
+	ENDC
 ; D2 = a pad's Standard sub-item: the CD32 pad sub-item after it ticked when
 ; D3 is not 0, Standard otherwise.
 GPShowPad:
+	IFND	NO_CD32KIT
+	MOVE.L	D2,D0			; (kit 2) KTRL CD32+, the third, when D3
+	ADD.W	#(MN_Pad2KL-MN_Pad2Std),D0	; is CD32KTRL: then the CD32 pad
+	BSR	COGECHECK		; sub-item is not ticked.
+	BCLR	#0,$C(A0)
+	CMP.B	#CD32KTRL,D3
+	BNE.S	GPShowKL1
+	BSET	#0,$C(A0)
+	MOVE.L	D2,D0
+	ADD.W	#MN_Pad2CD32-MN_Pad2Std,D0
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	MOVE.L	D2,D0
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	RTS
+GPShowKL1:
+	ENDC
 	MOVE.L	D2,D0
 	ADD.W	#MN_Pad2CD32-MN_Pad2Std,D0
 	BSR	COGECHECK
@@ -3058,11 +3252,23 @@ GPMach1:LEA	GPSaved,A1
 	BRA	GPShowGUI
 ; (4.4) D0 = the database's machine (1 MSX2, 2 MSX2+, 3 turbo R: MSX2+, the
 ; nearest AmiMSX has) into DirPrefs+$10.
-GDMach:	CMP.B	#3,D0
+GDMach:
+	IFD	TURBOR
+	CMP.B	#3,D0			; (5.0) An MSX2/MSX2+ game with the turbo
+	BCC.S	GDMachT			; R in force (3 only with the firmware,
+	CMP.B	#3,DirPrefs+$10		; TRMClamp): the turbo R stays. The disk
+	BEQ.S	GDMachX			; database's File Hunter games are "MSX2
+GDMachT:				; or later" (LostWord, Aliens Gaun).
+	ENDC
+	CMP.B	#3,D0
 	BCS.S	GDMach1
+	IFD	TURBOR
+	TST.B	TRFirmOK		; (5.0) the turbo R machine, with the
+	BNE.S	GDMach1			; firmware
+	ENDC
 	MOVEQ	#2,D0
 GDMach1:MOVE.B	D0,DirPrefs+$10
-	RTS
+GDMachX:RTS
 GPNoMach:
 	CMP.B	#5,DirPrefs+$76		; No game file, but a Konami SCC mapper
 	BCS.S	GPNoM1			; (5 = SCC 1, 6 = SCC 2): the global
@@ -5675,6 +5881,9 @@ InternalError:
 	BRA.S	InternalError
 ; -----------------------------------
 IMPERROR:
+	IFND	NO_LUPA
+	ST	LupaErr			; (the game's load: LupaAfterLoad)
+	ENDC
 	MOVE.L	A0,ERRDIRTXT
 	BSR	DISMOUSE
 	MOVEM.L	MCEROS(PC),D0-D7/A0-A6
@@ -5816,6 +6025,221 @@ LoadROMsBaseEr:
 	BSR	CloseFile
 	RTS
 
+	IFD	TURBOR
+; (turbo R) The FS-A1GT's firmware ROM, PROGDIR:Roms/fs-a1gt_firmware.rom
+; (the user's dump, as openMSX names it): the 16 KB banks the machine maps
+; (TRBanks: file offsets) into TRRom, a bank every $4100 bytes as in DirROM.
+; Read once. With it the Machine gadget offers "turbo R" (5.0: machine 3,
+; TRMach in Main: the GT's slots in TRSlots, on the MSX2+ ROMs for the
+; V9958); MSX, MSX2 and MSX2+ stay the normal machines.
+	CNOP	0,4
+TRLoad:
+	TST.B	TRFirmOK
+	BNE.S	TRLdOn
+	MOVEM.L	D2-D4/A2/A6,-(SP)
+	MOVE.L	#TRFirmName,D1
+	MOVE.L	#$3ED,D2
+	BSR	OpenFile
+	BEQ.S	TRLdX
+	LEA	TRBanks(PC),A2
+	MOVE.L	#TRRom,D4
+TRLdB:	MOVE.L	(A2)+,D2
+	BMI.S	TRLdOk
+	MOVE.L	DisBase(PC),D1
+	MOVEQ	#-1,D3			; OFFSET_BEGINNING
+	MOVE.L	_DosBase(PC),A6
+	JSR	-$42(A6)		; Seek
+	MOVE.L	D4,D2
+	MOVE.L	#$4000,D3
+	BSR	ReadFile
+	BNE.S	TRLdX
+	ADD.L	#$4100,D4
+	BRA.S	TRLdB
+TRLdOk:	ST	TRFirmOK
+	MOVE.L	#ROMLab3,ROMLabTR	; (5.0) "turbo R" in the Machine gadget
+	BSR	TRDskPatch
+	BSR	TRRtcInit
+TRLdX:	BSR	CloseFile
+	TST.B	TRFirmOK		; (5.0) the firmware is in: its kanji
+	BEQ.S	TRLdNoK			; font next to it (optional)
+	BSR	TRKLoad
+TRLdNoK:
+	MOVEM.L	(SP)+,D2-D4/A2/A6
+TRLdOn:	BRA	TRMClamp
+; (5.0) No firmware: machine 3 (turbo R, in the prefs or a game's
+; settings) is the MSX2+, as the gadget has no fourth entry then.
+TRMClamp:
+	TST.B	TRFirmOK
+	BNE.S	TRMClX
+	CMP.B	#3,DIRPrefs+$10
+	BCS.S	TRMClX
+	MOVE.B	#2,DIRPrefs+$10
+	IFND	NO_LUPA
+	MOVE.L	D0,-(SP)		; (a turbo R asked for, no firmware:
+	MOVEQ	#5,D0			; return code 5)
+	JSR	LupaSetRC
+	MOVE.L	(SP)+,D0
+	ENDC
+TRMClX:	RTS
+; The GT's clock-chip RAM (RtcTabP, INB5/OUTB5): the prefs' block (TABLAB4,
+; shared with the MSX2 machines and saved with the prefs) copied once, with
+; the GT's factory COLOR 15,4,7 in block 2 (registers 6-8: foreground,
+; background, border; openMSX's FS-A1GT). The MSX2 block's 15,4,4 gave the
+; GT a colour-4 border: S.T.G. takes R#7 from BDRCLR, so its border was
+; blue on the title and green in play (openMSX: colour 7).
+TRRtcInit:
+	LEA	TABLAB4,A0
+	LEA	TRRtc,A1
+	MOVEQ	#64/4-1,D0
+TRRtcB:	MOVE.L	(A0)+,(A1)+
+	DBF	D0,TRRtcB
+	MOVE.B	#$FF,TRRtc+$26
+	MOVE.B	#$F4,TRRtc+$27
+	MOVE.B	#$F7,TRRtc+$28
+	MOVE.L	#TRRtc,RtcTabP
+	RTS
+; (5.0) The FS-A1GT's kanji font, PROGDIR:Roms/fs-a1gt_kanjifont.rom (the
+; user's 256 KB dump, openMSX's name), next to the firmware: read once,
+; after it, into memory of its own (TRKFont in Main, freed at the end).
+; Optional: without it (or a shorter file, or no memory) the turbo R
+; machine's kanji ports D8h-DBh read FFh.
+TRKLoad:
+	MOVEM.L	D2-D3/A6,-(SP)
+	MOVE.L	#TRKName,D1
+	MOVE.L	#$3ED,D2
+	BSR	OpenFile
+	BEQ.S	TRKlX
+	MOVE.L	#$40000,D0
+	MOVEQ	#1,D1			; MEMF_PUBLIC
+	MOVE.L	4.W,A6
+	JSR	-$C6(A6)		; AllocMem
+	TST.L	D0
+	BEQ.S	TRKlX
+	MOVE.L	D0,-(SP)
+	MOVE.L	D0,D2
+	MOVE.L	#$40000,D3
+	BSR	ReadFile
+	MOVE.L	(SP)+,A1
+	BNE.S	TRKlBad
+	MOVE.L	A1,TRKFont
+	JSR	TRKReset
+	BRA.S	TRKlX
+TRKlBad:
+	MOVE.L	#$40000,D0
+	MOVE.L	4.W,A6
+	JSR	-$D2(A6)		; FreeMem
+TRKlX:	BSR	CloseFile
+	MOVEM.L	(SP)+,D2-D3/A6
+	RTS
+TRKName:	DC.B	"PROGDIR:Roms/fs-a1gt_kanjifont.rom",0
+	EVEN
+; 8 KB blocks 40-43 BIOS and BASIC, 62-63 MSX-MUSIC, 36-37 opening ROM,
+; 56-57 Sub ROM, 58-61 kanji driver (openMSX's Panasonic_FS-A1GT.xml).
+; 48-55 the disk ROM (DOS 2.31 kernel and the TC8566AF driver; banks 7-10).
+TRBanks:	DC.L	$50000,$54000,$7C000,$48000,$70000,$74000,$78000
+		DC.L	$60000,$64000,$68000,$6C000,-1
+TRFirmName:	DC.B	"PROGDIR:Roms/fs-a1gt_firmware.rom",0
+	EVEN
+
+; The disk ROM (3-2, four 16 KB banks switched by a write to 7FF0h) on
+; AmiMSX's disk traps, as its own DOS2 ROM (SetDOS2): the jump table at
+; 4010h (banks 0-2) to ED11-ED15 (DSKIO, DSKCHG, GETDPB, CHOICE, DSKFMT)
+; and MTOFF to RET; the kernel's calls into the TC8566AF driver (bank 0:
+; INIHRD at 47D6h and INIENV at 4904h, none; DRIVES at 48C6h, ED10); the
+; bank routine at 7FD0h (LD (7FF0h),A; RET, every bank) to ED17 (TRDskBk).
+; Addresses from the MiSTer core's turbor_diskrom analysis. Each patch
+; checks the original bytes first; on a mismatch the four banks read FFh
+; (3-2 empty). Bank 3 (the DOS1 kernel and its own driver) keeps its jump
+; table: DOS1 mode is not covered.
+TRDskPatch:
+	MOVEM.L	D0-D3/A0-A2,-(SP)
+	MOVEQ	#0,D2			; pass 0: check, pass 1: write
+TRDpPass:
+	LEA	TRDPat(PC),A0
+TRDpE:	MOVE.W	(A0)+,D0		; bank
+	BMI.S	TRDpEnd
+	ADDQ.W	#7,D0
+	MULU	#$4100,D0
+	ADD.L	#TRRom,D0
+	MOVE.L	D0,A1
+	MOVEQ	#0,D0
+	MOVE.W	(A0)+,D0
+	ADD.L	D0,A1			; + address - 4000h
+	MOVEQ	#0,D1
+	MOVE.W	(A0)+,D1		; length
+	LEA	(A0,D1.L),A2		; the new bytes
+	MOVE.L	A2,D3			; the next entry
+	ADD.L	D1,D3
+	ADDQ.L	#1,D3
+	AND.B	#$FE,D3
+	SUBQ.W	#1,D1
+TRDpB:	TST.W	D2
+	BNE.S	TRDpW
+	CMPM.B	(A0)+,(A1)+
+	BNE.S	TRDpBad
+	BRA.S	TRDpN
+TRDpW:	MOVE.B	(A2)+,(A1)+
+TRDpN:	DBF	D1,TRDpB
+	MOVE.L	D3,A0
+	BRA.S	TRDpE
+TRDpEnd:
+	TST.W	D2
+	BNE.S	TRDpX
+	MOVEQ	#1,D2
+	BRA.S	TRDpPass
+TRDpBad:
+	LEA	TRRom+7*$4100,A1	; not the expected ROM: 3-2 empty
+	MOVE.L	#4*$4100,D1
+TRDpF:	ST	(A1)+
+	SUBQ.L	#1,D1
+	BNE.S	TRDpF
+TRDpX:	MOVEM.L	(SP)+,D0-D3/A0-A2
+	RTS
+; bank, address - 4000h, length, the original bytes, the new ones (even).
+TRDPat:
+	DC.W	0,$0010,18
+	DC.B	$C3,$59,$74,$C3,$9D,$77,$C3,$F9,$77,$C3,$1A,$78,$C3,$52,$7C,$C3,$13,$77
+	DC.B	$ED,$11,$C9,$ED,$12,$C9,$ED,$13,$C9,$ED,$14,$C9,$ED,$15,$C9,$C9,$00,$00
+	DC.W	1,$0010,18
+	DC.B	$C3,$59,$74,$C3,$9D,$77,$C3,$F9,$77,$C3,$1A,$78,$C3,$52,$7C,$C3,$13,$77
+	DC.B	$ED,$11,$C9,$ED,$12,$C9,$ED,$13,$C9,$ED,$14,$C9,$ED,$15,$C9,$C9,$00,$00
+	DC.W	2,$0010,18
+	DC.B	$C3,$59,$74,$C3,$9D,$77,$C3,$F9,$77,$C3,$1A,$78,$C3,$52,$7C,$C3,$13,$77
+	DC.B	$ED,$11,$C9,$ED,$12,$C9,$ED,$13,$C9,$ED,$14,$C9,$ED,$15,$C9,$C9,$00,$00
+	DC.W	0,$07D6,3
+	DC.B	$CD,$F1,$76,$00,$00,$00
+	DC.W	0,$08C6,3
+	DC.B	$CD,$47,$77,$ED,$10,$00
+	DC.W	0,$0904,3
+	DC.B	$CD,$71,$77,$00,$00,$00
+	DC.W	0,$3FD0,3
+	DC.B	$32,$F0,$7F,$ED,$17,$00
+	DC.W	1,$3FD0,3
+	DC.B	$32,$F0,$7F,$ED,$17,$00
+	DC.W	2,$3FD0,3
+	DC.B	$32,$F0,$7F,$ED,$17,$00
+	DC.W	3,$3FD0,3
+	DC.B	$32,$F0,$7F,$ED,$17,$00
+	DC.W	-1
+	ENDC
+
+	IFND	TURBOR
+; (5.0) The normal build (AmiMSX030) has no turbo R: machine 3 in a settings
+; file the turbo R build saved (S:AmiMSX2.prefs is shared) or in a game's
+; settings is the MSX2+ here. Machine 3 crashed it (#80000004).
+TRMClamp:
+	CMP.B	#3,DIRPrefs+$10
+	BCS.S	TRMClN
+	MOVE.B	#2,DIRPrefs+$10
+	IFND	NO_LUPA
+	MOVE.L	D0,-(SP)		; (a fallback: return code 5)
+	MOVEQ	#5,D0
+	JSR	LupaSetRC
+	MOVE.L	(SP)+,D0
+	ENDC
+TRMClN:	RTS
+	ENDC
+
 	CNOP	0,8
 AmiMSX2Data:	DC.B	"PROGDIR:AmiMSX2.data",0,0
 	CNOP	0,8
@@ -5830,6 +6254,9 @@ DirBaseROM:	DS.L	16
 ; -----------------------------------
 	CNOP	0,8
 LoadROMs:
+	IFD	TURBOR
+	BSR	TRLoad				; (turbo R) the FS-A1GT firmware.
+	ENDC
 
 	JSR	MMusLoad			; (4.6) MSXMUSIC.ROM, if there is one.
 	BSR	LoadROMsBase
@@ -5850,6 +6277,12 @@ LoadROMsRut:
 	MOVE.B	$10(A5),D0				; Tipo ROM.
 	CMP.B	ActuROM,D0
 	BEQ.s	YaEstaROM
+	IFD	TURBOR
+	CMP.B	#3,D0			; (5.0) turbo R: the MSX2+ ROMs (the
+	BNE.S	LdRomTR			; GT's own come from the firmware)
+	MOVEQ	#2,D0
+LdRomTR:
+	ENDC
 
 	LEA	(DirBaseROM+$18.W,PC,D0.W*4),A0
 	MOVE.L	(A0),D2
@@ -6142,6 +6575,9 @@ WBTTNoSc:
 	MOVE.L	D0,A0
 	TST.B	(A0)
 	BEQ.S	WBTTFree
+	IFND	NO_LUPA
+	ST	LupaPrefsSet		; (over PROFILE)
+	ENDC
 	MOVE.L	_DOSBASE,A6
 	MOVE.L	(A2),D1			; The icon's drawer...
 	BEQ.S	WBTTName
@@ -6219,6 +6655,9 @@ PREFSOK:
 COPIPREFS:
 	MOVE.B	(A0)+,(A1)+
 	DBF	D0,COPIPREFS
+	IFND	TURBOR
+	BRA	TRMClamp		; (5.0) a turbo R file: MSX2+ here
+	ENDC
 	RTS
 
 PREFv23:
@@ -6508,6 +6947,20 @@ PONPREFS:
 	MOVE.B	$6A(A5),D0
 	BFINS	D0,MSX2NewMenu18+10{7:1}	; Swap JoyPorts.
 
+	IFND	NO_CD32KIT
+	MOVEM.L	D1-D2,-(SP)
+	MOVE.B	PrefCD32,D0			; (kit 2) JoyPort 2 pad: Standard
+	BSR	PadTicks			; (0), CD32 pad or KTRL CD32+
+	BFINS	D0,MSX2NewMenu18b+10{7:1}	; (CD32KTRL): one of the three.
+	BFINS	D1,MSX2NewMenu18c+10{7:1}
+	BFINS	D2,MSX2NewMenu18g+10{7:1}
+	MOVE.B	PrefCD32M,D0			; JoyPort 1 pad.
+	BSR	PadTicks
+	BFINS	D0,MSX2NewMenu18e+10{7:1}
+	BFINS	D1,MSX2NewMenu18f+10{7:1}
+	BFINS	D2,MSX2NewMenu18h+10{7:1}
+	MOVEM.L	(SP)+,D1-D2
+	ELSE
 	MOVE.B	PrefCD32,D0			; (4.1.1) JoyPort 2 pad: CD32 pad
 	BFINS	D0,MSX2NewMenu18c+10{7:1}	; or Standard (one of the two).
 	NOT.B	D0
@@ -6516,6 +6969,7 @@ PONPREFS:
 	BFINS	D0,MSX2NewMenu18f+10{7:1}
 	NOT.B	D0
 	BFINS	D0,MSX2NewMenu18e+10{7:1}
+	ENDC
 ; -=-
 	MOVE.B	$12(A5),D0
 	BFINS	D0,MSX2NewMenu20+10{7:1}	; M-Key.
@@ -6528,6 +6982,9 @@ PONPREFS:
 
 	MOVE.B	$63(A5),D0
 	BFINS	D0,MSX2NewMenu23+10{7:1}	; R.Shift as Space
+
+	MOVE.B	PrefJoyK,D0
+	BFINS	D0,MSX2NewMenu23j+10{7:1}	; (5.0) Joystick as Cursor Keys
 ; -=-
 	MOVE.B	$7A(A5),D0
 	BFINS	D0,MSX2NewMenu25+10{7:1}	; Use Japanese ID
@@ -6741,6 +7198,9 @@ ACTUPREFS:
 	MOVE.L	#MN_Pad1CD32,D0		; JoyPort 1 pad.
 	BSR	COGECHECK
 	SNE	PrefCD32M
+	IFND	NO_CD32KIT
+	BSR	PadKLFromGUI		; (kit 2) and KTRL CD32+
+	ENDC
 ; -=- (4.1.1: the items from here on are two further down the menu)
 	MOVE.L	#MN_MultiKey,D0
 	BSR	COGECHECK
@@ -6757,6 +7217,10 @@ ACTUPREFS:
 	MOVE.L	#MN_RShift,D0
 	BSR	COGECHECK
 	SNE	$63(A5)			; R.Shift as Space
+
+	MOVE.L	#MN_JoyKeys,D0		; (5.0) Joystick as Cursor Keys
+	BSR	COGECHECK
+	SNE	PrefJoyK
 ; -=-
 	MOVE.L	#MN_JapID,D0
 	BSR	COGECHECK
@@ -6945,6 +7409,9 @@ PrefMaskNoAuto:	DC.B	0		; 4.0-4.1's Auto mask setting: unused
 					; since 4.2 (kept for the file layout).
 PrefCD32:	DC.B	0		; (4.1.1) CD32 pad in the joystick port
 					; (Amiga port 2): FFh. 0 = Standard.
+	IFND	NO_CD32KIT
+CD32KTRL=1				; (kit 2) PrefCD32/PrefCD32M: KTRL CD32+
+	ENDC				; (the low clock; older versions: CD32 pad)
 PrefCD32M:	DC.B	0		; (4.1.1) CD32 pad in the mouse port
 					; (Amiga port 1): FFh. 0 = Standard.
 PrefScan:	DC.B	0		; RTG scanlines (Emulation > RTG Scanlines): 0 =
@@ -6954,6 +7421,10 @@ PrefScan:	DC.B	0		; RTG scanlines (Emulation > RTG Scanlines): 0 =
 PrefMix:	DC.B	0		; (4.7) Sound mix with PSG+FM: 0 = not set
 					; (Mono on a fast CPU, else Classic), 1 =
 					; Classic, 2 = Mono, 3 = Stereo.
+PrefJoyK:	DC.B	0		; (5.0) Joystick as Cursor Keys: FFh = the
+					; joystick port presses the MSX cursor
+					; keys, fire 1 Space, fire 2 M (an older
+					; file is shorter: 0, off).
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 
@@ -7142,6 +7613,9 @@ SIREINTM:
 	IFD	TRACE
 	JSR	TraceDump		; Every return to the menu (Power ON,
 	ENDC				; Continue, Reset and the test hook).
+	IFD	EXCALL
+	JSR	ExcReport		; (5.0, debug) a caught crash or hang:
+	ENDC				; crash.txt and the window title
 	IFD	PERF
 	JSR	PerfDump		; (4.0) also after a Power ON run
 	ENDC
@@ -7546,6 +8020,9 @@ CONTROL:
 	CMP.L	#MSX2PUNTS,4(SP)
 	BNE	BUCONTROL
 	SF	AutoGo
+	IFND	NO_LUPA
+	JSR	LupaSettle		; (a game named at start: keys let go first)
+	ENDC
 	TST.L	KeyScrPtr		; Scripted test run: start at the top of
 	BEQ.S	AutoGoNow		; an Amiga frame, so the run is the same
 AutoGoW1:				; every time (file loading ends at host-
@@ -7565,7 +8042,11 @@ AutoGoNow:
 	JSR	PerfDump		; Frame timing windows.
 	ENDC
 	TST.B	ROM2NOM			; (4.5) Test hook 'R2=': a second run, the
+	IFND	NO_LUPA
+	BEQ.S	LupaGoEnd		; next cartridge with the same key script.
+	ELSE
 	BEQ.S	BUCONTROL		; next cartridge with the same key script.
+	ENDC
 	LEA	ROM2NOM,A0
 	LEA	FILENOM,A1
 Rom2Cp:	MOVE.B	(A0)+,(A1)+
@@ -7578,6 +8059,13 @@ Rom2Cp:	MOVE.B	(A0)+,(A1)+
 	CLR.L	KeyFrN
 	MOVE.L	#KeyScr,KeyScrPtr
 	BRA	AutoGoNow
+	IFND	NO_LUPA
+LupaGoEnd:				; The game is left (Help): with ONEGAME
+	TST.B	LupaOne			; the program quits (QUIT, after the
+	BEQ.S	BUCONTROL		; saves MSX_GO made).
+	ST	LupaQuit
+	BRA	CONTROLNOGADS
+	ENDC
 BUCONTROL:
 	MOVE.L	(SP),A0
 	MOVE.L	$56(A0),A0
@@ -7781,6 +8269,7 @@ MM_Input:
 	MJ	MM_Input,MN_DelPause,CONTROLRET
 	MJ	MM_Input,MN_LShift,CONTROLRET
 	MJ	MM_Input,MN_RShift,CONTROLRET
+	MJ	MM_Input,MN_JoyKeys,CONTROLRET	; (5.0)
 	MJEND	MM_Input,NI_Input
 
 MM_Disks:
@@ -7852,11 +8341,17 @@ MS_ScrMode:
 MS_Pad2:
 	MJS	MS_Pad2,MN_Pad2Std,CONTROLRET
 	MJS	MS_Pad2,MN_Pad2CD32,CONTROLRET
+	IFND	NO_CD32KIT
+	MJS	MS_Pad2,MN_Pad2KL,CONTROLRET
+	ENDC
 	MJEND	MS_Pad2,NS_Pad2
 
 MS_Pad1:
 	MJS	MS_Pad1,MN_Pad1Std,CONTROLRET
 	MJS	MS_Pad1,MN_Pad1CD32,CONTROLRET
+	IFND	NO_CD32KIT
+	MJS	MS_Pad1,MN_Pad1KL,CONTROLRET
+	ENDC
 	MJEND	MS_Pad1,NS_Pad1
 
 MS_DriveA:
@@ -9151,6 +9646,10 @@ ShDkBR:	RTS
 
 	CNOP	0,4
 	INCLUDE	"AmiMSX_Saves_v4.asm"	; (4.0) flash and drive B saves.
+	IFND	NO_LUPA
+	CNOP	0,4
+	INCLUDE	"AmiMSX_Lupa_v4.asm"	; A game named at start (Lupa, the Shell).
+	ENDC
 	CNOP	0,4
 	INCLUDE	"AmiMSX_RomDb_v4.asm"	; (4.0) ROM database (mapper by SHA-1).
 

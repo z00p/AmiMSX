@@ -1,0 +1,13 @@
+# Neon Revenant (turbo R only): turbo R machine; the title from ~12 s,
+# Space launches at 20 s, then fly (move, fire, NOVA on X) through the first zone.
+option machine 3
+20s SPACE 5
+24s SPACE 5 every 25 until 80s
+28s RIGHT 100
+32s UP 40
+36s LEFT 100
+41s DOWN 40
+46s RIGHT 60
+52s X 5
+60s LEFT 80
+68s UP 30

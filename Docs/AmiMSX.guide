@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 4.9.1 (15.11.2026)
+@version $VER: AmiMSX.guide 5.0 (15.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                          AmiMSX Emulator v4.9.1
+                           AmiMSX Emulator v5.0
                           ( 15.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -12,7 +12,8 @@
             1994-2000/2009/2021 By: Juan Antonio Gómez Gálvez
                       GUS Entertainment / RED Soft
 
-                             @{"New in 4.x      " link Nuevo40}
+                             @{"New in 4.x, 5.x " link Nuevo40}
+                             @{"MSX turbo R     " link TurboR}
                              @{"Note from author" link Autor}
 
                              @{"Introduction    " link Introduccio}
@@ -29,7 +30,7 @@
                              @{"Greetings       " link Agraiments}
 
 
-        AmiMSX 4.x is a community update, made with the author's
+     AmiMSX 4.x and 5.x are a community update, made with the author's
                               permission.
 
             Please report problems as issues on GitHub:
@@ -40,15 +41,20 @@
 
 @node Nuevo40 "AmiMSX Emulator."
 
-@{fg highlight}    New in 4.x:
-@{fg text}    -----------
+@{fg highlight}    New in 4.x and 5.x:
+@{fg text}    -------------------
 
-    AmiMSX 4.x is a community update of AmiMSX, made with the permission
-of Juan Antonio Gómez Gálvez.  It is built from his v3.1 source, with
-parts of his later v3.2/v3.5 source.  Accuracy comes first.
+    AmiMSX 4.x and 5.x are a community update of AmiMSX, made with the
+permission of Juan Antonio Gómez Gálvez.  It is built from his v3.1
+source, with parts of his later v3.2/v3.5 source.  Accuracy comes first.
 
-    Please report any game that misbehaves as an issue on GitHub, with the game, the AmiMSX settings and your machine:
+    Please report any game that misbehaves as an issue on GitHub, with the
+game, the AmiMSX settings and your machine:
 https://github.com/z00p/AmiMSX/issues
+
+    - MSX turbo R (5.0, beta):  a Panasonic FS-A1GT with the R800, for
+      fast CPUs, with your own firmware.
+      (See @{"MSX turbo R" link TurboR}.)
 
     - Z80:  POP/RET through ROM, RLD/RRD on ROM, NEG/CPL flags, M1 wait
       states, LD A,R from emulated time.
@@ -77,18 +83,21 @@ https://github.com/z00p/AmiMSX/issues
     - Disks:  drive B with its own disk image, disk swap with Left Amiga.
       (See @{"Disks Menu" link MenuMVD}.)
 
-    - Two @{"presets" link Presets}: one for a 68030, one for PiStorm and
-      other fast CPUs.
+    - Three @{"presets" link Presets}: one for a 68030 (the AmiMSX030
+      program), one for PiStorm and other fast CPUs, and one for RTG
+      (both the AmiMSX program, with the turbo R).
 
     The full list is in Docs/CHANGES_4.x.txt.
 
 
-@{fg highlight}    Credits for 4.x:
-@{fg text}    ----------------
+@{fg highlight}    Credits for 4.x and 5.x:
+@{fg text}    ------------------------
 
     AmiMSX:    Juan Antonio Gómez Gálvez, GUS Entertainment / RED Soft
+    Community update:  z00p
     Graphics:  Multivac
     Thanks:    Zener and Sandman
+    CD32 pad reading:  Afrotechmods / FAmiga
 
 @endnode
 
@@ -100,6 +109,12 @@ https://github.com/z00p/AmiMSX/issues
 
     Start AmiMSX from one of the three preset icons.  Each one has its own
 settings file, and Save Settings writes to the preset you started.
+
+    There are two programs.  AmiMSX has the MSX turbo R machine and is
+for fast CPUs:  the AGA and RTG presets start it.  AmiMSX030 is the same
+emulator without the turbo R, for a 68030:  the AGA 030 preset starts it.
+From a Shell or a game launcher on a 68030, start AmiMSX030.  (See
+@{"MSX turbo R" link TurboR}.)
 Until 4.8 the presets were called AmiMSX 030, AmiMSX PiStorm and
 AmiMSX RTG.
 
@@ -149,6 +164,129 @@ settings file has no scanline choice saved (see Emulation > RTG Scanlines).
 
     Chooses the settings file.  A relative name is taken from the icon's
 drawer.  Without it, AmiMSX uses S:AmiMSX2.prefs.
+
+@{fg highlight}    <*> Starting a game (Shell, script or a launcher such as Lupa):
+@{fg text}    ---------------------------------------------------------------
+
+    AmiMSX [game] [AGA|RTG] [ONEGAME] [MENU] [PROFILE=030|FAST|AUTO]
+           [PREFS=<file>] [B=<disk>] [R2=<cartridge>]
+
+    game       the first word that isn't one of these, or a "quoted"
+               name (with spaces).  A .dsk goes into drive A, a .cas
+               into the cassette (Load Tape File's format), anything
+               else into cartridge Slot 1.  It is loaded as the menu
+               would load it and powered on at once.
+    AGA / RTG  the display for this run, over the RTG ToolType.
+    ONEGAME    leaving the game (Help) quits AmiMSX, so you go straight
+               back to the launcher.  A game that can't be loaded shows
+               the error, then quits.
+    MENU       load the game but stay in the menu.
+    PROFILE=   030 uses the AGA 030 preset's settings file, FAST the AGA
+               preset's (the RTG preset's on RTG), AUTO is FAST on a
+               68040 or 68060 and 030 otherwise.  The files are taken
+               from AmiMSX's drawer.
+               PROFILE=030 in AmiMSX (the turbo R program) uses the
+               AGA 030 settings in AmiMSX itself; for a 68030 start
+               AmiMSX030 instead.
+    PREFS=     the settings file (P= also works); it wins over PROFILE.
+               Without PREFS or PROFILE, S:AmiMSX2.prefs as before.
+    B=         drive B's disk image.  R2= a cartridge for Slot 2.
+
+    RTGMODE= is accepted and not used.  Words are in any case, and
+KEY=value or KEY value both work.
+
+    For example:
+      AmiMSX "Work:MSX/Space Manbow.rom" RTG ONEGAME PROFILE=FAST
+
+    A game's project icon whose default tool is AmiMSX (with its full
+path) works the same way.  Its ToolTypes may hold AGA, ONEGAME, MENU and
+PROFILE= as well as RTG, SCANLINES and PREFS.
+
+    Before the game starts, AmiMSX waits (up to about a second) until no
+key, mouse button or fire button is held, so the Return or click that
+started it in the launcher doesn't stay pressed in the game.  If RTG was
+asked for but isn't available, the menu window's title says "RTG not
+available: AGA".
+
+    Return codes (for scripts and launchers):  0 normal, 5 ran with a
+fallback (RTG asked for but not available, the PROFILE's settings
+file not there, or the turbo R machine in the settings without its
+firmware, so the MSX2+ ran), 10 the game could not be loaded (with
+ONEGAME), 20 AmiMSX can't run on this Amiga (no 68020, no screen or
+window, a missing library).
+
+@endnode
+
+
+@node TurboR "AmiMSX Emulator."
+
+@{fg highlight}    MSX turbo R (beta):
+@{fg text}    -------------------
+
+    AmiMSX 5.x can be an MSX turbo R:  a Panasonic FS-A1GT, with the
+R800 CPU and its own instruction timing (and the MULUB/MULUW multiply
+instructions), BASIC 4.1 and MSX-DOS 2.31 from the machine's firmware,
+the S1990, the E6h timer, PCM sound (ports A4h/A5h), the GT's clock chip
+and its kanji ROM.  It is beta:  see the known issues below.
+
+    Only the AmiMSX program has it (the AGA and RTG presets);  AmiMSX030
+(the AGA 030 preset) does not.  The turbo R needs a fast CPU:  on a
+PiStorm A1200, S.T.G., Superiority Fighters and Turbo Blaster run at full
+speed.
+
+@{fg highlight}    <*> The firmware:
+@{fg text}    -----------------
+
+    The firmware is not included.  Put the FS-A1GT's firmware in the
+AmiMSX drawer as Roms/fs-a1gt_firmware.rom (4 MB) and, optionally, its
+kanji font as Roms/fs-a1gt_kanjifont.rom (256 KB).  These are the names
+openMSX uses.  The files tested have SHA-1
+e779c338eb91a7dea3ff75f3fde76b8af22c4a3a (firmware) and
+5aff2d9b6efc723bc395b0f96f0adfa83cc54a49 (kanji font).
+
+    Without the firmware the Machine gadget does not offer MSXtR, and a
+turbo R machine saved in the settings (or in a game's own settings) runs
+as the MSX2+.  Without the kanji font, kanji characters are blank.
+
+@{fg highlight}    <*> Using it:
+@{fg text}    -------------
+
+    - Machine:  MSXtR in the @{"main window" link FinestraPrin}.  Save
+      Settings keeps it, and so does a game's own settings file.  A disk
+      that the disk database calls an MSX2 game still runs on the turbo R
+      when the turbo R is chosen.
+
+    - Sound:  PCM plays only with Sound set to PSG+FM (as in the AGA and
+      RTG presets).
+
+    - Most turbo R games are disks that boot MSX-DOS 2.  Some only read
+      the keyboard (S.T.G.):  Input > Joystick as Cursor Keys moves with
+      the joystick.  (See @{"Input Menu" link MenuInp}.)
+
+    - With the firmware there, MSX, MSX2 and MSX2+ are the same machines
+      as before.
+
+@{fg highlight}    <*> Known issues:
+@{fg text}    -----------------
+
+    - Zone Terra:  stays on a blue screen.
+    - F-Nano 2:  black screen.
+    - The Rise (demo):  greens show cyan, the player sprite is missing,
+      and the second PSG is not emulated.
+    - Superiority Fighters:  Register mode waits for a microphone (PCM
+      recording is not emulated).
+    - No MIDI, and no speed difference between the R800's ROM and DRAM
+      modes.
+    - Once, a key kept repeating at the MSX-DOS prompt (not reproduced).
+    - ZeroNoHoukouR:  the title (SCREEN 12) is not drawn right, and
+      sprites are missing in some frames.
+    - ASO:  MSX-DOS 2 does not boot with 512 KB of RAM, and 256 KB is
+      too little for the game.
+    - BASIC:  the CALL KANJI screen is blank.  Earth (1996):  black
+      screen.
+
+    Please report others as issues on GitHub:
+https://github.com/z00p/AmiMSX/issues
 
 @endnode
 
@@ -238,6 +376,9 @@ THIS SOFTWARE...
 
     - For the RTG preset:  Picasso96 and a 16 or 32-bit screen mode of at
       least 544x460  (960x540 on a 1080p display), and a fast CPU
+
+    - For the MSX turbo R (beta):  a fast CPU and the FS-A1GT firmware,
+      which is not included  (see @{"MSX turbo R" link TurboR})
 
     A stock 68020 A1200 runs AmiMSX, but slowly.  (See @{"Presets" link Presets}.)
 
@@ -357,6 +498,12 @@ MSX, MSX2 and MSX2+.
 
     Emulates MSX Kanji ROM.
 
+    The turbo R machine has its own kanji ROM, JIS level 1 and level 2,
+whatever this option says:  the font file Roms/fs-a1gt_kanjifont.rom
+(the FS-A1GT's 256 KB font, as openMSX names it), next to the firmware.
+It is optional:  without it kanji characters come out blank.  (See
+@{"MSX turbo R" link TurboR}.)
+
 @{fg highlight}    <*> Sound Mix (PSG+FM):  Classic / Mono / Stereo
 @{fg text}    ------------------------------------------------
 
@@ -464,12 +611,18 @@ port some games will not work well.
 
     [JoyPort 2 (Joystick) Pad / JoyPort 1 (Mouse port) Pad]  What is
 plugged into each Amiga port:  Standard (2 buttons), the plain joystick
-read, or CD32 Pad.  With CD32 Pad the port is read with the CD32 protocol
-every frame (there is no auto-detection:  it failed on real pads and
-adapters):  red = MSX firebutton 1, blue = firebutton 2, yellow = Space,
-green = M, play = F1.  The shoulder buttons do nothing.  Choose Standard
-for a joystick or a mouse in that port.  Saved with the settings and in a
-game's own settings.
+read, CD32 Pad, or KTRL CD32+.  With CD32 Pad the port is read with the
+CD32 protocol every frame (there is no auto-detection:  it failed on real
+pads and adapters):  red = MSX firebutton 1, blue = firebutton 2,
+yellow = Space, green = M, play = F1.  The shoulder buttons do nothing.
+Choose Standard for a joystick or a mouse in that port.  Saved with the
+settings and in a game's own settings.
+
+    KTRL CD32+ is CD32 Pad with the pad clocked the other way round.  Try
+it when a CD32 pad or adapter misses or mixes up buttons on CD32 Pad (the
+KTRL CD32+ wants it; the first KTRL CD32 wants CD32 Pad).  With either, a
+joystick in the port (all seven buttons read as pressed) is read as a
+plain joystick.
 
 @{fg highlight}    <*> Multi-Key (A1200 keyboard) (M):  [Multi-key ON]
 @{fg text}    ---------------------------------------------------
@@ -487,6 +640,15 @@ until you untick it.
 @{fg text}    ----------------------------------------------
 
     The Shift key works as Space.  (For the A1200 Space and Down key bug.)
+
+@{fg highlight}    <*> Joystick as Cursor Keys:
+@{fg text}    ----------------------------
+
+    For games that only read the keyboard (S.T.G. on the turbo R, for
+example):  the joystick in the Amiga's joystick port presses the MSX
+cursor keys, fire 1 presses Space and fire 2 presses M.  The joystick
+still works as the MSX joystick too, and the keyboard as before.  Saved
+with the settings, so a preset icon can have it on for such games.
 
 @endnode
 
@@ -990,13 +1152,13 @@ like joystick second firebutton.
 
     A Joypad can be used.
 
-    A CD32 pad works as a two-button joystick (red and blue) in
-either port.  Set the port to CD32 pad in the Input menu (Joystick
-Port, Mouse Port) and it is read with
-the CD32 protocol instead: red = MSX firebutton 1, blue = firebutton
-2, yellow = Space, green = M, play = F1.  The shoulder buttons do
-nothing.  Nothing is detected: a port left on Standard is read as a
-plain joystick, exactly as before.
+    A CD32 pad works as a two-button joystick (red and blue) in either
+port.  Set the port to CD32 pad in the Input menu (Joystick Port, Mouse
+Port) and it is read with the CD32 protocol instead:
+red = MSX firebutton 1, blue = firebutton 2, yellow = Space, green = M,
+play = F1.  The shoulder buttons do nothing.  A KTRL CD32+ pad wants KTRL
+CD32+.  Nothing is detected:  a port left on Standard is read as a plain
+joystick, exactly as before.
 
     Amiga firebutton 1 = MSX firebutton 1
     Amiga firebutton 2 & 3 = MSX firebutton 2    
@@ -1273,12 +1435,15 @@ Note: Test included in 'MVD files/Speed Test.MVD'
 
                       <=----------------------------=>
 
-    * AmiMSX 4.0:
+    * AmiMSX 4.x and 5.x:
 
           Juan Antonio Gómez Gálvez, GUS Entertainment / RED Soft
 
+                          Community update:  z00p
+
                           Graphics:  Multivac
                           Thanks:    Zener and Sandman
+                          CD32 pad reading:  Afrotechmods / FAmiga
 
 @endnode
 

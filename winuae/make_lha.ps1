@@ -1,7 +1,7 @@
 # Build the release LHA with the Amiga's own lha (winuae\wb\C\lha, Lha 40.57):
 # copies release\AmiMSX4 to run\Release (AmiMSX:Release), boots the test
 # Workbench (030 config) with the boot line replaced by the lha command, and
-# waits for AmiMSX:Release/done. Output: release\AmiMSX4.lha
+# waits for AmiMSX:Release/done. Output: release\AmiMSX5.lha
 param([string]$Config = "AmiMSX-030.uae", [int]$MaxWait = 240, [string]$Src = "release\RC")
 $ErrorActionPreference = "Stop"
 $base = Split-Path -Parent $PSScriptRoot
@@ -14,7 +14,7 @@ Copy-Item (Join-Path $src "AmiMSX.info") $rel
 $seq = "$base\winuae\wb\S\Startup-Sequence"
 $latin1 = [Text.Encoding]::GetEncoding(28591)
 $orig = [IO.File]::ReadAllText($seq, $latin1)
-$cmd = "CD AmiMSX:Release`nC:lha -r a AmiMSX4.lha AmiMSX AmiMSX.info >AmiMSX:Release/lha.log`nC:lha v AmiMSX4.lha >AmiMSX:Release/list.txt`nEcho >AmiMSX:Release/done ok"
+$cmd = "CD AmiMSX:Release`nC:lha -r a AmiMSX5.lha AmiMSX AmiMSX.info >AmiMSX:Release/lha.log`nC:lha v AmiMSX5.lha >AmiMSX:Release/list.txt`nEcho >AmiMSX:Release/done ok"
 $s = [regex]::Replace($orig, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', $cmd.Replace('$', '$$'))
 [IO.File]::WriteAllText($seq, $s, $latin1)
 try {
@@ -28,5 +28,5 @@ try {
   [IO.File]::WriteAllText($seq, $orig, $latin1)
 }
 if (-not (Test-Path (Join-Path $rel "done"))) { throw "lha did not finish" }
-Copy-Item (Join-Path $rel "AmiMSX4.lha") (Join-Path $base "release\AmiMSX4.lha") -Force
+Copy-Item (Join-Path $rel "AmiMSX5.lha") (Join-Path $base "release\AmiMSX5.lha") -Force
 Get-Content (Join-Path $rel "list.txt")

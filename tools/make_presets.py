@@ -47,6 +47,9 @@ PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
 # (4.5) Extra ToolTypes: the RTG preset is the PiStorm one on an RTG screen (ToolType RTG,
 # WBToolTypes; the picture through Picasso96, the menu too).
 TOOLTYPES = {"RTG": ["RTG", "SCANLINES=50"]}
+# (5.0) Two programs: AmiMSX is the TURBOR build (fast machines: AGA, RTG), AmiMSX030 the
+# normal build for the 68030 preset. Used when --tool is left at its default.
+TOOLS = {"AGA 030": "AmiMSX030"}
 
 W, H = 46, 46
 # Classic (planar) image uses the 4 Workbench pens: grey, black, white, blue.
@@ -166,7 +169,7 @@ def main():
         open(os.path.join(out, name), "wb").write(p)
         im = draw(badge, colour)
         open(os.path.join(out, name + ".info"), "wb").write(
-            diskobject(im, a.tool, ["PREFS=" + name] + TOOLTYPES.get(name, []) + a.tooltype))
+            diskobject(im, TOOLS.get(name, a.tool) if a.tool == "AmiMSX" else a.tool, ["PREFS=" + name] + TOOLTYPES.get(name, []) + a.tooltype))
         big = im.resize((W * 2, H * 2), Image.NEAREST)
         mask = Image.new("L", big.size)
         mask.putdata([0 if c == (255, 0, 255) else 255 for c in (big.get_flattened_data() if hasattr(big, "get_flattened_data") else big.getdata())])

@@ -1,9 +1,11 @@
 """Stage the AmiMSX 4.0 release drawer and build the Aminet LHA (the LhA step
 runs inside WinUAE, see winuae/make_lha.ps1).
 
-Usage: python tools/make_release.py [build/AmiMSX] [release/AmiMSX4]
+Usage: python tools/make_release.py [build/AmiMSX] [release/AmiMSX4] [normal build]
+(5.0: the first binary is the TURBOR build, shipped as AmiMSX; the optional
+third is the normal build, shipped as AmiMSX030 for the AGA 030 preset.)
 Output: <out>/AmiMSX/ (the drawer) + <out>/AmiMSX.info (its icon) and
-<out>/AmiMSX4.readme. Icons: the presets' (make_presets.py), a tool icon for
+<out>/AmiMSX5.readme. Icons: the presets' (make_presets.py), a tool icon for
 AmiMSX and a drawer icon drawn the same way; the guide and keyboard picture
 keep the icons of the original 3.1 package (AmiMSX_asm.lha)."""
 import os, re, shutil, struct, subprocess, sys, textwrap
@@ -118,6 +120,7 @@ def draw_drawer(label=None):
 def main():
     binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, "build", "AmiMSX")
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(BASE, "release", "AmiMSX4")
+    normal = sys.argv[3] if len(sys.argv) > 3 else None
     if os.path.exists(out):
         shutil.rmtree(out)
     d = os.path.join(out, "AmiMSX")
@@ -125,12 +128,15 @@ def main():
     subprocess.run([sys.executable, os.path.join(BASE, "tools", "make_presets.py"), binary, d], check=True)
     os.remove(os.path.join(d, "presets.png"))
     shutil.copy(binary, os.path.join(d, "AmiMSX"))
+    if normal:   # (5.0) the normal build, for the AGA 030 preset (make_presets.TOOLS)
+        shutil.copy(normal, os.path.join(d, "AmiMSX030"))
+        shutil.copy(os.path.join(BASE, "Pics", "AmiMSX.info"), os.path.join(d, "AmiMSX030.info"))
     for f in ("AmiMSX2.data", "AmiMSX2.mapper", "AmiMSX4.romdb", "AmiMSX4.diskdb"):
         shutil.copy(os.path.join(BASE, f), os.path.join(d, f))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX.guide"), os.path.join(d, "AmiMSX.guide"))
     amiga_text(os.path.join(BASE, "Docs", "CHANGES_4.x.md"), os.path.join(d, "Docs", "CHANGES_4.x.txt"), wrap=76)
-    amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(d, "AmiMSX4.readme"))
-    amiga_text(os.path.join(BASE, "Docs", "AmiMSX4.readme"), os.path.join(out, "AmiMSX4.readme"))
+    amiga_text(os.path.join(BASE, "Docs", "AmiMSX5.readme"), os.path.join(d, "AmiMSX5.readme"))
+    amiga_text(os.path.join(BASE, "Docs", "AmiMSX5.readme"), os.path.join(out, "AmiMSX5.readme"))
     amiga_text(os.path.join(BASE, "Docs", "LICENSE.emu2413"), os.path.join(d, "Docs", "LICENSE.emu2413"))
     shutil.copy(os.path.join(BASE, "Pics", "Keyboard.Iff"), os.path.join(d, "Docs", "Keyboard.Iff"))
     shutil.copy(os.path.join(BASE, "Pics", "Keyboard.Iff.info"), os.path.join(d, "Docs", "Keyboard.Iff.info"))

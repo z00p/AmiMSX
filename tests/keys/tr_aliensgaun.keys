@@ -1,0 +1,12 @@
+# Aliens Gaun (disk, MSX-BASIC game; turbo R machine): AUTOEXEC.BAS loads it,
+# the logo and the title are typed out (title by ~40 s); Space from 44 s
+# starts a game, then move and fire. On the R800 (option machine 3) the timing
+# follows openMSX FS-A1GT; on the Z80 it would still be typing the title.
+option machine 3
+44s SPACE 5
+48s SPACE 5 every 25 until 100s
+50s LEFT 60
+55s RIGHT 100
+62s LEFT 60
+70s RIGHT 60
+80s LEFT 60

@@ -134,16 +134,23 @@ MJEND	MACRO
 	MITEM	MN_Pad2		; Joystick Port
 	MSUB	MN_Pad2Std		;   Standard (2 buttons)
 	MSUB	MN_Pad2CD32		;   CD32 Pad
+	IFND	NO_CD32KIT
+	MSUB	MN_Pad2KL		;   KTRL CD32+
+	ENDC
 	MSCOUNT	NS_Pad2
 	MITEM	MN_Pad1		; Mouse Port
 	MSUB	MN_Pad1Std		;   Standard (2 buttons)
 	MSUB	MN_Pad1CD32		;   CD32 Pad
+	IFND	NO_CD32KIT
+	MSUB	MN_Pad1KL		;   KTRL CD32+
+	ENDC
 	MSCOUNT	NS_Pad1
 	MITEM	MN_InputBar0		; ---
 	MITEM	MN_MultiKey		; Multi-Key (A1200 keyboard)
 	MITEM	MN_DelPause		; DEL Pauses
 	MITEM	MN_LShift		; Left Shift as Space
 	MITEM	MN_RShift		; Right Shift as Space
+	MITEM	MN_JoyKeys		; Joystick as Cursor Keys (5.0)
 	MICOUNT	NI_Input
 
 	MTITLE	MT_Disks		; Disks

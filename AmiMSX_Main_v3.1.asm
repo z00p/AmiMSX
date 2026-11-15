@@ -29,10 +29,73 @@ Key_ON=1		; 1=Off.
 FM_Pak_ROM=1
 FFFF_ON=1
 
-HPeriod=228		; Z80 cycles per line (3.58 MHz / 15.7 kHz). The MSX adds a
+	IFD	TURBOR			; (turbo R) The line counter in 7.16 MHz
+	IFND	R8GEN			; ticks: an R800 cycle each, a Z80 cycle
+R8SITE=1			; two (ZCYC). Every cost site reads its cost
+ZCYC=2				; from R8CostO/R8CostH, set for the running
+R8NO	SET	0		; CPU by R8CostSet (Otra's sites: R8NO, the
+R8NH	SET	0		; others: R8NH). R8GEN: the plain counter,
+	ENDC				; for tools/r8map.py's listing.
+	ENDC
+	IFND	ZCYC
+ZCYC=1
+	ENDC
+ZVDP=6/ZCYC		; VDP cycles (21.48 MHz) a counter unit
+	IFD	TURBOR			; (turbo R) PCM: DAC writes kept a frame,
+PCMLOGMAX=1024			; and the level a step of the DAC's byte
+PCMGAIN=48			; gives in FMXMix (+-6144 full scale).
+	ENDC
+HPeriod=228*ZCYC	; Z80 cycles per line (3.58 MHz / 15.7 kHz). The MSX adds a
 			; wait state to every M1 fetch: Otra charges T-states + 1,
 			; CB/DD/ED/FD prefixes 1 more. (Was 202 with plain T-states,
 			; ~1.13 on average: io measured 'not 50 Hz'.)
+	IFD	R8SITE
+; (turbo R) An Otra site: its Z80 cost (\1 cycles) in R8OZ; its R800 cost
+; comes from r800cost.i (tools/r8map.py), in the same order.
+R8OREC:	MACRO
+	SECTION	R8OZ,DATA
+	DC.W	(\1)*ZCYC
+	SECTION	MSX2,CODE
+R8NO	SET	R8NO+1
+	ENDM
+; Another site: \1 Z80 cycles, \2 R800 cycles (R8CostH+2*R8NH, then R8NH
+; moves on).
+R8H:	MACRO
+	SECTION	R8HZ,DATA
+	DC.W	(\1)*ZCYC
+	SECTION	R8HR,DATA
+	DC.W	\2
+	SECTION	MSX2,CODE
+R8NH	SET	R8NH+1
+	ENDM
+; The counter less such a site's cost, through register \3 (flags as SUB).
+R8SUB:	MACRO
+	MOVE.W	R8CostH+2*R8NH,\3
+	SUB.W	\3,(A3)
+	R8H	\1,\2
+	ENDM
+; (turbo R, 5.0) S#2's HR/VR position for IVDP2*: line * 256 + the line's
+; cycles left in Z80 cycles (Timming_X counts in those). The counter runs
+; in 7.16 MHz ticks (ZCYC 2): its low byte wrapped at 256 and HR (left
+; below 2Ah) came 42 ticks a line instead of 84, and again at 256-297
+; ticks left. Z80 mode: ticks / 2 (exact); R800 mode, 397 ticks a line:
+; x 147/256 (228/397). D1 only (its high word zero), TRHPos.
+TRHPOS:	MACRO
+	MOVE.W	(A3),D1
+	TST.B	R800Mode
+	BNE.S	\@R
+	ASR.W	#1,D1
+	BRA.S	\@S
+\@R:	MULS.W	#147,D1
+	ASR.L	#8,D1
+\@S:	MOVE.B	D1,TRHPos
+	MOVEQ	#0,D1
+	MOVE.W	CurLine(A3),D1
+	LSL.L	#8,D1
+	MOVE.B	TRHPos,D1
+	ENDM
+	ENDC
+
 VPeriodPAL=313
 VPeriodNTSC=262
 
@@ -595,6 +658,15 @@ BankNum:	MACRO
 
 ; --------------------------------
 	SECTION	MSX2,CODE
+	IFD	R8SITE			; (turbo R) The cost sites' columns, in
+	SECTION	R8OZ,DATA		; site order: Otra's Z80 costs (the
+R8OZTab:				; R800's: r800cost.i), the other sites'
+	SECTION	R8HZ,DATA		; Z80 and R800 costs.
+R8HZTab:
+	SECTION	R8HR,DATA
+R8HRTab:
+	SECTION	MSX2,CODE
+	ENDC
 CodeLo:
 ; --------------------------------
 
@@ -610,7 +682,7 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v4.9.1 ("
+	DC.B	"$VER:AmiMSX Emulator v5.0 ("
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -925,6 +997,9 @@ ANEM:
 ;	the CLI inserts it in Slot 1 and powers on (no splash, no requester);
 ;	"AmiMSX <image>.dsk" loads it into drive A instead. An optional second
 ;	argument names a key script (KeyScr: scripted keyboard input).
+	IFND	NO_LUPA
+	JSR	LupaArgs		; The game argument and its words, the old
+	ELSE				; forms kept (AmiMSX_Lupa_v4.asm).
 	MOVEM.L	D0/A0,-(SP)
 	SUB.L	A1,A1
 	MOVE.L	4.W,A6
@@ -1086,6 +1161,7 @@ AutoPrfX:
 	BNE.S	NoAutoCart
 	SF	AutoCart
 	ST	AutoDisk
+	ENDC
 NoAutoCart:
 ; ------------------------------------<
 
@@ -1608,6 +1684,51 @@ ConMapper:
 	MOVE.L	(A0)+,($02*8)(A1)
 	MOVE.L	(A0)+,($12*8)(A1)
 	MOVE.L	(A0)+,($36*8)(A1)
+	IFD	TURBOR
+; (turbo R) The write hooks always: they catch FFFFh, the secondary slot
+; register of the expanded slots 0 and 3 (ExpFFFF), and charge the cycles.
+; (5.0) Only with the turbo R hardware (TRHw): with the firmware loaded,
+; MSX, MSX2 and MSX2+ keep the normal build's hooks above.
+	JSR	TRMachSet
+	TST.B	TRHw
+	BEQ	MapExpNo
+	LEA	MapExp,A0
+	LEA	Instr+4,A1
+	MOVE.L	(A0)+,($32*8)(A1)
+	MOVE.L	(A0)+,($77*8)(A1)
+	MOVE.L	(A0)+,($70*8)(A1)
+	MOVE.L	(A0)+,($71*8)(A1)
+	MOVE.L	(A0)+,($72*8)(A1)
+	MOVE.L	(A0)+,($73*8)(A1)
+	MOVE.L	(A0)+,($74*8)(A1)
+	MOVE.L	(A0)+,($75*8)(A1)
+	MOVE.L	(A0)+,($02*8)(A1)
+	MOVE.L	(A0)+,($12*8)(A1)
+	MOVE.L	(A0)+,($36*8)(A1)
+MapExpNo:
+; (5.0) The turbo R machine (TRMach) has its own kanji ROM, the FS-A1GT's
+; font (TRKFont, menu TRKLoad): level 1 on D8h/D9h and level 2 on DAh/DBh,
+; whatever the Kanji ROM option says (that is the 4.x font, set above for
+; MSX2/MSX2+). Without the font file the four ports read FFh. Other
+; machines: DAh/DBh back to nothing (after a turbo R run).
+	MOVE.L	#OutXX,Outs+($DA*4)
+	MOVE.L	#OutXX,Outs+($DB*4)
+	MOVE.L	#InXX,Ins+($DB*4)
+	TST.B	TRMach
+	BEQ.S	TRKNoTR
+	MOVE.L	#OutXX,Outs+($D8*4)
+	MOVE.L	#OutXX,Outs+($D9*4)
+	MOVE.L	#InXX,Ins+($D9*4)
+	TST.L	TRKFont
+	BEQ.S	TRKNoTR
+	MOVE.L	#TROutD8,Outs+($D8*4)
+	MOVE.L	#TROutD9,Outs+($D9*4)
+	MOVE.L	#TRInD9,Ins+($D9*4)
+	MOVE.L	#TROutDA,Outs+($DA*4)
+	MOVE.L	#TROutDB,Outs+($DB*4)
+	MOVE.L	#TRInDB,Ins+($DB*4)
+TRKNoTR:
+	ENDC
 
 ; ------------------------------------<=
 
@@ -2026,11 +2147,33 @@ TrPcPass:	DC.W	0
 ExcCatch:
 	MOVE.L	D0,-(SP)		; Only exceptions in AmiMSX's code:
 	MOVE.L	4+2(SP),D0		; the rest (the OS's own uses) go to
+	IFD	EXCALL			; (5.0, debug) EXCALL: any PC but the
+	CMP.L	#$F80000,D0		; Kickstart's (a jump into data lands
+	BCS.S	ExcTake			; anywhere)
+	CMP.L	#$1000000,D0
+	BCS.S	ExcChain
+	ELSEIF
 	CMP.L	#CodeLo,D0		; the original handler.
 	BCS.S	ExcChain
 	CMP.L	#CodeHi,D0
 	BCC.S	ExcChain
+	ENDC
+ExcTake:
 	MOVE.L	(SP)+,D0
+	IFD	EXCALL
+	TST.B	ExcHit			; (5.0, debug) the first one: the
+	BNE.S	ExcTk1			; registers, USP, the frame's first 32
+	ST	ExcHit			; bytes and the longs at USP, -4(USP)
+	MOVEM.L	D0-D7/A0-A6,ExcRegs
+	MOVE.L	USP,A0
+	MOVE.L	A0,ExcRegs+60
+	MOVE.L	(A0),ExcUspW
+	MOVE.L	-4(A0),ExcUspW+4
+	MOVEM.L	(SP),D0-D7
+	MOVEM.L	D0-D7,ExcFrame
+	MOVEM.L	ExcRegs,D0-D7/A0
+ExcTk1:
+	ENDC
 	MOVE.L	2(SP),HangPC
 	MOVE.W	(SP),HangSR
 	MOVE.W	6(SP),ExcFmt
@@ -2067,6 +2210,193 @@ ExcFmt:		DC.W	0
 		DS.L	32
 HangStk:
 		EVEN
+	ENDC
+	IFD	EXCALL
+; (5.0, debug: -DEXCALL=1 with EXCCHK, HANGCHK and TRACE) A caught exception
+; (any PC but the Kickstart's) or hang, back in the menu: ExcReport writes
+; crash.txt (PROGDIR: with TRACEPROG, else AmiMSX:) and puts its first line
+; in the main window's title, for a photo. First line: CRASH (or HANG), the
+; format/vector word, the PC (absolute, then + its offset from CodeLo), the
+; Z80 PC (A5 - (A7): after the opcode), SR. Then the build, D0-D7, A0-A6 and
+; USP, the frame's first 16 words, U: (USP), -4(USP), CodeLo, CodeHi, REGS,
+; MSX frame, line; R: the last 128 line ends (Z80 PC:line), oldest first.
+ExcRegs:	DS.L	16		; D0-D7, A0-A6, USP
+ExcFrame:	DS.L	8
+ExcUspW:	DS.L	2
+ExcHit:		DC.B	0
+HangHit:	DC.B	0
+		EVEN
+ExcPcPtr:	DC.L	ExcPcRing
+ExcPcSv:	DC.L	0
+ExcPcRing:	DS.L	1024
+ExcPcEnd:
+ExcText:	DS.B	4096
+ExcTitle:	DS.B	128
+; Menu side (real stack, OS up), after TraceDump.
+ExcReport:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	MOVE.B	ExcHit,D0
+	OR.B	HangHit,D0
+	BEQ	ExcRpX
+	LEA	ExcText,A0
+	LEA	ExcTxC(PC),A1
+	TST.B	ExcHit
+	BNE.S	ExcRp1
+	LEA	ExcTxH(PC),A1
+ExcRp1:	BSR	ExcStr
+	MOVE.W	ExcFmt,D0
+	MOVEQ	#4,D1
+	BSR	ExcHex
+	LEA	ExcTxP(PC),A1
+	BSR	ExcStr
+	MOVE.L	HangPC,D0		; (HangGo made it the offset)
+	ADD.L	#CodeLo,D0
+	MOVEQ	#8,D1
+	BSR	ExcHex
+	LEA	ExcTxO(PC),A1
+	BSR	ExcStr
+	MOVE.L	HangPC,D0
+	MOVEQ	#6,D1
+	BSR	ExcHex
+	LEA	ExcTxZ(PC),A1
+	BSR	ExcStr
+	MOVE.L	ExcRegs+13*4,D0		; A5 - (A7).W
+	SUB.W	ExcUspW,D0
+	MOVEQ	#4,D1
+	BSR	ExcHex
+	LEA	ExcTxS(PC),A1
+	BSR	ExcStr
+	MOVE.W	HangSR,D0
+	MOVEQ	#4,D1
+	BSR	ExcHex
+	LEA	ExcText,A1		; the title: this first line
+	LEA	ExcTitle,A2
+ExcRpT:	MOVE.B	(A1)+,(A2)+
+	CMP.L	A0,A1
+	BNE.S	ExcRpT
+	CLR.B	(A2)
+	MOVE.B	#10,(A0)+
+	LEA	MSX2WTitle,A1		; the build
+	BSR	ExcStr
+	MOVE.B	#10,(A0)+
+	MOVE.B	#'D',(A0)+
+	LEA	ExcRegs,A2
+	MOVEQ	#8-1,D2
+ExcRpD:	MOVE.L	(A2)+,D0
+	BSR	ExcSpL
+	DBF	D2,ExcRpD
+	MOVE.B	#10,(A0)+
+	MOVE.B	#'A',(A0)+
+	MOVEQ	#8-1,D2
+ExcRpA:	MOVE.L	(A2)+,D0
+	BSR	ExcSpL
+	DBF	D2,ExcRpA
+	MOVE.B	#10,(A0)+
+	MOVE.B	#'F',(A0)+
+	LEA	ExcFrame,A2
+	MOVEQ	#16-1,D2
+ExcRpF:	MOVE.B	#' ',(A0)+
+	MOVE.W	(A2)+,D0
+	MOVEQ	#4,D1
+	BSR	ExcHex
+	DBF	D2,ExcRpF
+	MOVE.B	#10,(A0)+
+	MOVE.B	#'U',(A0)+
+	MOVE.L	ExcUspW,D0
+	BSR	ExcSpL
+	MOVE.L	ExcUspW+4,D0
+	BSR	ExcSpL
+	MOVE.L	#CodeLo,D0
+	BSR	ExcSpL
+	MOVE.L	#CodeHi,D0
+	BSR	ExcSpL
+	MOVE.L	#REGS,D0
+	BSR	ExcSpL
+	MOVEQ	#0,D0
+	MOVE.W	TrvFrame,D0
+	BSR	ExcSpL
+	MOVE.W	REGS+CurLine,D0
+	BSR	ExcSpL
+	MOVE.L	ExcPcPtr,A2		; the last 128 line ends
+	SUB.L	#128*4,A2
+	CMP.L	#ExcPcRing,A2
+	BCC.S	ExcRpR0
+	ADD.L	#1024*4,A2
+ExcRpR0:MOVEQ	#16-1,D3
+ExcRpR:	MOVE.B	#10,(A0)+
+	MOVE.B	#'R',(A0)+
+	MOVEQ	#8-1,D2
+ExcRpRr:MOVE.B	#' ',(A0)+
+	MOVE.W	(A2)+,D0
+	MOVEQ	#4,D1
+	BSR	ExcHex
+	MOVE.B	#':',(A0)+
+	MOVE.W	(A2)+,D0
+	MOVEQ	#3,D1
+	BSR	ExcHex
+	CMP.L	#ExcPcEnd,A2
+	BCS.S	ExcRpR1
+	LEA	ExcPcRing,A2
+ExcRpR1:DBF	D2,ExcRpRr
+	DBF	D3,ExcRpR
+	MOVE.B	#10,(A0)+
+	MOVE.L	A0,D4
+	SUB.L	#ExcText,D4
+	MOVE.L	#ExcName,D1
+	MOVE.L	#$3EE,D2
+	JSR	OPENFILE
+	TST.L	D0
+	BEQ.S	ExcRpW
+	MOVE.L	#ExcText,D2
+	MOVE.L	D4,D3
+	JSR	WRITEFILE
+	JSR	CLOSEFILE
+ExcRpW:	MOVE.L	MSX2Wnd,D0		; SetWindowTitles(window, ExcTitle, -1)
+	BEQ.S	ExcRpN
+	MOVE.L	D0,A0
+	LEA	ExcTitle,A1
+	SUBA.L	A2,A2
+	SUBQ.L	#1,A2
+	MOVE.L	_IntuitionBase,A6
+	JSR	-276(A6)
+ExcRpN:	SF	ExcHit
+	SF	HangHit
+ExcRpX:	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+; " " and D0 in 8 hex digits to A0.
+ExcSpL:	MOVE.B	#' ',(A0)+
+	MOVEQ	#8,D1
+; D0 in D1 (1-8) hex digits to A0. D0-D2 kept.
+ExcHex:	MOVEM.L	D0-D2,-(SP)
+	MOVE.W	D1,D2
+	LSL.W	#2,D2
+	ROR.L	D2,D0			; (32: no change)
+	SUBQ.W	#1,D1
+ExcHxL:	ROL.L	#4,D0
+	MOVEQ	#15,D2
+	AND.W	D0,D2
+	MOVE.B	ExcHxT(PC,D2.W),(A0)+
+	DBF	D1,ExcHxL
+	MOVEM.L	(SP)+,D0-D2
+	RTS
+; The string at A1 to A0, without its 0.
+ExcStr:	MOVE.B	(A1)+,(A0)+
+	BNE.S	ExcStr
+	SUBQ.L	#1,A0
+	RTS
+ExcHxT:	DC.B	"0123456789ABCDEF"
+ExcTxC:	DC.B	"CRASH ",0
+ExcTxH:	DC.B	"HANG ",0
+ExcTxP:	DC.B	" PC ",0
+ExcTxO:	DC.B	" +",0
+ExcTxZ:	DC.B	" Z80 ",0
+ExcTxS:	DC.B	" SR ",0
+	IFD	TRACEPROG
+ExcName:	DC.B	"PROGDIR:crash.txt",0
+	ELSE
+ExcName:	DC.B	"AmiMSX:crash.txt",0
+	ENDC
+	EVEN
 	ENDC
 	IFD	HANGCHK
 ; HANGCHK (TRACE builds, -DHANGCHK=1): the VBlank interrupt saw no MSX frame
@@ -2621,6 +2951,9 @@ BorFMX:
 	MOVE.L	#RET,RVDP(A3)
 	MOVE.L	#SPRMODE5,RSPR(A3)
 	MOVE.L	#$03020100,DFC(A3)
+	IFD	TURBOR
+	JSR	R8Reset			; (turbo R) S1990 registers, Z80 mode.
+	ENDC
 	MOVE.B	#$5,COSPR2(A3)
 
 	MOVE.L	#IN98,DREGIN98(A3)
@@ -2644,6 +2977,9 @@ BorFMX:
 	MOVE.L	#RAM01-$8000,(A0)+
 	MOVE.L	#RAM00-$C000,(A0)+
 	MOVE.L	#RAM00-$C000,(A0)+
+	IFD	TURBOR
+	JSR	ExpInit			; (turbo R) slots 0 and 3 expanded
+	ENDC
 
 ; ------------------------------------> Prepara punteros Paginaci�n.
 	MOVE.L	SLOT0,D0
@@ -3309,7 +3645,11 @@ BUCLE:
 	CNOP	0,8
 	DC.B	"RAFY"
 NOCO:
+	IFD	R8SITE
+	R8SUB	4,1,D1			; (turbo R) the R800: 1
+	ELSEIF
 	SUBQ.W	#4,(A3)			; (4.0) the prefix is a 4-cycle NOP (was 0)
+	ENDC
 	MOVE.B	-1(A5),D2
 	JMP	([A3,D2.W*8])
 
@@ -3579,10 +3919,28 @@ Otra:	MACRO				; (T-states + the M1 wait, see HPeriod)
 	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
 	ENDC
 	ENDC
-	IFNE	(\1+1)>(8)
-	SUB.W	#(\1+1),(A3)			; * Resta Cycles *
+	IFD	R8SITE			; (turbo R) the cost for the running CPU:
+	IFC	"\2",""			; the R800's from r800cost.i, or \2
+	MOVE.W	R8CostO+2*R8NO,D1	; * Resta Cycles * R8O
+	SUB.W	D1,(A3)
+	R8OREC	\1+1
 	ELSEIF
-	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles *
+	R8SUB	\1+1,\2,D1		; * Resta Cycles * R8H
+	ENDC
+	ELSEIF
+	IFNE	(\1+1)>(8)
+	IFC	"\2",""
+	SUB.W	#(\1+1),(A3)			; * Resta Cycles * R8O
+	ELSEIF
+	SUB.W	#(\1+1),(A3)			; * Resta Cycles * R8H
+	ENDC
+	ELSEIF
+	IFC	"\2",""
+	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles * R8O
+	ELSEIF
+	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles * R8H
+	ENDC
+	ENDC
 	ENDC
 	BMI.S	\@Buc
 	JMP	([A3,D2.W*8])
@@ -3624,7 +3982,13 @@ OtraEI:	MACRO
 	ADDQ.L	#1,(PerfPCBuf-$400,D2.W*4)
 	ENDC
 	ENDC
-	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles *
+	IFD	R8SITE
+	MOVE.W	R8CostO+2*R8NO,D1	; * Resta Cycles * R8O
+	SUB.W	D1,(A3)
+	R8OREC	\1+1
+	ELSEIF
+	SUBQ.W	#(\1+1),(A3)			; * Resta Cycles * R8O
+	ENDC
 	JMP	([A3,D2.W*8])
 	CNOP	0,HALIGN
 	ENDM
@@ -3632,33 +3996,33 @@ OtraEI:	MACRO
 
 OtraT:	MACRO
 	MOVE.W	CCR,D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraC:	MACRO
 	ROXL.B	#1,D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraC2:	MACRO
 	BCC.S	\@
 	OR.B	#$01,D3
-	Otra	\1
+	Otra	\1,\2
 \@:
 	AND.B	#$FE,D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraP:	MACRO
 	MOVE.B	Flags_PAR(A3,D7.W*4),D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraDAA:MACRO				; (4.0) DAA: C from ABCD/SBCD, S Z and
 	MOVE.W	CCR,D3			; P/V (parity) from the result. ABCD
 	AND.B	#$01,D3			; leaves N and V undefined on a 68020+.
 	OR.B	Flags_PAR(A3,D7.W*4),D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 ; (4.0) BIT n,r: Z and P/V from the bit (P/V = Z on a Z80), S clear; BIT 7:
@@ -3666,38 +4030,38 @@ OtraDAA:MACRO				; (4.0) DAA: C from ABCD/SBCD, S Z and
 OtraB:	MACRO
 	BEQ.S	\@
 	AND.B	#$F1,D3			; bit set: S Z P/V clear
-	Otra	\1
+	Otra	\1,\2
 \@:	AND.B	#$F1,D3
 	OR.B	#$06,D3			; bit clear: Z and P/V set
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraB7:	MACRO
 	BEQ.S	\@
 	AND.B	#$F1,D3
 	OR.B	#$08,D3			; bit 7 set: S set, Z P/V clear
-	Otra	\1
+	Otra	\1,\2
 \@:	AND.B	#$F1,D3
 	OR.B	#$06,D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraV:	MACRO
 	BNE.S	\@
 	AND.B	#$FD,D3
-	Otra	\1
+	Otra	\1,\2
 \@:
 	OR.B	#$02,D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 OtraZ:	MACRO
 	BEQ.S	\@
 	AND.B	#$FB,D3
-	Otra	\1
+	Otra	\1,\2
 \@:
 	OR.B	#$04,D3
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 PONF:	MACRO
@@ -3722,7 +4086,7 @@ PONS:	MACRO
 
 OtraS:	MACRO
 	PONS
-	Otra	\1
+	Otra	\1,\2
 	ENDM
 
 SUBBZ:	MACRO
@@ -4639,7 +5003,7 @@ MJPC:	MACRO
 	MOVE.W	D3,CCR
 	B\1.S	\@
 	ADDQ.W	#2,A5
-	Otra	\2
+	Otra	\2,3			; (turbo R: R800 3, not taken)
 \@:	MJP	\2
 	ENDM
 
@@ -5359,8 +5723,11 @@ LDAI:
 ; ran differently every time.
 LDAR:
 	MOVE.W	CurLine(A3),D1
-	MULU	#57,D1			; ~M1 cycles per line (228 / 4)
+	MULU	#57*ZCYC,D1		; ~M1 cycles per line (228 / 4)
 	SUB.W	(A3),D1			; cycles left in the line count down
+	IFNE	ZCYC-1
+	LSR.W	#1,D1			; (turbo R) Z80 cycles
+	ENDC
 	ADD.B	RFrame,D1
 	AND.W	#$007F,D1
 	MOVE.B	D1,D7
@@ -5780,10 +6147,14 @@ IdlNDec:	CMP.B	#$3C,-2(A5)
 	ADDQ.B	#1,D1
 IdlNInc:	CMP.B	D7,D1
 	BNE.S	IdleNo			; Changed since: the next pass leaves.
+	IFD	R8SITE
+	TST.B	R800Mode		; (turbo R) Z80 passes only
+	BNE.S	IdleNo
+	ENDC
 	MOVE.W	(A3),D1
-	SUB.W	#13,D1			; (this JR)
+	SUB.W	#13*ZCYC,D1		; (this JR)
 	BLE.S	IdleNo
-	AND.W	#-32,D1			; whole passes
+	AND.W	#-32*ZCYC,D1		; whole passes
 	SUB.W	D1,(A3)
 IdleNo:	MOVE.B	(A5)+,D1
 	EXT.W	D1
@@ -5812,15 +6183,19 @@ CountNC:	MOVE.W	A5,D1
 	CogePag	D4,A4
 	CMP.B	(A4),D7
 	BCS.S	IdleNo			; A < (HL) now: the next pass leaves.
+	IFD	R8SITE
+	TST.B	R800Mode		; (turbo R) Z80 passes only
+	BNE.S	IdleNo
+	ENDC
 	MOVE.W	(A3),D1
-	SUB.W	#13,D1			; (this JR)
+	SUB.W	#13*ZCYC,D1		; (this JR)
 	BLE.S	IdleNo
 	EXT.L	D1
-	DIVU.W	#28,D1			; whole passes
+	DIVU.W	#28*ZCYC,D1		; whole passes
 	TST.W	D1
 	BEQ.S	IdleNo
 	ADD.W	D1,D5			; BC
-	MULU.W	#28,D1
+	MULU.W	#28*ZCYC,D1
 	SUB.W	D1,(A3)
 	CMP.B	(A4),D7			; the last pass's CP (HL)
 	MOVE.W	CCR,D3
@@ -6482,6 +6857,993 @@ MULUWHLSP:
 	SWAP	D4
 	Otra	8
 
+	IFD	TURBOR
+; ---------------------------------------------------------------------
+; (turbo R prototype, 10 Nov 2026) R800 multiplies, as openMSX's R800
+; (120 cases, Docs/agent_notes/turbor_spike.md): only ED C1/C9/D1/D9
+; (MULUB A,B/C/D/E: HL = A*r) and ED C3/F3 (MULUW HL,BC/SP: DE:HL = HL*rr)
+; multiply, and only in R800 mode (R8SetCpu writes them into the ED table;
+; in Z80 mode they stay ED NOPs). Flags: N X H Y (D3 bits 4-7) kept, S and
+; P/V cleared, Z = the whole result is 0, C = it does not fit (MULUB: H not
+; 0; MULUW: DE not 0). Cost: 14 and 36 R800 cycles = 7 and 18 T at 3.58 MHz
+; with the ED prefix's 1 (the counter is in Z80 units until R800 timing).
+R8MULB:	MOVE.W	D5,D1
+	LSR.W	#8,D1
+	BRA.S	R8MbGo
+R8MULC:	MOVEQ	#0,D1
+	MOVE.B	D5,D1
+	BRA.S	R8MbGo
+R8MULD:	MOVE.W	D6,D1
+	LSR.W	#8,D1
+	BRA.S	R8MbGo
+R8MULE:	MOVEQ	#0,D1
+	MOVE.B	D6,D1
+R8MbGo:	MOVEQ	#0,D4
+	MOVE.B	D7,D4
+	MULU.W	D1,D4			; HL = A * r
+	AND.B	#$F0,D3			; S P/V Z C clear
+	TST.W	D4
+	BEQ.S	R8MbZ
+	CMP.W	#$FF,D4
+	BLS.S	R8MbE
+	ADDQ.B	#1,D3			; C: more than 8 bits
+R8MbE:	Otra	5,14
+R8MbZ:	ADDQ.B	#4,D3			; Z
+	Otra	5,14
+
+R8MULWBC:
+	MOVE.W	D5,D1
+	BRA.S	R8MwGo
+R8MULWSP:
+	MOVE.W	D0,D1			; (D0.W = SP)
+R8MwGo:	MULU.W	D1,D4			; DE:HL = HL * rr
+	MOVE.L	D4,D1
+	SWAP	D1
+	MOVE.W	D1,D6			; DE = high word
+	AND.L	#$FFFF,D4		; HL = low word
+	AND.B	#$F0,D3			; S P/V Z C clear
+	TST.W	D1
+	BNE.S	R8MwC
+	TST.W	D4
+	BNE.S	R8MwE
+	ADDQ.B	#4,D3			; Z
+R8MwE:	Otra	16,36
+R8MwC:	ADDQ.B	#1,D3			; C: more than 16 bits
+	Otra	16,36
+
+; The S1990 (turbo R): register index on E4h, data on E5h. Register 6
+; picks the CPU (openMSX, FS-A1GT boot): bit 5 set = Z80, clear = R800; bit
+; 6 set = ROM mode, clear = DRAM mode (60h Z80, 40h R800 ROM, 00h R800
+; DRAM). Initial values as openMSX's FS-A1GT at power on.
+	CNOP	0,4
+S1990Idx:	DC.W	0
+S1990Reg:	DC.B	$FF,$FF,$FF,$FF,$FF,$00,$60,$FF
+		DC.B	$FF,$FF,$FF,$FF,$FF,$03,$2F,$8B
+R800Mode:	DC.B	0		; 0 = Z80, $FF = R800.
+		EVEN
+OUTE4:	AND.W	#$000F,D1
+	MOVE.W	D1,S1990Idx
+	RTS
+INE4:	MOVE.B	S1990Idx+1,D1
+	RTS
+OUTE5:	LEA	S1990Reg,A4
+	ADD.W	S1990Idx,A4
+	MOVE.B	D1,(A4)
+	CMP.W	#6,S1990Idx
+	BEQ	R8SetCpu
+	RTS
+INE5:	LEA	S1990Reg,A4
+	ADD.W	S1990Idx,A4
+	MOVE.B	(A4),D1
+	RTS
+
+; The E6h/E7h system timer (S1990): a 16-bit counter at 3.58 MHz / 14
+; (openMSX MSXE6Timer). A write to E6h resets it; E6h reads its low byte,
+; E7h its high byte. Kept in counter units: TRE6Acc (mod 14 x 65536) moves on a
+; frame at each frame start (MiraInter0), plus the cycles into the frame as
+; CETime counts them. No BSR here: a port handler runs on the Restas stack.
+TRE6Fr:	MACRO				; D1.L = counter units into the frame (A4)
+	MOVE.W	CurLine(A3),D1
+	CMP.W	#255,D1
+	BNE.S	\@L
+	MOVE.L	#VPeriodPAL*HPeriod,D1	; line 255 runs to the frame end
+	BTST	#1,DVDP9(A3)
+	BNE.S	\@F
+	MOVE.L	#VPeriodNTSC*HPeriod,D1
+	BRA.S	\@F
+\@L:	ADDQ.W	#1,D1
+	MULU.W	#HPeriod,D1
+\@F:	MOVE.W	(A3),A4			; cycles left (sign extended)
+	SUB.L	A4,D1
+	ENDM
+TRE6Rd:	MACRO				; D1.L = the counter (A4)
+	TRE6Fr
+	ADD.L	TRE6Acc,D1
+\@M:	CMP.L	#14*ZCYC*65536,D1
+	BCS.S	\@X
+	SUB.L	#14*ZCYC*65536,D1
+	BRA.S	\@M
+\@X:	DIVU.L	#14*ZCYC,D1
+	ENDM
+INE6:	TRE6Rd
+	RTS
+INE7:	TRE6Rd
+	LSR.W	#8,D1
+	RTS
+OUTE6:	TRE6Fr
+	NEG.L	D1
+	ADD.L	#14*ZCYC*65536,D1
+	MOVE.L	D1,TRE6Acc		; counter = 0 now
+	MOVEQ	#0,D1			; (5.0) D1's high word back to zero
+	RTS
+	CNOP	0,4
+TRE6Acc:	DC.L	0
+
+; (turbo R) The PCM (openMSX TurboRPCM). A4h written: the DAC's byte, heard
+; while A5h bit 1 is set (logged with the line and its cycle count as
+; PsgLog; PcmFrame plays the log), and the 15.7 kHz count starts again: a
+; read of A4h gives the lines (228 Z80 cycles) since the last write, 2 bits.
+; A5h: control bits 0-4 (bit 1 = play; a write that clears it silences the
+; DAC), bit 7 the comparator (0: no recording input). Not modelled: the
+; mute of all sound with bit 1 clear, sample/hold (bit 4), recording.
+OUTA4:	MOVE.B	D1,PcmVal
+	TRE6Fr
+	DIVU.W	#HPeriod,D1
+	AND.L	#$FFFF,D1
+	ADD.L	PcmFrLn,D1
+	MOVE.L	D1,PcmLnW
+	MOVEQ	#0,D1			; (5.0) D1's high word back to zero (the core's rule)
+	BTST	#1,PcmSt
+	BEQ.S	OUTA4X
+	MOVE.B	PcmVal,D2
+OUTA4L:	CMP.W	#PCMLOGMAX*8,PcmLogN
+	BCC.S	OUTA4X
+	LEA	PcmLog,A4
+	ADDA.W	PcmLogN,A4
+	CLR.B	(A4)+
+	MOVE.B	D2,(A4)+
+	MOVE.W	CurLine(A3),(A4)+
+	MOVE.W	(A3),(A4)
+	ADDQ.W	#8,PcmLogN
+OUTA4X:	RTS
+INA4:	TRE6Fr
+	DIVU.W	#HPeriod,D1
+	AND.L	#$FFFF,D1
+	ADD.L	PcmFrLn,D1
+	SUB.L	PcmLnW,D1
+	AND.L	#3,D1			; (5.0) .L: D1's high word zero
+	RTS
+OUTA5:	MOVE.B	PcmSt,D2
+	AND.B	#$1F,D1
+	MOVE.B	D1,PcmSt
+	EOR.B	D1,D2
+	BTST	#1,D2
+	BEQ.S	OUTA4X
+	MOVE.B	PcmVal,D2		; bit 1 set: the byte held plays,
+	BTST	#1,D1
+	BNE	OUTA4L
+	MOVE.B	#$80,D2			; cleared: silence.
+	BRA	OUTA4L
+INA5:	MOVE.B	PcmSt,D1
+	RTS
+	CNOP	0,4
+PcmFrLn:	DC.L	0		; lines before this frame (MiraInter0)
+PcmLnW:		DC.L	0		; the line of the last A4h write
+PcmLogN:	DC.W	0		; bytes in PcmLog
+PcmLev:		DC.W	0		; the DAC's level (FMXMix units)
+PcmSt:		DC.B	0		; A5h
+PcmVal:		DC.B	$80		; A4h's last byte
+	EVEN
+
+; D1.B = S1990 register 6. A change of bit 5 (0 = R800) hands over to the
+; other CPU at the end of the instruction, as openMSX: the FS-A1GT switches
+; with OTIR (1288h: E5h = 40h, then 60h), whose step must end on the Z80
+; (B, HL, the PC back to the OTIR) before the R800 runs; the Z80 later
+; takes the OTIR up again. Here the line's remaining cycles go to R8SvCnt
+; and the counter to 0, so the instruction's Otra (or the block's yield)
+; ends in MiraInter, which gives them back and swaps (R8PendDo), as EI
+; does with EIForce. Called from an OUT handler: D2 untouched; trashes D1.
+R8SetCpu:
+	BTST	#5,D1
+	SEQ	D1			; FFh: the R800 wanted
+	MOVE.B	D1,R8Want
+	CMP.B	R800Mode,D1
+	BEQ.S	R8SetEnd
+	TST.B	R8Pend
+	BNE.S	R8SetEnd
+	ST	R8Pend
+	MOVE.W	(A3),R8SvCnt
+	CLR.W	(A3)
+R8SetEnd:
+	RTS
+
+	IFD	PERF
+; (debug, PERF builds) MiraInter's PC log, every 32nd of the first 4096*32
+; line ends after
+; power on / reset: the PC of the opcode fetched (D2), the CPU and A8.
+; Trashes D1.
+TRPcLog:
+	ADDQ.B	#1,TRPcDiv		; every 32nd line end
+	MOVE.B	TRPcDiv,D1
+	AND.B	#31,D1
+	BNE.S	MiraTRPd
+	MOVE.L	A4,TRPcSv
+	MOVE.L	TRPcPtr,A4
+	CMP.L	#TRPcEnd,A4
+	BCC.S	MiraTRPc
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	SUBQ.W	#1,D1
+	MOVE.W	D1,(A4)+
+	MOVE.B	R800Mode,(A4)+
+	MOVE.B	DA8(A3),(A4)+
+	MOVE.L	A4,TRPcPtr
+MiraTRPc:
+	MOVE.L	TRPcSv,A4
+MiraTRPd:
+	JMP	MiraInterL
+	ENDC
+
+; MiraInter, a CPU switch pending: the cycles back; the opcode fetched (D2)
+; not run yet: A5 back to it, the R800-only ED opcodes and the register
+; context switched (R8Swap, by JSR: A7 is the page's Restas entry here, the
+; one return address its stack), the new CPU's opcode fetched; then the
+; line end if the counter is still negative (MiraInter's own checks), else
+; on with the new CPU.
+R8PendDo:
+	SF	R8Pend
+	MOVE.W	R8SvCnt,D1
+	ADD.W	D1,(A3)
+	MOVE.B	R8Want,D1
+	CMP.B	R800Mode,D1
+	BEQ.S	R8PdGo
+	SUBQ.W	#1,A5
+	LEA	INSED,A4
+	TST.B	D1
+	BEQ.S	R8PdZ
+	MOVE.L	#R8MULB,$C1*4(A4)
+	MOVE.L	#R8MULC,$C9*4(A4)
+	MOVE.L	#R8MULD,$D1*4(A4)
+	MOVE.L	#R8MULE,$D9*4(A4)
+	MOVE.L	#R8MULWBC,$C3*4(A4)
+	MOVE.L	#R8MULWSP,$F3*4(A4)
+	BRA.S	R8PdS
+R8PdZ:	MOVE.L	#EDNOP,$C1*4(A4)
+	MOVE.L	#EDNOP,$C9*4(A4)
+	MOVE.L	#EDNOP,$D1*4(A4)
+	MOVE.L	#EDNOP,$D9*4(A4)
+	MOVE.L	#EDNOP,$C3*4(A4)
+	MOVE.L	#EDNOP,$F3*4(A4)
+R8PdS:	JSR	R8Swap
+	IFD	R8SITE
+	JSR	R8CostSet		; the new CPU's costs
+	ENDC
+	MOVE.B	(A5)+,D2
+R8PdGo:	TST.W	(A3)
+	BMI.L	MiraInterN
+	JMP	([A3,D2.W*8])
+
+; Save the running CPU's context, load the other's (JSR'd: A7 = the page's
+; Restas entry under the return address).
+R8Swap:	MOVE.L	(A7)+,R8Ret
+	LEA	R8CtxZ,A4
+	TST.B	R800Mode
+	BEQ.S	R8SwS
+	LEA	R8CtxR,A4
+R8SwS:	MOVEM.L	D0/D3-D7/A0/A1,(A4)
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1			; PC (the next instruction)
+	MOVE.W	D1,32(A4)
+	MOVE.L	PEXX(A3),34(A4)
+	MOVE.W	PEXX+4(A3),38(A4)
+	MOVE.B	I(A3),40(A4)
+	MOVE.B	IFF(A3),41(A4)
+	MOVE.B	R(A3),42(A4)
+	MOVE.B	ModoInt(A3),43(A4)
+	MOVE.B	HaltDat(A3),44(A4)
+	MOVE.B	DatDAA(A3),45(A4)
+	LEA	R8CtxR,A4
+	TST.B	R800Mode
+	BEQ.S	R8SwL
+	LEA	R8CtxZ,A4
+R8SwL:	NOT.B	R800Mode
+	MOVEM.L	(A4),D0/D3-D7/A0/A1
+	MOVE.L	34(A4),PEXX(A3)
+	MOVE.W	38(A4),PEXX+4(A3)
+	MOVE.B	40(A4),I(A3)
+	MOVE.B	41(A4),IFF(A3)
+	MOVE.B	42(A4),R(A3)
+	MOVE.B	43(A4),ModoInt(A3)
+	MOVE.B	44(A4),HaltDat(A3)
+	MOVE.B	45(A4),DatDAA(A3)
+	TST.B	R8Fresh
+	BEQ.S	R8SwF
+	SF	R8Fresh			; R800 power on: F and F' FFh
+	MOVEQ	#0,D3			; (Flags_Pop is built by now)
+	MOVE.B	Flags_Pop+$FF*4(A3),D3
+	SWAP	D3
+	MOVE.B	Flags_Pop+$FF*4(A3),D3
+R8SwF:	MOVEQ	#0,D1
+	MOVE.W	32(A4),D1
+	CogePag	D1,A5			; PC with today's paging
+	LEA	Restas(A3,D1.W*8),A7
+	MOVE.L	R8Ret,-(A7)
+	MOVE.W	D0,D1
+	CogePagS D1,A6			; SP likewise
+	RTS
+	IFD	R8SITE
+; The cost sites' values for the running CPU (R800Mode): the Z80 column
+; (its cycles x 2, 7.16 MHz ticks) or the R800's (openMSX's, measured in
+; Docs/agent_notes/r800time.tsv) into R8CostO/R8CostH. No self-modifying
+; code, so no cache flush. JSR'd from R8PendDo (no further calls: A7 is the
+; Restas table there) and R8Reset. Trashes D1 and A4.
+R8CostSet:
+	MOVEM.L	D2/A0/A1,R8CsSv
+	LEA	R8OZTab,A0
+	LEA	R8HZTab,A1
+	TST.B	R800Mode
+	BEQ.S	R8CsGo
+	LEA	R8ORTab,A0
+	LEA	R8HRTab,A1
+R8CsGo:	LEA	R8CostO,A4
+	MOVE.W	#R8NOT-1,D1
+R8CsO:	MOVE.W	(A0)+,(A4)+
+	DBF	D1,R8CsO
+	LEA	R8CostH,A4
+	MOVE.W	#R8NHT-1,D1
+R8CsH:	MOVE.W	(A1)+,(A4)+
+	DBF	D1,R8CsH
+	MOVEM.L	R8CsSv,D2/A0/A1
+	RTS
+R8CsSv:	DC.L	0,0,0
+R8LnSv:	DC.L	0
+	ENDC
+
+; ED table back to the Z80's NOPs (trashes A4).
+R8EdZ80:
+	LEA	INSED,A4
+	MOVE.L	#EDNOP,$C1*4(A4)
+	MOVE.L	#EDNOP,$C9*4(A4)
+	MOVE.L	#EDNOP,$D1*4(A4)
+	MOVE.L	#EDNOP,$D9*4(A4)
+	MOVE.L	#EDNOP,$C3*4(A4)
+	MOVE.L	#EDNOP,$F3*4(A4)
+	RTS
+
+; Power ON / reset: S1990 index 0, register 6 = Z80; the Z80 runs (its
+; registers are the live ones the reset sets) and the R800's context is its
+; power-on state as openMSX (tools/make_r800swap.py, buffer R0): every
+; register pair and SP FFFFh, PC 0000h, I 00h, IM 0, DI; the BIOS parks it
+; in CHGCPU at boot. Not from an OUT: the 68k stack is the real one here.
+R8Reset:
+	MOVEM.L	D1/A4,-(SP)
+	CLR.W	S1990Idx
+	MOVE.B	#$60,S1990Reg+6
+	SF	R800Mode
+	SF	R8Pend
+	IFD	R8SITE
+	JSR	R8CostSet
+	ENDC
+	CLR.W	TRSCNx
+	SF	TRSCVb
+	IFD	PERF
+	MOVE.L	#TRPcRing,TRPcPtr	; (debug) the PC log from here
+	MOVE.L	#TRDkBuf,TRDkPtr	; (debug) the disk trap log too
+	ENDC
+	CLR.B	T8F4
+	CLR.L	PcmFrLn			; (turbo R) PCM: stopped, level centre.
+	CLR.L	PcmLnW
+	CLR.W	PcmLogN
+	CLR.W	PcmLev
+	SF	PcmSt
+	MOVE.B	#$80,PcmVal
+	BSR	R8EdZ80			; (5.0: BSR.S out of range on R8GEN)
+	LEA	R8CtxR,A4
+	MOVEQ	#R8CtxLen/4-1,D1
+R8RsC:	CLR.L	(A4)+
+	DBRA	D1,R8RsC
+	MOVEQ	#-1,D1
+	MOVE.W	D1,R8CtxR+2		; SP
+	MOVE.W	D1,R8CtxR+10		; HL
+	MOVE.W	D1,R8CtxR+14		; BC
+	MOVE.W	D1,R8CtxR+18		; DE
+	MOVE.L	#$00FF00FF,R8CtxR+20	; A, A'
+	MOVE.W	D1,R8CtxR+26		; IX
+	MOVE.W	D1,R8CtxR+30		; IY
+	MOVE.L	D1,R8CtxR+34		; HL' BC' DE'
+	MOVE.W	D1,R8CtxR+38
+	MOVE.B	#$7F,R8CtxR+43		; IM 0 (as IM0)
+	ST	R8Fresh			; F, F' at the first load
+	MOVEM.L	(SP)+,D1/A4
+	RTS
+
+; Register context of each CPU: D0 (SP), D3 (F, F'), D4-D7 (HL BC DE, A
+; and A'), A0/A1 (IX IY) at 0; PC 32; EXX set 34; I 40; IFF 41; R 42;
+; ModoInt 43; HaltDat 44; DatDAA 45. The running CPU's is in the registers.
+R8CtxLen=48
+	CNOP	0,4
+R8CtxZ:	DS.B	R8CtxLen
+R8CtxR:	DS.B	R8CtxLen
+R8Ret:	DC.L	0
+R8Fresh:	DC.B	0
+R8Pend:		DC.B	0		; a CPU switch at the instruction's end
+R8Want:		DC.B	0		; the CPU it is for (as R800Mode)
+	EVEN
+R8SvCnt:	DC.W	0		; the line's cycles meanwhile
+	IFD	PERF
+	CNOP	0,4
+TRPcDiv:	DC.B	0
+	EVEN
+TRPcSv:		DC.L	0		; (debug) PC ring (MiraInter):
+TRPcPtr:	DC.L	TRPcRing	; next entry, then 4096 entries of
+	ENDC
+	IFD	PERF
+; (debug, PERF builds) the disk trap log: ED10-ED15 log a record at the
+; trap ('E') and one at the next opcode fetched after it ('R', the return:
+; that opcode's handler is swapped for TRDkRet once). 16 bytes: kind, ED
+; opcode, A, F (68k form, bit 0 = C), BC, DE, HL, Z80 PC (after the
+; opcode), A8, ExpReg+1, R800Mode, 0. The first 1024 after a reset.
+TRDkLog:	MACRO
+	MOVE.L	TRDkPtr,A4
+	CMP.L	#TRDkEnd,A4
+	BCC.S	\@
+	MOVE.B	#\1,(A4)+
+	MOVE.B	TRDkOp,(A4)+
+	MOVE.B	D7,(A4)+
+	MOVE.B	D3,(A4)+
+	MOVE.W	D5,(A4)+
+	MOVE.W	D6,(A4)+
+	MOVE.W	D4,(A4)+
+	MOVE.W	A5,D1
+	SUB.W	(A7),D1
+	MOVE.W	D1,(A4)+
+	MOVE.B	DA8(A3),(A4)+
+	MOVE.B	ExpReg+1,(A4)+
+	MOVE.B	R800Mode,(A4)+
+	CLR.B	(A4)+
+	MOVE.L	A4,TRDkPtr
+\@:
+	ENDM
+TRDkEnt:
+	MOVE.L	A4,TRDkSv
+	MOVE.L	D1,TRDkSv+4
+	MOVE.B	D2,TRDkOp
+	TRDkLog	'E'
+	MOVE.W	D2,D1			; the next opcode (same high byte)
+	MOVE.B	(A5),D1
+	MOVE.W	D1,TRDkNx
+	MOVE.L	(A3,D1.W*8),TRDkNxP
+	MOVE.L	#TRDkRet,(A3,D1.W*8)
+	MOVEQ	#0,D1
+	MOVE.B	D2,D1
+	SUB.B	#$10,D1
+	MOVE.L	(TRDkOrig.L,D1.W*4),TRDkJmp
+	MOVE.L	TRDkSv+4,D1
+	MOVE.L	TRDkSv,A4
+	JMP	([TRDkJmp.L])
+TRDkRet:
+	MOVE.L	A4,TRDkSv
+	MOVE.L	D1,TRDkSv+4
+	TRDkLog	'R'
+	MOVE.W	TRDkNx,D1
+	MOVE.L	TRDkNxP,(A3,D1.W*8)
+	MOVE.L	TRDkSv+4,D1
+	MOVE.L	TRDkSv,A4
+	JMP	([TRDkNxP.L])
+	CNOP	0,4
+TRDkSv:		DC.L	0,0
+TRDkPtr:	DC.L	TRDkBuf
+TRDkNxP:	DC.L	0
+TRDkJmp:	DC.L	0
+TRDkOrig:	DC.L	0,0,0,0,0,0
+TRDkNx:		DC.W	0
+TRDkOp:		DC.B	0
+	EVEN
+	ENDC
+	EVEN
+
+; ---------------------------------------------------------------------
+; Expanded slots (turbo R: slots 0 and 3, e = 0 and 1). AmiMSX's primary
+; slot rows (SLOTS: first 8 KB half of each page, SUBSLOTS: second half,
+; restas words in SLOTSR / SUBSLOTSR) hold the selected sub-slot of each
+; page; ExpA / ExpB hold all four sub-slots' rows, [e][sub][page] {read,
+; write}. A write to FFFFh in slot 0 or 3 (hooked writes, ExpFFFF in the
+; slot's routine for E000h-FFFFh) sets the register, copies the selected
+; rows in (ExpSel) and rebuilds the pages (OUTA8). Reads of FFFFh return
+; the register inverted: ExpSel puts it at FFFFh of page 3's sub-slot and
+; puts back the byte it covered when it moves. Empty sub-slots read FFh
+; (ExpEmpty, one FFFFh byte per expanded slot) and write to NORAM.
+; Not hooked (as megaROM mappers): PUSH, LDIR, LD (nn),HL, (IX+d) writes.
+; Not yet: the mapper segment in page 3 also seen through pages 0-2 shows
+; the register at offset 3FFFh.
+
+; \1 = e: the ~register at FFFFh of page 3's selected sub-slot (its read
+; row in ExpB). Trashes D1/A4. No stack.
+EXPIMG:	MACRO
+	MOVE.L	ExpImgP+(\1*4),A4
+	MOVE.B	ExpImgB+\1,(A4)		; the covered byte back
+	MOVEQ	#0,D1
+	MOVE.B	ExpReg+\1,D1
+	LSR.B	#6,D1
+	LSL.W	#5,D1			; sub-slot of page 3 * 32
+	MOVE.L	(ExpB+(\1*128)+24,D1.W),A4
+	ADD.L	#$FFFF,A4
+	MOVE.L	A4,ExpImgP+(\1*4)
+	MOVE.B	(A4),ExpImgB+\1
+	MOVE.B	ExpReg+\1,D1
+	NOT.B	D1
+	MOVE.B	D1,(A4)
+	ENDM
+
+	CNOP	0,4
+ExpA:	DS.B	2*128
+ExpB:	DS.B	2*128
+ExpImgP:	DC.L	ExpDummy,ExpDummy
+ExpSave:	DS.L	6
+ExpTmpW:	DC.W	0
+ExpReg:		DC.B	0,0		; secondary slot registers, slots 0 and 3
+ExpImgB:	DC.B	0,0
+ExpDummy:	DC.B	0
+TRFirmOK:	DC.B	0		; the FS-A1GT firmware is in TRRom (TRLoad)
+TRMach:		DC.B	0		; (5.0) this run is the turbo R (TRMachSet)
+TRHw:		DC.B	0		; (5.0) turbo R hardware on (TRMachSet)
+T8F4:		DC.B	0		; reset status register (F4h)
+ExpSlot0:	DC.B	0		; slot 0 expanded too (the turbo R machine;
+					; C-BIOS does not boot with it, openMSX)
+	EVEN
+RtcTabP:	DC.L	TABLAB4		; The clock chip's RAM (INB5, OUTB5): the
+TRRtc:		DS.B	64		; prefs' block, or the GT's (TRRtcInit).
+
+; Power ON / reset (machine set-up, after slot 3's RAM rows): sub-slot 0
+; of slots 0 and 3 = what the set-up put in the primary slot, sub-slots
+; 1-3 empty, registers 0. Slot 3 always, slot 0 when ExpSlot0 is set.
+; (5.0) Without the turbo R hardware (TRHw, TRMachSet) slot 3 is not
+; expanded, as in the normal build. Real stack here.
+ExpInit:
+	MOVEM.L	D0-D3/A0-A2,-(SP)
+	SF	ExpSlot0
+	BSR	TRMachSet
+	MOVE.L	#TABLAB4,RtcTabP
+	TST.B	TRMach
+	BEQ.S	ExpIMach
+	MOVE.L	#TRRtc,RtcTabP
+ExpIMach:
+	BSR	TRPorts
+	BSR	TRKReset		; (5.0) the kanji ROM's latches
+	LEA	ExpEmpty,A0
+	MOVE.W	#$4002-1,D0
+ExpIF:	ST	(A0)+
+	DBF	D0,ExpIF
+	CLR.W	ExpReg
+	MOVE.L	#ExpDummy,ExpImgP
+	MOVE.L	#ExpDummy,ExpImgP+4
+	LEA	ExpA,A0
+	MOVEQ	#0,D2			; e
+ExpIE:	MOVEQ	#4-1,D1			; sub-slots
+ExpIS:	MOVE.L	#NOMEM-$0000,(A0)+
+	MOVE.L	#NORAM-$0000,(A0)+
+	MOVE.L	#NOMEM-$4000,(A0)+
+	MOVE.L	#NORAM-$4000,(A0)+
+	MOVE.L	#NOMEM-$8000,(A0)+
+	MOVE.L	#NORAM-$8000,(A0)+
+	MOVE.L	#ExpEmpty+1-$C000,D0
+	ADD.L	D2,D0
+	MOVE.L	D0,(A0)+
+	MOVE.L	#NORAM-$C000,(A0)+
+	DBF	D1,ExpIS
+	ADDQ.W	#1,D2
+	CMP.W	#2,D2
+	BNE.S	ExpIE
+	LEA	ExpA,A0
+	LEA	ExpB,A1
+	MOVE.W	#(2*128/4)-1,D0
+ExpIB:	MOVE.L	(A0)+,(A1)+
+	DBF	D0,ExpIB
+	LEA	SLOTS(A3),A0		; sub-slot 0 = the primary slot's rows
+	LEA	ExpA,A1
+	LEA	ExpB,A2
+	BSR	ExpICp
+	LEA	SLOTS+96(A3),A0
+	LEA	ExpA+128,A1
+	LEA	ExpB+128,A2
+	BSR	ExpICp
+	TST.B	TRHw			; (5.0) no turbo R hardware: slots 0
+	BNE.S	ExpIHw			; and 3 not expanded (the E000h-FFFFh
+	MOVE.L	#OtraInstr,$6BC(A3)	; write routines back to the plain
+	MOVE.L	#OtraInstr,$65C(A3)	; ones, from a turbo R run before)
+	BRA	ExpIRet
+ExpIHw:
+	TST.B	TRMach			; the turbo R machine (FS-A1GT)
+	BEQ.S	ExpINoTR
+	BSR	TRSlots
+ExpINoTR:
+	MOVE.L	#ExpFFFF,$6BC(A3)	; slot 3, E000h-FFFFh
+	MOVEQ	#1,D1
+	BSR	ExpSel
+	TST.B	ExpSlot0
+	BEQ.S	ExpINo0
+	MOVE.L	#ExpFFFF,$65C(A3)	; slot 0
+	MOVE.L	#ExpFFFF,PagRuts+$1C	; page 3 in slot 0 at reset
+	MOVEQ	#0,D1
+	BSR	ExpSel
+ExpINo0:
+; The page bounds (Desbor: host address of each 8 KB half's start + 1 and
+; end, as OUTA8 sets them) for A8 = 00h. The NOP at a page's edge (DESNOP)
+; re-reads the page from them: left from before the reset they did not
+; cover the GT's BIOS, whose reset jumps to a NOP (126Bh) before any OUT
+; (A8h), and DESNOP found the same NOP again for ever.
+	LEA	SLOTS(A3),A0
+	LEA	SUBSLOTS(A3),A1
+	LEA	RESTA0+Desbor(A3),A2
+	MOVEQ	#1,D1			; Z80 start of the page + 1
+	MOVEQ	#4-1,D0
+ExpIDb:	MOVE.L	(A0),D2			; first half
+	ADD.L	D1,D2
+	MOVE.L	D2,(A2)+
+	ADD.L	#$2000-1,D2
+	MOVE.L	D2,(A2)+
+	MOVE.L	(A1),D2			; second half
+	ADD.L	D1,D2
+	ADD.L	#$2000,D2
+	MOVE.L	D2,(A2)+
+	ADD.L	#$2000-1,D2
+	MOVE.L	D2,(A2)+
+	ADD.L	#$4000,D1
+	ADDQ.W	#8,A0
+	ADDQ.W	#8,A1
+	DBF	D0,ExpIDb
+ExpIRet:
+	MOVEM.L	(SP)+,D0-D3/A0-A2
+	RTS
+; (5.0) TRMach: this run is the turbo R machine, machine 3 (DirPrefs+$10)
+; with the firmware loaded. TRHw: the turbo R hardware (expanded slots 0
+; and 3 with their write hooks, the turbo R ports, sprite collisions per
+; line): on the turbo R machine, and on every machine when the firmware
+; is not there (as before 5.0's machine entry: the R800 and sub-slot test
+; cartridges run on C-BIOS). With the firmware loaded, MSX, MSX2 and
+; MSX2+ are the normal build's machines. Power ON / reset, real stack.
+TRMachSet:
+	SF	TRMach
+	ST	TRHw
+	TST.B	TRFirmOK
+	BEQ.S	TRMsX
+	SF	TRHw
+	CMP.B	#3,DirPrefs+$10
+	BNE.S	TRMsX
+	ST	TRMach
+	ST	TRHw
+TRMsX:	RTS
+; A0 primary slot rows to sub-slot 0 at A1 (ExpA) and A2 (ExpB); a page 3
+; read from the shared NOMEM goes to this slot's ExpEmpty (the page 3 read
+; the loop above put in the row).
+ExpICp:	MOVE.L	24(A1),D3		; ExpEmpty read of this slot
+	MOVEQ	#8-1,D0
+ExpICL:	MOVE.L	(A0),(A1)+
+	MOVE.L	(A0)+,(A2)+
+	DBF	D0,ExpICL
+	CMP.L	#NOMEM-$C000,-8(A1)
+	BNE.S	ExpICX
+	MOVE.L	D3,-8(A1)
+	MOVE.L	D3,-8(A2)
+ExpICX:	RTS
+
+; D1.W = e (0 slot 0, 1 slot 3): the selected sub-slot of each page into
+; the primary slot's rows and restas words, then the register image.
+; Trashes D1/A4. No stack (it runs with A7 = the page's Restas entry).
+ExpSel:
+	MOVEM.L	D2-D4/A0-A2,ExpSave
+	LEA	ExpReg,A4
+	MOVEQ	#0,D2
+	MOVE.B	(A4,D1.W),D2
+	MOVE.W	D1,D3
+	LSL.W	#7,D3			; e*128
+	LEA	ExpA,A0
+	ADD.W	D3,A0
+	LEA	ExpB,A1
+	ADD.W	D3,A1
+	LEA	SLOTS(A3),A2
+	LEA	SLOTSR(A3),A4
+	TST.W	D1
+	BEQ.S	ExpS0
+	LEA	96(A2),A2		; slot 3
+	LEA	24(A4),A4
+ExpS0:	MOVEQ	#0,D3			; page*8
+ExpSL:	MOVE.W	D2,D4
+	AND.W	#3,D4
+	LSL.W	#5,D4
+	ADD.W	D3,D4
+	MOVE.L	(A0,D4.W),(A2)
+	MOVE.L	4(A0,D4.W),4(A2)
+	MOVE.L	(A1,D4.W),SUBSLOTS-SLOTS(A2)
+	MOVE.L	4(A1,D4.W),SUBSLOTS-SLOTS+4(A2)
+	MOVE.W	2(A2),(A4)
+	MOVE.W	SUBSLOTS-SLOTS+2(A2),SUBSLOTSR-SLOTSR(A4)
+	ADDQ.W	#8,A2
+	ADDQ.W	#2,A4
+	LSR.B	#2,D2
+	ADDQ.W	#8,D3
+	CMP.W	#32,D3
+	BNE.S	ExpSL
+	TST.W	D1
+	BNE.S	ExpSI1
+	EXPIMG	0
+	BRA.S	ExpSX
+ExpSI1:	EXPIMG	1
+ExpSX:	MOVEM.L	ExpSave,D2-D4/A0-A2
+	RTS
+
+; PagRuts entry for E000h-FFFFh of slots 0 and 3 (reached by JMP from a
+; hooked write: A4 = the byte written, D1 = 7).
+ExpFFFF:
+	MOVE.L	A4,D1
+	SUB.L	PagWrite+28(A3),D1
+	CMP.W	#$FFFF,D1
+	BEQ.S	ExpFW
+	Otra2
+ExpFW:	MOVE.B	(A4),D1
+	TST.B	DA8(A3)			; page 3 in slot 3 (else slot 0)?
+	BMI.S	ExpF3
+	MOVE.B	D1,ExpReg
+	MOVEQ	#0,D1
+	BRA.S	ExpFS
+ExpF3:	MOVE.B	D1,ExpReg+1
+	MOVEQ	#1,D1
+ExpFS:	BSR	ExpSel
+	MOVE.B	DA8(A3),D1
+	JSR	OUTA8			; pages rebuilt (same frame as an OUT)
+	Otra2
+
+; The FS-A1GT's slot map (openMSX's Panasonic_FS-A1GT.xml), the banks
+; TRLoad put in TRRom: 0-0 BIOS and BASIC (0000h-7FFFh), 0-2 MSX-MUSIC
+; (4000h), 0-3 the opening ROM (4000h); 3-0 the RAM mapper (as set up), 3-1
+; the Sub ROM (0000h) and the kanji driver (4000h-BFFFh). Empty for now:
+; 3-2 the disk ROM (bank 0 at reset; TRDskBk, TRDskPatch). Empty for now:
+; 3-3 (the firmware's software) and slot 2 (external; the 4.x set-up's
+; Sub ROM and Disk ROM out of it). The
+; ROM pages write to NORAM. No R800 DRAM mode: the ROMs read from ROM, not
+; from the copy the BIOS makes in RAM. Real stack (ExpInit).
+TRSlots:
+	LEA	TRMap(PC),A0
+TRSlL:	MOVE.W	(A0)+,D0		; row: e*128 + sub*32 + page*8
+	BMI.S	TRSlX
+	MOVE.W	D0,D1
+	LSR.W	#3,D1
+	AND.L	#3,D1
+	MOVEQ	#14,D2
+	LSL.L	D2,D1			; page*4000h
+	MOVE.W	(A0)+,D2		; bank (-1: empty)
+	BMI.S	TRSlE
+	MULU	#$4100,D2
+	ADD.L	#TRRom,D2
+	BRA.S	TRSlP
+TRSlE:	MOVE.L	#NOMEM,D2
+TRSlP:	SUB.L	D1,D2
+	LEA	ExpA,A1
+	MOVE.L	D2,(A1,D0.W)
+	LEA	ExpB,A1
+	MOVE.L	D2,(A1,D0.W)
+	BRA.S	TRSlL
+TRSlX:	MOVE.L	#NOMEM-$0000,SLOT2
+	MOVE.L	#NOMEM-$0000,SUBSLOT2
+	MOVE.L	#NOMEM-$4000,SLOT2+8
+	MOVE.L	#NOMEM-$4000,SUBSLOT2+8
+	ST	ExpSlot0
+	MOVE.L	#TRDskBk,INSED+($17*4)	; the disk ROM's bank routine (7FD0h)
+	IFD	PERF
+	CMP.L	#TRDkEnt,INSED+($10*4)	; (debug) the disk trap log
+	BEQ.S	TRSlD
+	LEA	INSED+($10*4),A1
+	LEA	TRDkOrig,A0
+	MOVEQ	#6-1,D0
+TRSlI:	MOVE.L	(A1),(A0)+
+	MOVE.L	#TRDkEnt,(A1)+
+	DBF	D0,TRSlI
+TRSlD:
+	ENDC
+	RTS
+; (5.0) The turbo R ports (S1990, E6h timer, PCM, A7h, E9h, F4h, and the
+; mapper ports through sub-slot 3-0) with the turbo R hardware (TRHw);
+; otherwise the normal build's.
+; Real stack (ExpInit).
+TRPorts:
+	MOVEM.L	D0-D1/A0-A1,-(SP)
+	MOVEQ	#8,D0			; column: 4 normal, 8 turbo R
+	TST.B	TRHw
+	BNE.S	TRPt0
+	MOVEQ	#4,D0
+TRPt0:	LEA	TRPTab(PC),A0
+TRPtL:	MOVE.L	(A0),D1			; the table entry (0: end)
+	BEQ.S	TRPtX
+	MOVE.L	D1,A1
+	MOVE.L	(A0,D0.W),(A1)
+	LEA	12(A0),A0
+	BRA.S	TRPtL
+TRPtX:	MOVEM.L	(SP)+,D0-D1/A0-A1
+	RTS
+TRPTab:	DC.L	INS+($A4*4),InXX,INA4
+	DC.L	INS+($A5*4),InXX,INA5
+	DC.L	INS+($A7*4),InXX,T8INA7
+	DC.L	INS+($E4*4),InXX,INE4
+	DC.L	INS+($E5*4),InXX,INE5
+	DC.L	INS+($E6*4),InXX,INE6
+	DC.L	INS+($E7*4),InXX,INE7
+	DC.L	INS+($E9*4),InXX,T8INE9
+	DC.L	INS+($F4*4),InXX,T8INF4
+	DC.L	OUTS+($A4*4),OutXX,OUTA4
+	DC.L	OUTS+($A5*4),OutXX,OUTA5
+	DC.L	OUTS+($E4*4),OutXX,OUTE4
+	DC.L	OUTS+($E5*4),OutXX,OUTE5
+	DC.L	OUTS+($E6*4),OutXX,OUTE6
+	DC.L	OUTS+($F4*4),OutXX,T8OUTF4
+	DC.L	OUTS+($FC*4),OUTFC,T8OUTFC	; the mapper through sub-slot 3-0
+	DC.L	OUTS+($FD*4),OUTFD,T8OUTFD
+	DC.L	OUTS+($FE*4),OUTFE,T8OUTFE
+	DC.L	OUTS+($FF*4),OUTFF,T8OUTFF
+	DC.L	0
+TRMap:	DC.W	0+0*32+0*8,0		; 0-0 page 0: BIOS
+	DC.W	0+0*32+1*8,1		; 0-0 page 1: BASIC
+	DC.W	0+0*32+2*8,-1		; 0-0 page 2: empty
+	DC.W	0+2*32+1*8,2		; 0-2 page 1: MSX-MUSIC
+	DC.W	0+3*32+1*8,3		; 0-3 page 1: opening ROM
+	DC.W	128+1*32+0*8,4		; 3-1 page 0: Sub ROM
+	DC.W	128+1*32+1*8,5		; 3-1 page 1: kanji driver
+	DC.W	128+1*32+2*8,6		; 3-1 page 2: kanji driver
+	DC.W	128+2*32+1*8,7		; 3-2 page 1: disk ROM, bank 0
+	DC.W	-1
+
+; (5.0) The turbo R's kanji ROM, as openMSX's MSXKanji (checked with
+; tools/make_kanjitest.py on its FS-A1GT). Level 1 is the font's first
+; 128 KB: address = D9h (6 bits) x 800h + D8h (6 bits) x 20h + a 5-bit
+; counter; level 2 the second 128 KB, DBh and DAh the same way. A write to
+; either port of a pair sets its 6 bits (bits 6-7 ignored) and the counter
+; to 0; a read of D9h/DBh gives the byte and counts on, wrapping at 32 (one
+; 16x16 character); D8h/DAh read FFh. The pairs are independent. Power on
+; and reset: both addresses 0. TRKB1/TRKB2: the host address of the
+; character; TRKC1/TRKC2: the counter (counts as a byte, masked on read).
+; OUT: D1 the byte, high word zero (zero again on return). IN: D1, A4.
+TROutD8:
+	AND.W	#$3F,D1
+	AND.W	#$0FC0,TRKL1
+	OR.W	D1,TRKL1
+	BRA.S	TRKS1
+TROutD9:
+	AND.W	#$3F,D1
+	LSL.W	#6,D1
+	AND.W	#$003F,TRKL1
+	OR.W	D1,TRKL1
+TRKS1:	MOVE.W	TRKL1,D1
+	LSL.L	#5,D1
+	ADD.L	TRKFont,D1
+	MOVE.L	D1,TRKB1
+	SF	TRKC1
+	MOVEQ	#0,D1
+	RTS
+TROutDA:
+	AND.W	#$3F,D1
+	AND.W	#$0FC0,TRKL2
+	OR.W	D1,TRKL2
+	BRA.S	TRKS2
+TROutDB:
+	AND.W	#$3F,D1
+	LSL.W	#6,D1
+	AND.W	#$003F,TRKL2
+	OR.W	D1,TRKL2
+TRKS2:	MOVE.W	TRKL2,D1
+	LSL.L	#5,D1
+	ADD.L	TRKFont,D1
+	ADD.L	#$20000,D1
+	MOVE.L	D1,TRKB2
+	SF	TRKC2
+	MOVEQ	#0,D1
+	RTS
+TRInD9:	MOVEQ	#$1F,D1
+	AND.B	TRKC1,D1
+	ADDQ.B	#1,TRKC1
+	MOVE.L	TRKB1,A4
+	MOVE.B	(A4,D1.W),D1
+	RTS
+TRInDB:	MOVEQ	#$1F,D1
+	AND.B	TRKC2,D1
+	ADDQ.B	#1,TRKC2
+	MOVE.L	TRKB2,A4
+	MOVE.B	(A4,D1.W),D1
+	RTS
+; Power on / reset (ExpInit), and once the font is loaded (TRKLoad).
+TRKReset:
+	CLR.L	TRKL1			; TRKL1, TRKL2
+	CLR.W	TRKC1			; TRKC1, TRKC2
+	MOVE.L	TRKFont,TRKB1
+	MOVE.L	TRKFont,TRKB2
+	ADD.L	#$20000,TRKB2
+	RTS
+	CNOP	0,4
+TRKFont:	DC.L	0		; the font, 256 KB (TRKLoad; 0: no file)
+TRKB1:		DC.L	0
+TRKB2:		DC.L	0
+TRKL1:		DC.W	0		; D9h:D8h, 6 bits each
+TRKL2:		DC.W	0		; DBh:DAh
+TRKC1:		DC.B	0
+TRKC2:		DC.B	0
+
+; turbo R ports (values as openMSX's FS-A1GT): A7h reads the pause switch
+; (bit 0, off) and the LEDs are not shown; E9h is the MIDI 8251's status
+; (05h, nothing received); F4h the reset status register, 00h at power on
+; and reset, bits 7 and 5 written (bit 5 kept once set).
+T8INA7:	MOVEQ	#0,D1
+	RTS
+
+; ED17 at 7FD0h of the disk ROM (TRDskPatch: was LD (7FF0h),A, then RET):
+; bank A & 3 into 3-2 page 1's rows; the page's rows and the PC rebuilt
+; (ExpSel, OUTA8) when 3-2 is page 1's sub-slot. The RET after it runs in
+; the new bank (the same bytes in all four).
+TRDskBk:
+	MOVEQ	#3,D1
+	AND.B	D7,D1
+	ADDQ.W	#7,D1
+	MULU	#$4100,D1
+	ADD.L	#TRRom-$4000,D1
+	MOVE.L	D1,ExpA+128+2*32+1*8
+	MOVE.L	D1,ExpB+128+2*32+1*8
+	MOVE.B	ExpReg+1,D1
+	AND.B	#$0C,D1
+	CMP.B	#$08,D1
+	BNE.S	TRDskX
+	MOVEQ	#1,D1
+	BSR	ExpSel
+	MOVE.B	DA8(A3),D1
+	JSR	OUTA8
+TRDskX:	Otra2
+T8INE9:	MOVEQ	#5,D1
+	RTS
+T8INF4:	MOVE.B	T8F4,D1
+	RTS
+T8OUTF4:
+	AND.B	#$A0,D1
+	AND.B	#$20,T8F4
+	OR.B	D1,T8F4
+	RTS
+
+; The mapper ports (FCh-FFh): RAM is sub-slot 3-0. The segment's rows go
+; into ExpA/ExpB; the primary slot's rows (and the pages) only while 3-0 is
+; the page's selected sub-slot, through the 4.x handler. JSR'd as an OUT.
+T8OF:	MACRO			; \1 page, \2 the 4.x handler
+	MOVE.W	D1,ExpTmpW
+	AND.W	MMAND(A3),D1
+	LEA	MEMORYMAPPER,A4
+	MOVE.L	0(A4,D1.W*8),ExpA+128+(\1*8)
+	MOVE.L	4(A4,D1.W*8),ExpA+128+(\1*8)+4
+	MOVE.L	0(A4,D1.W*8),ExpB+128+(\1*8)
+	MOVE.L	4(A4,D1.W*8),ExpB+128+(\1*8)+4
+	IFNE	\1
+	SUB.L	#\1*$4000,ExpA+128+(\1*8)
+	SUB.L	#\1*$4000,ExpA+128+(\1*8)+4
+	SUB.L	#\1*$4000,ExpB+128+(\1*8)
+	SUB.L	#\1*$4000,ExpB+128+(\1*8)+4
+	ENDC
+	MOVE.B	ExpReg+1,D1
+	IFNE	\1
+	LSR.B	#\1*2,D1
+	ENDC
+	AND.B	#3,D1
+	BEQ.S	\@S
+	MOVE.W	ExpTmpW,D1
+	AND.W	MMAND(A3),D1
+	MOVE.B	D1,DFC+\1(A3)
+	RTS
+\@S:
+	IFEQ	\1-3
+	EXPIMG	1
+	ENDC
+	MOVE.W	ExpTmpW,D1
+	JMP	\2
+	ENDM
+T8OUTFC:	T8OF	0,OUTFC
+T8OUTFD:	T8OF	1,OUTFD
+T8OUTFE:	T8OF	2,OUTFE
+T8OUTFF:	T8OF	3,OUTFF
+; ---------------------------------------------------------------------
+	ENDC
+
 IINFC:	MINC	D1,0,12
 
 ; --------------------------------------------------------------
@@ -6489,14 +7851,22 @@ IINFC:	MINC	D1,0,12
 ; --------------------------------------------------------------
 
 RInsCB:	MOVE.B	(A5)+,D2
+	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	JMP	([InsCB-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	CNOP	0,4
 CB00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	CB00C
 	Otra	4
-CB00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+CB00C:	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
@@ -6508,14 +7878,22 @@ CB00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 
 	CNOP	0,4
 RInsDD:	MOVE.B	(A5)+,D2
+	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	JMP	([InsDD-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	CNOP	0,4
 DD00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	DD00C
 	Otra	4
-DD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+DD00C:	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
@@ -6527,14 +7905,22 @@ DD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 
 	CNOP	0,4
 RInsED:	MOVE.B	(A5)+,D2
+	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	JMP	([InsED-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	CNOP	0,4
 ED00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	ED00C
 	Otra	4
-ED00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+ED00C:	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
@@ -6546,14 +7932,22 @@ ED00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
 
 	CNOP	0,4
 RInsFD:	MOVE.B	(A5)+,D2
+	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
 	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	JMP	([InsFD-$400.W,PC,D2.W*4])	; Salta a puntero de emulaci�n.
 	CNOP	0,4
 FD00:
 	CMP.L	Desbor+4(A7),A5
 	BGT.S	FD00C
 	Otra	4
-FD00C:	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+FD00C:	IFD	R8SITE
+	R8SUB	1,0,D1			; Prefix: its own M1 wait (no R800 one).
+	ELSEIF
+	SUBQ.W	#1,(A3)			; Prefix: its own M1 wait.
+	ENDC
 	SUBQ.W	#1,A5
 	MOVE.W	A5,D1
 	SUB.W	(A7),D1
@@ -6744,13 +8138,24 @@ BLKYLD:	MACRO
 ; A step that leaves the count non-zero: 22 cycles, + 1 for the next step's
 ; prefix wait, then the next step (\1); \2 when the line's cycles have run
 ; out (the counter negative after this step's 22, as Otra's BMI).
-BLKSTEP:	MACRO
+BLKSTEP:	MACRO			; (turbo R: \3 = the R800's step)
+	IFD	R8SITE
+	R8SUB	23,\3,D1
+	BPL.S	\1
+	MOVE.W	R8CostH+2*R8NH,D1	; the prefix wait (none on the R800)
+	R8H	1,0
+	ADD.W	D1,(A3)
+	BMI.S	\2
+	SUB.W	D1,(A3)
+	BRA.S	\1
+	ELSEIF
 	SUB.W	#23,(A3)
 	BPL.S	\1
 	ADDQ.W	#1,(A3)
 	BMI.S	\2
 	SUBQ.W	#1,(A3)
 	BRA.S	\1
+	ENDC
 	ENDM
 
 ; LDIR/LDDR: the steps to run now. All of BC when its first BC-1 steps leave
@@ -6762,28 +8167,58 @@ BLKSTEP:	MACRO
 ; included); a yield adds 11 (steps*23 - 1, the next prefix's wait being the
 ; ED's own). D1, A4; D1's high word stays zero.
 LDRCNT:	MACRO
+	IFD	R8SITE			; (turbo R) the step and the end charge
+R8LS	SET	R8NH		; for the running CPU: the R800's 7 and
+	R8H	23,7			; 6 (+ Otra's 1: 7 * steps)
+R8LF	SET	R8NH
+	R8H	11,6
+R8LW	SET	R8NH		; (5.0) the + 1: the prefix's wait, in
+	R8H	1,0			; ticks (Z80 2: it was 1 tick), none on the R800
+	ENDC
 	MOVE.W	(A3),A4
+	IFD	R8SITE
+	ADD.W	R8CostH+2*R8LW,A4	; cycles left + 1, sign-extended
+	ELSEIF
 	ADDQ.L	#1,A4			; cycles left + 1, sign-extended
+	ENDC
 	MOVE.W	D5,D1
 	SUBQ.W	#1,D1			; BC - 1 (BC = 0: 65535)
+	IFD	R8SITE
+	MULU.W	R8CostH+2*R8LS,D1
+	ELSEIF
 	MULU.W	#23,D1
+	ENDC
 	CMP.L	A4,D1
 	BLE.S	\@A			; all the steps fit
 	MOVE.L	A4,D1
 	BGT.S	\@Q
 	MOVEQ	#0,D1			; no cycles left: one step
 	BRA.S	\@S
-\@Q:	DIVU.W	#23,D1
+\@Q:
+	IFD	R8SITE
+	DIVU.W	R8CostH+2*R8LS,D1
+	ELSEIF
+	DIVU.W	#23,D1
+	ENDC
 	AND.L	#$FFFF,D1		; q
 \@S:	SUBQ.W	#1,D5
 	SUB.W	D1,D5
 	MOVE.W	D5,BlkBC		; BC left after q+1 steps (>= 1)
 	MOVE.W	D1,D5
+	IFD	R8SITE
+	MULU.W	R8CostH+2*R8LS,D1
+	ELSEIF
 	MULU.W	#23,D1
+	ENDC
 	BRA.S	\@C
 \@A:	CLR.W	BlkBC
 	SUBQ.W	#1,D5
-\@C:	ADD.W	#11,D1
+\@C:
+	IFD	R8SITE
+	ADD.W	R8CostH+2*R8LF,D1
+	ELSEIF
+	ADD.W	#11,D1
+	ENDC
 	SUB.W	D1,(A3)			; * Resta Cycles *
 	ENDM
 
@@ -6800,10 +8235,10 @@ INIRB:
 	SUB.W	D2,D5
 	BEQ.S	INIRF
 	MOVE.B	D2,D5
-	BLKSTEP	INIRB,INIRY
+	BLKSTEP	INIRB,INIRY,12
 INIRF:	MOVE.B	D2,D5
 	OR.B	#$04,D3		; Flag Z a 'ON'
-	Otra	16
+	Otra	16,12
 INIRY:	AND.B	#$FB,D3		; Z off: B != 0
 	BLKYLD
 
@@ -6819,10 +8254,10 @@ INDRB:
 	SUB.W	D2,D5
 	BEQ.S	INDRF
 	MOVE.B	D2,D5
-	BLKSTEP	INDRB,INDRY
+	BLKSTEP	INDRB,INDRY,12
 INDRF:	MOVE.B	D2,D5
 	OR.B	#$04,D3		; Flag Z a 'ON'
-	Otra	16
+	Otra	16,13
 INDRY:	AND.B	#$FB,D3		; Z off: B != 0
 	BLKYLD
 
@@ -6838,10 +8273,10 @@ OTIRCon:
 	SUB.W	D2,D5
 	BEQ.S	OTIRF
 	MOVE.B	D2,D5
-	BLKSTEP	OTIRCon,OTIRY
+	BLKSTEP	OTIRCon,OTIRY,12
 OTIRF:	MOVE.B	D2,D5
 	OR.B	#$04,D3		; Flag Z a 'ON'
-	Otra	16
+	Otra	16,13
 OTIRY:	AND.B	#$FB,D3		; Z off: B != 0
 	BLKYLD
 
@@ -6856,10 +8291,10 @@ OTDRCon:
 	SUB.W	D2,D5
 	BEQ.S	OTDRF
 	MOVE.B	D2,D5
-	BLKSTEP	OTDRCon,OTDRY
+	BLKSTEP	OTDRCon,OTDRY,12
 OTDRF:	MOVE.B	D2,D5
 	OR.B	#$04,D3		; Flag Z a 'ON'
-	Otra	16
+	Otra	16,13
 OTDRY:	AND.B	#$FB,D3		; Z off: B != 0
 	BLKYLD
 
@@ -6904,13 +8339,17 @@ LDIRC1:	MOVE.L	(SP)+,A0
 	MOVE.W	BlkBC,D5
 	BNE.S	LDIRY
 	AND.B	#$FD,D3		; Flag V a 'OFF'
-	Otra	5
+	Otra	5,1
 LDIRD0:	ADDI.W	#$100,D4
 	CogePag	D4,A0
 	BRA.S	LDIRC0
 	CNOP	0,4
 LDIRY:	OR.B	#$02,D3			; P/V: BC != 0
+	IFD	R8SITE
+	R8SUB	11,1,D1
+	ELSEIF
 	SUB.W	#11,(A3)
+	ENDC
 	BLKYLD
 
 
@@ -6936,14 +8375,18 @@ LDDRC1:	MOVE.L	(SP)+,A0
 	MOVE.W	BlkBC,D5
 	BNE.S	LDDRY
 	AND.B	#$FD,D3		; Flag V a 'OFF'
-	Otra	5
+	Otra	5,1
 LDDRD0:	SUBI.W	#$100,D4
 	CogePag	D4,A0
 	ADDQ.W	#1,A0
 	BRA.S	LDDRC0
 	CNOP	0,4
 LDDRY:	OR.B	#$02,D3			; P/V: BC != 0
+	IFD	R8SITE
+	R8SUB	11,1,D1
+	ELSEIF
 	SUB.W	#11,(A3)
+	ENDC
 	BLKYLD
 
 
@@ -6963,7 +8406,7 @@ CPIRB:
 	BEQ.S	CPIRM
 	SUBQ.W	#1,D5
 	BEQ.S	CPIRF
-	BLKSTEP	CPIRB,CPIRY
+	BLKSTEP	CPIRB,CPIRY,7
 CPIRM:	SUBQ.W	#1,D5
 CPIRF:	MOVE.B	D3,D1			; old flags (C) before the compare:
 	CMP.B	(A4),D7			; flags of the last compare
@@ -6981,7 +8424,7 @@ CPDRB:
 	BEQ.S	CPDRM
 	SUBQ.W	#1,D5
 	BEQ.S	CPDRF
-	BLKSTEP	CPDRB,CPDRY
+	BLKSTEP	CPDRB,CPDRY,7
 CPDRM:	SUBQ.W	#1,D5
 CPDRF:	MOVE.B	D3,D1			; old flags (C) before the compare:
 	CMP.B	(A4),D7			; flags of the last compare
@@ -6998,7 +8441,7 @@ BlkCmpF:				; (a MOVE.B here set the CCR and lost the
 	BEQ.S	BlkCmpV
 	OR.B	#$02,D3			; P/V = BC != 0
 BlkCmpV:
-	Otra	16			; the last step: 18 with the two waits
+	Otra	16,6			; the last step: 18 with the two waits
 BlkCmpY:
 	MOVE.W	CCR,D3
 	BFINS	D1,D3{31:1}		; C unchanged
@@ -7069,6 +8512,89 @@ LDMAMd:	CheckW	D1
 	MOVE.B	D7,(A4)
 	JMP	([PagRuts.W,PC,D1.W*4])
 
+	IFD	TURBOR
+; (turbo R) The hooked writes as LDMAd.. above, but charging the cycles
+; (Otra n: n+1) before the slot's routine (PagRuts ends in Otra2, which
+; charges nothing). The line end is then seen at the next instruction.
+T8WR:	MACRO			; \1 address, \2 source, \3 H = high byte
+	CogePagE \1,A4
+	IFC	"H","\3"
+	ROR.W	#8,\2
+	MOVE.B	\2,(A4)
+	ROR.W	#8,\2
+	ELSEIF
+	MOVE.B	\2,(A4)
+	ENDC
+	IFD	R8SITE
+	R8SUB	8,4,D2
+	MOVE.W	#$0100,D2
+	ELSEIF
+	SUBQ.W	#8,(A3)
+	ENDC
+	JMP	([PagRuts.W,PC,D1.W*4])
+	CNOP	0,4
+	ENDM
+T8LDHLB:	T8WR	D4,D5,H
+T8LDHLC:	T8WR	D4,D5,L
+T8LDHLD:	T8WR	D4,D6,H
+T8LDHLE:	T8WR	D4,D6,L
+T8LDHLH:	T8WR	D4,D4,H
+T8LDHLL:	T8WR	D4,D4,L
+T8LDHLA:	T8WR	D4,D7,L
+T8LDBCA:	T8WR	D5,D7,L
+T8LDDEA:	T8WR	D6,D7,L
+T8LDHLMN:CogePagE D4,A4
+	MOVE.B	(A5)+,(A4)
+	BEQ.S	T8LDHLMN0
+	IFD	R8SITE
+	R8SUB	11,5,D2
+	MOVE.W	#$0100,D2
+	ELSEIF
+	SUB.W	#11,(A3)
+	ENDC
+	JMP	([PagRuts.W,PC,D1.W*4])
+	CNOP	0,4
+T8LDHLMN0:
+	IFD	R8SITE
+	R8SUB	11,5,D2
+	MOVE.W	#$0100,D2
+	ENDC
+	MOVE.B	D1,D2
+	CheckB	(A4)
+	IFND	R8SITE
+	SUB.W	#11,(A3)
+	ENDC
+	JMP	([PagRuts-$400.W,PC,D2.W*4])
+	CNOP	0,4
+T8LDMA:	MOVE.W	(A5)+,D1
+	TST.B	D1
+	BEQ.S	T8LDMAM
+	ROR.W	#8,D1
+	CogePagE D1,A4
+	MOVE.B	D7,(A4)
+	IFD	R8SITE
+	R8SUB	14,6,D2
+	MOVE.W	#$0100,D2
+	ELSEIF
+	SUB.W	#14,(A3)
+	ENDC
+	JMP	([PagRuts.W,PC,D1.W*4])
+	CNOP	0,4
+T8LDMAM:	CheckW	D1
+	ROR.W	#8,D1
+	CogePagE D1,A4
+	MOVE.B	D7,(A4)
+	IFD	R8SITE
+	R8SUB	14,6,D2
+	MOVE.W	#$0100,D2
+	ELSEIF
+	SUB.W	#14,(A3)
+	ENDC
+	JMP	([PagRuts.W,PC,D1.W*4])
+	CNOP	0,4
+MapExp:	DC.L	T8LDMA,T8LDHLA,T8LDHLB,T8LDHLC,T8LDHLD,T8LDHLE
+	DC.L	T8LDHLH,T8LDHLL,T8LDBCA,T8LDDEA,T8LDHLMN
+	ENDC
 ; -========================================================-
 
 
@@ -8924,7 +10450,12 @@ INB5:
 	MOVE.B	DB5(A3),D2
 	LSL.B	#4,D2
 	OR.B	D2,D1
+	IFD	TURBOR			; (turbo R) RtcTabP: the GT's own block
+	MOVE.L	RtcTabP,A4		; (TRRtcInit).
+	MOVE.B	(A4,D1.W),D1
+	ELSE
 	MOVE.B	(TABLAB4,PC,D1.W),D1
+	ENDC
 	OR.B	#$F0,D1
 	RTS
 
@@ -8947,7 +10478,12 @@ NOES13:
 	MOVE.B	DB5(A3),D1
 	LSL.B	#4,D1
 	OR.B	DB4(A3),D1
+	IFD	TURBOR
+	MOVE.L	RtcTabP,A4
+	ADDA.W	D1,A4
+	ELSE
 	LEA	(TABLAB4,PC,D1.W),A4
+	ENDC
 	MOVE.B	D2,(A4)
 	RTS
 
@@ -10481,6 +12017,7 @@ INSED:
 	DC.L	LDD,ICPD,IND,OUTD,EDNOP,EDNOP,EDNOP,EDNOP		; A8
 	DC.L	LDIR,CPIR,INIR,OTIR,EDNOP,EDNOP,EDNOP,EDNOP		; B0
 	DC.L	LDDR,CPDR,INDR,OTDR,EDNOP,EDNOP,EDNOP,EDNOP		; B8
+			; (turbo R) R8SetCpu puts MULUB/MULUW in this table in R800 mode.
 	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; C0
 	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; C8
 	DC.L	EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP,EDNOP	; D0
@@ -10560,7 +12097,11 @@ INS:
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; 88
 	DC.L	IN90,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; 90
 	DC.L	IN98,IN99,InXX,InXX,InXX,InXX,InXX,InXX		; 98
+	IFD	TURBOR
+	DC.L	INA0,INA1,INA2,InXX,INA4,INA5,InXX,T8INA7		; A0
+	ELSE
 	DC.L	INA0,INA1,INA2,InXX,InXX,InXX,InXX,InXX		; A0
+	ENDC
 	DC.L	INA8,INA9,INAA,InXX,InXX,InXX,InXX,InXX		; A8
 	DC.L	InXX,InXX,InXX,InXX,INB4,INB5,InXX,InXX		; B0
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; B8
@@ -10568,9 +12109,21 @@ INS:
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; C8
 	DC.L	IND0,IND0,IND0,IND0,IND0,InXX,InXX,InXX		; D0
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; D8
+	IFD	TURBOR
+	DC.L	InXX,InXX,InXX,InXX,INE4,INE5,INE6,INE7		; E0
+	ELSE
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; E0
+	ENDC
+	IFD	TURBOR
+	DC.L	InXX,T8INE9,InXX,InXX,InXX,InXX,InXX,InXX		; E8
+	ELSE
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; E8
+	ENDC
+	IFD	TURBOR
+	DC.L	InXX,InXX,InXX,InXX,T8INF4,InXX,InXX,InXX		; F0
+	ELSE
 	DC.L	InXX,InXX,InXX,InXX,InXX,InXX,InXX,InXX		; F0
+	ENDC
 	DC.L	InXX,InXX,InXX,InXX,INFC,INFD,INFE,INFF		; F8
 
 	CNOP	0,8
@@ -10595,7 +12148,11 @@ OUTS:
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; 88
 	DC.L	OUT90,OUT91,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; 90
 	DC.L	OUT98,OUT99a,OUT9Aa,OUT9B,OutXX,OutXX,OutXX,OutXX ; 98
+	IFD	TURBOR
+	DC.L	OUTA0,OUTA1,OutXX,OutXX,OUTA4,OUTA5,OutXX,OutXX	  ; A0
+	ELSE
 	DC.L	OUTA0,OUTA1,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; A0
+	ENDC
 	DC.L	OUTA8,OutXX,OUTAA,OUTAB,OutXX,OutXX,OutXX,OutXX	  ; A8
 	DC.L	OutXX,OutXX,OutXX,OutXX,OUTB4,OUTB5,OutXX,OutXX	  ; B0
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; B8
@@ -10603,10 +12160,22 @@ OUTS:
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; C8
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; D0
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; D8
+	IFD	TURBOR
+	DC.L	OutXX,OutXX,OutXX,OutXX,OUTE4,OUTE5,OUTE6,OutXX	  ; E0
+	ELSE
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; E0
+	ENDC
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; E8
+	IFD	TURBOR
+	DC.L	OutXX,OutXX,OutXX,OutXX,T8OUTF4,OutXX,OutXX,OutXX	  ; F0
+	ELSE
 	DC.L	OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX,OutXX	  ; F0
+	ENDC
+	IFD	TURBOR
+	DC.L	OutXX,OutXX,OutXX,OutXX,T8OUTFC,T8OUTFD,T8OUTFE,T8OUTFF	  ; F8
+	ELSE
 	DC.L	OutXX,OutXX,OutXX,OutXX,OUTFC,OUTFD,OUTFE,OUTFF	  ; F8
+	ENDC
 ********************************************************************
 
 
@@ -10824,7 +12393,14 @@ V5AllKeep2:
 ModoTxt4:
 	MOVE.L	(A7)+,RetOut(A3)
 
+					; (5.0) A mode-split regime keeps the
+	TST.B	MSplitSeen		; render's 32-bit fetch (FMODE $D,
+	BEQ.S	M4FmKF		; Mode5Fetch): see ModoGfx5.
+	CMP.W	#$000D,MCAGA+2
+	BEQ.S	M4FmK
+M4FmKF:
 	MOVE.W	#$000F,MCAGA+2
+M4FmK:
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
@@ -10899,7 +12475,24 @@ M6Cap:	MOVE.L	#VDP12,VDPPunt+($12*4)
 ModoGfx5:
 	MOVE.L	(A7)+,RetOut(A3)
 
+; (5.0) FMODE is the master copper list's word (MCAGA+2), live: the copper
+; reads it at each Amiga frame start. The render (after the copper's end-
+; of-list interrupt) sets the frame's fetch (Mode5Fetch: $D, 32-bit, once
+; R#26 scrolls); in a SCREEN 4/5 split regime (S.T.G.: SCREEN 4 in the
+; VBlank, SCREEN 5 at the HUD split) ModoTxt4 and this wrote $F again while
+; the next MSX frame was emulated, before the Amiga frame start when the
+; render ended early: that frame ran the 64-bit fetch with the 32-bit
+; modulo and pointers (HUD rows sheared sideways, a red line at the bottom;
+; about a quarter of WinUAE's frames). The regime keeps $D; a SCREEN 4
+; render puts its own $F back (BMSPrep).
+					; (5.0) A mode-split regime keeps the
+	TST.B	MSplitSeen		; render's 32-bit fetch (FMODE $D,
+	BEQ.S	M5FmKF		; Mode5Fetch), see above.
+	CMP.W	#$000D,MCAGA+2
+	BEQ.S	M5FmK
+M5FmKF:
 	MOVE.W	#$000F,MCAGA+2
+M5FmK:
 	MOVEM.L	D0-D2/A0-A1,BUFER(A3)
 	LEA	DIRSPRITES2,A0
 	JSR	CREASPRITES
@@ -10913,9 +12506,22 @@ ModoGfx5:
 	SF	V9Fm32Ok		; (4.1.2) 64-bit fetch and the MSX2 display
 	SF	V9Fm32			; until a game scrolls with R#26 (V9R26Used:
 	TST.B	V9R26			; Pl5Want's layout, Mode5Fetch's FMODE and
+					; (5.0) Kept in a mode-split regime.
+	BNE.S	M5R26U
+	TST.B	MSplitSeen
+	BNE.S	M5R26K
+M5R26U:
 	SNE	V9R26Used		; modulo), so a game that never does shows
+M5R26K:
 					; exactly as on the MSX2 machine. Any of
 					; the 6 bits: with SP2, 32 is a real scroll.
+; (5.0) A mode-split regime (MSplitSeen, set by MODESW just before) is one
+; SCREEN 5 stay entered every frame (S.T.G.: SCREEN 4 HUD, SCREEN 5 from a
+; line interrupt), so V9R26Used carries over. Cleared when R#26 was 0 at
+; one entry (S.T.G.'s first band wraps through 0 every 37 frames), the
+; planes went to layout 0 and back a frame later (two full rebuilds, the
+; band and the copper in different strides): HUD doubled, page 0 junk at
+; the bottom, a pink playfield, for 3-4 frames.
 	TST.B	V9958On
 	BEQ.S	M5Fm
 	CMP.W	#$01FC,MCAGA
@@ -14079,6 +15685,10 @@ IVDP0:
 
 	MOVE.B	Estado(A3),D1
 	SF	Estado(A3)
+	IFD	TURBOR
+	TST.B	TRHw			; (turbo R) collisions per line (5.0: with
+	BNE	TRSC			; the turbo R hardware, TRMachSet)
+	ENDC
 	TST.B	SCPend			; Sprite collision of the last frame.
 	IFND	NOSPRCOL		; (A/B: -DNOSPRCOL=1: same code size, never
 	BNE	SCCalc			; checks.)
@@ -14542,8 +16152,20 @@ SCCutX:	ADD.W	#16,A6
 	ST	SCCutOK
 	MOVEM.L	SCCutSv,D0/D2-D3
 	BRA	SCCutBk
-SCHitY:	ST	SCHit
+SCHitY:
+	IFD	TURBOR
+	TST.B	TRHw
+	BEQ.S	SCHitN
+	ST	(TRSCTab.L,D0.W)	; (turbo R) the line, then the rest
+	BRA	SCLNx
+SCHitN:
+	ENDC
+	ST	SCHit
 SCEnd:	MOVEM.L	SCSave,D0-D7/A0-A6
+	IFD	TURBOR
+	TST.B	TRHw
+	BNE	TRSCAft
+	ENDC
 	IFD	SCDISCARD		; (Cost A/B: check, but report nothing.)
 	SF	SCHit
 	ENDC
@@ -14551,6 +16173,77 @@ SCEnd:	MOVEM.L	SCSave,D0-D7/A0-A6
 	BEQ	SCBack
 	OR.B	#$20,D1
 	BRA	SCBack
+
+	IFD	TURBOR
+; (turbo R) Sprite collision per line, as openMSX: the flag is set as the
+; beam passes a line where two sprites meet; reading S#0 clears it, and the
+; next such line sets it again. The FS-A1GT opening's R800 logo uses this
+; as a raster sync (7A1Eh: polls S#0 bit 5, then writes R#26/27 for the
+; line). SCCalc runs once a frame, at the first S#0 read after the frame
+; ends, on the sprite tables as they are then, and marks every line with a
+; collision in TRSCTab; the table is the next frame's. A read reports the
+; lines from TRSCNx up to the beam (CurLine). At the frame end the lines
+; not reported yet (the frame just ended) come first, then the new table;
+; read in the blank, it waits for line 0 (TRSCVb). D1 = S#0 so far; D2
+; kept (SCBack); no stack (A7 is the Restas table).
+TRSC:
+	MOVE.L	D2,TRSCD2
+	TST.B	SCPend
+	BEQ.S	TRSCRep
+	MOVE.W	TRSCNx,D2		; The ended frame's lines not reported.
+TRSCt:	TST.B	(TRSCTab.L,D2.W)
+	BEQ.S	TRSCt1
+	OR.B	#$20,D1
+	BRA.S	TRSCt2
+TRSCt1:	ADDQ.W	#1,D2
+	CMP.W	#256,D2
+	BCS.S	TRSCt
+TRSCt2:	MOVE.L	A0,TRSCA0		; New table.
+	LEA	TRSCTab,A0
+	MOVEQ	#(256/4)-1,D2
+TRSCc:	CLR.L	(A0)+
+	DBF	D2,TRSCc
+	MOVE.L	TRSCA0,A0
+	CLR.W	TRSCNx
+	MOVE.W	#192,D2			; Read in the blank: the table waits for
+	BTST	#7,DVDP9(A3)		; line 0.
+	BEQ.S	TRSCb
+	MOVE.W	#212,D2
+TRSCb:	MOVE.W	D2,TRSCNL
+	CMP.W	CurLine(A3),D2
+	SLS	TRSCVb
+	MOVE.L	TRSCD2,D2
+	BRA	SCCalc			; (back at TRSCAft, D2 as it was)
+TRSCAft:
+	MOVE.L	D2,TRSCD2
+TRSCRep:
+	TST.B	TRSCVb
+	BEQ.S	TRSCr0
+	MOVE.W	CurLine(A3),D2
+	CMP.W	TRSCNL,D2
+	BCC.S	TRSCX			; Still in the blank.
+	SF	TRSCVb
+TRSCr0:	MOVE.W	TRSCNx,D2
+TRSCr:	CMP.W	CurLine(A3),D2
+	BGT.S	TRSCX			; Beam not there yet.
+	CMP.W	#256,D2
+	BCC.S	TRSCX
+	TST.B	(TRSCTab.L,D2.W)
+	BEQ.S	TRSCr1
+	OR.B	#$20,D1
+TRSCr1:	ADDQ.W	#1,D2
+	MOVE.W	D2,TRSCNx
+	BRA.S	TRSCr
+TRSCX:	MOVE.L	TRSCD2,D2
+	BRA	SCBack
+
+TRSCD2:	DC.L	0
+TRSCA0:	DC.L	0
+TRSCNx:	DC.W	0			; Next line not reported.
+TRSCNL:	DC.W	0			; Display lines (192, 212).
+TRSCVb:	DC.B	0			; Table waits for line 0.
+	EVEN
+	ENDC
 
 IVDP0Spr:
 	MOVE.B	Estado(A3),D1
@@ -14596,9 +16289,13 @@ IVDP2:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$6C,D2		;  Timing X e Y Off. (no usados a 1)
 
+	IFD	R8SITE
+	TRHPOS				; (turbo R) the same in Z80 cycles
+	ELSEIF
 	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
 	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
+	ENDC
 
 	CMP2.L	(Timming_Y.W,PC),D1
 	BCS.S	NoTimming_Y
@@ -14625,9 +16322,13 @@ IVDP2tr:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$EC,D2		; TR Realizada, Timing X e Y Off. (no usados a 1)
 
+	IFD	R8SITE
+	TRHPOS				; (turbo R) the same in Z80 cycles
+	ELSEIF
 	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
 	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
+	ENDC
 
 	CMP2.L	(Timming_Y.W,PC),D1
 	BCS.S	NoTimming_Ytr
@@ -14646,6 +16347,10 @@ NoTimming_Xtr:
 	MOVE.B	D2,D1
 	RTS
 
+	IFD	R8SITE
+TRHPos:	DC.B	0
+	EVEN
+	ENDC
 	CNOP	0,8
 Timming_Y:	DC.L	0,212*256
 Timming_X:	DC.B	$2A,$FE
@@ -14657,9 +16362,13 @@ IVDP2060:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$6C,D2		;  Timing X e Y Off. (no usados a 1)
 
+	IFD	R8SITE
+	TRHPOS				; (turbo R) the same in Z80 cycles
+	ELSEIF
 	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
 	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
+	ENDC
 
 	CMP.L	(Timming_Y+4.W,PC),D1
 	BCC.S	NoTimming_Y060
@@ -14690,9 +16399,13 @@ IVDP2tr060:
 	MOVE.B	DVDPS2(A3),D2
 	OR.B	#$EC,D2		; TR Realizada, Timing X e Y Off. (no usados a 1)
 
+	IFD	R8SITE
+	TRHPOS				; (turbo R) the same in Z80 cycles
+	ELSEIF
 	MOVE.W	CurLine(A3),D1		; Line * 256 + position (the whole line:
 	LSL.L	#8,D1			; PAL lines 256-312 are VBlank too).
 	MOVE.B	1(A3),D1
+	ENDC
 
 	CMP.L	(Timming_Y+4.W,PC),D1
 	BCC.S	NoTimming_Ytr060
@@ -17722,12 +19435,12 @@ NOSUMAS18:
 	CNOP	0,8
 BorraSprTab:
 	LEA	TAB98(PC),A6
-	MOVE.L	REGS+PVDP6(PC),D0	; Tabla Gfx Sprites VRAM. (4.9.1) Not
+	MOVE.L	REGS+PVDP6(PC),D0	; Tabla Gfx Sprites VRAM. (5.0) Not
 					; PVDP6(A3): COPIATXT and ACTUALIZA leave A3
 					; on the tile cache (PRINT2's marked-tile
 					; pass, full redraws), and the clear below
 					; then zeroed 256 bytes anywhere within
-					; 32 KB of TAB98 (Nemesis 2 crash).
+					; 32 KB of TAB98 (Test5's Nemesis 2 crash).
 	LSR.L	#3,D0
 	ADD.W	#256,D0
 	ADD.W	D0,A6
@@ -18143,6 +19856,28 @@ InterHorX:
 
 	CNOP	0,8
 MiraInter:
+	IFD	EXCALL			; (5.0, debug) the Z80 PC (after the
+	MOVE.L	A4,ExcPcSv		; opcode) and the line at each line
+	MOVE.L	ExcPcPtr,A4		; end, a ring of 1024 (ExcReport).
+	MOVE.W	A5,D1			; D1 is free here (as TRPcLog).
+	SUB.W	(A7),D1
+	MOVE.W	D1,(A4)+
+	MOVE.W	CurLine(A3),(A4)+
+	CMP.L	#ExcPcEnd,A4
+	BCS.S	MiraXR
+	LEA	ExcPcRing,A4
+MiraXR:	MOVE.L	A4,ExcPcPtr
+	MOVE.L	ExcPcSv,A4
+	ENDC
+	IFD	TURBOR
+	IFD	PERF
+	JMP	TRPcLog			; (debug) PC ring
+MiraInterL:
+	ENDC
+	TST.B	R8Pend			; (turbo R) a CPU switch due
+	BNE.L	R8PendDo
+	ENDC
+MiraInterN:
 	TST.B	EIForce			; (4.1.2) Forced by EI: not a line end.
 	BNE.S	MiraInterEI
 	TST.B	BandSplitP		; A split asked for a band here.
@@ -18190,6 +19925,23 @@ MI0NoLive:
 	ENDC
 	ADDQ.B	#1,RFrame		; (LD A,R)
 	ADDQ.W	#1,CmdFrN		; (4.3) CE busy time (CETime).
+	IFD	TURBOR
+	MOVE.L	#VPeriodPAL*HPeriod,D1	; (turbo R) the E6h timer: a frame
+	BTST	#1,DVDP9(A3)		; on (Z80 cycles, mod 14 x 65536).
+	BNE.S	TRE6Pal
+	MOVE.L	#VPeriodNTSC*HPeriod,D1
+TRE6Pal:	ADD.L	D1,TRE6Acc
+	CMP.L	#14*ZCYC*65536,TRE6Acc
+	BCS.S	TRE6Ok
+	SUB.L	#14*ZCYC*65536,TRE6Acc
+TRE6Ok:
+	MOVEQ	#0,D1			; (turbo R) the PCM count's lines.
+	MOVE.W	#VPeriodPAL,D1
+	BTST	#1,DVDP9(A3)
+	BNE.S	PcmFrP
+	MOVE.W	#VPeriodNTSC,D1
+PcmFrP:	ADD.L	D1,PcmFrLn
+	ENDC
 	SF	L0Arm			; (4.1.2) The display starts (L0Prep).
 	SF	S5Valid			; 5th sprite flag: new frame.
 	CLR.W	S5Next
@@ -18224,7 +19976,15 @@ MI0BlOff:
 	MOVE.B	VDPLinY(A3),(TabRasDATA+4,D1.W*8) ; VDP ($17)
 	MOVE.B	DVDP2(A3),(TabRasDATA+1,D1.W*8)	; VDP (2)
 MiraInterBuc:
+	IFD	R8SITE			; (turbo R) the R800 loses 27 of every
+	MOVE.L	D1,R8LnSv		; 210 cycles to DRAM refresh (openMSX):
+	MOVE.W	R8CostH+2*R8NH,D1	; 397 of the line's 456 ticks run
+	R8H	228,397			; instructions in R800 mode
+	ADD.W	D1,(A3)
+	MOVEM.L	R8LnSv,D1		; (MOVEM: the ADD's flags stay)
+	ELSEIF
 	ADD.W	#HPeriod,(A3)		; Suma Cyclos de 1 linea.
+	ENDC
 	BMI.W	MiraInterCU
 	IFD	CORRCHK
 	JMP	CorrTest
@@ -18256,10 +20016,20 @@ MiraInterCU:
 
 	CNOP	0,4
 MiraInter255:
+	IFD	R8SITE
+	MOVE.W	R8CostH+2*R8NH,D1	; (turbo R: R800 lines of 397)
+	R8H	(VPeriodPAL-255)*228,(VPeriodPAL-255)*397
+	ELSEIF
 	MOVE.W	#(VPeriodPAL-255)*HPeriod,D1	; Suma Cyclos de x lineas PAL.
+	ENDC
 	BTST	#1,DVDP9(A3)
 	BNE.S	EsModoPal
+	IFD	R8SITE
+	MOVE.W	R8CostH+2*R8NH,D1
+	R8H	(VPeriodNTSC-255)*228,(VPeriodNTSC-255)*397
+	ELSEIF
 	MOVE.W	#(VPeriodNTSC-255)*HPeriod,D1	; Suma Cyclos de x lineas NTSC.
+	ENDC
 EsModoPal:
 	ADD.W	D1,(A3)
 	BMI	MiraInter
@@ -18300,7 +20070,15 @@ ModoFastCPU:
 
 	SUBQ.B	#1,CurLine+1(A3)
 
+	IFD	R8SITE			; (turbo R) the R800 loses 27 of every
+	MOVE.L	D1,R8LnSv		; 210 cycles to DRAM refresh (openMSX):
+	MOVE.W	R8CostH+2*R8NH,D1	; 397 of the line's 456 ticks run
+	R8H	228,397			; instructions in R800 mode
+	ADD.W	D1,(A3)
+	MOVEM.L	R8LnSv,D1		; (MOVEM: the ADD's flags stay)
+	ELSEIF
 	ADD.W	#HPeriod,(A3)
+	ENDC
 	BMI	MiraInter
 
 	JMP	([A3,D2.W*8])		; Vuelta al Z-80 emul.
@@ -18315,7 +20093,11 @@ MiraInter192:
 
 EmulaGfx:
 	BTST	#2,Key+14(A3)		; �Help Pulsada?
+	IFD	R8SITE
+	BEQ	ZALI
+	ELSEIF
 	BEQ.S	ZALI
+	ENDC
 
 
 	MOVE.B	#((INIPANT+224)&$FF),OverDat
@@ -18385,7 +20167,15 @@ InterVerSB:
 	TRVLOG	$EF,IFF(A3)		; (U2TRV) VBlank interrupt raised (IFF)
 	ENDC
 
+	IFD	R8SITE			; (turbo R) the R800 loses 27 of every
+	MOVE.L	D1,R8LnSv		; 210 cycles to DRAM refresh (openMSX):
+	MOVE.W	R8CostH+2*R8NH,D1	; 397 of the line's 456 ticks run
+	R8H	228,397			; instructions in R800 mode
+	ADD.W	D1,(A3)
+	MOVEM.L	R8LnSv,D1		; (MOVEM: the ADD's flags stay)
+	ELSEIF
 	ADD.W	#HPeriod,(A3)
+	ENDC
 	BMI	MiraInter
 InterRunV:
 	BTST	#5,DVDP1(A3)		; �Interrupci�n Vertical?
@@ -18416,7 +20206,11 @@ NoModoHalt:
 	SUB.W	(A7),A5
 	MOVE.W	A5,D2
 ;	----------------
+	IFD	R8SITE
+	R8SUB	13,7,D1			; (turbo R) R800: 7, an estimate (as RST)
+	ELSEIF
 	SUB.W	#13,(A3)		; * Resta Cycles * (4.0) 13 as a Z80 IM 1 (was 7)
+	ENDC
 ;	----------------
 	MOVEQ	#0,D1
 	SUBQ.W	#2,D0
@@ -18444,7 +20238,11 @@ NoModo1:
 	Otra2				; (as openMSX). It went to 0066h (NMI).
 ;	----------------
 SiModo2:
+	IFD	R8SITE
+	R8SUB	6,3,D1			; (4.0) IM 2: 19 cycles (R800: +3, estimate)
+	ELSEIF
 	SUBQ.W	#6,(A3)			; (4.0) IM 2: 19 cycles
+	ENDC
 	MOVE.W	I(A3),D1
 	ST	D1
 	CogePag	D1,A4
@@ -19300,17 +21098,17 @@ CETmP2:	ADDQ.W	#1,D3
 CETmP3:	MOVE.W	(A3),D4
 	EXT.L	D4
 	SUB.L	D4,D3
-	MULU.L	#6,D3
+	MULU.L	#ZVDP,D3
 	MOVE.L	A4,D4			; Frame length (VDP cycles).
-	MULU.L	#6,D4
+	MULU.L	#ZVDP,D4
 	MOVE.L	D4,A4
 	MOVEQ	#0,D5			; Display window end, 0 with BL off.
 	BTST	#6,DVDP1(A3)
 	BEQ.S	CETmBL
-	MOVE.L	#192*HPeriod*6,D5
+	MOVE.L	#192*HPeriod*ZVDP,D5
 	BTST	#7,DVDP9(A3)
 	BEQ.S	CETmBL
-	MOVE.L	#212*HPeriod*6,D5
+	MOVE.L	#212*HPeriod*ZVDP,D5
 CETmBL:	MOVEQ	#3,D1			; Display rate num/den: 3/2 sprites on,
 	MOVEQ	#2,D2			; 5/4 off (R#8 SPD).
 	BTST	#1,DVDP8(A3)
@@ -19343,7 +21141,13 @@ CETmBM:	SUB.L	D4,D6
 	ADDQ.W	#1,D0
 	CMP.W	#100,D0			; (A runaway guard: 2 s.)
 	BCS.S	CETmLp
-CETmEnd:DIVU.L	#6,D3			; End: Z80 cycles in its frame.
+CETmEnd:
+	IFD	R8SITE
+	DIVU.L	#ZVDP*ZCYC,D3		; (turbo R, 5.0) End: whole Z80 cycles,
+	MULU.L	#ZCYC,D3		; in counter units (as the normal build).
+	ELSEIF
+	DIVU.L	#ZVDP,D3		; End: counter units in its frame.
+	ENDC
 	ADD.W	CmdFrN,D0
 	MOVE.W	D0,CEEndFr
 	MOVE.L	D3,D4			; Line, and the cycles left there.
@@ -19351,7 +21155,7 @@ CETmEnd:DIVU.L	#6,D3			; End: Z80 cycles in its frame.
 	CMP.L	#255,D4
 	BCS.S	CETmL
 	MOVE.L	A4,D4			; Line 255 runs to the frame end.
-	DIVU.L	#6,D4
+	DIVU.L	#ZVDP,D4
 	SUB.L	D3,D4
 	MOVE.W	D4,CEEndLeft
 	MOVE.W	#255,CEEndL
@@ -19621,7 +21425,11 @@ POINT:
 	MULU	$20(A4),D4
 
 	MOVE.B	$22(A4),D3
+					; (5.0) A7 is the Restas entry: a second
+	MOVE.L	(A7)+,RetOut(A3)	; call level wrote over the entry before
+					; it (RESTA0, POINT from 2000h-3FFFh).
 	JSR	([$24.W,A4])
+	MOVE.L	RetOut(A3),-(A7)
 	LSR.B	D4,D1
 	AND.B	D3,D1
 	MOVE.B	D1,COLREAD(A3)
@@ -19637,6 +21445,8 @@ POINT:
 ; as POINT reads them (the mode's $24 routine, which uses D0-D2 and A4).
 	CNOP	0,8
 SRCH:
+					; (5.0) As POINT: our return off A7 while
+	MOVE.L	(A7)+,RetOut(A3)	; the dots are read (JSR below).
 	MOVE.L	A4,A5
 	MOVEQ	#0,D5
 	MOVE.W	DVDPSX2(A3),D5		; X.
@@ -19679,6 +21489,8 @@ SrchEq:	TST.B	D2
 SrchHit:BSET	#4,DVDPS2(A3)
 SrchEnd:OR.W	#$FE00,D5
 	MOVE.W	D5,SrchBX
+					; (5.0) Our return back on A7.
+	MOVE.L	RetOut(A3),-(A7)
 	BRA	V2EMAL
 SrchBX:	DC.W	$FFFF			; S#9 (high byte), S#8 (low byte).
 
@@ -21477,6 +23289,17 @@ HangSame:
 	MOVE.L	6(SP),HangPC		; note where it was and go to HangGo.
 	MOVE.W	4(SP),HangSR
 	MOVE.L	#HangGo,6(SP)
+	IFD	EXCALL
+	ST	HangHit			; (5.0, debug) for ExcReport: the
+	MOVEM.L	D1-D7/A0-A6,ExcRegs+4	; registers of the code it stopped
+	MOVE.L	(SP),ExcRegs		; (D0 on the stack) and USP
+	MOVE.L	A0,-(SP)
+	MOVE.L	USP,A0
+	MOVE.L	A0,ExcRegs+60
+	MOVE.L	(A0),ExcUspW
+	MOVE.L	-4(A0),ExcUspW+4
+	MOVE.L	(SP)+,A0
+	ENDC
 HangDone:
 	MOVE.L	(SP)+,D0
 	ENDC
@@ -21916,6 +23739,11 @@ TesteaJoyRut:
 	IFND	PERFLOCAL		; (Measure builds: the joystick stays live.)
 	TST.L	KeyScrPtr		; Scripted test run: no host joystick or
 	BEQ.S	TJoyHost		; mouse (moving the mouse over WinUAE
+	IFD	JKTEST			; (5.0 test builds) a scripted run holds
+	MOVEQ	#JKTEST,D1		; these joystick bits (1 = pressed: 0 up,
+	ST	PrefJoyK		; 1 down, 2 left, 3 right, 4/5 fire) with
+	BRA	JKKeys			; Joystick as Cursor Keys on.
+	ENDC
 	ST	DATOJOY1(A3)		; read as MSX joystick 2).
 	ST	DATOJOY2(A3)
 	RTS
@@ -21975,6 +23803,105 @@ NOB2B_E:
 ; 1's red and blue go into its own read, below, through CD32Btn1);
 ; yellow = Space, green = M, play = F1 (CD32KEY). A port on Standard
 ; is never driven: the plain read is all it gets.
+	IFND	NO_CD32KIT
+; (CD32 kit 2) The CD32 kit's reader (emu-dev-docs kits/cd32pad, cd32read, kit 2:
+; FAmiga 1.00's, Afrotechmods; MIT), inline: no stack here. Each port has
+; its own clock, from the menu: CD32 Pad (PrefCD32/PrefCD32M = FFh) clocks
+; pin 6 from high (it idles high, each pulse goes low, then high again);
+; KTRL CD32+ (CD32KTRL) from low (it idles low, each pulse goes high, then
+; low: the low clock, for pads that miss or mix up buttons on the other).
+; The image clock: pin 6 is written from a copy of CIA-A PRA taken once,
+; never with EOR on the port (an emulated pad sees only written edges).
+; Pin 6 goes to its idle level and becomes an output before pin 5 falls.
+; Latch wait 35 CIA reads (~50 us), 3 per clock half. Nine bits come back:
+; the seven buttons (as before), then the pad's two ID bits (bits 7-8; a
+; CD32 pad gives 1 then 0, 0 = pressed as the buttons). All seven buttons
+; at once is a plain joystick (or an adapter in its standard mode): no pad.
+	MOVE.L	D3,CD32SvD3		; (No stack: the frame interrupt runs on the
+	MOVE.L	D4,CD32SvD4		; Z80 core's A7, the Restas table.)
+	MOVE.L	D5,CD32SvD5
+	MOVE.L	D6,CD32SvD6
+	IFD	PADFORCE		; (Test builds: port 2 forced to CD32 Pad
+	IFEQ	PADFORCE-1		; (1) or KTRL CD32+ (2), whatever the
+	ST	PrefCD32		; menu says.)
+	ELSE
+	MOVE.B	#CD32KTRL,PrefCD32
+	ENDC
+	ENDC
+	MOVEQ	#0,D3			; D3 = CIA-A PRA bits: the pin 6 lines to clock,
+	MOVEQ	#0,D6			; D6 = those on the low clock.
+	MOVE.W	#$FF00,D0		; D0 = POTGO: pin 5 low on each CD32 port.
+	MOVE.B	PrefCD32,D5
+	BEQ.S	CKNoP2
+	MOVE.B	#$80,D3
+	AND.W	#$6FFF,D0		; Port 2: DATRX=0 (pin 5 low), OUTRY=0 (pin 9 an input).
+	CMP.B	#CD32KTRL,D5
+	BNE.S	CKNoP2
+	MOVE.B	#$80,D6
+CKNoP2:	MOVE.B	PrefCD32M,D5
+	BEQ.S	CKNoP1
+	OR.B	#$40,D3
+	AND.W	#$F6FF,D0		; Port 1: DATLX=0, OUTLY=0.
+	CMP.B	#CD32KTRL,D5
+	BNE.S	CKNoP1
+	OR.B	#$40,D6
+CKNoP1:	MOVEQ	#-1,D2			; No pad read: port 2's buttons all
+	MOVEQ	#-1,D4			; released, and port 1's.
+	TST.B	D3
+	BEQ	CKDone
+	MOVE.B	$BFE001,D5		; D5 = the port's byte as it is: the image.
+	OR.B	D3,D5			; Every clocked pin 6 high...
+	EOR.B	D6,D5			; ...and the low clock's back to low.
+	MOVE.B	D5,$BFE001		; Pin 6 at its idle level, then an output,
+	OR.B	D3,$BFE201		; held there while pin 5 falls (no clock edge),
+	MOVE.B	D5,$BFE001		; once more as an output (UAE's first level).
+	MOVE.W	D0,$DFF034		; Pin 5 low: the pad latches its buttons.
+	MOVEQ	#35-1,D0
+CKLat:	TST.B	$BFE001
+	DBF	D0,CKLat
+	MOVEQ	#0,D2			; Port 2's bits, bit 0 = the first out
+	MOVEQ	#0,D4			; (blue); port 1's.
+	MOVEQ	#9-1,D0			; Seven buttons, two ID bits.
+CKBit:	LSR.W	#1,D2
+	BTST	#6,$DFF016		; Port 2 pin 9: the button (1 = released).
+	BEQ.S	CKLo2
+	BSET	#8,D2
+CKLo2:	LSR.W	#1,D4
+	BTST	#2,$DFF016		; Port 1 pin 9.
+	BEQ.S	CKLo1
+	BSET	#8,D4
+CKLo1:	EOR.B	D3,D5			; The pulse's first half, from the image...
+	MOVE.B	D5,$BFE001
+	TST.B	$BFE001
+	TST.B	$BFE001
+	TST.B	$BFE001
+	EOR.B	D3,D5			; ...and back to idle: the next bit.
+	MOVE.B	D5,$BFE001
+	TST.B	$BFE001
+	TST.B	$BFE001
+	TST.B	$BFE001
+	DBF	D0,CKBit
+	MOVE.W	#$FF00,$DFF034		; Pin 5 high: plain joystick mode again,
+	MOVE.B	D3,D5			; pin 6 an input again.
+	NOT.B	D5
+	AND.B	D5,$BFE201
+	BTST	#7,D3			; A port not read: no buttons.
+	BNE.S	CKP2
+	MOVEQ	#-1,D2
+CKP2:	BTST	#6,D3
+	BNE.S	CKP1
+	MOVEQ	#-1,D4
+CKP1:	MOVE.B	D2,D0			; All seven pressed: a plain joystick
+	AND.B	#$7F,D0			; (fire 2 held) or an adapter in its
+	BNE.S	CKOk2			; standard mode, not a pad. The plain
+	MOVEQ	#-1,D2			; read still gives fire 1/2.
+CKOk2:	MOVE.B	D4,D0
+	AND.B	#$7F,D0
+	BNE.S	CKDone
+	MOVEQ	#-1,D4
+CKDone:	MOVE.L	CD32SvD5,D5
+	MOVE.L	CD32SvD6,D6
+	ELSE
 	MOVE.L	D3,CD32SvD3		; (No stack: the frame interrupt runs on the
 	MOVE.L	D4,CD32SvD4		; Z80 core's A7, the Restas table.)
 	MOVEQ	#0,D3			; D3 = CIA-A PRA bits: the pin 6 lines to clock.
@@ -22046,6 +23973,7 @@ CD32Ok2:
 	BNE.S	CD32Ok1
 	MOVEQ	#-1,D4
 CD32Ok1:
+	ENDC
 CD32None:
 	MOVE.B	D4,CD32Btn1		; Port 1's red and blue: its read below.
 	IFD	CD32TEST		; (Test builds, for tests/jtest: F5, row
@@ -22060,6 +23988,13 @@ CD32TNo2:
 	BCLR	#2,KEY+7(A3)
 CD32TNo1:
 	MOVE.B	D2,KEY+10(A3)
+	IFND	NO_CD32KIT		; (Kit: bit 7 = the pad's second ID bit,
+	MOVE.W	D2,D0			; 0 when a CD32 pad answered.)
+	LSR.W	#1,D0
+	AND.B	#$80,D0
+	AND.B	#$7F,KEY+10(A3)
+	OR.B	D0,KEY+10(A3)
+	ENDC
 	ENDC
 	BTST	#1,D2			; Red = MSX trigger A.
 	BNE.S	CD32NoRed
@@ -22085,6 +24020,35 @@ CD32NoBlue:
 	MOVE.L	CD32SvD3,D3
 	MOVE.L	CD32SvD4,D4
 CD32Done:
+; (5.0) Joystick as Cursor Keys (Input menu, PrefJoyK): the joystick port
+; presses the MSX keys, for games that only read the keyboard (S.T.G.):
+; directions = the cursor keys, fire 1 = Space, fire 2 = M. Edges only, as
+; CD32KEY, so the real keyboard still works; turned off, the held keys go
+; up (everything reads as released).
+JKKeys:	MOVEQ	#-1,D2
+	TST.B	PrefJoyK
+	BEQ.S	JKOff
+	MOVE.B	D1,D2
+	NOT.B	D2			; 0 = pressed, as CD32KEY wants.
+JKOff:	MOVE.B	JKOld,D0
+	MOVE.B	D2,JKOld
+	EOR.B	D2,D0			; The ones that changed.
+	BEQ	JKDone
+	CD32KEY	0,8,5			; Up.
+	CD32KEY	1,8,6			; Down.
+	CD32KEY	2,8,4			; Left.
+	CD32KEY	3,8,7			; Right.
+	CD32KEY	4,8,0			; Fire 1 = Space.
+	CD32KEY	5,4,2			; Fire 2 = M.
+JKDone:
+	IFD	JKTEST
+	TST.L	KeyScrPtr
+	BEQ.S	JKTHost
+	ST	DATOJOY1(A3)
+	ST	DATOJOY2(A3)
+	RTS
+JKTHost:
+	ENDC
 ; ----
 
 	TST.B	LEEJOY2(A3)
@@ -25810,6 +27774,10 @@ L0Prep:
 	IFD	NOL0			; (debug: the 4.1.2 behaviour)
 	RTS
 	ENDC
+	IFD	TURBOR			; (turbo R) Line 0 from SCREENP (G3TPrep):
+	TST.B	G3TOn			; not a page's block.
+	BNE	L0PrX
+	ENDC
 	TST.B	BMSOn
 	BNE	L0PrX
 	MOVE.B	Regs+ScrModo,D1		; SCREEN 5, 6, 7, 8 (TabScrBGY 3, 4, 5, 7).
@@ -26008,7 +27976,58 @@ L0LateN:	DC.L	0
 
 
 	CNOP	0,4
+	IFD	TURBOR
+; (turbo R) A line above the split of a SCREEN 4 top (G3TPrep): its row in
+; SCREENP, planes G3TPL apart, with the R#26/R#27 step as below.
+AcCoG3T:
+	MOVEM.L	D0/D2,-(SP)
+	MOVEQ	#0,D0
+	MOVE.W	D7,D0
+	MULU	PlStrideW,D0
+	ADD.L	#SCREENP,D0
+	TST.B	V9Fm32
+	BEQ.S	AcCoG3Tn
+	BSR	Adj5Calc
+	ADD.L	D2,D0
+AcCoG3Tn:
+	MOVE.L	D0,D1
+	MOVEM.L	(SP)+,D0/D2
+	MOVE.W	#$00E2,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E0,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#G3TPL,D1
+	MOVE.W	#$00E6,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E4,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#G3TPL,D1
+	MOVE.W	#$00EA,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00E8,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	ADD.L	#G3TPL,D1
+	MOVE.W	#$00EE,(A3)+
+	MOVE.W	D1,(A3)+
+	SWAP	D1
+	MOVE.W	#$00EC,(A3)+
+	MOVE.W	D1,(A3)+
+	RTS
+	ENDC
 AcCoRutGBY5:
+	IFD	TURBOR
+	TST.B	G3TOn
+	BEQ.S	AcCoG5N
+	CMP.W	G3TLine,D7
+	BCS	AcCoG3T
+AcCoG5N:
+	ENDC
 	MOVE.B	1(A0),D1	; VDP (2)
 	AND.W	#$0060,D1
 	LSL.W	#3,D1
@@ -27084,6 +29103,8 @@ DERSTACK:	DC.B	0
 SwapJoyD:	DC.B	0
 CD32Old:	DC.B	-1		; (4.1.1) The port 2 pad's buttons last
 CD32Old1:	DC.B	-1		; frame (0 = pressed); the port 1 pad's.
+JKOld:		DC.B	-1		; (5.0) Joystick as Cursor Keys: last frame.
+		DC.B	0		; (keeps what follows word-aligned)
 CD32Btn1:	DC.B	-1		; The port 1 pad's buttons this frame.
 		DC.B	0		; (pad: keeps the data below aligned)
 		DC.W	0
@@ -27208,6 +29229,12 @@ PerfGo:
 	IFD	TRACE
 	TRVLOG	$FF,SnapTOK
 	ADDQ.W	#1,TrvFrame
+	IFD	CRASHTEST		; (5.0, debug) a Line-F at this MSX
+	CMP.W	#CRASHTEST,TrvFrame	; frame (checks EXCALL's report)
+	BNE.S	TrvNoCT
+	DC.W	$F800			; (coprocessor 4: Line-F on every CPU)
+TrvNoCT:
+	ENDC
 	IFD	TRVSTOP
 	CMP.W	#TRVSTOP,TrvFrame	; Optional trigger: N frames.
 	BNE.S	TrvGo
@@ -27477,6 +29504,161 @@ MSFDbC:	LEA	DbTD,A0
 	MOVE.L	D0,(A0,D1.W*4)
 	BRA	MSFGo
 
+	IFD	TURBOR
+; (turbo R) SCREEN 4 above a SCREEN 5 frame: MODESW's split with SCREEN 4
+; on top (S.T.G.: its status band, lines 0-31, over the SCREEN 5 playfield,
+; switched by a line interrupt every frame and back in the vertical blank).
+; The frame renders in SCREEN 5, so the top lines showed VRAM page 0 as
+; SCREEN 5 dots (the pattern table). Before the copper build (AGA; RTG
+; frames don't come here), G3TPrep draws the band's tiles from VRAM (the
+; split's R#2 and R#23, the frame's R#3/R#4/R#10: a SCREEN 5 game leaves
+; them alone) into SCREENP: 4 planes G3TPL apart, rows PlStrideW apart in
+; SCR0's layout (the row, then its copies), so the SCREEN 5 list, modulo and
+; R#26/R#27 step show it as they show SCR0. AcCoG3T points the lines above
+; the split there and L0Prep stands aside. SCREENP is the bitmap-pair
+; split's buffer: the two never run in one frame, and BMSKey is cleared so
+; a pair split after this converts its page in full. Every frame: the
+; band changes as the score does (32 tiles a line, ~1000 for S.T.G.).
+G3TPL=16384
+G3TMAX=128				; Lines (4 planes of G3TMAX 128-byte rows).
+	CNOP	0,4
+G3TPrep:
+	SF	G3TOn
+	TST.B	TRHw			; (5.0) with the turbo R hardware only
+	BEQ	G3TPRet
+	TST.W	MSplitL
+	BEQ	G3TPRet
+	CMP.B	#2,MSplitTop		; SCREEN 4 above...
+	BNE	G3TPRet
+	CMP.B	#3,REGS+ScrModo		; ...a SCREEN 5 frame.
+	BNE	G3TPRet
+	CMP.W	#$01FC,MCAGA		; AGA only.
+	BNE	G3TPRet
+	CMP.W	#G3TMAX,MSplitL
+	BHI	G3TPRet
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	ST	G3TOn
+	MOVE.W	MSplitL,G3TLine
+	MOVE.L	#-1,BMSKey
+	OR.B	#$01,TabRasCMDS		; A pointer event at line 0.
+	TST.B	G3TRepOK		; G3TRep: each byte in a long's four.
+	BNE.S	G3TRpD
+	LEA	G3TRep,A0
+	MOVEQ	#0,D0
+G3TRpB:	MOVE.L	D0,(A0)+
+	ADD.L	#$01010101,D0
+	BCC.S	G3TRpB
+	ST	G3TRepOK
+G3TRpD:
+	LEA	REGS,A3
+	MOVE.L	PVDP4(A3),D3
+	OR.W	#$07FF,D3		; Pattern mask (R#4).
+	MOVE.L	PVDP3(A3),D4
+	OR.W	#$003F,D4		; Colour mask (R#3, R#10).
+	MOVEQ	#0,D0
+	MOVE.B	MS_DVDP2,D0
+	AND.B	#$7F,D0
+	MOVEQ	#10,D1
+	LSL.L	D1,D0
+	MOVE.L	D0,G3TNt		; Name table (the split's R#2).
+	LEA	DIRVRAM,A4
+	LEA	G3TExp(PC),A5
+	LEA	G3TRep,A6
+	LEA	SCREENP,A0		; Planes 0 and 1 (A0, +G3TPL),
+	LEA	SCREENP+2*G3TPL,A1	; 2 and 3 (A1).
+	MOVEQ	#0,D7			; Display line.
+G3TLin:
+	MOVE.B	MS_LinY,D5		; VRAM line (R#23 + line) & 255:
+	ADD.B	D7,D5
+	AND.W	#$FF,D5
+	MOVE.W	D5,D1
+	LSR.W	#3,D1
+	LSL.W	#5,D1			; its name row,
+	MOVE.L	G3TNt,A2
+	ADDA.L	A4,A2
+	ADDA.W	D1,A2
+	MOVE.W	D5,D1
+	AND.W	#$C0,D1
+	LSL.W	#5,D1			; its third (bits 11-12)
+	AND.W	#7,D5
+	OR.W	D1,D5			; and line in the tile.
+	MOVEQ	#32-1,D6
+G3TCol:
+	MOVEQ	#0,D2
+	MOVE.B	(A2)+,D2
+	LSL.W	#3,D2
+	OR.W	D5,D2			; Table index, with every bit above
+	OR.L	#$FFFFE000,D2		; 12 set (the masks keep R#3/R#4's).
+	MOVE.L	D2,D1
+	AND.L	D4,D1
+	MOVE.B	(A4,D1.L),D1		; Colour byte,
+	AND.L	D3,D2
+	MOVEQ	#0,D0
+	MOVE.B	(A4,D2.L),D0		; pattern byte.
+	MOVE.L	(A6,D0.W*4),D0
+	MOVEQ	#$0F,D2
+	AND.B	D1,D2
+	MOVE.L	(A5,D2.W*4),D2		; B: the background's planes,
+	LSR.B	#4,D1
+	AND.W	#$0F,D1
+	MOVE.L	(A5,D1.W*4),D1		; the foreground's,
+	EOR.L	D2,D1
+	AND.L	D1,D0
+	EOR.L	D2,D0			; B ^ (pattern & (F ^ B)).
+	MOVE.B	D0,(A0)
+	LSR.L	#8,D0
+	MOVE.B	D0,G3TPL(A0)
+	LSR.L	#8,D0
+	MOVE.B	D0,(A1)
+	LSR.L	#8,D0
+	MOVE.B	D0,G3TPL(A1)
+	ADDQ.W	#1,A0
+	ADDQ.W	#1,A1
+	DBF	D6,G3TCol
+	MOVE.W	PlStrideW,D1		; The row's copies (layouts 1, 2).
+	SUB.W	#32,D1
+	BEQ.S	G3TNoCp
+	MOVE.W	D1,D2
+	LSR.W	#2,D2
+	SUBQ.W	#1,D2
+	MOVE.L	A0,A2
+	BSR.S	G3TCpy
+	LEA	G3TPL(A0),A2
+	BSR.S	G3TCpy
+	MOVE.L	A1,A2
+	BSR.S	G3TCpy
+	LEA	G3TPL(A1),A2
+	BSR.S	G3TCpy
+	ADDA.W	D1,A0
+	ADDA.W	D1,A1
+G3TNoCp:
+	ADDQ.W	#1,D7
+	CMP.W	G3TLine,D7
+	BCS	G3TLin
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+G3TPRet:
+	RTS
+; A2 = a plane's row + 32, D2 = longs - 1: the row again from there (the
+; source trails by 32 bytes, so it repeats). Uses D0, A2, A3.
+G3TCpy:
+	MOVE.W	D2,D0
+	LEA	-32(A2),A3
+G3TCpL:	MOVE.L	(A3)+,(A2)+
+	DBF	D0,G3TCpL
+	RTS
+	CNOP	0,4
+G3TExp:					; Colour n: byte k (from the low) FFh
+	DC.L	$00000000,$000000FF,$0000FF00,$0000FFFF	; when bit k is set.
+	DC.L	$00FF0000,$00FF00FF,$00FFFF00,$00FFFFFF
+	DC.L	$FF000000,$FF0000FF,$FF00FF00,$FF00FFFF
+	DC.L	$FFFF0000,$FFFF00FF,$FFFFFF00,$FFFFFFFF
+G3TNt:		DC.L	0
+G3TLine:	DC.W	0		; First line below the band.
+G3TOn:		DC.B	0		; This copper build has the band.
+G3TRepOK:	DC.B	0
+	CNOP	0,4
+G3TRep:		DS.L	256
+	ENDC
 MsNewW:		DC.W	0
 MSplitL:	DC.W	0		; First line in the new mode, 0: none.
 MsOld:		DC.B	0
@@ -27528,6 +29710,15 @@ M5Tracked:	DC.B	0		; This SCREEN 5 stay marks the SCREEN 4 cache.
 ; bytes written since) and BMSList is the top mode's copper list.
 	CNOP	0,4
 BMSPrep:
+	CMP.B	#2,REGS+ScrModo	; (5.0) A SCREEN 4 frame with the 32-bit
+	BNE.S	BMSFmOk			; fetch a split regime kept (ModoTxt4,
+	CMP.W	#$000D,MCAGA+2		; ModoGfx5): its own 64-bit one.
+	BNE.S	BMSFmOk
+	MOVE.W	#$000F,MCAGA+2
+BMSFmOk:
+	IFD	TURBOR
+	JSR	G3TPrep			; (turbo R) SCREEN 4 above SCREEN 5.
+	ENDC
 	SF	BMSOn
 	TST.W	MSplitL
 	BEQ	BMSPRet
@@ -28262,6 +30453,10 @@ StDX:	MOVEM.L	StDSv,D0/A0-A1
 
 CD32SvD3:	DC.L	0		; (4.1.1) D3/D4 kept here during the CD32 read.
 CD32SvD4:	DC.L	0
+	IFND	NO_CD32KIT
+CD32SvD5:	DC.L	0		; (Kit 2) and D5/D6 (the kit's reader).
+CD32SvD6:	DC.L	0
+	ENDC
 KeyScrPtr:	DC.L	0		; Loaded script (Menu), 0: none.
 KeyFrN:		DC.L	0		; MSX frames since power on.
 KEYSCRMAX=256
@@ -30145,6 +32340,17 @@ MMusic:	DS.B	(16*1024)		; (4.6) The user's MSXMUSIC.ROM (MMusLoad).
 	DS.B	$100
 SramRaw:	DS.B	$2000		; (4.4) Cartridge SRAM (2 or 8 KB),
 SramView:	DS.B	$4180		; and its 16 KB page (see Mapper4S).
+	IFD	TURBOR
+TRRom:	DS.B	11*$4100	; (turbo R) FS-A1GT firmware banks (TRLoad)
+ExpEmpty:	DS.B	$4000+$10	; (turbo R) empty sub-slots, see ExpInit
+TRSCTab:	DS.B	256		; (turbo R) lines with a sprite collision
+	IFD	PERF
+TRPcRing:	DS.L	4096		; (debug) PC ring: PC.W, R800Mode, A8
+TRPcEnd:
+TRDkBuf:	DS.B	16*1024		; (debug) disk trap log (TRDkLog)
+TRDkEnd:
+	ENDC
+	ENDC
 ESROM=NOMEM+1
 
 ROM10=DirROM
@@ -30448,6 +32654,9 @@ PsxBufL:	DS.W	320
 PsxBufR:	DS.W	320
 PsxNoiseTab:	DS.B	16400		; the LFSR's bits (131071 + 32)
 PsxPop:		DS.B	256		; ones in a byte
+	IFD	TURBOR
+PcmLog:		DS.B	8*(PCMLOGMAX+1)	; 0, value, CurLine, cycles, sample
+	ENDC
 ; --------------------------------
 	SECTION	FMXC,BSS_C
 ; --------------------------------
@@ -30470,13 +32679,16 @@ FMXRecWEnd:
 FMXRecO:	DS.B	1048576
 FMXRecOEnd:
 	ENDC
+	IFND	PSXRECSZ
+PSXRECSZ=4194304		; (-DPSXRECSZ=n: a longer recording)
+	ENDC
 	IFD	PSXREC
 PsxRecInit:	DS.B	16		; (Sound mix check build) PSG registers,
 PsxRecEP:	DS.L	1		; pointers,
 PsxRecOP:	DS.L	1
 PsxRecE:	DS.B	262144		; writes (frame.W, sample.W, reg, value, 0.W),
 PsxRecEEnd:
-PsxRecO:	DS.B	4194304		; output (N.W, then FM, PSG, out words a side)
+PsxRecO:	DS.B	PSXRECSZ		; output (N.W, then FM, PSG, out words a side)
 PsxRecOEnd:
 	ENDC
 
@@ -30568,4 +32780,19 @@ BcFrz:		DS.B	1
 BcFrzN:		DS.B	1
 		DS.B	1
 	ENDC
+	ENDC
+
+	IFD	R8SITE
+; (turbo R) Otra's R800 costs (generated: tools/r8map.py) and the costs
+; the sites read, set by R8CostSet.
+	SECTION	R8OR,DATA
+	INCLUDE	"r800cost.i"
+R8NOT=R8NO
+R8NHT=R8NH
+	IFNE	R8NO-R8OGEN
+	FAIL	r800cost.i does not match the Otra sites: run tools/r8map.py
+	ENDC
+	SECTION	R8C,BSS
+R8CostO:	DS.W	R8NO
+R8CostH:	DS.W	R8NH
 	ENDC

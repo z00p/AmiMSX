@@ -6,7 +6,8 @@ block (DI first: the EI, RETN and IM 2 tests would let the VBlank interrupt in),
 (-DTRACE=1 -DCYCLOG=1 -DTRACEPC=<end+1>); tools/read_z80time.py compares each
 instruction's cost (the drop of the line's cycle counter between two trace
 entries) with the Z80+M1 column.
-Usage: python tools/make_z80time.py grauw.json out.rom out.json"""
+Usage: python tools/make_z80time.py grauw.json out.rom out.json [--r800]
+--r800: CHGCPU to the R800 first (turbo R firmware): its costs, for r800time.tsv."""
 import itertools, json, re, sys
 
 ORG, RAM, STK, PORT = 0x4000, 0xC000, 0xF000, 0x30
@@ -55,6 +56,10 @@ def main():
         tests.append({"addr": a, "len": len(bts), "ins": name, "test": test, "expect": expect})
 
     emit("DI", [0xF3]); emit("LD SP,nn", [0x31, STK & 255, STK >> 8])
+    if "--r800" in sys.argv:                # turbo R: the BIOS hands over to the R800 (CHGCPU,
+        emit("LD A,n", [0x3E, 0x01])        # ROM mode), the tests then run on it
+        emit("CALL nn", [0xCD, 0x80, 0x01])
+        emit("DI", [0xF3])
     # page 2 = page 1's primary slot (the BIOS only maps page 1 of a cartridge)
     for nm, b in [("IN A,(n)", [0xDB, 0xA8]), ("AND n", [0xE6, 0x0C]), ("RLCA", [0x07]), ("RLCA", [0x07]),
                   ("LD C,A", [0x4F]), ("IN A,(n)", [0xDB, 0xA8]), ("AND n", [0xE6, 0xCF]), ("OR C", [0xB1]),
