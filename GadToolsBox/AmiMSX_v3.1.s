@@ -1652,7 +1652,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v5.0 (Pro) '
+    DC.B    'AmiMSX Emulator v5.1 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -3146,10 +3146,10 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v5.0',0
+    DC.B    'AmiMSX Emulator v5.1',0
 
 AboutIText1:
-    DC.B    '(November 15th, 2026)',0
+    DC.B    '(November 16th, 2026)',0
 
 AboutIText2:
     DC.B    'Full Program & Emulation Systems:',0
@@ -3294,15 +3294,39 @@ MSX2NewMenu_SpeedN:
     DC.L    MSX2MName_SpeedN
     DC.L    0
     DC.W    $0001
-    DC.L    $6,0
+    DC.L    $3E,0
 
-	MDS	MN_SpeedOC
-MSX2NewMenu_SpeedO:
+	MDS	MN_SpeedOC10
+MSX2NewMenu_SpeedO10:
     DC.B    3,0
-    DC.L    MSX2MName_SpeedO
+    DC.L    MSX2MName_SpeedO10
     DC.L    0
     DC.W    $0001
-    DC.L    $5,0
+    DC.L    $3D,0
+
+	MDS	MN_SpeedOC25
+MSX2NewMenu_SpeedO25:
+    DC.B    3,0
+    DC.L    MSX2MName_SpeedO25
+    DC.L    0
+    DC.W    $0001
+    DC.L    $3B,0
+
+	MDS	MN_SpeedOC50
+MSX2NewMenu_SpeedO50:
+    DC.B    3,0
+    DC.L    MSX2MName_SpeedO50
+    DC.L    0
+    DC.W    $0001
+    DC.L    $37,0
+
+	MDS	MN_SpeedOCMax
+MSX2NewMenu_SpeedOMax:
+    DC.B    3,0
+    DC.L    MSX2MName_SpeedOMax
+    DC.L    0
+    DC.W    $0001
+    DC.L    $2F,0
 
 	MDS	MN_SpeedNoLimit
 MSX2NewMenu_SpeedL:
@@ -3310,7 +3334,7 @@ MSX2NewMenu_SpeedL:
     DC.L    MSX2MName_SpeedL
     DC.L    0
     DC.W    $0001
-    DC.L    $3,0
+    DC.L    $1F,0
 
 	MDSCNT	NS_Speed
 	MDI	MN_JapID
@@ -4207,8 +4231,17 @@ MSX2MName_Speed:
 MSX2MName_SpeedN:
     DC.B    'Normal',0
 
-MSX2MName_SpeedO:
-    DC.B    'Overclock',0
+MSX2MName_SpeedO10:
+    DC.B    'Overclock +10%',0
+
+MSX2MName_SpeedO25:
+    DC.B    'Overclock +25%',0
+
+MSX2MName_SpeedO50:
+    DC.B    'Overclock +50%',0
+
+MSX2MName_SpeedOMax:
+    DC.B    'Overclock (Max)',0
 
 MSX2MName_SpeedL:
     DC.B    'No Limit',0

@@ -1,4 +1,5 @@
 build/
+a.out
 tools/vasm.zip
 testroms/
 run/

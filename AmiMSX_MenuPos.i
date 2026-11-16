@@ -100,7 +100,10 @@ MJEND	MACRO
 	MTITLE	MT_Emulation		; Emulation
 	MITEM	MN_Speed		; Speed
 	MSUB	MN_SpeedNormal		;   Normal
-	MSUB	MN_SpeedOC		;   Overclock
+	MSUB	MN_SpeedOC10		;   Overclock +10%
+	MSUB	MN_SpeedOC25		;   Overclock +25%
+	MSUB	MN_SpeedOC50		;   Overclock +50%
+	MSUB	MN_SpeedOCMax		;   Overclock (Max)
 	MSUB	MN_SpeedNoLimit		;   No Limit
 	MSCOUNT	NS_Speed
 	MITEM	MN_JapID		; Japanese Machine (60 Hz)

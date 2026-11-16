@@ -14,7 +14,9 @@ import argparse, os, struct, sys
 from PIL import Image, ImageDraw, ImageFont
 
 # Prefs offsets (DIRPrefs in AmiMSX_Menu_v3.1.asm)
-SPRITES = 0x16      # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 2nd frame, 3 = every 3rd
+MACHINE = 0x10      # byte: 0 MSX, 1 MSX2, 2 MSX2+, 3 MSX turbo R (TURBOR build only; the
+                    # normal build runs 3 as the MSX2+, TRMClamp)
+SPRITES = 0x16     # word: 0 = Amiga sprites (ECS), 1 = every frame, 2 = every 2nd frame, 3 = every 3rd
 FREQ = 0x11         # byte: Display Hz gadget: 0 Auto (was From VDP, Follow MSX; R#9: 60 Hz games get an NTSC
                     # display, at full speed), 1 No Change (stay PAL), 2 NTSC, 3 PAL. Auto
                     # costs 20% more emulation per second for 60 Hz games: PiStorm only.
@@ -43,13 +45,21 @@ PRESETS = [   # file name, badge text, badge colour, {offset: (format, value)}
     ("AGA 030",        "030",  (40, 150, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 0), FREQ: ("B", 1), MASK: ("B", 0), NOAUTO: ("B", 0)}),
     ("AGA",            "AGA", (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
     ("RTG",            "RTG",  (30, 100, 200),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0)}),
+    ("Turbo R AGA",    "AGA", (200, 40, 60),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0), MACHINE: ("B", 3)}),
+    ("Turbo R RTG",    "RTG",  (30, 100, 200),  {SPRITES: (">H", 1), COLLIDE: ("B", 0), SOUND: ("B", 3), FREQ: ("B", 0), FILTER: ("B", 0xFF), DBUF: ("B", 0xFF), JAPAN: ("B", 0xFF), MASK: ("B", 0), NOAUTO: ("B", 0), MACHINE: ("B", 3)}),
 ]
 # (4.5) Extra ToolTypes: the RTG preset is the PiStorm one on an RTG screen (ToolType RTG,
-# WBToolTypes; the picture through Picasso96, the menu too).
-TOOLTYPES = {"RTG": ["RTG", "SCANLINES=50"]}
-# (5.0) Two programs: AmiMSX is the TURBOR build (fast machines: AGA, RTG), AmiMSX030 the
-# normal build for the 68030 preset. Used when --tool is left at its default.
-TOOLS = {"AGA 030": "AmiMSX030"}
+# WBToolTypes; the picture through Picasso96, the menu too). (5.1) The Turbo R presets are
+# AGA and RTG with the turbo R machine (AmiMSX Turbo R starts as the turbo R anyway).
+TOOLTYPES = {"RTG": ["RTG", "SCANLINES=50"], "Turbo R RTG": ["RTG", "SCANLINES=50"]}
+# (5.1) Two programs: AmiMSX is the normal build (no turbo R) for every CPU and the three
+# presets; "AmiMSX Turbo R" is the TURBOR build, a few percent slower on every CPU (1-5%
+# measured on a 68030/50: its turbo R checks are in the Z80 core's path), started by the
+# Turbo R AGA and Turbo R RTG presets. Used when --tool is left at its default.
+TOOLS = {"Turbo R AGA": "AmiMSX Turbo R", "Turbo R RTG": "AmiMSX Turbo R"}
+
+# (5.1) Preset icons are wide MSX cartridges (CW x CH); W x H stays the drawer icon's size.
+CW, CH = 62, 40
 
 W, H = 46, 46
 # Classic (planar) image uses the 4 Workbench pens: grey, black, white, blue.
@@ -68,30 +78,35 @@ def default_prefs(binary):
     return bytearray(b[i:end])
 
 
-def draw(badge, colour):
-    """A cartridge with "MSX" on its label and a coloured preset badge."""
-    im = Image.new("RGB", (W, H), (255, 0, 255))
+def draw(badge, colour, turbo=False):
+    """A wide MSX cartridge with "MSX" on its label (turbo R presets: "turbo R" under an
+    orange strip) and a coloured preset badge bottom right."""
+    im = Image.new("RGB", (CW, CH), (255, 0, 255))
     d = ImageDraw.Draw(im)
     d.fontmode = "1"
     body, dark, light = (60, 60, 70), (30, 30, 36), (110, 110, 125)
-    d.rectangle([6, 4, 39, 35], fill=body)                 # cartridge shell
-    d.line([6, 4, 39, 4], fill=light); d.line([6, 4, 6, 35], fill=light)
-    d.line([39, 5, 39, 35], fill=dark); d.line([7, 35, 39, 35], fill=dark)
-    for x in range(10, 36, 3):                             # edge connector
-        d.rectangle([x, 36, x + 1, 39], fill=(200, 170, 60))
-    d.rectangle([10, 8, 35, 22], fill=(235, 235, 235))     # label
-    d.rectangle([10, 8, 35, 10], fill=(40, 70, 160))
-    font = ImageFont.load_default()
-    d.text((12, 11), "MSX", font=font, fill=(20, 20, 20))
-    bw = int(d.textlength(badge, font=font)) + 6           # badge, bottom right
-    x0, y0 = W - bw - 1, 26
-    d.rectangle([x0, y0, W - 2, y0 + 13], fill=colour, outline=(0, 0, 0))
-    d.text((x0 + 3, y0 + 1), badge, font=font, fill=(255, 255, 255))
+    x0, y0, x1, y1 = 3, 2, 56, 31
+    d.rectangle([x0, y0, x1, y1], fill=body)                       # cartridge shell
+    d.line([x0, y0, x1, y0], fill=light); d.line([x0, y0, x0, y1], fill=light)
+    d.line([x1, y0 + 1, x1, y1], fill=dark); d.line([x0 + 1, y1, x1, y1], fill=dark)
+    for x in range(8, 52, 3):                                      # edge connector
+        d.rectangle([x, y1 + 1, x + 1, y1 + 4], fill=(200, 170, 60))
+    d.rectangle([7, 5, 52, 20], fill=(235, 235, 235))              # label
+    d.rectangle([7, 5, 52, 7], fill=(220, 120, 20) if turbo else (40, 70, 160))
+    font = ImageFont.load_default(size=10)
+    text = "turbo R" if turbo else "MSX"
+    w = d.textlength(text, font=font)
+    d.text(((7 + 52 - w) / 2, 8), text, font=font, fill=(20, 20, 20))
+    bw = int(d.textlength(badge, font=font)) + 6                   # badge, bottom right
+    bx, by = CW - bw - 1, 24
+    d.rectangle([bx, by, CW - 2, by + 13], fill=colour, outline=(0, 0, 0))
+    d.text((bx + 3, by + 1), badge, font=font, fill=(255, 255, 255))
     return im
 
 
 def planar(im):
     """2-bitplane Image for the classic icon (nearest Workbench pen; magenta = pen 0)."""
+    W, H = im.size
     rows = (W + 15) // 16 * 2
     planes = [bytearray(rows * H) for _ in range(2)]
     px = im.load()
@@ -108,6 +123,7 @@ def planar(im):
 
 def glow(im):
     """ColorIcon FORM ICON (FACE + one uncompressed IMAG), pen 0 transparent."""
+    W, H = im.size
     q = im.convert("P", palette=Image.ADAPTIVE, colors=63)
     pal = q.getpalette()[:63 * 3]
     src = im.load()
@@ -134,6 +150,7 @@ def string(s):
 
 
 def diskobject(im, tool, tooltypes, stack=16384):
+    W, H = im.size
     gadget = struct.pack(">IhhhhHHHIIIIIHI",
                          0, 0, 0, W, H + 1, 4, 3, 1,   # GADGIMAGE, complement highlight; RELVERIFY|GADGIMMEDIATE; BOOLGADGET
                          1, 0, 0, 0, 0, 0, 1)          # GadgetRender only; UserData 1 = OS 2+ icon
@@ -158,7 +175,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     base = default_prefs(binary)
     print(f"default prefs: {len(base)} bytes, sprites {struct.unpack('>H', base[SPRITES:SPRITES + 2])[0]}, collisions {base[COLLIDE]:02X}")
-    sheet = Image.new("RGB", (len(PRESETS) * 120, 110), (170, 170, 170))
+    sheet = Image.new("RGB", (len(PRESETS) * 150, 110), (170, 170, 170))
     sd = ImageDraw.Draw(sheet)
     for k, (name, badge, colour, fields) in enumerate(PRESETS):
         if a.only and name != a.only:
@@ -167,14 +184,14 @@ def main():
         for off, (fmt, v) in fields.items():
             struct.pack_into(fmt, p, off, v)
         open(os.path.join(out, name), "wb").write(p)
-        im = draw(badge, colour)
+        im = draw(badge, colour, name.startswith("Turbo R"))
         open(os.path.join(out, name + ".info"), "wb").write(
             diskobject(im, TOOLS.get(name, a.tool) if a.tool == "AmiMSX" else a.tool, ["PREFS=" + name] + TOOLTYPES.get(name, []) + a.tooltype))
-        big = im.resize((W * 2, H * 2), Image.NEAREST)
+        big = im.resize((CW * 2, CH * 2), Image.NEAREST)
         mask = Image.new("L", big.size)
         mask.putdata([0 if c == (255, 0, 255) else 255 for c in (big.get_flattened_data() if hasattr(big, "get_flattened_data") else big.getdata())])
-        sheet.paste(big, (k * 120 + 14, 4), mask)
-        sd.text((k * 120 + 10, 96), name, fill=(0, 0, 0))
+        sheet.paste(big, (k * 150 + 12, 4), mask)
+        sd.text((k * 150 + 12, 96), name, fill=(0, 0, 0))
         print(f"{name}: prefs {len(p)} bytes, icon written")
     sheet.save(os.path.join(out, "presets.png"))
 

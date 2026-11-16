@@ -682,7 +682,11 @@ CodeLo:
 	ENDC
 VAMOS:
 	JMP	ANEM
-	DC.B	"$VER:AmiMSX Emulator v5.0 ("
+	IFD	TURBOR			; (5.1) the turbo R build ships as "AmiMSX Turbo R"
+	DC.B	"$VER:AmiMSX Turbo R Emulator v5.1 ("
+	ELSE
+	DC.B	"$VER:AmiMSX Emulator v5.1 ("
+	ENDC
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
 	DC.B	" By Juan Antonio G�mez.",0,0
@@ -2030,6 +2034,8 @@ CEEndL:		DC.W	0		; its CurLine (0-255),
 CEEndLeft:	DC.W	0		; and the cycles left in that line then.
 CESave:		DS.L	8
 CEPend:		DC.B	0		; A command's busy time is running.
+; (5.0) Capped-mode extra Z80 lines still available this frame.
+FastLineLeft:	DC.B	0
 		EVEN
 RFrame:		DC.B	0		; MSX frames, low byte (LD A,R).
 S0LastV:	DC.B	0		; Idle poll (S0Nada): last S#0 value,
@@ -19942,6 +19948,38 @@ TRE6Ok:
 	MOVE.W	#VPeriodNTSC,D1
 PcmFrP:	ADD.L	D1,PcmFrLn
 	ENDC
+	CLR.B	FastLineLeft
+	CMP.B	#3,DirPrefs+$7E
+	BEQ.S	MI0Fast10
+	CMP.B	#4,DirPrefs+$7E
+	BEQ.S	MI0Fast25
+	CMP.B	#5,DirPrefs+$7E
+	BEQ.S	MI0Fast50
+	BRA.S	MI0FastDone
+MI0Fast10:
+	BTST	#1,DVDP9(A3)
+	BEQ.S	MI0Fast10N
+	MOVE.B	#31,FastLineLeft
+	BRA.S	MI0FastDone
+MI0Fast10N:
+	MOVE.B	#26,FastLineLeft
+	BRA.S	MI0FastDone
+MI0Fast25:
+	BTST	#1,DVDP9(A3)
+	BEQ.S	MI0Fast25N
+	MOVE.B	#78,FastLineLeft
+	BRA.S	MI0FastDone
+MI0Fast25N:
+	MOVE.B	#65,FastLineLeft
+	BRA.S	MI0FastDone
+MI0Fast50:
+	BTST	#1,DVDP9(A3)
+	BEQ.S	MI0Fast50N
+	MOVE.B	#156,FastLineLeft
+	BRA.S	MI0FastDone
+MI0Fast50N:
+	MOVE.B	#131,FastLineLeft
+MI0FastDone:
 	SF	L0Arm			; (4.1.2) The display starts (L0Prep).
 	SF	S5Valid			; 5th sprite flag: new frame.
 	CLR.W	S5Next
@@ -20066,8 +20104,13 @@ ZALI:	SUBQ	#1,A5
 	CNOP	0,4
 ModoFastCPU:
 	TST.B	fps60Dat(A3)		; �Se ha desbordado el frame?
-	BEQ.S	EmulaGfx
+	BEQ	EmulaGfx
 
+	CMP.B	#1,DirPrefs+$7E
+	BEQ.S	ModoFastNoCap
+	SUBQ.B	#1,FastLineLeft
+	BCS	EmulaGfx
+ModoFastNoCap:
 	SUBQ.B	#1,CurLine+1(A3)
 
 	IFD	R8SITE			; (turbo R) the R800 loses 27 of every
@@ -20089,15 +20132,17 @@ MiraInter192:
 	SEGCLOSE
 	ENDC
 	CMP.B	#1,DirPrefs+$7E
-	BEQ.S	ModoFastCPU
+	BEQ	ModoFastCPU
+	CMP.B	#3,DirPrefs+$7E
+	BEQ	ModoFastCPU
+	CMP.B	#4,DirPrefs+$7E
+	BEQ	ModoFastCPU
+	CMP.B	#5,DirPrefs+$7E
+	BEQ	ModoFastCPU
 
 EmulaGfx:
 	BTST	#2,Key+14(A3)		; �Help Pulsada?
-	IFD	R8SITE
 	BEQ	ZALI
-	ELSEIF
-	BEQ.S	ZALI
-	ENDC
 
 
 	MOVE.B	#((INIPANT+224)&$FF),OverDat

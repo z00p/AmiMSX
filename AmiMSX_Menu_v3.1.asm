@@ -802,6 +802,9 @@ PROGRAMA:
 	JSR	LupaPrep		; AGA/RTG for this run, PROFILE's settings
 	ENDC
 	BSR	LoadPrefs
+	IFD	TURBOR			; (5.1) AmiMSX Turbo R always starts as the
+	MOVE.B	#3,DirPrefs+$10		; turbo R, whatever the settings say (without
+	ENDC				; the firmware TRMClamp makes it the MSX2+).
 
 	BSR	PonPrefs
 
@@ -3102,20 +3105,35 @@ MixNm1:	MOVE.B	#1,PrefMix
 	BEQ.S	MixNmR
 MixNm2:	MOVE.B	#2,PrefMix
 MixNmR:	RTS
-; (4.6) Emulation > Speed from the menu: prefs $7E, 0 Normal, 1 Overclock,
-; 2 No Limit.
+; (5.0) Emulation > Speed from the menu: prefs $7E, 0 Normal, 1 Max Overclock,
+; 2 No Limit, 3-5 capped Overclock.
 SpeedFromGUI:
 	CLR.B	DIRPrefs+$7E
-	MOVE.L	#MN_SpeedOC,D0
+	MOVE.L	#MN_SpeedOC10,D0
 	BSR	COGECHECK
 	BEQ.S	SpeedFG1
-	MOVE.B	#1,DIRPrefs+$7E
+	MOVE.B	#3,DIRPrefs+$7E
 SpeedFG1:
-	MOVE.L	#MN_SpeedNoLimit,D0
+	MOVE.L	#MN_SpeedOC25,D0
 	BSR	COGECHECK
 	BEQ.S	SpeedFG2
-	MOVE.B	#2,DIRPrefs+$7E
+	MOVE.B	#4,DIRPrefs+$7E
 SpeedFG2:
+	MOVE.L	#MN_SpeedOC50,D0
+	BSR	COGECHECK
+	BEQ.S	SpeedFG3
+	MOVE.B	#5,DIRPrefs+$7E
+SpeedFG3:
+	MOVE.L	#MN_SpeedOCMax,D0
+	BSR	COGECHECK
+	BEQ.S	SpeedFG4
+	MOVE.B	#1,DIRPrefs+$7E
+SpeedFG4:
+	MOVE.L	#MN_SpeedNoLimit,D0
+	BSR	COGECHECK
+	BEQ.S	SpeedFG5
+	MOVE.B	#2,DIRPrefs+$7E
+SpeedFG5:
 	RTS
 ; (4.2) PrefMask as 0, 8 or 16 (dots each side): an older prefs or per-game
 ; file's FFh (4.0-4.1 'Mask screen edges (always)') reads as 8.
@@ -6224,8 +6242,8 @@ TRDPat:
 	ENDC
 
 	IFND	TURBOR
-; (5.0) The normal build (AmiMSX030) has no turbo R: machine 3 in a settings
-; file the turbo R build saved (S:AmiMSX2.prefs is shared) or in a game's
+; (5.0) The normal build (AmiMSX) has no turbo R: machine 3 in a settings
+; file the turbo R build saved (a preset file is shared) or in a game's
 ; settings is the MSX2+ here. Machine 3 crashed it (#80000004).
 TRMClamp:
 	CMP.B	#3,DIRPrefs+$10
@@ -6725,8 +6743,13 @@ ERDEVICE2:
 	CNOP	0,8
 NOMPREFSLEN=256
 NomPrefs:
+	IFD	TURBOR			; (5.1) its own file: AmiMSX keeps S:AmiMSX2.prefs
+	DC.B	"S:AmiMSXTurboR.prefs",0	; Or the PREFS ToolType (WBToolTypes).
+	DS.B	NOMPREFSLEN-21
+	ELSE
 	DC.B	"S:AmiMSX2.prefs",0	; Or the PREFS ToolType (WBToolTypes).
 	DS.B	NOMPREFSLEN-16
+	ENDC
 	CNOP	0,8
 NomPrefsOld:
 	DC.B	"S:MSX2emulator.prefs",0,0,0,0
@@ -7065,11 +7088,20 @@ PONPREFS:
 ; -=-
 
 	TST.B	$7E(A5)				; Emulation > Speed: 0 Normal,
-	SEQ	D0				; 1 Overclock, 2 No Limit.
+	SEQ	D0				; 1 Max, 2 No Limit, 3-5 capped.
 	BFINS	D0,MSX2NewMenu_SpeedN+10{7:1}
+	CMP.B	#3,$7E(A5)
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_SpeedO10+10{7:1}
+	CMP.B	#4,$7E(A5)
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_SpeedO25+10{7:1}
+	CMP.B	#5,$7E(A5)
+	SEQ	D0
+	BFINS	D0,MSX2NewMenu_SpeedO50+10{7:1}
 	CMP.B	#1,$7E(A5)
 	SEQ	D0
-	BFINS	D0,MSX2NewMenu_SpeedO+10{7:1}
+	BFINS	D0,MSX2NewMenu_SpeedOMax+10{7:1}
 	CMP.B	#2,$7E(A5)
 	SEQ	D0
 	BFINS	D0,MSX2NewMenu_SpeedL+10{7:1}
@@ -8328,7 +8360,10 @@ MS_Scan:
 
 MS_Speed:
 	MJS	MS_Speed,MN_SpeedNormal,CONTROLRET
-	MJS	MS_Speed,MN_SpeedOC,CONTROLRET
+	MJS	MS_Speed,MN_SpeedOC10,CONTROLRET
+	MJS	MS_Speed,MN_SpeedOC25,CONTROLRET
+	MJS	MS_Speed,MN_SpeedOC50,CONTROLRET
+	MJS	MS_Speed,MN_SpeedOCMax,CONTROLRET
 	MJS	MS_Speed,MN_SpeedNoLimit,CONTROLRET
 	MJEND	MS_Speed,NS_Speed
 

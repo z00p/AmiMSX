@@ -21,9 +21,10 @@
 ; PROFILE: 030 = the AGA 030 preset's settings (PROGDIR:AGA 030), FAST = the
 ; AGA preset's (PROGDIR:AGA), or the RTG preset's (PROGDIR:RTG) on RTG, AUTO =
 ; FAST on a 68040/68060, else 030. PREFS= / P= (or a PREFS ToolType) wins
-; over PROFILE; with no PROFILE the settings are S:AmiMSX2.prefs as before.
-; PROFILE=030 in the TURBOR build (AmiMSX) loads the AGA 030 settings in
-; that build: there is no re-exec of PROGDIR:AmiMSX030, as both programs
+; over PROFILE; with no PROFILE the settings are S:AmiMSX2.prefs as before
+; (S:AmiMSXTurboR.prefs in the TURBOR build, 5.1).
+; PROFILE=030 in the TURBOR build (AmiMSX Turbo R) loads the AGA 030
+; settings in that build: there is no re-exec of PROGDIR:AmiMSX, as both programs
 ; have about 1.1 MB of chip RAM hunks (2.2 MB together, more than an AGA
 ; machine has), so the second one could not load while the first waits.
 ; RTGMODE= is accepted and not used yet (no RTG mode choice in AmiMSX).

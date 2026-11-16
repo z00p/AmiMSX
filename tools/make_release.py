@@ -1,9 +1,10 @@
 """Stage the AmiMSX 4.0 release drawer and build the Aminet LHA (the LhA step
 runs inside WinUAE, see winuae/make_lha.ps1).
 
-Usage: python tools/make_release.py [build/AmiMSX] [release/AmiMSX4] [normal build]
-(5.0: the first binary is the TURBOR build, shipped as AmiMSX; the optional
-third is the normal build, shipped as AmiMSX030 for the AGA 030 preset.)
+Usage: python tools/make_release.py [build/AmiMSX] [release/AmiMSX4] [turbo R build]
+(5.1: the first binary is the normal build, shipped as AmiMSX for the AGA 030,
+AGA and RTG presets; the optional third is the TURBOR build, shipped as
+"AmiMSX Turbo R" for the Turbo R AGA and RTG presets. Without it those are left out.)
 Output: <out>/AmiMSX/ (the drawer) + <out>/AmiMSX.info (its icon) and
 <out>/AmiMSX5.readme. Icons: the presets' (make_presets.py), a tool icon for
 AmiMSX and a drawer icon drawn the same way; the guide and keyboard picture
@@ -117,10 +118,41 @@ def draw_drawer(label=None):
     return im
 
 
+# (5.1) The drawer's layout, from a tester's Workbench snapshot of the test drawer
+# on the A1200 (16 Nov 2026): the two programs on top, the AmiMSX presets in the
+# left column and the turbo R ones on the right. The guide takes the place of
+# the test drawer's Roms (firmware isn't shipped) and MVD_Files the free spot
+# under Turbo R RTG. Icons missing from a build (no turbo R, no guide) are skipped.
+WINDOW = (314, 53, 507, 411)                  # the AmiMSX drawer's window: left, top, width, height
+LAYOUT = {
+    "AmiMSX.info": (8, 59), "AmiMSX Turbo R.info": (210, 59),
+    "Docs.info": (81, 136), "AmiMSX.guide.info": (283, 136),
+    "RTG.info": (73, 197), "AGA.info": (73, 256), "AGA 030.info": (74, 316),
+    "Turbo R AGA.info": (275, 197), "Turbo R RTG.info": (273, 258),
+    "MVD_Files.info": (283, 316),
+}
+
+
+def apply_layout(out):
+    d = os.path.join(out, "AmiMSX")
+    for name, (x, y) in LAYOUT.items():
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            b = bytearray(open(p, "rb").read())
+            assert b[:2] == b"\xe3\x10", p
+            struct.pack_into(">ii", b, 58, x, y)          # do_CurrentX/Y (a snapshot)
+            open(p, "wb").write(b)
+    p = os.path.join(out, "AmiMSX.info")                    # the drawer icon: its window
+    b = bytearray(open(p, "rb").read())
+    assert b[:2] == b"\xe3\x10" and b[48] == 2 and struct.unpack_from(">I", b, 66)[0], p
+    struct.pack_into(">hhhh", b, 78, *WINDOW)
+    open(p, "wb").write(b)
+
+
 def main():
     binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, "build", "AmiMSX")
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(BASE, "release", "AmiMSX4")
-    normal = sys.argv[3] if len(sys.argv) > 3 else None
+    turbor = sys.argv[3] if len(sys.argv) > 3 else None
     if os.path.exists(out):
         shutil.rmtree(out)
     d = os.path.join(out, "AmiMSX")
@@ -128,9 +160,12 @@ def main():
     subprocess.run([sys.executable, os.path.join(BASE, "tools", "make_presets.py"), binary, d], check=True)
     os.remove(os.path.join(d, "presets.png"))
     shutil.copy(binary, os.path.join(d, "AmiMSX"))
-    if normal:   # (5.0) the normal build, for the AGA 030 preset (make_presets.TOOLS)
-        shutil.copy(normal, os.path.join(d, "AmiMSX030"))
-        shutil.copy(os.path.join(BASE, "Pics", "AmiMSX.info"), os.path.join(d, "AmiMSX030.info"))
+    if turbor:   # (5.1) the TURBOR build, for the Turbo R preset (make_presets.TOOLS)
+        shutil.copy(turbor, os.path.join(d, "AmiMSX Turbo R"))
+        shutil.copy(os.path.join(BASE, "Pics", "AmiMSX.info"), os.path.join(d, "AmiMSX Turbo R.info"))
+    else:
+        for f in ("Turbo R AGA", "Turbo R AGA.info", "Turbo R RTG", "Turbo R RTG.info"):
+            os.remove(os.path.join(d, f))
     for f in ("AmiMSX2.data", "AmiMSX2.mapper", "AmiMSX4.romdb", "AmiMSX4.diskdb"):
         shutil.copy(os.path.join(BASE, f), os.path.join(d, f))
     amiga_text(os.path.join(BASE, "Docs", "AmiMSX.guide"), os.path.join(d, "AmiMSX.guide"))
@@ -155,6 +190,7 @@ def main():
     if os.path.isdir(mvd):                                        # (not in git: release/ is ignored)
         shutil.copytree(mvd, os.path.join(d, "MVD_Files"))
         shutil.copy(os.path.join(BASE, "Pics", "Drawer_Docs.info"), os.path.join(d, "MVD_Files.info"))
+    apply_layout(out)
     for root, _, files in os.walk(out):
         for f in sorted(files):
             p = os.path.join(root, f)

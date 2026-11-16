@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.0
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.1
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      5.0
+Version:      5.1
 Replaces:     misc/emu/AmiMSX4.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -38,29 +38,44 @@ Requirements
   games at full speed and Smooth display.
 - For the RTG preset: Picasso96 and a 16 or 32-bit screen mode of at
   least 544x460 (960x540 is best on a 1080p display), and a fast CPU.
-- For the MSX turbo R machine (beta): a fast CPU (PiStorm, BigMig) and
-  the FS-A1GT firmware, which is not included (see below).
+- For the MSX turbo R machine (beta, AmiMSX Turbo R): a fast CPU
+  (PiStorm, BigMig) and the FS-A1GT firmware, which is not included
+  (see below).
 
 Installation
 ------------
 Copy the AmiMSX drawer anywhere and start one of the preset icons:
 
   AGA 030   68030/50 with fast RAM: PSG, PAL, sprites every frame
-            (starts AmiMSX030)
   AGA       PiStorm, BigMig and other fast CPUs: PSG+FM, display
             frequency from the VDP, Japanese ID (60 Hz), audio
-            filter, smooth display (starts AmiMSX)
+            filter, smooth display
   RTG       the AGA preset on a Picasso96 (RTG) screen, with 50%
-            scanlines (ToolTypes RTG and SCANLINES=50; starts AmiMSX)
+            scanlines (ToolTypes RTG and SCANLINES=50)
+  Turbo R AGA  the AGA preset with the MSX turbo R machine (beta)
+  Turbo R RTG  the RTG preset with the MSX turbo R machine (beta)
+               (both start AmiMSX Turbo R)
 
-There are two programs. AmiMSX has the MSX turbo R machine and is for
-fast CPUs; AmiMSX030 is the same emulator without the turbo R, for a
-68030. From a Shell or a launcher on a 68030, start AmiMSX030.
+There are two programs:
 
-MSX turbo R (beta, AmiMSX only): put the Panasonic FS-A1GT's firmware
-in the drawer as Roms/fs-a1gt_firmware.rom (4 MB), and its kanji font
-as Roms/fs-a1gt_kanjifont.rom (256 KB, optional; without it kanji
-characters are blank). These are the names openMSX uses; the files
+  AmiMSX           MSX, MSX2 and MSX2+, for every CPU (the AGA 030,
+                   AGA and RTG presets).
+  AmiMSX Turbo R   the same emulator with the MSX turbo R machine
+                   added (the Turbo R AGA and Turbo R RTG presets).
+                   It always starts as the turbo R (the MSX2+ without
+                   the firmware), and its own settings file is
+                   S:AmiMSXTurboR.prefs, so AmiMSX's S:AmiMSX2.prefs
+                   is left alone.
+
+Why two: the turbo R support costs speed on every MSX machine, not just
+the turbo R, and on every CPU. AmiMSX Turbo R runs MSX2 and MSX2+ games
+1 to 5% slower than AmiMSX (measured on a 68030/50). So AmiMSX leaves
+the turbo R out, and AmiMSX Turbo R is for turbo R software.
+
+MSX turbo R (beta, AmiMSX Turbo R only): put the Panasonic FS-A1GT's
+firmware in the drawer as Roms/fs-a1gt_firmware.rom (4 MB), and its
+kanji font as Roms/fs-a1gt_kanjifont.rom (256 KB, optional; without it
+kanji characters are blank). These are the names openMSX uses; the files
 tested have SHA-1
   e779c338eb91a7dea3ff75f3fde76b8af22c4a3a (firmware)
   5aff2d9b6efc723bc395b0f96f0adfa83cc54a49 (kanji font).
@@ -99,17 +114,29 @@ A game's project icon with AmiMSX (full path) as its default tool
 works the same way; its ToolTypes may hold AGA, ONEGAME, MENU and
 PROFILE=.
 
+AmiMSX Turbo R takes the same words. In a Shell or a script, put its
+name in quotes: "AmiMSX Turbo R" game.dsk PREFS="Turbo R AGA". Use it for
+turbo R games; MSX, MSX2 and MSX2+ games run faster in AmiMSX.
+
 Return codes: 0 normal, 5 ran with a fallback (RTG asked for but not
 available, the PROFILE's settings file not there, or a turbo R machine
 in the settings run as the MSX2+), 10 the game
 could not be loaded (with ONEGAME), 20 AmiMSX can't run on this Amiga
 (no 68020, no screen or window, a missing library).
 
+Updating from 5.0: copy the new files over the old ones, except the
+settings files AGA 030, AGA and RTG if you want to keep the settings
+saved in them, and delete AmiMSX030 and AmiMSX030.info. AmiMSX is now
+the program without the turbo R (5.0's AmiMSX030); the turbo R is in
+AmiMSX Turbo R, started by the new Turbo R AGA and Turbo R RTG
+presets. Copy all the .info files: the AGA 030, AGA and RTG icons
+start AmiMSX again, and the icons are new. Shell scripts and launchers
+that start AmiMSX030 should start AmiMSX; ones that start a turbo R
+game should start "AmiMSX Turbo R".
+
 Updating from 4.9.1: copy the new files over the old ones, except the
 settings files AGA 030, AGA and RTG if you want to keep the settings
-saved in them. Do copy AGA 030.info: the AGA 030 icon now starts
-AmiMSX030. Shell scripts and launchers on a 68030 that start AmiMSX
-should start AmiMSX030.
+saved in them.
 
 Updating from 4.8: the preset icons have new names (AmiMSX 030 is now
 AGA 030, AmiMSX PiStorm is AGA, AmiMSX RTG is RTG). Delete the three
@@ -146,6 +173,20 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 5.1
+----------
+- Two programs, named for what they run: AmiMSX (MSX, MSX2, MSX2+; the
+  AGA 030, AGA and RTG presets) and AmiMSX Turbo R (adds the turbo R;
+  the new Turbo R AGA and Turbo R RTG presets; it always starts as the
+  turbo R). 5.0's AmiMSX030 is now AmiMSX, and the AGA and RTG presets
+  no longer pay the turbo R's speed cost.
+- Wider preset icons, shaped like MSX cartridges; the turbo R ones say
+  "turbo R" on the label.
+- Emulation > Speed: Overclock +10%, +25% and +50%, as well as
+  Overclock (Max) (the old Overclock) and No Limit. Games that slow
+  down on a real MSX (Nemesis 2) lose some of the slowdown without
+  running far too fast, as they do at Max.
 
 New in 5.0
 ----------
@@ -424,6 +465,7 @@ Known limits
   restarts or crashes the game: change it, then Power ON.
 
 The MSX turbo R machine is beta. Known issues:
+- Too slow on a 68030: AmiMSX Turbo R is for PiStorm and BigMig.
 - Zone Terra: stays on a blue screen.
 - F-Nano 2: black screen.
 - The Rise (demo): wrong colours (greens show cyan), the player sprite

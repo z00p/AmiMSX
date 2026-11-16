@@ -1,11 +1,11 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 5.0 (15.11.2026)
+@version $VER: AmiMSX.guide 5.1 (16.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                           AmiMSX Emulator v5.0
-                          ( 15.11.2026 - Freeware )
+                           AmiMSX Emulator v5.1
+                          ( 16.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 
@@ -83,9 +83,9 @@ https://github.com/z00p/AmiMSX/issues
     - Disks:  drive B with its own disk image, disk swap with Left Amiga.
       (See @{"Disks Menu" link MenuMVD}.)
 
-    - Three @{"presets" link Presets}: one for a 68030 (the AmiMSX030
-      program), one for PiStorm and other fast CPUs, and one for RTG
-      (both the AmiMSX program, with the turbo R).
+    - Five @{"presets" link Presets}: one for a 68030, one for PiStorm and
+      other fast CPUs and one for RTG (the AmiMSX program), and AGA and
+      RTG ones for the MSX turbo R (the AmiMSX Turbo R program).
 
     The full list is in Docs/CHANGES_4.x.txt.
 
@@ -107,14 +107,24 @@ https://github.com/z00p/AmiMSX/issues
 @{fg highlight}    Presets:
 @{fg text}    --------
 
-    Start AmiMSX from one of the three preset icons.  Each one has its own
+    Start AmiMSX from one of the five preset icons.  Each one has its own
 settings file, and Save Settings writes to the preset you started.
 
-    There are two programs.  AmiMSX has the MSX turbo R machine and is
-for fast CPUs:  the AGA and RTG presets start it.  AmiMSX030 is the same
-emulator without the turbo R, for a 68030:  the AGA 030 preset starts it.
-From a Shell or a game launcher on a 68030, start AmiMSX030.  (See
-@{"MSX turbo R" link TurboR}.)
+    There are two programs:
+
+    AmiMSX           MSX, MSX2 and MSX2+, for every CPU.  The AGA 030,
+                     AGA and RTG presets start it.
+    AmiMSX Turbo R   the same emulator with the MSX turbo R machine
+                     added.  The Turbo R AGA and Turbo R RTG presets
+                     start it.  It always starts as the turbo R, and
+                     its own settings file is S:AmiMSXTurboR.prefs.
+
+    Why two:  the turbo R support costs speed on every MSX machine, not
+just the turbo R, and on every CPU.  AmiMSX Turbo R runs MSX2 and MSX2+
+games 1 to 5% slower than AmiMSX (measured on a 68030/50), so AmiMSX
+leaves the turbo R out.  Use AmiMSX Turbo R for turbo R software.  (See
+@{"MSX turbo R" link TurboR}.)  In 5.0 the programs were AmiMSX (with the
+turbo R) and AmiMSX030 (without it).
 Until 4.8 the presets were called AmiMSX 030, AmiMSX PiStorm and
 AmiMSX RTG.
 
@@ -145,6 +155,13 @@ Amiga's own video output, and the RTG screen keeps its last picture
 (black after a second).  On a screen under 544x460 (1x picture) SCREEN 6,
 7 and 80-column text show every other dot.  Needs Picasso96 and a 16 or
 32-bit mode.
+
+@{fg highlight}    <*> Turbo R AGA and Turbo R RTG:
+@{fg text}    --------------------------------
+
+    The AGA and RTG presets with the MSX turbo R machine, for PiStorm and
+BigMig;  they start AmiMSX Turbo R.  The turbo R needs its firmware (see
+@{"MSX turbo R" link TurboR});  without it the MSX2+ runs.
 
 @{fg highlight}    <*> ToolType RTG:
 @{fg text}    -----------------
@@ -185,9 +202,8 @@ drawer.  Without it, AmiMSX uses S:AmiMSX2.prefs.
                preset's (the RTG preset's on RTG), AUTO is FAST on a
                68040 or 68060 and 030 otherwise.  The files are taken
                from AmiMSX's drawer.
-               PROFILE=030 in AmiMSX (the turbo R program) uses the
-               AGA 030 settings in AmiMSX itself; for a 68030 start
-               AmiMSX030 instead.
+               PROFILE=030 in AmiMSX Turbo R uses the AGA 030
+               settings in AmiMSX Turbo R itself.
     PREFS=     the settings file (P= also works); it wins over PROFILE.
                Without PREFS or PROFILE, S:AmiMSX2.prefs as before.
     B=         drive B's disk image.  R2= a cartridge for Slot 2.
@@ -201,6 +217,10 @@ KEY=value or KEY value both work.
     A game's project icon whose default tool is AmiMSX (with its full
 path) works the same way.  Its ToolTypes may hold AGA, ONEGAME, MENU and
 PROFILE= as well as RTG, SCANLINES and PREFS.
+
+    AmiMSX Turbo R takes the same words.  In a Shell or a script, put its
+name in quotes:
+      "AmiMSX Turbo R" "Work:MSX/Turbo R/STG.dsk" PREFS="Turbo R AGA"
 
     Before the game starts, AmiMSX waits (up to about a second) until no
 key, mouse button or fire button is held, so the Return or click that
@@ -229,10 +249,11 @@ instructions), BASIC 4.1 and MSX-DOS 2.31 from the machine's firmware,
 the S1990, the E6h timer, PCM sound (ports A4h/A5h), the GT's clock chip
 and its kanji ROM.  It is beta:  see the known issues below.
 
-    Only the AmiMSX program has it (the AGA and RTG presets);  AmiMSX030
-(the AGA 030 preset) does not.  The turbo R needs a fast CPU:  on a
-PiStorm A1200, S.T.G., Superiority Fighters and Turbo Blaster run at full
-speed.
+    Only the AmiMSX Turbo R program has it (the Turbo R presets);  AmiMSX
+(the AGA 030, AGA and RTG presets) does not, as the turbo R support makes
+every machine a little slower (see @{"Presets" link Presets}).  The turbo R
+needs a fast CPU:  on a PiStorm A1200, S.T.G., Superiority Fighters and
+Turbo Blaster run at full speed.  On a 68030 it is too slow to play.
 
 @{fg highlight}    <*> The firmware:
 @{fg text}    -----------------
@@ -269,6 +290,7 @@ as the MSX2+.  Without the kanji font, kanji characters are blank.
 @{fg highlight}    <*> Known issues:
 @{fg text}    -----------------
 
+    - Too slow on a 68030:  AmiMSX Turbo R is for PiStorm and BigMig.
     - Zone Terra:  stays on a blue screen.
     - F-Nano 2:  black screen.
     - The Rise (demo):  greens show cyan, the player sprite is missing,
@@ -473,13 +495,17 @@ settings.
 waits for the Amiga's frame timer.  If the Amiga can't finish a frame in
 time, the game slows down.  This is the one to use.
 
-    - Overclock:  [Fast CPU]  the frame rate stays the same, so games keep
-their speed, but whatever time is left in a frame goes on extra Z80 code
-(AmiMSX keeps running Z80 lines after the visible picture until the frame's
-time is up).  Games that slow down when the screen gets busy, even on a real
-MSX, slow down less.  It costs nothing in picture or sound, but the Amiga
-never rests, and on an Amiga with no time to spare it changes nothing.  A
-program that measures the Z80 will see a faster machine.
+    - Overclock +10%, +25% and +50%:  run extra Z80 lines after the visible
+picture, up to that share of the frame's lines (rounded down to whole lines:
+31/26, 78/65 or 156/131 lines in PAL/NTSC).  The Amiga's frame timer still
+sets the frame rate, and the extra work stops when the timer comes or the
+cap is reached.  Games that slow down when the screen gets busy, even on a
+real MSX, slow down less.
+
+    - Overclock (Max):  [Fast CPU]  like the capped settings, but without a
+line cap: whatever time is left in a frame goes on extra Z80 code.  The
+Amiga never rests, and on an Amiga with no time to spare it changes nothing.
+A program that measures the Z80 will see a faster machine.
 
     - No Limit:  [Turbo Mode]  AmiMSX doesn't wait for the frame timer, so
 games run as fast as the Amiga can take them, and their music with them.

@@ -2,6 +2,14 @@
 
 What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
 
+## Shipped in 5.1
+
+Two programs: AmiMSX (no turbo R, every CPU) and AmiMSX Turbo R (PiStorm, BigMig) with its own Turbo R AGA and RTG presets and settings; Overclock in steps (+10%, +25%, +50%, Max); new cartridge icons and drawer layout. See `CHANGES_4.x.md`.
+
+## Shipped in 5.0
+
+- MSX turbo R machine (beta, FS-A1GT, own firmware), AmiMSX030 for the 68030, a game on the command line or a project icon (Lupa), KTRL CD32+ pad type, Joystick as Cursor Keys.
+
 ## Shipped in 4.9
 
 Z80 fixes (DAA after INC A / DEC A, issue #3; the R800 multiply opcodes do nothing on the Z80), GETDPB's carry, and the preset icons renamed AGA 030, AGA and RTG. See `CHANGES_4.x.md`.
@@ -29,7 +37,6 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 ## Next
 
 - **Sound coverage:** first a measured survey (every test title against openMSX), then the gaps that matter most: FM accuracy, MSX-AUDIO (Y8950), PSG/SCC details. Moonsound only as "bring your own sample ROM" on PiStorm/BigMig.
-- **5.0: MSX turbo R (beta).** The FS-A1GT as a new machine, with the maintainer's own turbo R system ROMs, on the PiStorm and BigMig builds only. Done so far (branch turbor): the R800 multiply instructions and the Z80/R800 switch, BASIC 4.1, the A1GT's disk ROM and MSX-DOS 2, the system timer. Still to do for 5.0: R800 instruction timing, PCM to Paula and AHI, the kanji font, a turbo R entry in the menu, a set of turbo R disks as regression titles, and speed logs on the PiStorm and BigMig. Known so far: S.T.G. Special hangs in its fade-out, and S.T.G.'s score bar is garbled. Left for later: MIDI, PCM recording, and the speed difference between ROM and DRAM mode. 5.0 is a full release; the turbo R machine is marked beta, with its known issues listed.
 
 ## Still open, not yet scheduled
 

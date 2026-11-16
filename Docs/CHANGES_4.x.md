@@ -4,6 +4,11 @@ AmiMSX 4.x and 5.x are a community update of AmiMSX by Juan Antonio Gómez Gálv
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 5.1 (16 Nov 2026)
+
+- **Two programs, named for what they run:** `AmiMSX` is the emulator without the turbo R (5.0's `AmiMSX030`), for every CPU, started by the AGA 030, AGA and RTG presets; `AmiMSX Turbo R` adds the MSX turbo R machine and is started by new **Turbo R AGA** and **Turbo R RTG** presets (the AGA and RTG presets with the turbo R machine). AmiMSX Turbo R always starts as the turbo R (the MSX2+ without the firmware) and keeps its settings in `S:AmiMSXTurboR.prefs`, so AmiMSX's `S:AmiMSX2.prefs` is left alone. The preset icons are wider, shaped like MSX cartridges; the turbo R ones say "turbo R" on the label. The turbo R support makes every machine a little slower on every CPU (1-5% on MSX2/MSX2+ games on a 68030/50, all in the Z80 core), so the AGA and RTG presets no longer carry it. Scripts that started `AmiMSX030` should start `AmiMSX`; ones that start turbo R games, `"AmiMSX Turbo R"`.
+- **Emulation > Speed: Overclock in steps.** Overclock +10%, +25% and +50% give the MSX that much more Z80 time per frame at most; Overclock (Max) is the old Overclock (all the spare time), and No Limit is unchanged. Settings files keep their meaning (0 Normal, 1 Max, 2 No Limit; 3-5 the new steps).
+
 ## 5.0 (15 Nov 2026)
 
 - **MSX turbo R machine (beta):** Machine **MSXtR** in the main window is a Panasonic FS-A1GT: the R800 CPU with its own instruction timing and the MULUB/MULUW multiply instructions, BASIC 4.1 and MSX-DOS 2.31 from the machine's firmware, the S1990, the E6h timer, PCM (ports A4h/A5h) and the GT's clock chip. The firmware is not included: AmiMSX loads `Roms/fs-a1gt_firmware.rom` (4 MB, the FS-A1GT's firmware, named as openMSX names it) from its drawer, and the kanji font `Roms/fs-a1gt_kanjifont.rom` (256 KB) when it is there. Without the firmware, MSXtR is not offered and a turbo R machine saved in the settings runs as the MSX2+. With the firmware, MSX, MSX2 and MSX2+ are the machines of 4.9.1. Saved with the settings and in a game's own settings (machine 3); a disk in the disk database no longer lowers a turbo R in force to the MSX2. PCM plays only with Sound set to PSG+FM. The turbo R is labelled beta: see the known issues in the readme.
