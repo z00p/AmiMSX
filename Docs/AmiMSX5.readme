@@ -3,7 +3,7 @@ Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
 Version:      5.1
-Replaces:     misc/emu/AmiMSX4.lha
+Replaces:     misc/emu/AmiMSX5.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
 Distribution: Aminet
