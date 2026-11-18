@@ -11,7 +11,8 @@ File format (big-endian):
     key.L               first 4 bytes of the SHA-1
     code.B              AmiMSX mapper: 0 standard, 1 Konami, 2 ASCII8, 3 ASCII16,
                         4 Konami SCC (also its flash variants), 6 R-Type (4.5;
-                        menu index 7, 5 is unused), $FE not emulated
+                        menu index 7, 5 is unused), 7 ASCII16-X (5.2; menu
+                        index 8), $FE not emulated
     type.B              openMSX type number (TYPES list below; for messages)
     flags.B             bit 0: has SRAM, bit 1: an exception to the Sound rule (4.6;
                         SOUND_EXCEPTIONS); bits 2-3: machine (4.4: 0 MSX or
@@ -40,7 +41,7 @@ MSX_SYSTEMS = {"MSX", "MSX2", "MSX2+", "MSX turbo R", "MSXturboR", "TURBO-R", ""
 
 CODES = {"Normal": 0, "Konami": 1, "GenericKonami": 1, "ASCII8": 2, "ASCII16": 3,
          "KonamiSCC": 4, "manbow2": 4, "Manbow2_2": 4, "KonamiUltimateCollection": 4,
-         "RBSC_Flash_KonamiSCC": 4, "R-Type": 6}
+         "RBSC_Flash_KonamiSCC": 4, "R-Type": 6, "ASCII16-X": 7}
 SRAM = re.compile(r"SRAM")
 # Exceptions to the Sound rule (GPSndRule), by SHA-1. The rule: a Konami SCC mapper
 # means SCC, otherwise FM if "OPLL" is in the file. An entry here turns that round.
@@ -57,7 +58,7 @@ LOCAL_ROMS = {
 PLAIN = {"Mirrored", "page2", "page23", "page12", "page1", "page3", "16kb", "8kB", "Mirrored4000",
          "Mirrored0000", "Mirrored8000", "MirroredC000", "Normal0000", "Normal4000", "Normal8000"}
 TAGS = {"konamiscc": "KonamiSCC", "scc": "KonamiSCC", "konami": "Konami", "konami4": "Konami",
-        "ascii8": "ASCII8", "ascii16": "ASCII16", "ascii8sram2": "ASCII8SRAM2",
+        "ascii8": "ASCII8", "ascii16": "ASCII16", "ascii16x": "ASCII16-X", "ascii8sram2": "ASCII8SRAM2",
         "ascii8sram8": "ASCII8SRAM8", "ascii16sram2": "ASCII16SRAM2", "ascii16sram8": "ASCII16SRAM8"}
 
 

@@ -1652,7 +1652,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v5.1 (Pro) '
+    DC.B    'AmiMSX Emulator v5.2 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -3146,10 +3146,10 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v5.1',0
+    DC.B    'AmiMSX Emulator v5.2',0
 
 AboutIText1:
-    DC.B    '(November 16th, 2026)',0
+    DC.B    '(November 18th, 2026)',0
 
 AboutIText2:
     DC.B    'Full Program & Emulation Systems:',0
@@ -3953,6 +3953,14 @@ MSX2NewMenu78r:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1Asc16X
+MSX2NewMenu78x:
+    DC.B    3,0
+    DC.L    MSX2MName78x
+    DC.L    0
+    DC.W    $0001
+    DC.L    0,0
+
 	MDSCNT	NS_Map1
 	MDI	MN_CartsBar0
 MSX2NewMenu_CartsBar0:
@@ -4069,6 +4077,14 @@ MSX2NewMenu92:
 MSX2NewMenu92r:
     DC.B    3,0
     DC.L    MSX2MName92r
+    DC.L    0
+    DC.W    $0001
+    DC.L    0,0
+
+	MDS	MN_Map2Asc16X
+MSX2NewMenu92x:
+    DC.B    3,0
+    DC.L    MSX2MName92x
     DC.L    0
     DC.W    $0001
     DC.L    0,0
@@ -4565,6 +4581,9 @@ MSX2MName78:
 MSX2MName78r:
     DC.B    'R-Type',0
 
+MSX2MName78x:
+    DC.B    'ASCII 16K-X',0
+
 MSX2MName80:
     DC.B    'Slot 2',0
 
@@ -4603,6 +4622,9 @@ MSX2MName92:
 
 MSX2MName92r:
     DC.B    'R-Type',0
+
+MSX2MName92x:
+    DC.B    'ASCII 16K-X',0
 
 MSX2MName100:
     DC.B    'Tape  ',0

@@ -2650,6 +2650,13 @@ RtgBg7L:MOVE.B	(A0,D1.W),(A2)+
 	ADDQ.W	#1,D1
 	AND.W	#127,D1
 	DBF	D7,RtgBg7L
+	BTST	#3,RfR25		; (5.2) YJK: the line as SCREEN 8 bytes.
+	BEQ	RtgBgMove
+	MOVEM.L	D0/A1,-(SP)
+	LEA	-256(A2),A1
+	MOVE.B	RfR25,D0
+	JSR	YjkLine
+	MOVEM.L	(SP)+,D0/A1
 	BRA	RtgBgMove
 ; The 256 dots into A4, R#27 dots to the right (the border colour left of them).
 RtgBgMove:
@@ -3117,7 +3124,9 @@ RtgS2Bf:SUBQ.W	#1,D1
 	LEA	BandR8,A1
 	BTST	#1,(A1,D1.W)		; SPD in that band.
 	BNE	RtgS2X
-	MULU.W	#640,D1
+	LEA	BandPat,A1		; (5.2) The band's R#6 too (F-1 Spirit
+	MOVE.L	(A1,D1.W*4),RfSprP	; 3D: the car's patterns, then the
+	MULU.W	#640,D1			; dashboard's).
 	LEA	BandBuf,A0
 	ADD.L	D1,A0
 	MOVE.L	A0,RfSprC		; The band's copy: colours, then the
@@ -3134,8 +3143,8 @@ RtgS2V:	MOVEQ	#0,D0
 	AND.L	#$1FC00,D0
 	LEA	(A5,D0.L),A0		; in this 1 KB window.
 	MOVE.L	A0,RfSprC
-RtgS2Go:
 	MOVE.L	PVDP6(A3),RfSprP
+RtgS2Go:
 	BSR	RtgSprPrep
 	MOVEQ	#0,D6
 	MOVEQ	#0,D7

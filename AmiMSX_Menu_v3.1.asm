@@ -587,6 +587,12 @@ PerfDNm:
 	MOVE.L	#4+4*STDSIZE,D3
 	BSR	WRITEFILE
 	ENDC
+	IFD	VWLOG
+	MOVE.L	#"VWLG",VwlHdr		; (5.2, debug) the VDP register write ring
+	MOVE.L	#VwlHdr,D2
+	MOVE.L	#8+8*16384,D3
+	BSR	WRITEFILE
+	ENDC
 	IFD	TURBOR
 ; (turbo R debug) at the exit: "TRDB", the registers SALIR saved (DEBUG:
 ; the Z80 or R800 state, A5 the host PC), the interrupted 68k PC, the
@@ -2704,11 +2710,15 @@ Sl1MapOp6:
 Sl1MapOp7:				; (4.5) R-Type
 	MOVE.B	#$07,DirPrefs+$76
 	MOVE.L	#$80,D3
+	BRA.S	Sl1MapRut
+Sl1MapOp8:				; (5.2) ASCII16-X
+	MOVE.B	#$08,DirPrefs+$76
+	MOVE.L	#$100,D3
 Sl1MapRut:
 	MOVE.L	#MN_Map1None,D0		; the first of its sub-items
-	MOVEQ	#NS_Map1-1,D4		; (4.5: 8 items, R-Type)
+	MOVEQ	#NS_Map1-1,D4		; (5.2: 9 items, ASCII16-X)
 
-	BRA.S	PoneOptMenus
+	BRA	PoneOptMenus		; (5.2: .S out of range)
 
 
 
@@ -2744,9 +2754,13 @@ Sl2MapOp6:
 Sl2MapOp7:				; (4.5) R-Type
 	MOVE.B	#$07,DirPrefs+$77
 	MOVE.L	#$80,D3
+	BRA.S	Sl2MapRut
+Sl2MapOp8:				; (5.2) ASCII16-X
+	MOVE.B	#$08,DirPrefs+$77
+	MOVE.L	#$100,D3
 Sl2MapRut:
 	MOVE.L	#MN_Map2None,D0		; the first of its sub-items
-	MOVEQ	#NS_Map2-1,D4		; (4.5: 8 items, R-Type)
+	MOVEQ	#NS_Map2-1,D4		; (5.2: 9 items, ASCII16-X)
 
 	NOP			; was: BRA.S	PoneOptMenus (zero-length short branch)
 
@@ -2766,7 +2780,7 @@ PoOpMeBuc:
 	MOVEM.L	(SP)+,D0-D4
 
 	BCLR	#0,$C(A0)
-	LSR.B	#1,D3
+	LSR.W	#1,D3			; (5.2: .W, the mapper menus' 9 items)
 	BCC.S	PoOpMeCon
 	BSET	#0,$C(A0)
 PoOpMeCon:
@@ -4146,6 +4160,8 @@ TagMapTab:
 	DC.B	1,"konami4",0
 	DC.B	2,"ascii8",0
 	DC.B	3,"ascii16",0
+	DC.B	7,"ascii16x",0		; (5.2) ASCII16-X
+	DC.B	7,"ascii16-x",0
 	DC.B	0
 	EVEN
 
@@ -8432,6 +8448,7 @@ MS_Map1:
 	MJS	MS_Map1,MN_Map1SCC,Sl1MapOp5
 	MJS	MS_Map1,MN_Map1SCCs,Sl1MapOp6
 	MJS	MS_Map1,MN_Map1RType,Sl1MapOp7
+	MJS	MS_Map1,MN_Map1Asc16X,Sl1MapOp8
 	MJEND	MS_Map1,NS_Map1
 
 MS_Slot2:
@@ -8450,6 +8467,7 @@ MS_Map2:
 	MJS	MS_Map2,MN_Map2SCC,Sl2MapOp5
 	MJS	MS_Map2,MN_Map2SCCs,Sl2MapOp6
 	MJS	MS_Map2,MN_Map2RType,Sl2MapOp7
+	MJS	MS_Map2,MN_Map2Asc16X,Sl2MapOp8
 	MJEND	MS_Map2,NS_Map2
 
 

@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.1
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.2
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      5.1
+Version:      5.2
 Replaces:     misc/emu/AmiMSX5.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -30,7 +30,9 @@ Requirements
 ------------
 - AmigaOS 3.0 or later.
 - A 68030 or better. The low-spec target is an A1200 or similar with a
-  68030 at 50 MHz and fast RAM. A stock 68020 A1200 runs it, but slowly.
+  68030 at 50 MHz and fast RAM, for MSX and MSX2 games: MSX2+ and
+  turbo R games are too heavy for the 68030 profile (AGA 030). A stock
+  68020 A1200 runs it, but slowly.
 - AGA. On ECS AmiMSX warns that it needs AGA and can carry on, with
   limits, as 3.x did.
 - The libraries and devices listed in AmiMSX.guide (as for 3.1).
@@ -46,7 +48,8 @@ Installation
 ------------
 Copy the AmiMSX drawer anywhere and start one of the preset icons:
 
-  AGA 030   68030/50 with fast RAM: PSG, PAL, sprites every frame
+  AGA 030   68030/50 with fast RAM: PSG, PAL, sprites every frame;
+            for MSX and MSX2 games (MSX2+ and turbo R are too heavy)
   AGA       PiStorm, BigMig and other fast CPUs: PSG+FM, display
             frequency from the VDP, Japanese ID (60 Hz), audio
             filter, smooth display
@@ -124,6 +127,10 @@ in the settings run as the MSX2+), 10 the game
 could not be loaded (with ONEGAME), 20 AmiMSX can't run on this Amiga
 (no 68020, no screen or window, a missing library).
 
+Updating from 5.1: copy the new files over the old ones, except the
+settings files AGA 030, AGA, RTG, Turbo R AGA and Turbo R RTG if you
+want to keep the settings saved in them.
+
 Updating from 5.0: copy the new files over the old ones, except the
 settings files AGA 030, AGA and RTG if you want to keep the settings
 saved in them, and delete AmiMSX030 and AmiMSX030.info. AmiMSX is now
@@ -173,6 +180,29 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 5.2
+----------
+- F-1 Spirit 3D Special (MSX2+) plays: the title, the photos, Game
+  Disk B after a visit to the menu, the sky in the bends (SP2 with
+  R#26) and the player's car.
+- MSX2+ YJK modes (SCREEN 10-12), on AGA and RTG, with the nearest of
+  SCREEN 8's 256 colours (ZeroNoHoukouR's title, F-1 Spirit 3D
+  Special's photos).
+- ASCII 16K-X mapper (Slot Mapper menu, ROM database): MSX
+  Translations' big ROMs such as Illusion City (up to 4 MB), which
+  runs on AmiMSX Turbo R.
+- VDP status S#2: HR and VR are read with the V99x8's timing (from
+  the right border, 52 cycles, 68 in text modes; VR by the line count),
+  measured against openMSX. Snake and Rhino in the Sketchbook now
+  loads its own palette (pale colours), as in openMSX.
+- Z80: an LDIR that overwrites its own opcode stops there, as on a
+  Z80 (Illusion City).
+- Sprite bands keep their own pattern table (R#6), and sprite
+  colours drawn with VDP commands in SCREEN 5 show in the frame
+  they are drawn in.
+- The AGA 030 preset is for MSX and MSX2 games; MSX2+ and turbo R
+  games are too heavy for a 68030.
 
 New in 5.1
 ----------
@@ -425,9 +455,12 @@ Known limits
 - Smooth display covers SCREEN 4 only; other modes run as before.
 - Smooth display switches itself off in games that play MSX-Music
   (FM), so their music keeps its tempo.
-- MSX2+: no YJK modes (SCREEN 10-12) yet. Some MSX2 games choose a
-  different video mode on an MSX2+, so the picture size differs
-  (Gradius 2, Pampas & Selene); run MSX2 games as MSX2.
+- MSX2+: some MSX2 games choose a different video mode on an MSX2+,
+  so the picture size differs (Gradius 2, Pampas & Selene); run MSX2
+  games as MSX2. YJK pictures (SCREEN 10-12) use the nearest of
+  SCREEN 8's 256 colours.
+- F-1 Spirit 3D Special on RTG: wrong background colour and streaks
+  in the intro pictures (PiStorm A1200; AGA is fine).
 - Nemesis 2: the stars are drawn cyan instead of white.
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
@@ -475,8 +508,8 @@ The MSX turbo R machine is beta. Known issues:
 - No MIDI, and no speed difference between the R800's ROM and DRAM
   modes.
 - Once, a key kept repeating at the MSX-DOS prompt (not reproduced).
-- ZeroNoHoukouR: the title (SCREEN 12) is not drawn right, and sprites
-  are missing in some frames.
+- ZeroNoHoukouR: sprites are missing in some frames.
+- Illusion City: the borders of the menu boxes have the wrong colours.
 - ASO: MSX-DOS 2 does not boot with 512 KB of RAM, and 256 KB is too
   little for the game.
 - BASIC: the CALL KANJI screen is blank. Earth (1996): black screen.

@@ -199,6 +199,7 @@ MJEND	MACRO
 	MSUB	MN_Map1SCC		;   Konami SCC
 	MSUB	MN_Map1SCCs		;   Konami SCC (strict)
 	MSUB	MN_Map1RType		;   R-Type
+	MSUB	MN_Map1Asc16X		;   ASCII 16K-X
 	MSCOUNT	NS_Map1
 	MITEM	MN_CartsBar0		; ---
 	MITEM	MN_Slot2		; Slot 2
@@ -216,6 +217,7 @@ MJEND	MACRO
 	MSUB	MN_Map2SCC		;   Konami SCC
 	MSUB	MN_Map2SCCs		;   Konami SCC (strict)
 	MSUB	MN_Map2RType		;   R-Type
+	MSUB	MN_Map2Asc16X		;   ASCII 16K-X
 	MSCOUNT	NS_Map2
 	MICOUNT	NI_Carts
 

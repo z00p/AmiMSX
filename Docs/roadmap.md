@@ -2,6 +2,10 @@
 
 What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
 
+## Shipped in 5.2
+
+F-1 Spirit 3D Special (MSX2+) plays (title, photos, Disk B, SP2 in the bends, the player's car); YJK modes (SCREEN 10-12); the ASCII 16K-X mapper and Illusion City; sprite bands with their own pattern table and colours drawn by VDP commands; S#2 HR/VR timed as the V99x8. See `CHANGES_4.x.md`.
+
 ## Shipped in 5.1
 
 Two programs: AmiMSX (no turbo R, every CPU) and AmiMSX Turbo R (PiStorm, BigMig) with its own Turbo R AGA and RTG presets and settings; Overclock in steps (+10%, +25%, +50%, Max); new cartridge icons and drawer layout. See `CHANGES_4.x.md`.
@@ -40,7 +44,13 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 
 ## Still open, not yet scheduled
 
-Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). The YJK modes (SCREEN 10-12) wait for a game that uses them.
+Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). Illusion City's menu box borders have the wrong colours (palette writes and bitplanes match openMSX; next: the Amiga colour registers).
+
+F-1 Spirit 3D Special on RTG (a tester, 18 Nov, 5.2 RC1 on the A1200 PiStorm, RTG preset): it starts now (5.1 didn't), but the race intro pictures (car at the stands, driver close-up) have a bright blue background with heavy horizontal streaks where openMSX has black. Also on the photos: the Konami logo on a pale page with lighter bands at the top and bottom, and the title logo on dark blue with no other text; compare both with openMSX. AGA is fine. WinUAE RTG doesn't reproduce it (its intro matched openMSX), so the next step is a debug build that draws on-screen rows on the A1200 (the RTG frame's state), photographed by a tester.
+
+Game saves that persist (a tester, 18 Nov; Illusion City, English translation ROM v0.3, "works well" on 5.2 RC1 Turbo R AGA). Its save menu (System > save point) offers Quick Save, (FM)PAC SRAM, Game Disk 1, User Disk and Flash ROM. (a) Flash ROM: msxtranslations.com/ic.php says the ROM build saves to the ASCII16-X cartridge's flash (tested on openMSX). AmiMSX already emulates AMD flash commands (program, 64 KB sector erase) and keeps changed sectors in `<cartridge>.flash`, but only for the flash Konami SCC cartridges (4.0, Pampas & Selene); the ASCII 16K-X mapper has no flash writes yet. Next: the ASCII16-X flash chip's commands as openMSX has them, on the same `.flash` file. (b) (FM)PAC SRAM: AmiMSX's FM-PAC in Slot 1 (Sound PSG+FM) is its ROM only; the PAC's 8 KB battery SRAM (unlocked by 4Dh/69h at 5FFEh/5FFFh) isn't emulated, so nothing is kept. (c) User Disk: whether a save to a blank disk image in Drive A works today is not checked yet (it needs a turbo R run to a save point); if it does, it is the workaround for the readme.
+
+F-1 Spirit 3D Special AGA: a tester sees track drawing issues while racing (5.2 RC1, A1200). Stills match openMSX (the hatched and striped arcs over the hills are the game's own scenery, same places in openMSX on straights and bends), so it needs a video of the race to find what moves wrong.
 
 About window (a tester, 28 Oct): keep its date in step with each release (it is typed in by hand). (The menu tidy-up is done: branch menus, Docs/agent_notes/v46_menus.md.)
 

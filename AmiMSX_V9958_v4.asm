@@ -47,6 +47,12 @@ PlSet:
 	MOVE.L	(A0)+,PlCopyW		; PlCopyW, PlStrideW
 	MOVE.L	(A0)+,PlSkipW		; PlSkipW, PlStr2W
 	MOVE.L	(A0)+,PlSizeL
+	MOVE.L	#-1,EEDirty		; (5.2) Every even-page copy stale.
+	MOVE.L	#-1,EEDirty+4
+	LEA	EEKey,A0
+	MOVE.W	#212-1,D1
+PlSetK:	MOVE.L	#-1,(A0)+
+	DBF	D1,PlSetK
 	RTS
 
 ; PlRowOff: D0.L = VRAM line (0-1023) -> D0.L = byte offset in a plane of
@@ -163,6 +169,10 @@ OUT98P:					; Layout 2.
 	BEQ	VRAM98P
 CRAM98P:MOVE.B	D2,(A2)+
 	MOVE.L	D1,A4			; a
+	LSR.L	#8,D1			; (5.2) Its 16-line band changed: the
+	LSR.L	#3,D1			; even-page SP2 copies (EEDirty, EEPass).
+	BFSET	EEDirty{D1:1}
+	MOVE.L	A4,D1
 	SWAP	D0
 	MOVE.W	D1,D0
 	AND.W	#$7F,D0
@@ -389,6 +399,9 @@ PU4W_BUC:
 ; to PU4W_ROW. Stack: PlRowOff.
 ActPlaBlkW:				; (No BSR: ActPlanos5 is a handler's
 	MOVE.L	A6,D0			; first-level call, as PU4_BUC says.)
+	LSR.W	#1,D0			; (5.2) The block's 16-line band
+	BFSET	EEDirty{D0:1}		; (EEDirty).
+	MOVE.L	A6,D0
 	LSL.L	#3,D0			; 8 lines a block
 	PLROWOFF	D0
 	LEA	(SCR0.L,D0.L),A0
@@ -635,6 +648,182 @@ Pl5DispOff:
 	BNE	PlRowOff
 	BCLR	#8,D0
 	BRA	PlRowOff
+
+; =========================================================================
+; (5.2) SP2 lines that show an even page. With SP2 the VDP's 512-dot line is
+; two pages, the second one R#2's page bit (bit 5) and the first always the
+; even page: with bit 5 set the line is even|odd (layout 2's pair row), with
+; it clear even|even, so R#26 wraps the even page on itself. Layout 2's rows
+; are even|odd|even|odd and the VDP commands walk them as two half-rows
+; (source and destination), so the even|even line can't live there: those
+; display lines point at EEBuf, one 128-byte row per display line (planes 0
+; and 1 in EEBufA, 2 and 3 in EEBufB, each the even page's 32 bytes twice),
+; the same stride as layout 2, so the copper modulo doesn't change.
+; F-1 Spirit 3D Special: R#2 = 1Fh above the road (sky and stands, scrolled
+; sideways by R#26), 3Fh below; showing even|odd there put the odd page's
+; picture in the right part of the sky.
+; The copper build (AcCoRutGBY5 -> EEGby5) records the runs of such lines,
+; EEPass (end of ActCopperLine) copies the even page's rows in, each display
+; line keyed by its VRAM line and that line's 16-line band generation (bands
+; are bumped when anything writes them: EEDirty from OUT98P, ActPlaBlkW and
+; the VDP commands' P5CmdM), so an unchanged picture costs nothing.
+; =========================================================================
+EERUNMAX=32
+EEDirty:	DC.L	-1,-1		; 64 bands of 16 VRAM lines written since
+EEOpenY:	DC.W	-1		; EEPass. Open run: display line (-1 none)
+EEOpenL:	DC.W	0		; and its VRAM line.
+EERunN:		DC.W	0		; Runs this frame: y, lines, VRAM line, 0.
+EERuns:		DS.W	4*EERUNMAX
+EEGen:		DS.W	64		; Band generations.
+EEKey:		DS.L	212		; Per display line: generation, VRAM line.
+EENoTrk:	DC.B	0		; FFh: L0Prep's page blocks (no runs).
+Adj5EE:		DC.B	0		; FFh: Adj5Calc for an even|even line.
+		EVEN
+
+; EEGby5 (AcCoRutGBY5): D0.L = the line's VRAM line (page*256 + line), D7 =
+; display line. Z set: not an even|even line, D0 kept. Z clear: D0 = its
+; plane 0 pointer in EEBuf with the R#26 step (planes 1-3 at +64, then
+; EEBufB, +64). Uses D1, D2 (and Adj5Calc's).
+EEGby5:
+	CMP.B	#2,PlMode
+	BNE.S	EEGbyN
+	TST.B	EENoTrk
+	BNE.S	EEGbyT
+	MOVEM.L	D0/A0,-(SP)
+	BSR	EEClose			; (a pointer event ends the run)
+	MOVEM.L	(SP)+,D0/A0
+EEGbyT:
+	BTST	#8,D0			; R#2 bit 5: the pair row, as before.
+	BNE.S	EEGbyN
+	TST.B	EENoTrk
+	BNE.S	EEGbyP
+	MOVE.W	D7,EEOpenY
+	MOVE.W	D0,EEOpenL
+EEGbyP:
+	MOVEQ	#0,D0
+	MOVE.W	D7,D0
+	LSL.L	#7,D0
+	ADD.L	#EEBufA,D0
+	TST.B	V9Fm32
+	BEQ.S	EEGbyS
+	ST	Adj5EE			; R#26 over 256 dots (32 steps).
+	JSR	Adj5Calc
+	SF	Adj5EE
+	ADD.L	D2,D0
+EEGbyS:
+	MOVEQ	#1,D1			; (Z clear)
+	RTS
+EEGbyN:
+	CMP.B	D0,D0			; (Z set)
+	RTS
+
+; EEClose: D7.W = display line where the open run ends. Uses D0-D2, A0.
+EEClose:
+	MOVE.W	EEOpenY,D1
+	BMI.S	EEClX
+	MOVE.W	#-1,EEOpenY
+	MOVE.W	D7,D2
+	SUB.W	D1,D2
+	BLE.S	EEClX
+	MOVE.W	EERunN,D0
+	CMP.W	#EERUNMAX,D0
+	BCC.S	EEClX
+	ADDQ.W	#1,EERunN
+	LSL.W	#3,D0
+	LEA	(EERuns.L,D0.W),A0
+	MOVE.W	D1,(A0)+
+	MOVE.W	D2,(A0)+
+	MOVE.W	EEOpenL,(A0)
+EEClX:	RTS
+
+; EEPass (end of ActCopperLine, every built list): close the last run, bump
+; the written bands' generations, copy the lines whose key changed.
+EEPass:
+	CMP.B	#2,PlMode
+	BNE	EEPassOff
+	MOVEM.L	D0-D7/A0-A2,-(SP)
+	MOVE.W	#212,D7
+	BSR	EEClose
+	MOVEQ	#0,D0
+EEPGen:	BFTST	EEDirty{D0:1}
+	BEQ.S	EEPGn
+	ADDQ.W	#1,(EEGen.L,D0.W*2)
+EEPGn:	ADDQ.W	#1,D0
+	CMP.W	#64,D0
+	BNE.S	EEPGen
+	CLR.L	EEDirty
+	CLR.L	EEDirty+4
+	MOVE.W	EERunN,D6
+	BEQ.S	EEPDone
+	LEA	EERuns,A2
+EEPRun:
+	MOVE.W	(A2)+,D7		; display line
+	MOVE.W	(A2)+,D5		; lines
+	MOVE.W	(A2)+,D4		; VRAM line
+	ADDQ.W	#2,A2
+	MOVE.W	D4,D0			; (not past the page's last line)
+	AND.W	#255,D0
+	NEG.W	D0
+	ADD.W	#256,D0
+	CMP.W	D0,D5
+	BLS.S	EEPRc
+	MOVE.W	D0,D5
+EEPRc:	SUBQ.W	#1,D5
+	BMI.S	EEPRunN
+EEPLin:
+	MOVE.W	D4,D0
+	LSR.W	#4,D0
+	MOVE.W	(EEGen.L,D0.W*2),D1
+	SWAP	D1
+	MOVE.W	D4,D1
+	CMP.L	(EEKey.L,D7.W*4),D1
+	BEQ.S	EEPLinN
+	MOVE.L	D1,(EEKey.L,D7.W*4)
+	BSR.S	EECopy
+EEPLinN:
+	ADDQ.W	#1,D4
+	ADDQ.W	#1,D7
+	CMP.W	#212,D7
+	BCC.S	EEPRunN
+	DBF	D5,EEPLin
+EEPRunN:
+	SUBQ.W	#1,D6
+	BNE.S	EEPRun
+EEPDone:
+	CLR.W	EERunN
+	MOVEM.L	(SP)+,D0-D7/A0-A2
+	RTS
+EEPassOff:
+	CLR.W	EERunN
+	MOVE.W	#-1,EEOpenY
+	RTS
+
+; EECopy: D4.W = VRAM line (an even page), D7.W = display line: its four
+; planes' 32 bytes (layout 2's first copy) twice into EEBuf. Uses D0-D2,
+; A0, A1.
+EECopy:
+	MOVEQ	#0,D0
+	MOVE.W	D4,D0
+	PLROWOFF	D0
+	LEA	(SCR0.L,D0.L),A0
+	MOVEQ	#0,D0
+	MOVE.W	D7,D0
+	LSL.L	#7,D0
+	LEA	(EEBufA.L,D0.L),A1
+	BSR.S	EECp2
+	LEA	(EEBufB.L,D0.L),A1
+	LEA	PLSZW-32(A0),A0
+EECp2:					; Two planes: A0 -> A1, A1+32; the next
+	BSR.S	EECp1			; plane -> A1+64, A1+96.
+	LEA	PLSZW-32(A0),A0
+	LEA	32(A1),A1
+EECp1:
+	MOVEQ	#8-1,D2
+EECp1L:	MOVE.L	(A0)+,D1
+	MOVE.L	D1,32(A1)
+	MOVE.L	D1,(A1)+
+	DBF	D2,EECp1L
+	RTS
 
 ; =========================================================================
 ; (4.0) R#26 and SP2 in the tile modes (SCREEN 2 and 4): the tile pass reads

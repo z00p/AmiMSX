@@ -125,7 +125,7 @@ The code returned is the index minus 1 (0 = Konami 1 ... 5 = SCC 2). Per-game `<
 | manbow2 / Manbow2_2 | 12 | 3 | 0 / 3 | 1 | SCC 1 runs them; flash off at ≤ 512 KB | Manbow 2, Lotus F3, Pengo |
 | KonamiUltimateCollection | 5 | 2 | 0 / 2 | 0 | Partial (flash mode, no offset register) | Konami Ultimate Collection, Pampas and Selene |
 | RBSC_Flash_KonamiSCC | 1 | 1 | 0 / 1 | 1 | Works (flash mode) | Angelic Warrior DEVA |
-| ASCII16-X | 3 | 2 | 1 / 1 | 1 | None; also over 4 MB | MSX Legends (2025), an Illusion City dump |
+| ASCII16-X | 3 | 2 | 1 / 1 | 1 | Up to 4 MB since 5.2 (menu index 8, database code 7; the first bank mirrored at C000h-FFFFh and the second at 0000h-3FFFh; no flash writes); over 4 MB still refused | MSX Legends (2025), an Illusion City dump |
 | Synthesizer | 10 | 1 | 1 / 0 | 1 | None (DAC) | Konami's Synthesizer |
 | R-Type | 8 | 2 | 2 / 0 | 0 | Full since 4.5 (menu index 7, database code 6) | R-Type, Quinpl |
 | MatraCompilation | 6 | 5 | 0 / 5 | 0 | None | Konami / Casio compilations (2010), Cardwork Orange |

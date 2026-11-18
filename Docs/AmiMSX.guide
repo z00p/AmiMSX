@@ -1,11 +1,11 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 5.1 (16.11.2026)
+@version $VER: AmiMSX.guide 5.2 (18.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                           AmiMSX Emulator v5.1
-                          ( 16.11.2026 - Freeware )
+                           AmiMSX Emulator v5.2
+                          ( 18.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 
@@ -132,7 +132,9 @@ AmiMSX RTG.
 @{fg text}    ------------
 
     The low-spec target:  an A1200 or similar with a 68030 at 50Mhz and
-Fast memory.  PSG, PAL, sprites every frame.
+Fast memory.  PSG, PAL, sprites every frame.  The 68030 profile is for
+MSX and MSX2 games:  MSX2+ and turbo R games are too heavy for it (use
+the AGA or RTG preset on a fast CPU).
 
 @{fg highlight}    <*> AGA:
 @{fg text}    --------
@@ -300,8 +302,9 @@ as the MSX2+.  Without the kanji font, kanji characters are blank.
     - No MIDI, and no speed difference between the R800's ROM and DRAM
       modes.
     - Once, a key kept repeating at the MSX-DOS prompt (not reproduced).
-    - ZeroNoHoukouR:  the title (SCREEN 12) is not drawn right, and
-      sprites are missing in some frames.
+    - ZeroNoHoukouR:  sprites are missing in some frames.
+    - Illusion City:  the borders of the menu boxes have the wrong
+      colours.
     - ASO:  MSX-DOS 2 does not boot with 512 KB of RAM, and 256 KB is
       too little for the game.
     - BASIC:  the CALL KANJI screen is blank.  Earth (1996):  black
@@ -391,7 +394,8 @@ THIS SOFTWARE...
 @{fg highlight}    <*>  Recommended:
 @{fg text}    -----------------
 
-    - MC68030 at 50Mz with 32-bit Fast memory  (the "AGA 030" preset)
+    - MC68030 at 50Mz with 32-bit Fast memory  (the "AGA 030" preset,
+      for MSX and MSX2 games)
 
     - PiStorm (Emu68), BigMig or another fast CPU for MSX-Music (FM),
       60 Hz games at full speed and Smooth display  (the "AGA" preset)
@@ -767,7 +771,8 @@ this cartridge again, its mapper is set.
     MSX cartridges bigger than 32Kb use a mapper.  The choices, with the
 old names in brackets:  None, Generic 16K [Konami 1], Konami [Konami 2],
 ASCII 8K [ASCII 1], ASCII 16K [ASCII 2], Konami SCC [SCC 1], Konami SCC
-(strict) [SCC 2] and R-Type.
+(strict) [SCC 2], R-Type and ASCII 16K-X.  ASCII 16K-X is the type of MSX
+Translations' big ROMs, such as Illusion City (up to 4 MB).
 
     Most MegaROMs get their mapper without testing.  A remembered mapper
 comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
@@ -1115,8 +1120,10 @@ the emulator.
         - Color search
 
     * MSX2+ (V9958):
-        - Only fine scroll (R#27) and the left mask (R#25) are emulated.
-          No coarse scroll (R#26), SP2 or YJK modes yet.
+        - Fine scroll (R#27), coarse scroll (R#26), the left mask (R#25),
+          SP2 in SCREEN 5 and the YJK modes (SCREEN 10-12).  YJK
+          pictures are shown with the nearest of SCREEN 8's 256 colours,
+          and sprites with palette colours over YJK are not done.
 
 @endnode
 
