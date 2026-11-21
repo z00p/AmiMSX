@@ -2,6 +2,10 @@
 
 What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
 
+## Shipped in 5.3
+
+Game saves: the FM-PAC cartridge with its battery SRAM (Slot 1 or 2, FMPAC.PAC) and ASCII 16K-X flash saves (Illusion City), both confirmed on the A1200; F-1 Spirit 3D Special's AGA horizon slab (VDP LINE ends at the screen side); the S#2 TR bit. See `CHANGES_4.x.md`.
+
 ## Shipped in 5.2
 
 F-1 Spirit 3D Special (MSX2+) plays (title, photos, Disk B, SP2 in the bends, the player's car); YJK modes (SCREEN 10-12); the ASCII 16K-X mapper and Illusion City; sprite bands with their own pattern table and colours drawn by VDP commands; S#2 HR/VR timed as the V99x8. See `CHANGES_4.x.md`.
@@ -40,6 +44,7 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 
 ## Next
 
+- **FM sound (5.4):** busy FM music sounds distorted on the A1200 (Illusion City with the FM-PAC, 21 Nov; same with Sound Mix Classic, so it is the FM itself). Leading suspect: the one-cycle tables played at the line rate (~15.6 kHz) fold bright notes' overtones back below 7.8 kHz; measure first (openMSX register log rendered through tools/fm_synth.py vs an openMSX recording). Also the OPLL rhythm mode (register 0Eh, drums): Illusion City plays hi-hat and bass drum with it, which AmiMSX leaves out.
 - **Sound coverage:** first a measured survey (every test title against openMSX), then the gaps that matter most: FM accuracy, MSX-AUDIO (Y8950), PSG/SCC details. Moonsound only as "bring your own sample ROM" on PiStorm/BigMig.
 
 ## Still open, not yet scheduled
@@ -50,7 +55,7 @@ F-1 Spirit 3D Special on RTG (a tester, 18 Nov, 5.2 RC1 on the A1200 PiStorm, RT
 
 Game saves that persist (a tester, 18 Nov; Illusion City, English translation ROM v0.3, "works well" on 5.2 RC1 Turbo R AGA). Its save menu (System > save point) offers Quick Save, (FM)PAC SRAM, Game Disk 1, User Disk and Flash ROM. (a) Flash ROM: msxtranslations.com/ic.php says the ROM build saves to the ASCII16-X cartridge's flash (tested on openMSX). AmiMSX already emulates AMD flash commands (program, 64 KB sector erase) and keeps changed sectors in `<cartridge>.flash`, but only for the flash Konami SCC cartridges (4.0, Pampas & Selene); the ASCII 16K-X mapper has no flash writes yet. Next: the ASCII16-X flash chip's commands as openMSX has them, on the same `.flash` file. (b) (FM)PAC SRAM: AmiMSX's FM-PAC in Slot 1 (Sound PSG+FM) is its ROM only; the PAC's 8 KB battery SRAM (unlocked by 4Dh/69h at 5FFEh/5FFFh) isn't emulated, so nothing is kept. (c) User Disk: whether a save to a blank disk image in Drive A works today is not checked yet (it needs a turbo R run to a save point); if it does, it is the workaround for the readme.
 
-F-1 Spirit 3D Special AGA: a tester sees track drawing issues while racing (5.2 RC1, A1200). Stills match openMSX (the hatched and striped arcs over the hills are the game's own scenery, same places in openMSX on straights and bends), so it needs a video of the race to find what moves wrong.
+F-1 Spirit 3D Special AGA: the far road at the horizon drawn as a flat slab (a tester, 5.2 RC1 and RTG Fix 2 on the A1200). The earlier "stills match openMSX" only covered the scenery, not the road. Cause found: AGA's LINE wrapped at the screen side instead of ending there, and the course's road shapes are drawn with such lines. Confirmed on the A1200 (a tester, 21 Nov: "same as RTG, nearly perfect"). Left, a known issue on AGA and RTG alike: the road's top strip at the horizon drifts away from the rest of the road on bends (photos 21 Nov). Not yet compared with openMSX, so it may be the game's own drawing.
 
 About window (a tester, 28 Oct): keep its date in step with each release (it is typed in by hand). (The menu tidy-up is done: branch menus, Docs/agent_notes/v46_menus.md.)
 

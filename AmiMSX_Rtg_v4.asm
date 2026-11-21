@@ -1515,6 +1515,7 @@ V5CpC:	MOVE.W	D0,V5COp
 	MOVE.W	D1,V5CY
 	V5NY	D1
 	MOVE.W	D1,V5CNY
+	BSET	#7,DVDPS2(A3)		; (5.3) TR 1: ready for a byte.
 	BSET	#0,DVDPS2(A3)		; Busy until the last byte.
 	ST	V5CAct
 	MOVE.B	DVDPCL(A3),D3
@@ -1835,7 +1836,15 @@ RtgFr5:
 	TST.B	Pl5Dirty
 	BEQ.S	RtgFr5N
 	SF	Chg7
-RtgFr5G:LEA	BUFER(A3),A0
+RtgFr5G:
+	IFD	RTGDBG			; (debug: the blitter still busy as the
+	BTST	#6,$DFF002		; flush starts, RdBusy; ModChg5Go waits)
+	BTST	#6,$DFF002
+	BEQ.S	RtgFr5Q
+	ADDQ.W	#1,RdBusy
+RtgFr5Q:
+	ENDC
+	LEA	BUFER(A3),A0
 	LEA	RtgBufSv,A1
 	MOVEQ	#16-1,D0
 RtgFr5S:MOVE.L	(A0)+,(A1)+
@@ -1950,11 +1959,13 @@ RtgFrY2:MOVE.W	D0,RfY0
 ; changed (the lines then are all new).
 	MOVEQ	#0,D0
 	MOVE.B	RfBord,D0
+	MOVE.L	(RfLutD.L,D0.W*4),RfBdPixD	; (5.3) dimmed, for RtgFill
 	MOVE.L	(RfLut,PC,D0.W*4),D0
 	CMP.B	#7,RfBotM		; SCREEN 8: R#7 is a G7 colour.
 	BNE.S	RtgFrB7
 	MOVEQ	#0,D0
 	MOVE.B	DVDP7(A3),D0
+	MOVE.L	(RtgG7LutD.L,D0.W*4),RfBdPixD
 	MOVE.L	(RtgG7Lut.L,D0.W*4),D0
 RtgFrB7:MOVE.L	D0,RfBdPix
 	TST.B	RtgFull
@@ -1973,6 +1984,9 @@ RtgFrFill:
 	BSR	RtgFill
 RtgFrNoFill:
 	SF	RfPrvN
+	IFD	RTGEVL
+	CLR.W	RtgEvN
+	ENDC
 	MOVEQ	#0,D7			; D7 = display line
 RtgFrL:
 	LEA	TabRasCMDS,A0
@@ -1984,6 +1998,23 @@ RtgFrL:
 	TST.B	D6
 	BEQ	RtgFrEvX
 	LEA	(TabRasDATA.L,D7.W*8),A1
+	IFD	RTGEVL			; (debug) log the line's events.
+	CMP.W	#RTGEVMAX,RtgEvN
+	BCC.S	RtgFrEL
+	MOVE.L	A0,-(SP)
+	MOVE.W	RtgEvN,D0
+	MULU.W	#6,D0
+	LEA	(RtgEvBuf.L,D0.W),A0
+	MOVE.B	D7,(A0)+
+	MOVE.B	D6,(A0)+
+	MOVE.B	1(A1),(A0)+
+	MOVE.B	4(A1),(A0)+
+	MOVE.B	6(A1),(A0)+
+	MOVE.B	7(A1),(A0)+
+	ADDQ.W	#1,RtgEvN
+	MOVE.L	(SP)+,A0
+RtgFrEL:
+	ENDC
 	BTST	#0,D6
 	BEQ.S	RtgFrE1
 	MOVE.B	1(A1),RfR2
@@ -2139,11 +2170,9 @@ RtgTa:	DC.L	0
 	IFD	RTGDBG
 ; (debug) Screen rows 0-7: the frame-start palette (16 swatches of 8 dots),
 ; rows 10-13: a bar as long as the lines written this frame (x4), rows 16-19:
-; ScrModo x 16 dots, rows 22-25: R#2 x 2. 16-bit screens only.
+; ScrModo x 16 dots, rows 22-25: R#2 x 2. (5.3) 16 and 32-bit screens.
 RtgDbgStrip:
 	MOVEM.L	D0-D3/A0-A2,-(SP)
-	TST.B	RtgBpp4
-	BNE	RtgDSX
 	LEA	PalTop,A0
 	LEA	RtgCol,A2
 	MOVE.L	RtgMem,A1
@@ -2157,13 +2186,22 @@ RtgDSr:	MOVE.L	D0,(A1)
 	MOVE.L	D0,4(A1)
 	MOVE.L	D0,8(A1)
 	MOVE.L	D0,12(A1)
-	ADD.L	RtgBpr,A1
+	TST.B	RtgBpp4			; (32-bit: 8 dots are 8 longs)
+	BEQ.S	RtgDSr2
+	MOVE.L	D0,16(A1)
+	MOVE.L	D0,20(A1)
+	MOVE.L	D0,24(A1)
+	MOVE.L	D0,28(A1)
+RtgDSr2:ADD.L	RtgBpr,A1
 	DBF	D3,RtgDSr
 	MOVE.L	RtgBpr,D1
 	LSL.L	#3,D1
 	SUB.L	D1,A1
 	LEA	16(A1),A1
-	DBF	D2,RtgDSs
+	TST.B	RtgBpp4
+	BEQ.S	RtgDSs2
+	LEA	16(A1),A1
+RtgDSs2:DBF	D2,RtgDSs
 	MOVE.W	RtgDbgW,D0
 	LSL.W	#2,D0
 	MOVEQ	#10,D1
@@ -2185,7 +2223,7 @@ RtgDSr:	MOVE.L	D0,(A1)
 RtgDSX:	MOVEM.L	(SP)+,D0-D3/A0-A2
 	RTS
 
-; (debug) Words in hex at row 30 (16-bit screens): see RtgDbVals.
+; (debug) Words in hex from row 30, 12 a row: see RtgDbV.
 RtgDbHex:
 	MOVEM.L	D0-D7/A0-A3,-(SP)
 	LEA	REGS,A3
@@ -2222,6 +2260,16 @@ RtgDbHex:
 	MOVE.W	MSplitL,D0
 	MOVE.B	(TabRasDATA+1.L,D0.W*8),(A0)+
 	MOVE.B	(TabRasDATA+4.L,D0.W*8),(A0)+
+	MOVE.B	RtgBpp4,(A0)+		; (5.3) The screen: 4 bytes a pixel (FF),
+	MOVE.B	RtgIsPC,(A0)+		; little-endian 16-bit (01), the P96
+	MOVE.W	RtgRI+10,(A0)+		; RGBFB format, width, height and the
+	MOVE.W	RtgW,(A0)+		; scanline % (RtgScan, RtgBlnd).
+	MOVE.W	RtgH,(A0)+
+	MOVE.B	RtgScan,(A0)+
+	MOVE.B	RtgBlnd,(A0)+
+	MOVE.W	DIRVRAM+$8280,(A0)+	; (F-1 debug) page 1 samples: openMSX
+	MOVE.W	DIRVRAM+$9E28,(A0)+	; has 0000 9999 EEEE in the race intro.
+	MOVE.W	DIRVRAM+$CB1E,(A0)+
 	LEA	RtgDbV,A2
 	MOVEQ	#RTGDBN-1,D7
 	MOVEQ	#0,D6			; column (words)
@@ -2239,12 +2287,41 @@ RtgDHD:	ROL.W	#4,D4
 	BCS.S	RtgDHN
 	MOVEQ	#0,D6
 	ADD.W	#14,D5
+	CMP.W	#58,D5			; (5.3) The third row in the bottom
+	BCS.S	RtgDHN			; border: from row 58 the picture
+	MOVE.W	RtgH,D5			; (960x540) would draw over it.
+	SUB.W	#50,D5
 RtgDHN:	DBF	D7,RtgDHW
+	IFD	RTGEVL			; (debug) the frame's line events: line,
+	LEA	RtgEvBuf,A2		; flags / R#2, R#23 / R#25, R#26; 4 a row
+	MOVE.W	RtgEvN,D7		; from row 90.
+	MULU.W	#3,D7
+	SUBQ.W	#1,D7
+	BMI.S	RtgDEX
+	MOVEQ	#0,D6
+	MOVEQ	#90,D5
+RtgDEW:	MOVE.W	(A2)+,D4
+	MOVEQ	#4-1,D3
+RtgDED:	ROL.W	#4,D4
+	MOVE.W	D4,D0
+	AND.W	#15,D0
+	BSR	RtgDbGlyph
+	ADDQ.W	#1,D6
+	DBF	D3,RtgDED
+	ADDQ.W	#1,D6
+	CMP.W	#60,D6
+	BCS.S	RtgDEN
+	MOVEQ	#0,D6
+	ADD.W	#14,D5
+RtgDEN:	DBF	D7,RtgDEW
+RtgDEX:
+	ENDC
 	MOVEM.L	(SP)+,D0-D7/A0-A3
 	RTS
-; Glyph D0 (0-15) at x = D6*8, y = D5: 3x5 dots, each 2x2 white.
+; Glyph D0 (0-15) at x = D6*8, y = D5: 3x5 dots, each 2x2 white. (5.3)
+; 16-bit: a dot is a long; 32-bit: two.
 RtgDbGlyph:
-	MOVEM.L	D0-D3/A0-A1,-(SP)
+	MOVEM.L	D0-D4/A0-A2,-(SP)
 	LEA	RtgDbFont(PC),A0
 	MULU.W	#5,D0
 	ADD.W	D0,A0
@@ -2252,36 +2329,43 @@ RtgDbGlyph:
 	MOVE.L	RtgBpr,D1
 	MULU.W	D5,D1
 	ADD.L	D1,A1
+	MOVEQ	#0,D1
 	MOVE.W	D6,D1
-	LSL.W	#4,D1			; 8 pixels x 2 bytes
-	ADD.W	D1,A1
+	LSL.L	#4,D1			; 8 pixels x 2 bytes
+	TST.B	RtgBpp4
+	BEQ.S	RtgDGx
+	ADD.L	D1,D1			; (x 4 bytes)
+RtgDGx:	ADD.L	D1,A1
+	MOVE.L	RtgBpr,D3
 	MOVEQ	#5-1,D2
 RtgDGR:	MOVE.B	(A0)+,D1
-	MOVEQ	#0,D0
-	BTST	#2,D1
-	BEQ.S	RtgDG1
+	MOVE.L	A1,A2
+	MOVEQ	#2,D4			; bits 2, 1, 0: the 3 dots
+RtgDGd:	MOVEQ	#0,D0
+	BTST	D4,D1
+	BEQ.S	RtgDGw
 	MOVEQ	#-1,D0
-RtgDG1:	MOVE.L	D0,(A1)
-	MOVEQ	#0,D0
-	BTST	#1,D1
-	BEQ.S	RtgDG2
-	MOVEQ	#-1,D0
-RtgDG2:	MOVE.L	D0,4(A1)
-	MOVEQ	#0,D0
-	BTST	#0,D1
-	BEQ.S	RtgDG3
-	MOVEQ	#-1,D0
-RtgDG3:	MOVE.L	D0,8(A1)
-	CLR.L	12(A1)
-	MOVE.L	RtgBpr,D3
-	MOVE.L	(A1),(A1,D3.L)
-	MOVE.L	4(A1),4(A1,D3.L)
-	MOVE.L	8(A1),8(A1,D3.L)
-	CLR.L	12(A1,D3.L)
+RtgDGw:	MOVE.L	D0,(A2)+
+	TST.B	RtgBpp4
+	BEQ.S	RtgDGn
+	MOVE.L	D0,(A2)+
+RtgDGn:	DBF	D4,RtgDGd
+	CLR.L	(A2)+			; the gap
+	TST.B	RtgBpp4
+	BEQ.S	RtgDGc
+	CLR.L	(A2)+
+RtgDGc:	MOVE.L	A1,A2			; the row twice
+	MOVEQ	#4-1,D4
+	TST.B	RtgBpp4
+	BEQ.S	RtgDGk
+	MOVEQ	#8-1,D4
+RtgDGk:	MOVE.L	(A2),(A2,D3.L)
+	ADDQ.L	#4,A2
+	DBF	D4,RtgDGk
 	ADD.L	D3,A1
 	ADD.L	D3,A1
 	DBF	D2,RtgDGR
-	MOVEM.L	(SP)+,D0-D3/A0-A1
+	MOVEM.L	(SP)+,D0-D4/A0-A2
 	RTS
 RtgDbFont:
 	DC.B	7,5,5,5,7, 2,6,2,2,7, 7,1,7,4,7, 7,1,7,1,7
@@ -2296,7 +2380,8 @@ RtgDbFont:
 ; flush, on the rest of RtgFrame and in the whole window (so flush / window
 ; is its share of the time); then the frames with VRAM-direct SCREEN 5
 ; commands (Rtg5Dir) and the 1 KB blocks rebuilt in the planes (R5Rebuild);
-; then (blended scanlines) the blend rows written.
+; then (blended scanlines) the blend rows written, then the SCREEN 5/7
+; flushes that found the blitter still running (RdBusy).
 RtgDbSpd:
 	MOVEM.L	D0-D7/A0-A3,-(SP)
 	ADDQ.W	#1,RdMsx
@@ -2338,6 +2423,8 @@ RtgDS2:	MOVE.W	D1,(A0)+
 	MOVE.W	RdReb,(A0)+
 	MOVE.W	RdBlr,(A0)+		; (blended: blend rows written)
 	CLR.W	RdBlr
+	MOVE.W	RdBusy,(A0)+		; (flushes that found a blit running)
+	CLR.W	RdBusy
 	CLR.W	RdDir
 	CLR.W	RdReb
 	CLR.W	RdFlush
@@ -2347,12 +2434,11 @@ RtgDS2:	MOVE.W	D1,(A0)+
 	CLR.W	RdAga
 	CLR.L	RtgDbSpin
 	MOVE.W	FMXVbl,RdV0
-RtgDSD:	TST.B	RtgBpp4			; (glyphs: 16-bit screens)
-	BNE.S	RtgDSq
-	LEA	RdOut,A2
-	MOVEQ	#RDOUTN-1,D7
-	MOVEQ	#0,D6
-	MOVEQ	#58,D5
+RtgDSD:	LEA	RdOut,A2		; (5.3: 32-bit screens too; in the
+	MOVEQ	#RDOUTN-1,D7		; bottom border, under RtgDbHex's third
+	MOVEQ	#0,D6			; row)
+	MOVE.W	RtgH,D5
+	SUB.W	#34,D5
 RtgDSW:	MOVE.W	(A2)+,D4
 	MOVEQ	#4-1,D3
 RtgDSG:	ROL.W	#4,D4
@@ -2369,8 +2455,9 @@ RdMsx:	DC.W	0
 RdRtg:	DC.W	0
 RdAga:	DC.W	0
 RdV0:	DC.W	0
-RDOUTN=11
+RDOUTN=12
 RdOut:	DS.W	RDOUTN
+RdBusy:	DC.W	0
 RdFlush:	DC.W	0
 RdRend:	DC.W	0
 RdDir:	DC.W	0
@@ -2380,7 +2467,13 @@ RdBlr:	DC.W	0
 	CNOP	0,4
 RdT0:	DC.L	0
 RtgDbSpin:	DC.L	0
-RTGDBN=25
+RTGDBN=33
+	IFD	RTGEVL
+RTGEVMAX=32
+RtgEvN:		DC.W	0
+RtgEvBuf:	DS.B	6*RTGEVMAX
+	EVEN
+	ENDC
 RtgDbV:	DS.W	RTGDBN
 RtgDb0R2:	DC.B	0
 RtgDb0R23:	DC.B	0
@@ -2398,11 +2491,17 @@ RtgDSB1:MOVE.L	A1,A0
 RtgDSB2:TST.W	D1
 	BEQ.S	RtgDSB3
 	MOVE.W	#$FFFF,(A0)+
-	SUBQ.W	#1,D1
+	TST.B	RtgBpp4			; (5.3: 32-bit, a long a pixel)
+	BEQ.S	RtgDSB5
+	MOVE.W	#$FFFF,(A0)+
+RtgDSB5:SUBQ.W	#1,D1
 	DBF	D2,RtgDSB2
 	BRA.S	RtgDSB4
 RtgDSB3:CLR.W	(A0)+
-	DBF	D2,RtgDSB2
+	TST.B	RtgBpp4
+	BEQ.S	RtgDSB6
+	CLR.W	(A0)+
+RtgDSB6:DBF	D2,RtgDSB2
 RtgDSB4:ADD.L	RtgBpr,A1
 	DBF	D3,RtgDSB1
 	RTS
@@ -2440,16 +2539,35 @@ RtgPalN:	MOVE.L	(A1,D0.W*4),D0
 	RTS
 
 ; The whole screen in the border colour (RfBdPix); every line cache invalid.
+; (5.3) Hard scanlines at 2x: the rows RtgPut dims (RfY0 + odd) are dimmed
+; above and below the display too, as the side border is and as on a CRT
+; (they were full bright: F-1 Spirit 3D Special's white Konami page had
+; bright bands top and bottom).
 RtgFill:
-	MOVEM.L	D0-D3/A0-A1,-(SP)
+	MOVEM.L	D0-D5/A0-A1,-(SP)
 	MOVE.L	RfBdPix,D0
 	MOVE.L	D0,RtgBdLast
 	MOVE.W	RfY0,RtgY0Last
 	MOVE.W	RfN,RtgNLast
+	MOVE.L	D0,D4			; D4 = the odd rows' pixel
+	TST.B	RtgScan
+	BEQ.S	RtgFiD
+	TST.B	RfBlOn
+	BNE.S	RtgFiD
+	CMP.B	#2,RtgScl
+	BNE.S	RtgFiD
+	MOVE.L	RfBdPixD,D4
+RtgFiD:	MOVE.W	RfY0,D5			; D5 = row - RfY0
+	NEG.W	D5
 	MOVE.L	RtgMem,A1
 	MOVE.W	RtgH,D3
 	SUBQ.W	#1,D3
 RtgFiR:	MOVE.L	A1,A0
+	MOVE.L	RfBdPix,D0
+	BTST	#0,D5
+	BEQ.S	RtgFiE
+	MOVE.L	D4,D0
+RtgFiE:	ADDQ.W	#1,D5
 	MOVE.W	RtgW,D1
 	TST.B	RtgBpp4
 	BNE.S	RtgFi4
@@ -2463,7 +2581,7 @@ RtgFiP:	MOVE.L	D0,(A0)+
 	MOVE.W	#RTGLINES-1,D1
 RtgFiK:	SF	(A0)+
 	DBF	D1,RtgFiK
-	MOVEM.L	(SP)+,D0-D3/A0-A1
+	MOVEM.L	(SP)+,D0-D5/A0-A1
 	RTS
 
 ; A4 = 256 bytes of D0.B.
@@ -2610,7 +2728,11 @@ RtgBgG4:
 	LEA	(A5,D0.L),A0
 	MOVE.W	D4,D1
 	LSL.W	#2,D1
-	AND.W	#127,D1
+	TST.B	RfV9
+	BEQ.S	RtgBg4N
+	BTST	#0,RfR25
+	BNE.S	RtgBg4P
+RtgBg4N:AND.W	#127,D1
 	MOVEQ	#128-1,D7
 RtgBg4L:MOVE.B	(A0,D1.W),D0
 	ADDQ.W	#1,D1
@@ -2625,6 +2747,38 @@ RtgBg4a:MOVE.B	D2,(A2)+
 	MOVE.B	D6,D0
 RtgBg4b:MOVE.B	D0,(A2)+
 	DBF	D7,RtgBg4L
+	BRA	RtgBgMove
+; (5.2) SP2 (V9958 R#25 bit 0): the line is 512 dots, the even page's row
+; then R#2's page's row (the page = R#2's AND the scroll's half, as RtgName
+; for the tile modes), and R#26 starts it 8 dots a step in, wrapping in the
+; 512: at R#26 = 0 the even page whichever page R#2 names. A0 = R#2's row.
+RtgBg4P:BCLR	#15,D0
+	LEA	(A5,D0.L),A1		; The even page's row.
+	AND.W	#255,D1
+	MOVEQ	#128-1,D7
+RtgBg4PL:
+	MOVE.W	D1,D2
+	BCLR	#7,D2			; Second half: R#2's row.
+	BNE.S	RtgBg4Po
+	MOVE.B	(A1,D2.W),D0
+	BRA.S	RtgBg4Pd
+RtgBg4Po:
+	MOVE.B	(A0,D2.W),D0
+RtgBg4Pd:
+	ADDQ.W	#1,D1
+	AND.W	#255,D1
+	MOVE.B	D0,D2
+	LSR.B	#4,D2
+	BNE.S	RtgBg4Pa
+	MOVE.B	D6,D2
+RtgBg4Pa:
+	MOVE.B	D2,(A2)+
+	AND.B	#15,D0
+	BNE.S	RtgBg4Pb
+	MOVE.B	D6,D0
+RtgBg4Pb:
+	MOVE.B	D0,(A2)+
+	DBF	D7,RtgBg4PL
 	BRA	RtgBgMove
 ; SCREEN 8: logical line L = ((R#2 << 3) | 7) AND ($100 | line) (R#2 bit 5
 ; the page), 256 bytes, one dot a byte (GGGRRRBB, no transparency). VRAM is
@@ -4226,6 +4380,7 @@ RtgMkDst:	DC.L	0
 RtgBpr:		DC.L	0
 RtgBdLast:	DC.L	0
 RfBdPix:	DC.L	0
+RfBdPixD:	DC.L	0		; (5.3) RfBdPix dimmed (hard scanlines)
 RfSig:		DC.L	0
 RfNameB:	DC.L	0
 RfPatB:		DC.L	0

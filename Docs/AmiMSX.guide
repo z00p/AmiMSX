@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 5.2 (18.11.2026)
+@version $VER: AmiMSX.guide 5.3 (21.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                           AmiMSX Emulator v5.2
+                           AmiMSX Emulator v5.3
                           ( 18.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -77,8 +77,8 @@ https://github.com/z00p/AmiMSX/issues
       @{"Emulation Menu" link MenuOpt}.)
 
     - Cartridges:  mapper from a ROM database, 8Kb, 48/64Kb and 4Mb
-      ROMs, flash Konami SCC cartridges with saves, per-game settings.
-      (See @{"Cartridges Menu" link MenuCar}.)
+      ROMs, flash Konami SCC and ASCII 16K-X cartridges with saves,
+      per-game settings.  (See @{"Cartridges Menu" link MenuCar}.)
 
     - Disks:  drive B with its own disk image, disk swap with Left Amiga.
       (See @{"Disks Menu" link MenuMVD}.)
@@ -615,7 +615,11 @@ game's settings saved with 8 or 16 dots still hide that many dots at
 each side.
 
     - Compatibility:  Sprites a Frame Late off, Full Redraw on Mode
-Change on, VDP Always Ready (TR bit) on.
+Change on.
+
+    VDP Always Ready (TR bit) is gone (5.3): the VDP's TR bit now
+behaves as the real chip's, and the setting in older settings files is
+ignored.
 
 @endnode
 
@@ -779,6 +783,13 @@ comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
 mapper tag in the file name, then a guess.  The answers are kept in
 AmiMSX4.romcache, so each ROM is checked once.  With the R-Type FM loader
 in Slot 1 and R-Type in Slot 2, the MSX Disk ROM must be None.
+
+    Flash cartridges (Konami SCC, such as Pampas & Selene, and ASCII
+16K-X, such as Illusion City's translation) save to "<cartridge>.flash"
+next to the ROM.  The file is written when you go back to the menu and
+read back when the cartridge is put in Slot 1 again.  Flash saves work
+only in Slot 1; the ROM file is never changed.  Delete the .flash file
+to start again.
 
 @endnode
 
@@ -1172,6 +1183,22 @@ from a running FS-A1WX or FS-A1WSX, has SHA-1
 6354ccc5c100b1c558c9395fa8c00784d2e9b0a3.
 The clean image of the same ROM, with FFh in place of the last 16
 bytes, has SHA-1 aad42ba4289b33d8eed225d42cea930b7fc5c228.
+
+    FM-PAC:  an FM-PAC cartridge ROM ("PAC2OPLL" in its header, 16 or
+64 Kb, such as AmiMSX 2's FM Pac.ROM) works in Slot 1 or Slot 2, as the
+real cartridge:  its ROM, its 8 Kb of battery SRAM, which games use to
+save ("PAC" saves), and its FM.  With Sound chip PSG it plays as
+PSG+FM; SCC and SCC+ stay (AmiMSX plays one of SCC and FM).  Slot 2
+takes a cartridge only with Disk ROM None, so a game in Slot 1 and the
+FM-PAC in Slot 2 is the usual set-up.
+    Without an FM-PAC cartridge, MSXMUSIC.ROM in an empty Slot 1 (Sound
+chip PSG+FM) is an FM-PAC too, with the same SRAM, so a disk game can
+use it.  Games that look for the FM-PAC by name need an FM-PAC ROM
+there; with the FS-A1WX ROM they still find the SRAM.
+    One FM-PAC at a time:  a cartridge wins, Slot 1 first.  Its SRAM is
+kept in FMPAC.PAC next to AmiMSX:  read once at start, written when you
+go back to the menu if a game changed it.  The file is in the same
+format as openMSX's fmpac.pac, so saves can go both ways.
 
 @endnode
 

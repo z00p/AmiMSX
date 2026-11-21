@@ -727,9 +727,9 @@ CodeLo:
 VAMOS:
 	JMP	ANEM
 	IFD	TURBOR			; (5.1) the turbo R build ships as "AmiMSX Turbo R"
-	DC.B	"$VER:AmiMSX Turbo R Emulator v5.2 ("
+	DC.B	"$VER:AmiMSX Turbo R Emulator v5.3 ("
 	ELSE
-	DC.B	"$VER:AmiMSX Emulator v5.2 ("
+	DC.B	"$VER:AmiMSX Emulator v5.3 ("
 	ENDC
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
@@ -1442,6 +1442,15 @@ SiAGA:
 
 ; ---------------------------------------=> PSG Outs On/Off
 	MOVE.L	#OUTA1S,OUTS+($A1*4)
+	IFND	NO_PACSRAM
+	JSR	PacFind			; (5.3) An FM-PAC cartridge (Slot 1 or 2)
+	TST.B	PacCart			; has the OPLL: Sound PSG plays as PSG+FM.
+	BEQ.S	PacSndX			; (SCC and SCC+ stay: one of SCC and FM.)
+	TST.B	D7
+	BNE.S	PacSndX
+	MOVE.B	#3,D7
+PacSndX:
+	ENDC
 	SF	FMXMixOn		; (4.7) Sound mix off until FMXInit.
 	SF	FMXOn			; (4.0) Sound chip 3: the PSG, plus
 	MOVE.W	#9,FMXMaxV		; MSX-Music by FMX on channel 3; 4: the
@@ -1509,19 +1518,13 @@ NoMC060:
 
 ; ---------------------------------------=> Modo IN VDP (2)
 	LEA	IVDP2,A0
-	LEA	IVDP2060,A1
-	LEA	IVDP2tr,A2
-	LEA	IVDP2tr060,A3
 	TST.B	EsUn060			; �Es un 060?
 	BPL.S	NoMC060b
-	MOVE.L	A1,A0
-	MOVE.L	A3,A2
+	LEA	IVDP2060,A0
 NoMC060b:
-	TST.B	DirPrefs+$6E		; �Modo tr?
-	BEQ.S	NoVDP2TR
-	MOVE.L	A2,A0
-NoVDP2TR:
-	MOVE.L	A0,IVDPPUNT+(2*4)
+	MOVE.L	A0,IVDPPUNT+(2*4)	; (5.3) DirPrefs+$6E, the old 'TR bit
+					; always ready' option, is ignored: S#2
+					; TR is modelled (IVDP2).
 ; ---------------------------------------<=
 
 ; ---------------------------------------=> Modo Sprites Collision ON (IN VDP 0)
@@ -1697,6 +1700,9 @@ VD9CON1B:
 
 ; ------------------------------------=> Pone modo de Paginaci�n.
 
+	IFND	NO_PACSRAM
+	JSR	PacChk			; (5.3) the FM-PAC in Slot 1 (AmiMSX_Pac_v5.asm)
+	ENDC
 	MOVE.L	DirCartS1,A0		; Linear 48/64Kb carts: no mapper.
 	MiraLin	A0,BucCartS1,D0
 	BNE.S	MiraMapperS2
@@ -1714,6 +1720,13 @@ MiraMapperS2:
 	CMP.B	#2,DIRPREFS+$65		; �Disk ROM = None?
 	BEQ.S	ConMapperS
 SinMapper:
+	IFND	NO_PACSRAM
+	TST.B	PacOn			; (5.3) The FM-PAC's registers: the hooked
+	BEQ.S	PacNoExp		; writes, charging their cycles (MapExp).
+	LEA	MapExp,A0
+	BRA.S	ConMapper
+PacNoExp:
+	ENDC
 	LEA	MapNorm(PC),A0
 	BRA.S	ConMapper
 ConMapperS:
@@ -1776,6 +1789,13 @@ MapExpNo:
 	MOVE.L	#TROutDB,Outs+($DB*4)
 	MOVE.L	#TRInDB,Ins+($DB*4)
 TRKNoTR:
+	ENDC
+	IFND	NO_PACSRAM
+	MOVE.L	#LDMHL,Instr+4+($22*8)	; (5.3) LD (nn),HL: hooked with the
+	TST.B	PacOn			; FM-PAC (a word to 5FFEh, LDMHLd).
+	BEQ.S	PacNoHk
+	MOVE.L	#LDMHLd,Instr+4+($22*8)
+PacNoHk:
 	ENDC
 
 ; ------------------------------------<=
@@ -2895,6 +2915,10 @@ BUCCR3:
 ; and stays on PSG.
 	TST.B	FMXOn
 	BEQ.S	NoEsMMus
+	IFND	NO_PACSRAM
+	TST.B	PacCart			; (5.3) an FM-PAC cartridge: the real thing,
+	BNE.S	NoEsMMus		; no stand-in.
+	ENDC
 	TST.B	MMusOK
 	BEQ.S	MMusNoRom
 	TST.L	BucCartS1
@@ -3327,6 +3351,11 @@ NoRTypeS1:
 	MOVE.L	A1,SLOT1+0
 	ADD.W	#$80,A1
 	MOVE.L	A1,SubSLOT1+0
+	MOVE.L	A0,AxB1			; (5.3) The flash chip at reset: banks 0
+	LEA	$4100(A0),A1		; and 1, reading the array
+	MOVE.L	A1,AxB2			; (AmiMSX_Asx_v5.asm).
+	MOVE.L	#1,AxN1			; (AxN1 0, AxN2 1)
+	CLR.L	AxMode			; (AxCmd, AxMore, AxOdd too)
 NoAsxS1:
 
 NoSlot1Cart:
@@ -3336,6 +3365,10 @@ NoSlot1Cart:
 	TST.L	BucCartS1
 	BNE.S	NoMMusS1
 	MOVE.L	#NOMEM-$4000,D0
+	IFND	NO_PACSRAM
+	TST.B	PacCart			; (5.3) not with an FM-PAC cartridge.
+	BNE.S	MMusS1Put
+	ENDC
 	TST.B	FMXOn
 	BEQ.S	MMusS1Put
 	TST.B	MMusOK
@@ -3579,6 +3612,9 @@ MaskOkS2:
 	MOVE.L	(A0)+,(A1)+
 	ENDR
 
+	ENDC
+	IFND	NO_PACSRAM
+	JSR	PacSlot			; (5.3) the FM-PAC slot's page 1 and writes.
 	ENDC
 ; ---------------------------------------<=
 
@@ -8690,10 +8726,10 @@ LDMAMd:	CheckW	D1
 	MOVE.B	D7,(A4)
 	JMP	([PagRuts.W,PC,D1.W*4])
 
-	IFD	TURBOR
 ; (turbo R) The hooked writes as LDMAd.. above, but charging the cycles
 ; (Otra n: n+1) before the slot's routine (PagRuts ends in Otra2, which
 ; charges nothing). The line end is then seen at the next instruction.
+; (5.3) In every build: the FM-PAC's registers use them too.
 T8WR:	MACRO			; \1 address, \2 source, \3 H = high byte
 	CogePagE \1,A4
 	IFC	"H","\3"
@@ -8772,7 +8808,6 @@ T8LDMAM:	CheckW	D1
 	CNOP	0,4
 MapExp:	DC.L	T8LDMA,T8LDHLA,T8LDHLB,T8LDHLC,T8LDHLD,T8LDHLE
 	DC.L	T8LDHLH,T8LDHLL,T8LDBCA,T8LDDEA,T8LDHLMN
-	ENDC
 ; -========================================================-
 
 
@@ -10914,14 +10949,14 @@ Mapper7:			; R-Type (4.5)
 	DC.L	OtraInstr
 	DC.L	OtraInstr
 
-Mapper8:			; (5.2) ASCII16-X (AmiMSX_Asx_v5.asm)
-	DC.L	OtraInstr
+Mapper8:			; (5.2) ASCII16-X (AmiMSX_Asx_v5.asm); (5.3) every
+	DC.L	AsxF0			; write reaches its flash chip
 	DC.L	AsxW1
-	DC.L	OtraInstr
+	DC.L	AsxF2
 	DC.L	AsxW3
-	DC.L	OtraInstr
+	DC.L	AsxF4
 	DC.L	AsxW5
-	DC.L	OtraInstr
+	DC.L	AsxF6
 	DC.L	AsxW7
 
 ;	--=--=--=--=--=--
@@ -13789,6 +13824,11 @@ ModChg50Con:
 	BNE.S	ModChg5Go		; in them (OUT98A writes both).
 	RTS
 ModChg5Go:
+	IFND	NOMC5WAIT		; (test builds: -DNOMC5WAIT, as 5.2)
+	BTST	#6,$DFF002		; (5.3) The planes as the VDP command's last
+MC5BltW:BTST	#6,$DFF002		; blit leaves them: on a fast CPU (PiStorm)
+	BNE.S	MC5BltW			; it can still run here (RTG flush).
+	ENDC
 	IFD	BANDCHK
 	BCLOG	2,#0,Pl5Band,Pl5Band+2,Pl5Band+4
 	ENDC
@@ -16643,22 +16683,12 @@ IVDP2:
 
 	HRVR
 
-;d;	BCHG	#7,DVDPS2(A3)		; TR Realizada
-	BFINS	D2,DVDPS2(A3){0:1}	; Copia 'Blt bit' en 'TR bit'
-
-;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
-
-	CEPOLL
-	MOVEQ	#0,D1
-	MOVE.B	D2,D1
-	RTS
-
-; -------------------------------------------------
-IVDP2tr:
-	MOVE.B	DVDPS2(A3),D2
-	OR.B	#$EC,D2		; TR, HR, VR 1 (HRVR clears HR, VR)
-
-	HRVR
+; (5.3) TR (bit 7) as the V9958 keeps it: 1 from an LMMC, HMMC or LMCM
+; start (HMMCont, LMCM, the SCREEN 8 and RTG SCREEN 5 starts), still 1
+; after an LMMC/HMMC ends and through later commands, 0 after an R#44
+; write with no command running (V2CNoCopy) and after LMCM's last dot
+; (IVDP7). Measured in openMSX 21 (FS-A1GT); 0 at power-on. (Was the
+; busy bit of the read before, or 1 always with the $6E option.)
 
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
@@ -16678,22 +16708,7 @@ IVDP2060:
 
 	HRVR
 
-;d;	BCHG	#7,DVDPS2(A3)		; TR Realizada
-	BFINS	D2,DVDPS2(A3){0:1}	; Copia 'Blt bit' en 'TR bit'
-
-;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
-
-	CEPOLL
-	MOVEQ	#0,D1
-	MOVE.B	D2,D1
-	RTS
-
-; -------------------------------------------------
-IVDP2tr060:
-	MOVE.B	DVDPS2(A3),D2
-	OR.B	#$EC,D2		; TR, HR, VR 1 (HRVR clears HR, VR)
-
-	HRVR
+; (5.3) TR as stored (IVDP2).
 
 ;;;	BCHG	#1,DVDPS2(A3)		; Muestra de campo.
 
@@ -16794,6 +16809,7 @@ vLMCMDESY:
 	SUBQ.W	#1,CONTA2C(A3)
 	BNE.S	vLMCMCON0
 	BCLR	#0,DVDPS2(A3)		; Ejecuci�n terminada.
+	BCLR	#7,DVDPS2(A3)		; (5.3) TR 0: no more dots.
 vLMCMCON0:
 
 
@@ -20874,6 +20890,15 @@ RendSame:
 	ENDC
 	TST.B	RtgNow			; (4.5) On RTG: drawn there, nothing for
 	BEQ.S	RendAga			; the AGA screen.
+	SF	BMSOn			; (5.3) RTG: no pair-split display (BMSPrep
+	CMP.B	#3,ScrModo(A3)		; runs for AGA frames only). End a pair
+	BNE.S	RendRt8			; regime whose splits stopped, as PRINT5 and
+	JSR	BMSEnd5			; PRINT8 do: else SCREEN 5 VDP commands
+	BRA.S	RendRtF			; kept drawing into SCREEN 8's planes and
+RendRt8:CMP.B	#7,ScrModo(A3)		; never reached VRAM, which is all RTG
+	BNE.S	RendRtF			; shows (F-1 Spirit 3D Special: the
+	JSR	BMSEnd8			; title's text, the race's helmet).
+RendRtF:
 	JSR	RtgFrame
 	BRA.S	RendDone
 RendAga:
@@ -21301,7 +21326,26 @@ C5J:
 	JMP	([COMANDOS.W,PC,D1.W*4])
 
 	CNOP	0,8
-V2CNoCopy:
+V2CNoCopy:				; (5.3) R#44 with no command running: TR
+	IFND	NOCETIME		; 0. A block command still busy (CEPOLL's
+	TST.B	CEPend			; test, CETime) leaves TR as it is.
+	BEQ.S	V2CIdle
+	MOVE.W	CmdFrN,D1
+	SUB.W	CEEndFr,D1
+	BMI.S	V2CBusy
+	BNE.S	V2CIdle
+	MOVE.W	CurLine(A3),D1
+	CMP.W	CEEndL,D1
+	BCS.S	V2CBusy
+	BHI.S	V2CIdle
+	MOVE.W	(A3),D1
+	CMP.W	CEEndLeft,D1
+	BGT.S	V2CBusy
+	ENDC
+V2CIdle:
+	BCLR	#7,DVDPS2(A3)
+V2CBusy:
+	MOVEQ	#0,D1
 	SWAP	D2
 	RTS
 
@@ -21832,6 +21876,7 @@ PSET:
 
 	CNOP	0,8
 LMCM:
+	BSET	#7,DVDPS2(A3)		; (5.3) TR 1: a dot ready.
 	BSET	#0,DVDPS2(A3)		; Ejecuci�n no terminada.
 	BNE	V2EMAL
 
@@ -21884,6 +21929,7 @@ LMMC:
 	MOVE.W	$30(A4),D1
 	ROL.B	D1,D2
 HMMCont:
+	BSET	#7,DVDPS2(A3)		; (5.3) TR 1: ready for a byte.
 	BSET	#0,DVDPS2(A3)		; Ejecuci�n no terminada.
 	BNE	NoIniLMMC
 
@@ -23125,6 +23171,7 @@ C8NOk:	MOVE.W	D1,V8CNX
 	BNE.S	C8NY
 	MOVE.W	#$400,D1
 C8NY:	MOVE.W	D1,V8CNY
+	BSET	#7,DVDPS2(A3)		; (5.3) TR 1: ready for a byte.
 	BSET	#0,DVDPS2(A3)		; Busy until the last byte.
 	ST	V8CAct
 	MOVE.B	DVDPCL(A3),D7
@@ -23240,14 +23287,53 @@ HVPDat:	DS.W	16
 LINE:
 	MOVE.W	DVDPDX2(A3),D0	; Pasa datos VDP-MSX a Blitter-Amiga.
 	MOVE.W	DVDPDY2(A3),D1
-	MOVE.W	DVDPNX2(A3),D4
-	MOVE.W	DVDPNY2(A3),D5
+	MOVE.W	DVDPNX(A3),D4		; (5.3) The long and short sides as
+	AND.W	#$3FF,D4		; written (10 bits), not NX2/NY2 under the
+	MOVE.W	DVDPNY(A3),D5		; mode's size mask (NX 256 was 0: one
+	AND.W	#$3FF,D5		; dot). CARALARGA ends it at the side.
 	MOVE.W	D0,D2
 	MOVE.W	D1,D3
 	BTST	#0,DVDPARG(A3)
 	BEQ.S	CARALARGA
 	EXG.L	D4,D5
 CARALARGA:
+; (5.3) The VDP ends a LINE when X leaves the screen (0 to the mode's width-1):
+; the dots past the side are not drawn and it doesn't wrap to the other side.
+; Here the end was masked, so a line running off the right edge wrapped and
+; was drawn back across the row (F-1 Spirit 3D Special's road shapes, page 1,
+; drawn at course load with lines to the right edge: the far road copied
+; from them showed as a flat slab). Y wraps on the VDP and still does here.
+; D4 = X delta, D5 = Y delta; the major axis keeps the VDP's minor-axis steps:
+; after i dots, floor((i*minor - (major-1)/2 + major-1) / major) of them.
+	MOVE.W	$04(A4),D6		; D6 = dots X can still move (DIX: to
+	SUB.W	D0,D6			; the left side, else to the right).
+	BTST	#2,DVDPARG(A3)
+	BEQ.S	LnClR
+	MOVE.W	D0,D6
+LnClR:	CMP.W	D6,D4
+	BLS.S	LnClX			; Within the screen: as it is.
+	BTST	#0,DVDPARG(A3)
+	BNE.S	LnClY
+	MULU	D6,D5			; X major (major D4): ends after D6 dots;
+	MOVEQ	#0,D7			; the minor delta there.
+	MOVE.W	D4,D7
+	ADD.L	D7,D5
+	SUBQ.L	#1,D5
+	SUBQ.W	#1,D7
+	LSR.W	#1,D7
+	SUB.L	D7,D5
+	DIVU	D4,D5
+	MOVE.W	D6,D4
+	BRA.S	LnClX
+LnClY:	MOVEQ	#0,D7			; Y major (major D5, minor D4 > D6):
+	MOVE.W	D5,D7			; the last dot before X's step out,
+	SUBQ.W	#1,D7			; floor((D6*major + (major-1)/2) /
+	LSR.W	#1,D7			; minor), X there D6.
+	MULU	D6,D5
+	ADD.L	D7,D5
+	DIVU	D4,D5
+	MOVE.W	D6,D4
+LnClX:
 	BTST	#2,DVDPARG(A3)
 	BEQ.S	MAJCON0
 	NEG.W	D4
@@ -28063,6 +28149,9 @@ Mode5ModX:
 	INCLUDE	"AmiMSX_V9958_v4.asm"	; (4.0) MSX2+ phase 2: wide SCREEN 5 layouts.
 	INCLUDE	"AmiMSX_Yjk_v5.asm"	; (5.2) YJK (SCREEN 10-12) on SCREEN 8.
 	INCLUDE	"AmiMSX_Asx_v5.asm"	; (5.2) ASCII16-X cartridges.
+	IFND	NO_PACSRAM
+	INCLUDE	"AmiMSX_Pac_v5.asm"	; (5.3) The FM-PAC's SRAM.
+	ENDC
 
 ; ----------------------------------<=
 
@@ -32879,6 +32968,16 @@ MMusic:	DS.B	(16*1024)		; (4.6) The user's MSXMUSIC.ROM (MMusLoad).
 	DS.B	$100
 SramRaw:	DS.B	$2000		; (4.4) Cartridge SRAM (2 or 8 KB),
 SramView:	DS.B	$4180		; and its 16 KB page (see Mapper4S).
+	IFND	NO_PACSRAM
+	CNOP	0,4
+PacSram:	DS.B	$2000		; (5.3) FM-PAC: the SRAM's page (AmiMSX_Pac_v5.asm),
+	DS.B	$100
+PacSaved:	DS.B	$2000		; what FMPAC.PAC holds,
+PacRomB:	DS.B	$2000		; the ROM's 6000h-7FFFh with 7FF6h/7FF7h,
+	DS.B	$100
+PacFFB:		DS.B	$2000		; the same with the SRAM in (FFh).
+	DS.B	$100
+	ENDC
 	IFD	TURBOR
 TRRom:	DS.B	11*$4100	; (turbo R) FS-A1GT firmware banks (TRLoad)
 ExpEmpty:	DS.B	$4000+$10	; (turbo R) empty sub-slots, see ExpInit

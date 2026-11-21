@@ -3036,6 +3036,7 @@ GPGUIToPrefs:
 	MOVE.B	([MSX2Gadgets+(GD_Sound*4)],$57.w),DirPrefs+$1D
 	MOVE.W	([MSX2Gadgets+(GD_MSX2Spr*4)],$56.w),DirPrefs+$16
 	SF	DirPrefs+$6C		; ('Collisions always': gone in 4.0.)
+	SF	DirPrefs+$6E		; ('TR bit always ready': gone in 5.3.)
 	MOVE.L	#MN_Filter,D0		; Audio filter.
 	BSR	COGECHECK
 	SNE	PrefFilter
@@ -6293,6 +6294,9 @@ LoadROMs:
 	ENDC
 
 	JSR	MMusLoad			; (4.6) MSXMUSIC.ROM, if there is one.
+	IFND	NO_PACSRAM
+	JSR	PacLoad			; (5.3) PROGDIR:FMPAC.PAC, the FM-PAC's SRAM.
+	ENDC
 	BSR	LoadROMsBase
 
 	TST.B	LoROMBaDat(PC)		; �ROMs Base Leido Correctamente?
@@ -7041,10 +7045,10 @@ PONPREFS:
 	BFINS	D0,MSX2NewMenu32+10{7:1}	; Avisar al Salir si MVD modificado.
 ; -=-
 	BSR	MaskNorm			; (4.7) Sprites a frame late ($64), full
-					; redraw ($6B), TR bit ($6E), the edge
-					; mask and Smooth display are no longer
-					; on the menu: the prefs (presets) and
-					; per-game files keep them.
+					; redraw ($6B), the edge mask and Smooth
+					; display are no longer on the menu: the
+					; prefs (presets) and per-game files keep
+					; them. (5.3: TR bit ($6E) is gone.)
 	MOVE.B	PrefFilter,D0
 	BFINS	D0,MSX2NewMenu41c+10{7:1}	; Audio filter (4.0)
 	BSR	MixNorm				; Sound mix (4.7): one of
@@ -7294,6 +7298,8 @@ ACTUPREFS:
 					; menu item is gone in 4.0 (the real
 					; collision check always runs, and the
 					; old forced flag broke most games).
+	SF	$6E(A5)			; (5.3) 'VDP TR bit always ready': gone,
+					; S#2's TR is modelled (IVDP2).
 	MOVE.L	#MN_Filter,D0		; Audio filter (4.0).
 	BSR	COGECHECK
 	SNE	PrefFilter
@@ -7410,7 +7416,8 @@ TABLAB4:
 	DC.B	$FF	; $6B - 100% Refresh in Screen Changes
 	DC.B	0	; $6C - Sprite Collisions ON
 	DC.B	$01	; $6D - MSX Boot type
-	DC.B	$FF	; $6E - VDP 'TR bit' always ready
+	DC.B	0	; $6E - (VDP 'TR bit' always ready until 5.2; 5.3 models
+			; TR and ignores this byte, kept so the layout stays.)
 	DC.B	0	; $6F - Overwrite
 
 	DC.L	0	; $70 - Tiempo jugando al AmiMSX2.
@@ -7677,6 +7684,9 @@ SIREINTM:
 					; joystick back (Measure on BigMig).
 	JSR	FlashSave		; (4.0) back in the menu: flash sectors
 	JSR	SramSave		; (4.4) cartridge SRAM,
+	IFND	NO_PACSRAM
+	JSR	PacSave			; (5.3) the FM-PAC's SRAM,
+	ENDC
 	JSR	DiskBSave		; and drive B's image, if changed.
 
 	MOVE.L	D7,-(SP)

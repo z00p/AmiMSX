@@ -8,6 +8,9 @@
 ; "<cartridge>.flash" next to the ROM (the ROM file is never changed);
 ; inserting the cartridge in Slot 1 again (FlashLoad) reads them back in.
 ; File: "AMXF", count.W, 0.W, then per sector: number.W, 0.W, 64 KB.
+; (5.3) ASCII16-X cartridges (Illusion City, 4 MB) save the same way: their
+; flash chip (AxFlash, AmiMSX_Asx_v5.asm) marks FlSect too; 64 sectors of
+; 64 KB cover a 4 MB ROM.
 ;
 ; Drive B's virtual disk: written back to its image file when a game has
 ; written to it, on the way back to the menu (as a real disk keeps what was
@@ -28,7 +31,8 @@ FlashLoad:				; (InsertSl1, after the load)
 FlLdCp:	MOVE.B	(A0)+,(A1)+
 	DBEQ	D0,FlLdCp
 	CLR.B	(A1)
-	MOVE.W	PagCartS1,D0		; Flash cartridges only (over 512 KB).
+	MOVE.W	PagCartS1,D0		; Flash cartridges only (over 512 KB:
+					; Konami SCC flash, (5.3) ASCII16-X).
 	ADD.W	D0,D0
 	MOVE.W	D0,FlBanks
 	CMP.W	#64,D0
@@ -273,6 +277,96 @@ DiskBSave:				; (back from the emulation)
 	JSR	CLOSEFILE
 DkBSvX:	MOVEM.L	(SP)+,D0-D7/A0-A6
 DkBSvR:	RTS
+
+	IFND	NO_PACSRAM
+; FM-PAC SRAM (5.3): the battery SRAM of the FM-PAC that Sound PSG+FM puts in
+; Slot 1 (AmiMSX_Pac_v5.asm). One for the program, as on a real machine:
+; PROGDIR:FMPAC.PAC, openMSX's fmpac.pac (and the MSX tools' .PAC) format:
+; "PAC2 BACKUP DATA", then the 8190 bytes at 4000h-5FFDh. Read once at start
+; (no file: FFh; a file without the header is taken as the raw bytes),
+; written back in the menu when the SRAM differs from what the file holds.
+	CNOP	0,4
+PacLoad:				; (LoadROMs, once)
+	TST.B	PacTried
+	BNE	PcLdR
+	ST	PacTried
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	LEA	PacSram,A0		; Blank, then the file if there is one.
+	MOVE.W	#$2000/4-1,D1
+PcLdF:	MOVE.L	#-1,(A0)+
+	DBF	D1,PcLdF
+	MOVE.L	#PacName,D1
+	MOVE.L	#$3ED,D2
+	JSR	OPENFILE
+	BEQ.S	PcLdS
+	MOVE.L	#PacHdBuf,D2
+	MOVEQ	#16,D3
+	JSR	READFILE
+	BNE.S	PcLdC			; (shorter than the header: blank)
+	LEA	PacHdBuf,A0
+	LEA	PacHdr,A1
+	MOVEQ	#16-1,D1
+PcLdH:	CMPM.B	(A0)+,(A1)+
+	DBNE	D1,PcLdH
+	BNE.S	PcLdW
+	MOVE.L	#PacSram,D2		; The header: the SRAM after it.
+	MOVE.L	#PACSZ,D3
+	JSR	READFILE
+	BRA.S	PcLdC
+PcLdW:	LEA	PacHdBuf,A0		; No header: raw, from its first byte.
+	LEA	PacSram,A1
+	MOVEQ	#16-1,D1
+PcLdW1:	MOVE.B	(A0)+,(A1)+
+	DBF	D1,PcLdW1
+	MOVE.L	#PacSram+16,D2
+	MOVE.L	#PACSZ-16,D3
+	JSR	READFILE
+PcLdC:	JSR	CLOSEFILE
+PcLdS:	BSR	PacKeep
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+PcLdR:	RTS
+
+	CNOP	0,4
+PacSave:				; (back from the emulation)
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	LEA	PacSram,A0		; Changed since the file?
+	LEA	PacSaved,A1
+	MOVE.W	#PACSZ-1,D0
+PcSvM:	CMPM.B	(A0)+,(A1)+
+	DBNE	D0,PcSvM
+	BEQ.S	PcSvX
+	MOVE.L	#PacName,D1
+	MOVE.L	#$3EE,D2
+	JSR	OPENFILE
+	BEQ.S	PcSvX
+	MOVE.L	#PacHdr,D2
+	MOVEQ	#16,D3
+	JSR	WRITEFILE
+	BNE.S	PcSvC
+	MOVE.L	#PacSram,D2
+	MOVE.L	#PACSZ,D3
+	JSR	WRITEFILE
+	BNE.S	PcSvC
+	BSR	PacKeep
+PcSvC:	JSR	CLOSEFILE
+PcSvX:	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+
+; PacSaved = PacSram (what the file holds).
+PacKeep:LEA	PacSram,A0
+	LEA	PacSaved,A1
+	MOVE.W	#PACSZ-1,D0
+PcKp1:	MOVE.B	(A0)+,(A1)+
+	DBF	D0,PcKp1
+	RTS
+
+PACSZ	EQU	$1FFE			; 4000h-5FFDh
+PacName:	DC.B	"PROGDIR:FMPAC.PAC",0
+PacHdr:		DC.B	"PAC2 BACKUP DATA"
+PacHdBuf:	DS.B	16
+PacTried:	DC.B	0
+	EVEN
+	ENDC
 
 	CNOP	0,4
 FlHdr:		DS.L	2

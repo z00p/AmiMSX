@@ -149,9 +149,8 @@ foreach ($rom in $Roms) {
   $t0 = Get-Date; $hwnd = [IntPtr]::Zero
   while ($hwnd -eq [IntPtr]::Zero -and ((Get-Date) - $t0).TotalSeconds -lt 15) {
     Start-Sleep -Milliseconds 300
-    if ($Slot -gt 0) { $proc.Refresh(); if ($proc.MainWindowHandle -ne 0) { $hwnd = $proc.MainWindowHandle }; continue }
-    $p = Get-Process winuae64 -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-    if ($p) { $hwnd = $p.MainWindowHandle }
+    # our own process's window only (by PID): never another session's WinUAE, whatever the slot
+    $proc.Refresh(); if ($proc.MainWindowHandle -ne 0) { $hwnd = $proc.MainWindowHandle }
   }
   [void][WU]::SetWindowPos($hwnd, [IntPtr]::Zero, 300 + 40 * $Slot, 40 + 30 * $Slot, 0, 0, 5)
   $name = [IO.Path]::GetFileNameWithoutExtension($rom)

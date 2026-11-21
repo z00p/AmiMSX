@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.2
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.3
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      5.2
+Version:      5.3
 Replaces:     misc/emu/AmiMSX5.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -173,13 +173,30 @@ What's new
 - Options: Use Japanese ID (60 Hz), Audio filter, Mask screen edges
   (always or auto), per-game settings next to each cartridge.
 - Cartridges: ROM database (mapper by SHA-1), 8 KB, 48/64 KB and 4 MB
-  ROMs, flash Konami SCC cartridges with saves (Pampas & Selene).
+  ROMs, flash Konami SCC cartridges with saves (Pampas & Selene),
+  ASCII 16K-X flash saves and the FM-PAC's SRAM (Illusion City).
 - Disks: drive B with its own image (written back), disk swap with Left
   Amiga.
 - Freeware texts and no anti-crack counter, from Juan's v3.2/v3.5.
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 5.3
+----------
+- Game saves: the FM-PAC cartridge with its battery SRAM, in Slot 1
+  or Slot 2 (your own FM-PAC ROM, such as AmiMSX 2's FM Pac.ROM). It
+  brings FM with it, and its SRAM is kept in FMPAC.PAC in AmiMSX's
+  drawer (openMSX's fmpac.pac format). Without one, MSXMUSIC.ROM with
+  Sound PSG+FM and Slot 1 empty saves the same way. Tetpuz, Cube Droid
+  and Illusion City save to it.
+- ASCII 16K-X flash saves: Illusion City's translation saves with
+  Load/Save > Flash ROM; the saves go to <cartridge>.flash next to the
+  ROM, which is never changed.
+- F-1 Spirit 3D Special on AGA: no more grey slab at the horizon (VDP
+  LINE ends at the screen side, as on the V9938/V9958).
+- VDP status S#2: the TR bit as the V9958 gives it (the old "VDP
+  Always Ready" setting is gone).
 
 New in 5.2
 ----------
@@ -461,6 +478,8 @@ Known limits
   SCREEN 8's 256 colours.
 - F-1 Spirit 3D Special on RTG: wrong background colour and streaks
   in the intro pictures (PiStorm A1200; AGA is fine).
+- F-1 Spirit 3D Special: the road's top strip at the horizon can
+  drift away from the rest of the road on bends (AGA and RTG).
 - Nemesis 2: the stars are drawn cyan instead of white.
 - Lilly's Saga: on fast machines the save-slot menu text can be drawn
   as solid blocks (seen with Smooth display off).
@@ -496,6 +515,9 @@ Known limits
   about 80% in busy scenes on a 68030/50.
 - Changing Sound in the menu during a game and pressing Continue
   restarts or crashes the game: change it, then Power ON.
+- MSX-Music (FM): busy FM music can sound distorted (Illusion City
+  with the FM-PAC), and the FM chip's rhythm mode (drums) is not
+  emulated, so games that use it play without those drums.
 
 The MSX turbo R machine is beta. Known issues:
 - Too slow on a 68030: AmiMSX Turbo R is for PiStorm and BigMig.
