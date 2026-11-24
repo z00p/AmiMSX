@@ -2,6 +2,10 @@
 
 What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
 
+## Shipped in 5.4
+
+FM sound: the drums (rhythm mode), clean FM on PiStorm (2x mix, tables per pitch, vibrato), FM on PAL Amigas without repeats, Sound Mix without squashed peaks, and Sound Mix with Sound PSG too (digitised sound through the PSG volumes, Puzzle Mania XXXL). Cartridges up to 16 MB: ASCII 16K-X over 4 MB (Neon Horizon, MSX Legends) and the NEO-16 mapper (Puzzle Mania XXXL and XXXS). See `CHANGES_4.x.md`.
+
 ## Shipped in 5.3
 
 Game saves: the FM-PAC cartridge with its battery SRAM (Slot 1 or 2, FMPAC.PAC) and ASCII 16K-X flash saves (Illusion City), both confirmed on the A1200; F-1 Spirit 3D Special's AGA horizon slab (VDP LINE ends at the screen side); the S#2 TR bit. See `CHANGES_4.x.md`.
@@ -44,18 +48,29 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 
 ## Next
 
-- **FM sound (5.4):** busy FM music sounds distorted on the A1200 (Illusion City with the FM-PAC, 21 Nov; same with Sound Mix Classic, so it is the FM itself). Leading suspect: the one-cycle tables played at the line rate (~15.6 kHz) fold bright notes' overtones back below 7.8 kHz; measure first (openMSX register log rendered through tools/fm_synth.py vs an openMSX recording). Also the OPLL rhythm mode (register 0Eh, drums): Illusion City plays hi-hat and bass drum with it, which AmiMSX leaves out.
+- **FM leftovers:** tremolo (the AM flag) is not played; 5.4's cleaner FM (2x mix, tables per pitch, vibrato) runs on 68040/68060 with Smooth display only, so a 68030, a BigMig or Smooth display off keep the fold-back on bright high notes.
 - **Sound coverage:** first a measured survey (every test title against openMSX), then the gaps that matter most: FM accuracy, MSX-AUDIO (Y8950), PSG/SCC details. Moonsound only as "bring your own sample ROM" on PiStorm/BigMig.
 
 ## Still open, not yet scheduled
 
+**Cartridges over 4 MB (backlog, z00p, 22 Nov 2026; mostly done in 5.4).** 5.3 refuses them (`MiraMSXCartSize`: at most 256 x 16 KB).
+
+Done in 5.4: ASCII 16K-X up to 16 MB (Neon Horizon plays, MSX Legends reaches its title), NEO-16 (Puzzle Mania XXXL plays), the mapper from the header signature, and the "Not enough memory for this ROM" message. Smoke test: 45 of 45 captures the same as before, normal and turbo R. Still open:
+
+1. **NEO-8:** the 8 KB-bank sibling in the same specification. No test title yet.
+2. **Puzzle Mania XXXS (SCREEN 0):** pictures repeat in bands. Not the mapper: the game changes R#4 (pattern table) from line interrupts every 24 lines in TEXT mode (checked in openMSX), and AmiMSX doesn't redraw TEXT mode per line.
+3. **Real hardware:** the 8 and 16 MB titles are only checked in WinUAE so far; an A1200 PiStorm check is still to do.
+4. **Not in scope for now:** Puzzle Mania XXXL's two 128 MB builds (MSX1, turbo R): 128 MB is more memory than any of our targets has free, corrupt pictures in openMSX 21 (the MSX1 build is listed for openMSX 22), and they would need loading from disk in pieces.
+
+Done when each test title matches openMSX in WinUAE, the smoke set is unchanged and the titles play on an A1200 PiStorm.
+
 Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). Illusion City's menu box borders have the wrong colours (palette writes and bitplanes match openMSX; next: the Amiga colour registers).
 
-F-1 Spirit 3D Special on RTG (a tester, 18 Nov, 5.2 RC1 on the A1200 PiStorm, RTG preset): it starts now (5.1 didn't), but the race intro pictures (car at the stands, driver close-up) have a bright blue background with heavy horizontal streaks where openMSX has black. Also on the photos: the Konami logo on a pale page with lighter bands at the top and bottom, and the title logo on dark blue with no other text; compare both with openMSX. AGA is fine. WinUAE RTG doesn't reproduce it (its intro matched openMSX), so the next step is a debug build that draws on-screen rows on the A1200 (the RTG frame's state), photographed by a tester.
+F-1 Spirit 3D Special on RTG (a tester, 18 Nov, 5.2 RC1 on the A1200 PiStorm, RTG preset): it starts now (5.1 didn't), but the race intro pictures (car at the stands, driver close-up) have a bright blue background with heavy horizontal streaks where openMSX has black (amimsx-plan/f1s3d/omsx_d2). Also on the photos: the Konami logo on a pale page with lighter bands at the top and bottom, and the title logo on dark blue with no other text; compare both with openMSX. AGA is fine. Photos: `build/AmiMSX5.2-Test-F1DiskB/john-a1200-rtg-rc1`. WinUAE RTG doesn't reproduce it (its intro matched openMSX), so the next step is a debug build that draws on-screen rows on the A1200 (the RTG frame's state), photographed by a tester.
 
 Game saves that persist (a tester, 18 Nov; Illusion City, English translation ROM v0.3, "works well" on 5.2 RC1 Turbo R AGA). Its save menu (System > save point) offers Quick Save, (FM)PAC SRAM, Game Disk 1, User Disk and Flash ROM. (a) Flash ROM: msxtranslations.com/ic.php says the ROM build saves to the ASCII16-X cartridge's flash (tested on openMSX). AmiMSX already emulates AMD flash commands (program, 64 KB sector erase) and keeps changed sectors in `<cartridge>.flash`, but only for the flash Konami SCC cartridges (4.0, Pampas & Selene); the ASCII 16K-X mapper has no flash writes yet. Next: the ASCII16-X flash chip's commands as openMSX has them, on the same `.flash` file. (b) (FM)PAC SRAM: AmiMSX's FM-PAC in Slot 1 (Sound PSG+FM) is its ROM only; the PAC's 8 KB battery SRAM (unlocked by 4Dh/69h at 5FFEh/5FFFh) isn't emulated, so nothing is kept. (c) User Disk: whether a save to a blank disk image in Drive A works today is not checked yet (it needs a turbo R run to a save point); if it does, it is the workaround for the readme.
 
-F-1 Spirit 3D Special AGA: the far road at the horizon drawn as a flat slab (a tester, 5.2 RC1 and RTG Fix 2 on the A1200). The earlier "stills match openMSX" only covered the scenery, not the road. Cause found: AGA's LINE wrapped at the screen side instead of ending there, and the course's road shapes are drawn with such lines. Confirmed on the A1200 (a tester, 21 Nov: "same as RTG, nearly perfect"). Left, a known issue on AGA and RTG alike: the road's top strip at the horizon drifts away from the rest of the road on bends (photos 21 Nov). Not yet compared with openMSX, so it may be the game's own drawing.
+F-1 Spirit 3D Special AGA: the far road at the horizon drawn as a flat slab (a tester, 5.2 RC1 and RTG Fix 2 on the A1200). The earlier "stills match openMSX" only covered the scenery, not the road. Cause found: AGA's LINE wrapped at the screen side instead of ending there, and the course's road shapes are drawn with such lines (branch aga-road, AmiMSX5.2-AGA-Road-Test1). Confirmed on the A1200 (a tester, 21 Nov: "same as RTG, nearly perfect"). Left, a known issue on AGA and RTG alike: the road's top strip at the horizon drifts away from the rest of the road on bends (photos 21 Nov, amimsx-plan/f1-road-photos-2026-11-21). Not yet compared with openMSX, so it may be the game's own drawing.
 
 About window (a tester, 28 Oct): keep its date in step with each release (it is typed in by hand). (The menu tidy-up is done: branch menus, Docs/agent_notes/v46_menus.md.)
 

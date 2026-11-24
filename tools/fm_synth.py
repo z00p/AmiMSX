@@ -11,8 +11,13 @@ How it works:
 - A voice plays its table at the note's pitch; its volume (carrier envelope +
   volume register + key scaling) picks one of 64 gain steps (0.75 dB).
 - Nine voices are summed into one output stream.
-Not modelled (yet): AM/PM LFOs (tremolo/vibrato), rhythm mode, the modulator's
-envelope inside a cycle.
+- Rhythm mode (5.4): bass drum and tom-tom are table voices at twice the gain;
+  hi-hat, snare and cymbal come from the chip's own phase bits and noise.
+- The 2x mix (5.4) plays a table with its top octaves filtered out when the
+  note would fold them down, and has the carrier's vibrato, stepped each frame.
+Not modelled (yet): the AM LFO (tremolo), vibrato outside the 2x mix or of
+the modulator alone, the modulator's envelope inside a cycle, the damp before
+a key-on.
 
 The built-in instrument data and the log-sine/exp tables follow emu2413 by
 Mitsutaka Okazaki (MIT licence, https://github.com/digital-sound-antiques/emu2413).
@@ -69,11 +74,22 @@ PASSES = 3                    # table build: 2 cycles settle the feedback, the 3
 # Paula output locked to the PAL frame (313 lines x 227 colour clocks): 227
 # samples a frame at period 313 (11,332 Hz), or 313 at period 227 (15,625 Hz)
 PAULA_CLOCK = 3546895
-MODES = {227: 313, 313: 227}          # samples per frame: Paula period
+MODES = {227: 313, 313: 227, 226: 313, 312: 227,  # (226, 312: N as FMXSetN evens it;
+         190: 313, 262: 227}                      #  190, 262: a 60 Hz display)          # samples per frame: Paula period
 XO_OLD = [3, 8, 16, 63]               # cross-fade: gain index offsets per quarter
 XO_NEW = [16, 8, 3, 0]                # (old table fades out, new fades in)
 # 8-bit output: CLIP[(mix >> 4) + CLIPC] = mix / 64, with a soft knee above 96
 CLIPC = 1152
+# (5.4) 2x mix: while the step >> level is over one table entry a sample, an
+# octave less of the table (FMXLevel): overtones past 23.4 kHz would fold
+# straight into the audible band.
+LEVELS, LEVEL_STEP = 5, 65536
+# (5.4) vibrato (2x mix): the chip's F-number change by its top 3 bits and the
+# LFO's 8 phases of 1024 chip samples each (6.1 Hz), from emu2413 (MIT).
+PM_TABLE = [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, -1, 0], [0, 1, 2, 1, 0, -1, -2, -1],
+            [0, 1, 3, 1, 0, -1, -3, -1], [0, 2, 4, 2, 0, -2, -4, -2], [0, 2, 5, 2, 0, -2, -5, -2],
+            [0, 3, 6, 3, 0, -3, -6, -3], [0, 3, 7, 3, 0, -3, -7, -3]]
+PM_K = round(65536 * 3579545 / 72 * 227 / (1024 * 3546895))      # phase x 65536 per sample
 
 
 def _clip(y):
@@ -95,6 +111,27 @@ AGC_DOWN = [int(440 / g) for g in AGC_G]
 AGC_UP = [int(320 / g) for g in AGC_G[1:]] + [0]
 AGC_FLOOR, AGC_HOLD = 8, 50
 CLIPS = [[_clip((y - CLIPC) * g) for y in range(2 * CLIPC)] for g in AGC_G]
+
+
+# --- (5.4) rhythm mode: the fixed patches (bass drum; hi-hat / snare; tom-tom / cymbal)
+DRUM_PATCHES = [
+    [0x01, 0x01, 0x18, 0x0f, 0xdf, 0xf8, 0x6a, 0x6d],  # 16: Bass drum
+    [0x01, 0x01, 0x00, 0x00, 0xc8, 0xd8, 0xa7, 0x68],  # 17: Hi-hat (M) / Snare (C)
+    [0x05, 0x01, 0x00, 0x00, 0xf8, 0xaa, 0x59, 0x55],  # 18: Tom-tom (M) / Cymbal (C)
+]
+BD, HH, SD, TOM, CYM = range(5)
+# drum: channel, slot, key bit in 0Eh, volume register, its nibble's shift
+DRUMS = [(6, "car", 0x10, 0x36, 0), (7, "mod", 0x01, 0x37, 4), (7, "car", 0x08, 0x37, 0),
+         (8, "mod", 0x04, 0x38, 4), (8, "car", 0x02, 0x38, 0)]
+
+
+def drum_keys(regs):
+    """The five drums' key bits (as 0Eh's): 0Eh, or their channel's own key."""
+    k = regs[0x0e] & 0x1f if regs[0x0e] & 0x20 else 0
+    for r, bits in ((0x26, 0x10), (0x27, 0x09), (0x28, 0x06)):
+        if regs[r] & 0x10:
+            k |= bits
+    return k
 
 
 def decode(d):
@@ -155,6 +192,96 @@ def make_tables(dump):
                 out.append(max(-127, min(127, co >> 5)))
         tabs.append(out)
     return tabs, g
+
+
+_LEVEL = {}
+
+
+def level_table(tab, level):
+    """FMXLevel: the table less `level` octaves, by the half-band filter
+    (-1 0 9 16 9 0 -1) / 32 round the cycle, spread 1, 2, 4... entries."""
+    if not level:
+        return tab
+    key = (tuple(tab), level)
+    if key not in _LEVEL:
+        u, d = level_table(tab, level - 1), 1 << (level - 1)
+        _LEVEL[key] = [max(-128, min(127, (16 * u[i] + 9 * (u[(i + d) & 255] + u[(i - d) & 255])
+                                           - u[(i + 3 * d) & 255] - u[(i - 3 * d) & 255] + 16) >> 5))
+                       for i in range(TABLEN)]
+    return _LEVEL[key]
+
+
+def drum_tables():
+    """BD's 8 tables and TOM's sine. A drum isn't inverted on the chip and
+    the melody is, so they are negated here."""
+    bd = [[-v for v in t] for t in make_tables(DRUM_PATCHES[0])[0]]
+    tom = [max(-127, min(127, -op(k * 1024 // TABLEN, 0, 0) >> 5)) for k in range(TABLEN)]
+    return bd, tom
+
+
+def drum_levels(rate, twice):
+    """Hi-hat, snare and cymbal at full level for a rate of `rate` samples a
+    second, 8 words: [short noise * 4 + snare phase bit 8 * 2 + noise bit]
+    for each. The random part of each is white on the chip up to 24.9 kHz:
+    sampled slower it is scaled to keep the same level per Hz. So is the
+    short-noise pattern (as flat, around its mean: it is 1 for 7 in 8 phases)
+    except at 2x, where the half-band filter takes out what would fold."""
+    r = math.sqrt(rate / FS)
+    f = 1 if twice else r
+
+    def pair(a, b, centre=None):
+        m = (a + b) / 2
+        c = m if centre is None else centre + f * (m - centre)
+        return [round(c + r * (a - m)), round(c + r * (b - m))]
+    v = {x: -op(x, 0, 0) for x in (0x000, 0x034, 0x0d0, 0x100, 0x200, 0x234, 0x2d0, 0x300)}
+    mean = (v[0xd0] + v[0x34] + 7 * (v[0x234] + v[0x2d0])) / 16
+    hh = [pair(v[0xd0], v[0x34], mean), pair(v[0x234], v[0x2d0], mean)]
+    sd = [pair(v[0x100], v[0x000]), pair(v[0x200], v[0x300])]
+    mean = (v[0x100] + 7 * v[0x300]) / 8
+    cy = [round(mean + f * (x - mean)) for x in (v[0x100], v[0x300])]
+    return [[hh[i >> 2][i & 1] for i in range(8)],
+            [sd[i >> 1 & 1][i & 1] for i in range(8)],
+            [cy[i >> 2] for i in range(8)]]
+
+
+def short_noise():
+    """[c * 64 + h]: 4 or 0; h = hi-hat phase bits 2-7, c = cymbal phase bits 3-5."""
+    t = []
+    for c in range(8):
+        for h in range(64):
+            h2, h3, h7 = h & 1, h >> 1 & 1, h >> 5 & 1
+            c3, c5 = c & 1, c >> 2 & 1
+            t.append(4 * ((h2 ^ h7) | (h3 ^ c5) | (c3 ^ c5)))
+    return t
+
+
+def bd_hit():
+    """[rate][rl][i]: the bass drum's table (k) for each sample of the beater.
+    Its modulator attacks (rate 13) and decays to SL (rate 15) in about 1 ms,
+    far inside a frame; the voice itself plays the table for SL."""
+    m, _ = decode(DRUM_PATCHES[0])
+    sl = m["SL"] << 3
+    out = []
+    for rate in drum_rates():
+        rows = []
+        for rl in range(4):
+            eg = [124] + attack_curve(m["AR"], rl, 1.0)
+            eg += list(range(2, sl + 1, 2))
+            row = []
+            for i in range(BDHIT):
+                e = eg[min(len(eg) - 1, int((i + 1) * FS / rate))]
+                row.append(min(range(len(MOD_LEVELS)), key=lambda k: abs(MOD_LEVELS[k] - e)))
+            rows.append(row)
+        out.append(rows)
+    return out
+
+
+BDHIT = 32                    # samples of it (at the fastest rate)
+
+
+def drum_rates():
+    """The three rates the noise drums run at: 11.3 kHz, 15.6 kHz, 31.2 kHz (2x)."""
+    return [PAULA_CLOCK / 313, PAULA_CLOCK / 227, 2 * PAULA_CLOCK / 227]
 
 
 # --- envelopes, once a frame ---
@@ -238,18 +365,32 @@ class Slot:
 class Synth:
     """Integer model of the 68k FMX engine, step for step."""
 
-    def __init__(s, n_frame=227, max_voices=9):
+    def __init__(s, n_frame=227, max_voices=9, hq=False):
         s.n = n_frame
+        s.hq, s.hist = hq, [0] * 6    # (5.4) 2x interpolated mix (68040/060)
         s.max_voices = max_voices
         s.period = MODES[n_frame]
         s.rate = PAULA_CLOCK / s.period
         s.K = step_k(s.period)
         s.agc_k, s.agc_n = 0, 0
+        s.pm, s.pmph = 0, 0           # (5.4) the vibrato LFO
         t = tables_static()
         s.gain, s.dec, s.att, s.modlv, s.kslt = t["gain"], t["dec"], t["att"], t["modlv"], t["ksl"]
         s.voltab = [[(((u ^ 0x80) - 0x80) * g) >> 4 for u in range(256)] for g in s.gain]
         s.regs = [0] * 64
         s.keyev = [0] * 9
+        s.drev = 0                    # (5.4) drum key-on events, as 0Eh's bits
+        s.bdtab, s.tomtab = drum_tables()
+        lv = 0 if s.period == 313 else 2 if hq else 1
+        s.drlev = drum_levels(drum_rates()[lv], lv == 2)
+        s.bdhit = bd_hit()[lv]
+        s.short = short_noise()
+        s.drgi = [63] * 5
+        s.drph = [0, 0, 0]            # hi-hat, snare, cymbal phase
+        s.noise = 1
+        # drums are twice as loud as the melody: 8 gain steps
+        s.voltab2 = [[(((u ^ 0x80) - 0x80) * (2 * g)) >> 4 for u in range(256)]
+                     for g in s.gain[:8]] + s.voltab[:VOLSTEPS - 8]
         s.pdirty = True
         s.tabs = {i: make_tables(PATCHES[i]) for i in range(1, 16)}
         s.ch = [dict(car=Slot(), mod=Slot(), modkey=0, prevkey=0, frac=0, idx=0, gi=63, tab=None)
@@ -262,6 +403,10 @@ class Synth:
             s.pdirty = True
         elif 0x20 <= r <= 0x28 and v & 0x10 and not s.regs[r] & 0x10:
             s.keyev[r - 0x20] = 1
+        if r in (0x0e, 0x26, 0x27, 0x28):   # (5.4) a drum's key, off -> on
+            was = drum_keys(s.regs)
+            s.regs[r] = v
+            s.drev |= drum_keys(s.regs) & ~was
         s.regs[r] = v
 
     def rix(s, n, sl, r):
@@ -273,11 +418,15 @@ class Synth:
         rks = bf if sl["KR"] else bf >> 2
         return min(15, r + (rks >> 2)) * 4 + (rks & 3)
 
-    def env(s, n, e, sl):
+    def env(s, n, e, sl, mod=False):
         if e.state == OFF:
             return
         if e.state == ATTACK:
-            cur = s.att[s.rix(n, sl, sl["AR"])]
+            rate = s.rix(n, sl, sl["AR"])
+            if mod and rate >= 60 and not e.pos:  # (5.4) no attack time: decays at once
+                e.eg, e.state = 0, DECAY
+                return s.env(n, e, sl)
+            cur = s.att[rate]
             if e.pos >= len(cur):         # (4.7) a shorter curve: done
                 e.eg, e.state = 0, DECAY
                 return
@@ -312,9 +461,25 @@ class Synth:
     def frame(s):
         """One MSX frame: the 16-bit mix (before the 8-bit output step)."""
         if s.pdirty:
-            s.tabs[0] = make_tables(s.regs[0:8])
+            tabs, g = make_tables(s.regs[0:8])
+            if 0 in s.tabs:           # rebuilt in place (FMXUser): a held voice
+                for a, t in zip(s.tabs[0][0], tabs):     # has the new contents
+                    a[:] = t
+                tabs = s.tabs[0][0]
+            s.tabs[0] = (tabs, g)
             s.pdirty = False
-        mix = [0] * s.n
+        over = 2 if s.hq else 1
+        s.pmph = s.pm >> 16 & 7       # (5.4) this frame's vibrato phase
+        s.pm = (s.pm + s.n * PM_K) & 0xffffffff
+        rhythm = s.regs[0x0e] & 0x20
+        if rhythm:                    # (5.4) rhythm mode: 7-9 are the drums'
+            for n in (6, 7, 8):
+                s.keyev[n] = 0
+                s.ch[n]["gi"] = 63
+        else:
+            s.drev = 0
+            s.drgi = [63] * 5
+        mix = [0] * (s.n * over)
         # voices to mix: all, or (lite) the max_voices loudest by last frame's
         # gain index, a key-on this frame first (as FMXSelect)
         sel = set(range(9))
@@ -327,7 +492,7 @@ class Synth:
                     break
                 sel.add(best)
                 rank[best] = 0x7FFF
-        for n, c in enumerate(s.ch):
+        for n, c in enumerate(s.ch[:6 if rhythm else 9]):
             key = s.regs[0x20 + n] & 0x10
             if s.keyev[n]:
                 for e in (c["car"], c["mod"]):
@@ -342,7 +507,7 @@ class Synth:
             inst = s.regs[0x30 + n] >> 4
             m, cr = decode(PATCHES[inst] if inst else s.regs[0:8])
             if c["modkey"]:
-                s.env(n, c["mod"], m)
+                s.env(n, c["mod"], m, True)
             s.env(n, c["car"], cr)
             g0 = c["gi"]
             vol = s.regs[0x30 + n] & 15
@@ -360,27 +525,185 @@ class Synth:
             tab = tabs[k]
             old = c["tab"] if c["tab"] is not None else tab
             c["tab"] = tab
-            fn = s.regs[0x10 + n] | (s.regs[0x20 + n] & 1) << 8
-            blk = s.regs[0x20 + n] >> 1 & 7
-            step = ((fn << blk) * g * s.K) >> 4
-            si, sf = (step >> 16) & 255, step & 0xffff
-            parts = [(tab, [min(63, g0 + ((g1 - g0) * (q + 1) >> 2)) for q in range(4)])]
-            if old is not tab:
-                gq = parts[0][1]
-                parts = [(old, [min(63, gq[q] + XO_OLD[q]) for q in range(4)]),
-                         (tab, [min(63, gq[q] + XO_NEW[q]) for q in range(4)])]
-            for t, gq in parts:
-                frac, idx, i = c["frac"], c["idx"], 0
-                for q in range(4):
-                    vt = s.voltab[gq[q]]
-                    for _ in range(s.n * (q + 1) // 4 - s.n * q // 4):
-                        frac += sf
-                        idx = (idx + si + (frac >> 16)) & 255
-                        frac &= 0xffff
-                        mix[i] += vt[t[idx] & 255]
-                        i += 1
-            c["frac"], c["idx"] = frac, idx
-        return mix
+            step = s.step(n, g, over)
+            t0, t1 = old, tab
+            if s.hq:                      # (5.4) band-limited, then vibrato
+                lv = 0
+                while lv < LEVELS and (step >> lv) > LEVEL_STEP:
+                    lv += 1
+                t1 = level_table(tab, lv)
+                t0 = t1 if old is tab else list(level_table(old, lv))  # (still two passes if alike)
+                if cr["PM"]:
+                    step = s.vibrato(n, g)
+            s.voice(mix, c, step, g0, g1, t0, t1, s.voltab)
+        if rhythm and s.drums(mix, over) and not s.hq:
+            top = (CLIPC - 1) * 16    # (five drums at 2x can pass the output table)
+            mix = [max(-top, min(top, v)) for v in mix]
+        return s.down(mix) if s.hq else mix
+
+    def step(s, n, g, over):
+        fn = s.regs[0x10 + n] | (s.regs[0x20 + n] & 1) << 8
+        blk = s.regs[0x20 + n] >> 1 & 7
+        return (((fn << blk) * g * s.K) >> 4) >> (over - 1)
+
+    def vibrato(s, n, g):
+        """The 2x mix's step with this frame's vibrato."""
+        fn = s.regs[0x10 + n] | (s.regs[0x20 + n] & 1) << 8
+        blk = s.regs[0x20 + n] >> 1 & 7
+        d = PM_TABLE[fn >> 6][s.pmph]
+        return (s.step(n, g, 1) + (d * (1 << blk) * g * s.K >> 5)) >> 1
+
+    def quarters(s, g0, g1):
+        return [min(63, g0 + ((g1 - g0) * (q + 1) >> 2)) for q in range(4)]
+
+    def qlen(s, q):
+        over = 2 if s.hq else 1
+        return over * (s.n * (q + 1) // 4 - s.n * q // 4)
+
+    def voice(s, mix, c, step, g0, g1, old, tab, vol):
+        """FMXPass: one table voice (two passes while the table changes)."""
+        si, sf = (step >> 16) & 255, step & 0xffff
+        parts = [(tab, s.quarters(g0, g1))]
+        if old is not tab:
+            gq = parts[0][1]
+            parts = [(old, [min(63, gq[q] + XO_OLD[q]) for q in range(4)]),
+                     (tab, [min(63, gq[q] + XO_NEW[q]) for q in range(4)])]
+        for t, gq in parts:
+            frac, idx, i = c["frac"], c["idx"], 0
+            for q in range(4):
+                g = gq[q]
+                vt = vol[g] if g < 63 else None      # 63: silent
+                for _ in range(s.qlen(q)):
+                    frac += sf
+                    idx = (idx + si + (frac >> 16)) & 255
+                    frac &= 0xffff
+                    if vt is not None:
+                        v = t[idx]
+                        if s.hq:
+                            v += (t[(idx + 1) & 255] - v) * (frac >> 10) >> 6
+                        mix[i] += vt[v & 255]
+                    i += 1
+        c["frac"], c["idx"] = frac, idx
+
+    def drum_slot(s, d, hit, key):
+        """FMXDrSlot: key and envelope of one drum slot -> gain index before, now."""
+        n, name, _, reg, sh = DRUMS[d]
+        sl = decode(DRUM_PATCHES[n - 6])[name == "car"]
+        e = s.ch[n][name]
+        vol = (s.regs[reg] >> sh & 15) * 8
+        g0 = s.drgi[d]
+        if hit:
+            e.state, e.eg, e.pos = DECAY, 0, 0    # every drum's attack (rates 10-15) is
+            g0 = min(63, vol >> 1)                # over in 4 ms: full level from the start
+        if not key and e.state < RELEASE:
+            e.state = RELEASE
+        s.env(n, e, sl, name == "mod")
+        g1 = 63 if e.state == OFF else min(63, ((e.eg >> 8) + vol) >> 1)
+        s.drgi[d] = g1
+        return g0, g1
+
+    def beater(s, mix, step, g0, g1, base):
+        """FMXBdHit: the first millisecond's tables instead of the voice's
+        (added as the difference, from phase 0 as the voice)."""
+        g = s.quarters(g0, g1)[0]
+        if g >= 63:
+            return
+        bf = (s.regs[0x26] >> 1 & 7) << 1 | s.regs[0x26] & 1
+        row, vt = s.bdhit[(bf >> 2) & 3], s.voltab2[g]
+        frac = idx = 0
+        for i in range(BDHIT):
+            frac += step & 0xffff
+            idx = (idx + (step >> 16) + (frac >> 16)) & 255
+            frac &= 0xffff
+            for sign, t in ((1, s.bdtab[row[i]]), (-1, base)):
+                v = t[idx]
+                if s.hq:
+                    v += (t[(idx + 1) & 255] - v) * (frac >> 10) >> 6
+                mix[i] += sign * vt[v & 255]
+
+    def drums(s, mix, over):
+        """FMXRhythm: the five drums; True if any was heard."""
+        keys, ev = drum_keys(s.regs), s.drev
+        s.drev = 0
+        heard = False
+
+        c = s.ch[6]                   # bass drum: two operators, as a channel
+        hit, key = ev & 0x10, keys & 0x10
+        m, _ = decode(DRUM_PATCHES[0])
+        if hit:
+            c["frac"], c["idx"], c["tab"] = 0, 0, None
+            e = c["mod"]
+            e.state, e.eg, e.pos = DECAY, 0, 0
+        if key or hit:
+            s.env(6, c["mod"], m, True)
+        g0, g1 = s.drum_slot(BD, hit, key)
+        c["modkey"] = c["prevkey"] = key
+        if g0 < 63 or g1 < 63:
+            heard = True
+            tab = s.bdtab[s.modlv[min(127, c["mod"].eg >> 8)]]
+            old = c["tab"] if c["tab"] is not None else tab
+            c["tab"] = tab
+            step = s.step(6, 2, over)
+            if hit:
+                s.beater(mix, step, g0, g1, tab)
+            s.voice(mix, c, step, g0, g1, old, tab, s.voltab2)
+
+        c = s.ch[8]                   # tom-tom: a sine (multiple 5)
+        hit, key = ev & 0x04, keys & 0x04
+        if hit:
+            c["frac"], c["idx"] = 0, 0
+        g0, g1 = s.drum_slot(TOM, hit, key)
+        if g0 < 63 or g1 < 63:
+            heard = True
+            s.voice(mix, c, s.step(8, 10, over), g0, g1, s.tomtab, s.tomtab, s.voltab2)
+        c["tab"] = None
+        s.ch[7]["tab"] = None
+
+        g = []                        # hi-hat, snare, cymbal: one loop
+        for d in (HH, SD, CYM):
+            bit = DRUMS[d][2]
+            if d == SD and ev & bit:
+                s.drph[1] = 0         # (hi-hat and cymbal keep their phase)
+            g.append(s.drum_slot(d, ev & bit, keys & bit))
+        for n, bit in ((7, 0x08), (8, 0x02)):
+            s.ch[n]["modkey"] = s.ch[n]["prevkey"] = keys & bit
+        inc_h, inc_c = s.step(7, 2, over), s.step(8, 2, over)
+        ph, ps, pc = s.drph
+        if all(a == 63 and b == 63 for a, b in g):
+            k = s.n * over
+            s.drph = [(p + i * k) & 0xffffffff for p, i in ((ph, inc_h), (ps, inc_h), (pc, inc_c))]
+            return heard
+        gq = [s.quarters(a, b) for a, b in g]
+        st, i = s.noise, 0
+        for q in range(4):
+            gn = [s.gain[x[q]] for x in gq]
+            lut = [sum((lv[k] * g_) >> 8 for lv, g_ in zip(s.drlev, gn)) for k in range(8)]
+            for _ in range(s.qlen(q)):
+                ph = (ph + inc_h) & 0xffffffff
+                ps = (ps + inc_h) & 0xffffffff
+                pc = (pc + inc_c) & 0xffffffff
+                k = s.short[(pc >> 17 & 7) << 6 | ph >> 16 & 63]
+                if ps >> 22 & 1:
+                    k += 2
+                bit = st & 1
+                st >>= 1
+                if bit:
+                    st ^= 0x400100
+                    k += 1
+                mix[i] += lut[k]
+                i += 1
+        s.noise, s.drph = st, [ph, ps, pc]
+        return True
+
+    def down(s, mix):
+        """(5.4) FMXDown: the 2x mix through a half-band filter."""
+        x, top = s.hist + mix, (CLIPC - 1) * 16
+        s.hist = x[-6:]
+        out = []
+        for i in range(1, 2 * s.n, 2):
+            a, _, b, c, d, _, e = x[i:i + 7]
+            out.append(max(-top, min(top, (9 * (b + d) + 16 * c - a - e) >> 5)))
+        return out
 
     def out8(s, mix):
         t = CLIPS[s.agc_k]
@@ -488,6 +811,14 @@ def fmxdat(folder):
     offs.append(len(curves))             # (4.7) the end of the last curve
     parts.append(("ATTOFF", struct.pack(">65H", *offs)))
     parts.append(("ATT", bytes(curves)))
+    bd, tom = drum_tables()           # (5.4) rhythm mode
+    parts.append(("DRPATCH", bytes(b for p in DRUM_PATCHES for b in p)))
+    parts.append(("BDTAB", bytes(v & 255 for t in bd for v in t)))
+    parts.append(("TOMTAB", bytes(v & 255 for v in tom)))
+    parts.append(("DRLEV", b"".join(struct.pack(">8h", *d) for k, r in enumerate(drum_rates()) for d in drum_levels(r, k == 2))))
+    parts.append(("BDHIT", bytes(v for r in bd_hit() for row in r for v in row)))
+    parts.append(("SHORT", bytes(short_noise())))
+    parts.append(("PMTAB", bytes(v & 255 for row in PM_TABLE for v in row)))
     data, inc = bytearray(), []
     for name, b in parts:
         inc.append(f"FMX_{name}=\t{len(data)}\t\t; {len(b)} bytes")
@@ -499,6 +830,9 @@ def fmxdat(folder):
     inc.append(f"FMX_AGCHOLD=\t{AGC_HOLD}\t\t; frames under AGCUP before a step up")
     inc.append(f"FMX_K227=\t{step_k(313)}\t\t; phase step factor, 227 samples/frame (period 313)")
     inc.append(f"FMX_K313=\t{step_k(227)}\t\t; 313 samples/frame (period 227)")
+    inc.append(f"FMX_PMK=\t{PM_K}\t\t; vibrato phase x 65536 per sample (2x mix)")
+    inc.append(f"FMX_LVMAX=\t{LEVELS}\t\t; band-limit levels (2x mix)")
+    inc.append(f"FMX_LVSTEP=\t{LEVEL_STEP}\t\t; a level more while step >> level is over this")
     open(os.path.join(folder, "fmx.dat"), "wb").write(data)
     with open(os.path.join(folder, "fmx.i"), "w", newline="\r\n") as fh:
         fh.write("; Generated by tools/fm_synth.py fmxdat: offsets into fmx.dat. Do not edit.\n"

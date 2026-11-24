@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 5.3 (21.11.2026)
+@version $VER: AmiMSX.guide 5.4 (23.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                           AmiMSX Emulator v5.3
+                           AmiMSX Emulator v5.4
                           ( 18.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -534,19 +534,25 @@ whatever this option says:  the font file Roms/fs-a1gt_kanjifont.rom
 It is optional:  without it kanji characters come out blank.  (See
 @{"MSX turbo R" link TurboR}.)
 
-@{fg highlight}    <*> Sound Mix (PSG+FM):  Classic / Mono / Stereo
-@{fg text}    ------------------------------------------------
+@{fg highlight}    <*> Sound Mix:  Classic / Mono / Stereo
+@{fg text}    ---------------------------------------
 
-    How the PSG and the FM reach the speakers when the sound chip is
-PSG+FM or FM lite and the game plays FM.
+    How the PSG, and the FM with Sound chip PSG+FM or FM lite, reach the
+speakers.  (Sound chip PSG too since 5.4; before, PSG+FM only.)
 
     Classic:  the PSG plays on Amiga channels 0-2 and the FM on channel 3,
-as in 4.6.  The FM comes from the left speaker only, and the PSG's noise
-(drums, explosions) is lost.  The least CPU time.
+as in 4.6.  The FM comes from the left speaker only, and with FM the
+PSG's noise (drums, explosions) is lost.  A PSG channel whose tone is
+off is silent, so digitised sound played through the PSG's volumes
+(Puzzle Mania XXXL) is not heard.  The least CPU time.
 
     Mono:  the PSG is made in software, noise included, and mixed with the
 FM at the MSX's own balance into one 14-bit stream, played in the centre
-of both speakers.  The volume follows the music on its own, in 3 dB steps.
+of both speakers.  A channel whose tone and noise are off gives its
+volume as a steady level, as on the real PSG, so digitised sound through
+the volumes is heard.  The volume follows the music on its own, in 1.5 dB
+steps: it is set from each frame before it plays and comes down just before
+a loud note, so peaks are not squashed (5.4).
 
     Stereo:  as Mono, with the PSG's channels spread a little: A to the
 left, B in the centre, C to the right.  The FM stays in the centre.
@@ -554,7 +560,8 @@ left, B in the centre, C to the right.  The FM stays in the centre.
     Without a setting saved, fast CPUs (68040/68060, or the PiStorm preset)
 get Mono and the others Classic.  Mono and Stereo need much more CPU
 time than Classic: on a 68030 at 50 Mhz, Lilly's Saga drops from about
-87% to 72% speed.  They are for PiStorm and other fast CPUs.
+87% to 72% speed.  They are for PiStorm and other fast CPUs.  With Sound
+chip PSG there are no FM voices to make, so the mix costs less.
 
     A change takes effect at the next Power ON or Reset.  Continue keeps
 the mix the game started with.
@@ -775,12 +782,21 @@ this cartridge again, its mapper is set.
     MSX cartridges bigger than 32Kb use a mapper.  The choices, with the
 old names in brackets:  None, Generic 16K [Konami 1], Konami [Konami 2],
 ASCII 8K [ASCII 1], ASCII 16K [ASCII 2], Konami SCC [SCC 1], Konami SCC
-(strict) [SCC 2], R-Type and ASCII 16K-X.  ASCII 16K-X is the type of MSX
-Translations' big ROMs, such as Illusion City (up to 4 MB).
+(strict) [SCC 2], R-Type, ASCII 16K-X and NEO-16.  ASCII 16K-X is the type
+of MSX Translations' big ROMs, such as Illusion City (4 MB), and of Neon
+Horizon and MSX Legends (8 to 9 MB).  NEO-16 is MSXgl's mapper, used by Puzzle Mania XXXL and
+XXXS (16 MB).
+
+    Cartridges can be up to 16 MB (5.4; 4 MB before).  The whole ROM is
+loaded into memory, so an 8 or 16 MB cartridge needs that much free fast
+RAM:  a PiStorm or a BigMig, or an accelerator with plenty of RAM.  Without
+it AmiMSX says "Not enough memory for this ROM".
 
     Most MegaROMs get their mapper without testing.  A remembered mapper
 comes first, then the ROM database (AmiMSX4.romdb, by SHA-1), then the
-mapper tag in the file name, then a guess.  The answers are kept in
+mapper tag in the file name, then a signature in the ROM's header
+("ASCII16X" or "ROM_NE16" at offset 10h), then a guess.  NEO-16 can't be
+remembered (it is always found by its signature).  The answers are kept in
 AmiMSX4.romcache, so each ROM is checked once.  With the R-Type FM loader
 in Slot 1 and R-Type in Slot 2, the MSX Disk ROM must be None.
 

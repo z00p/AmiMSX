@@ -9,8 +9,8 @@
 ; inserting the cartridge in Slot 1 again (FlashLoad) reads them back in.
 ; File: "AMXF", count.W, 0.W, then per sector: number.W, 0.W, 64 KB.
 ; (5.3) ASCII16-X cartridges (Illusion City, 4 MB) save the same way: their
-; flash chip (AxFlash, AmiMSX_Asx_v5.asm) marks FlSect too; 64 sectors of
-; 64 KB cover a 4 MB ROM.
+; flash chip (AxFlash, AmiMSX_Asx_v5.asm) marks FlSect too; (5.4) 128 sectors
+; of 64 KB cover the chip's 8 MB.
 ;
 ; Drive B's virtual disk: written back to its image file when a game has
 ; written to it, on the way back to the menu (as a real disk keeps what was
@@ -21,6 +21,8 @@ FlashLoad:				; (InsertSl1, after the load)
 	MOVEM.L	D0-D7/A0-A6,-(SP)
 	CLR.L	FlSect
 	CLR.L	FlSect+4
+	CLR.L	FlSect+8		; (5.4) 128 sectors, 8 MB
+	CLR.L	FlSect+12
 	SF	FlDirty
 	CLR.B	CartPathS1
 	TST.B	CartLoadOK
@@ -95,7 +97,7 @@ FlSvC:	BFTST	FlSect{D6:1}
 	BEQ.S	FlSvC1
 	ADDQ.W	#1,D7
 FlSvC1:	ADDQ.W	#1,D6
-	CMP.W	#64,D6
+	CMP.W	#128,D6		; (5.4) 8 MB
 	BNE.S	FlSvC
 	TST.W	D7
 	BEQ	FlSvX
@@ -132,7 +134,7 @@ FlSvB:	MOVE.L	D6,D0
 	CMP.W	#8,D5
 	BNE.S	FlSvB
 FlSvS2:	ADDQ.W	#1,D6
-	CMP.W	#64,D6
+	CMP.W	#128,D6
 	BNE.S	FlSvS
 	JSR	CLOSEFILE
 FlSvX:	MOVEM.L	(SP)+,D0-D7/A0-A6

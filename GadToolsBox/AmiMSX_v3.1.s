@@ -1652,7 +1652,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v5.3 (Pro) '
+    DC.B    'AmiMSX Emulator v5.4 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -3146,10 +3146,10 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v5.3',0
+    DC.B    'AmiMSX Emulator v5.4',0
 
 AboutIText1:
-    DC.B    '(November 21st, 2026)',0
+    DC.B    '(November 23rd, 2026)',0
 
 AboutIText2:
     DC.B    'Full Program & Emulation Systems:',0
@@ -3961,6 +3961,14 @@ MSX2NewMenu78x:
     DC.W    $0001
     DC.L    0,0
 
+	MDS	MN_Map1Neo16
+MSX2NewMenu78n:
+    DC.B    3,0
+    DC.L    MSX2MName78n
+    DC.L    0
+    DC.W    $0001
+    DC.L    0,0
+
 	MDSCNT	NS_Map1
 	MDI	MN_CartsBar0
 MSX2NewMenu_CartsBar0:
@@ -4085,6 +4093,14 @@ MSX2NewMenu92r:
 MSX2NewMenu92x:
     DC.B    3,0
     DC.L    MSX2MName92x
+    DC.L    0
+    DC.W    $0001
+    DC.L    0,0
+
+	MDS	MN_Map2Neo16
+MSX2NewMenu92n:
+    DC.B    3,0
+    DC.L    MSX2MName92n
     DC.L    0
     DC.W    $0001
     DC.L    0,0
@@ -4264,7 +4280,7 @@ MSX2MName_SpeedL:
 
 
 MSX2MName_Mix:
-    DC.B    'Sound Mix (PSG+FM)',0
+    DC.B    'Sound Mix',0
 
 MSX2MName_MixC:
     DC.B    'Classic',0
@@ -4584,6 +4600,9 @@ MSX2MName78r:
 MSX2MName78x:
     DC.B    'ASCII 16K-X',0
 
+MSX2MName78n:
+    DC.B    'NEO-16',0
+
 MSX2MName80:
     DC.B    'Slot 2',0
 
@@ -4625,6 +4644,9 @@ MSX2MName92r:
 
 MSX2MName92x:
     DC.B    'ASCII 16K-X',0
+
+MSX2MName92n:
+    DC.B    'NEO-16',0
 
 MSX2MName100:
     DC.B    'Tape  ',0

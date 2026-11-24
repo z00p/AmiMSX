@@ -6,8 +6,7 @@ sample, register, value) and, each frame, N then for each side the FM, PSG
 and output words of every sample. Replays the writes through Psg and
 checks, frame by frame:
 - the PSG samples, bit for bit;
-- the output: knee((FM + PSG) * gain >> 8), with the gain from the
-  automatic gain run on the recorded FM + PSG.
+- the output: psg_synth.Gain run on the recorded FM + PSG.
 
 The PSG's pitch follows the nominal N (FMXNnom), which the recording
 doesn't hold: by default each N seen is tried on the first 300 frames with
@@ -52,26 +51,6 @@ def parse(path, stereo):
     return init, ev, frames
 
 
-def agc_gains(frames):
-    k, cnt, ks = ps.AGC_K0, 0, []
-    for fr in frames:
-        ks.append(k)
-        p = max(int(np.abs(s[:, 0] + s[:, 1]).max()) for s in fr) >> 4
-        kk = k
-        while kk > 0 and p > ps.AGC_DOWN[kk]:
-            kk -= 1
-        if kk != k:
-            k, cnt = kk, 0
-        elif k < ps.AGC_N - 1 and p >= ps.AGC_FLOOR:
-            if p < ps.AGC_UP[k]:
-                cnt += 1
-                if cnt >= ps.AGC_HOLD:
-                    k, cnt = k + 1, 0
-            else:
-                cnt = 0
-    return ks
-
-
 def pick_nnom(init, byf, frames, a):
     ns = sorted(set(fr[0].shape[0] for fr in frames))
     on = [f for f, fr in enumerate(frames) if fr[0][:, 1].any()]
@@ -109,14 +88,16 @@ def main():
           f" registers at the start {' '.join(f'{v:02X}' for v in init)}")
     p = ps.Psg(nnom, lines=a.lines, pan=ps.PAN_STEREO if a.stereo else ps.PAN_MONO)
     p.load(init)
-    ks = agc_gains(frames)
+    gain, ks = ps.Gain(), []
     bad_p = bad_o = shown = 0
     first_p = first_o = None
     for f, fr in enumerate(frames):
         n = fr[0].shape[0]
         L, R = p.frame(byf.get(f, []), n)
-        g = ps.AGC_Q8[ks[f]]
-        for side, want in zip(fr, (L, R)):
+        outs = gain.frame([s[:, 0] + s[:, 1] for s in fr])
+        ks.append(gain.k)
+        g = ps.AGC_Q8[gain.k]
+        for side, want, out in zip(fr, (L, R), outs):
             dp = np.nonzero(side[:, 1] != np.array(want))[0]
             if len(dp):
                 bad_p += 1
@@ -127,8 +108,7 @@ def main():
                     print(f"frame {f}: PSG differs at sample {j} of {n}: 68k {side[j, 1]} model {want[j]}"
                           f" ({len(dp)} samples; writes {byf.get(f, [])[:6]})")
                     shown += 1
-            mix = side[:, 0] + side[:, 1]
-            out = np.array([ps.knee(int(v)) for v in (mix * g) >> 8])
+            out = np.array(out)
             do = np.nonzero(side[:, 2] != out)[0]
             if len(do):
                 bad_o += 1

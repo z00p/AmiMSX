@@ -2714,6 +2714,10 @@ Sl1MapOp7:				; (4.5) R-Type
 Sl1MapOp8:				; (5.2) ASCII16-X
 	MOVE.B	#$08,DirPrefs+$76
 	MOVE.L	#$100,D3
+	BRA.S	Sl1MapRut
+Sl1MapOp9:				; (5.4) NEO-16
+	MOVE.B	#$09,DirPrefs+$76
+	MOVE.L	#$200,D3
 Sl1MapRut:
 	MOVE.L	#MN_Map1None,D0		; the first of its sub-items
 	MOVEQ	#NS_Map1-1,D4		; (5.2: 9 items, ASCII16-X)
@@ -2758,6 +2762,10 @@ Sl2MapOp7:				; (4.5) R-Type
 Sl2MapOp8:				; (5.2) ASCII16-X
 	MOVE.B	#$08,DirPrefs+$77
 	MOVE.L	#$100,D3
+	BRA.S	Sl2MapRut
+Sl2MapOp9:				; (5.4) NEO-16
+	MOVE.B	#$09,DirPrefs+$77
+	MOVE.L	#$200,D3
 Sl2MapRut:
 	MOVE.L	#MN_Map2None,D0		; the first of its sub-items
 	MOVEQ	#NS_Map2-1,D4		; (5.2: 9 items, ASCII16-X)
@@ -2819,6 +2827,8 @@ SaveMappIdRut:
 	MOVE.L	MapperNuevo,CheckId
 	SUBQ.B	#1,D0
 	BMI	AmiRET
+	CMP.B	#7,D0			; (5.4) Three bits hold codes 0-7: NEO-16
+	BHI	AmiRET			; (8) isn't saved (its header finds it).
 	ROR.L	#3,D0
 	OR.L	MapperNuevo,D0
 	MOVE.L	D0,MapperNuevo
@@ -3883,7 +3893,8 @@ MiCaS16:
 
 	LSR.L	#8,D0
 	LSR.L	#6,D0
-	CMP.L	#$100,D0			; mira m�ximo 4Mb (ASCII16: 256 x 16Kb)
+	CMP.L	#$400,D0			; (5.4) 16 MB at most (was 4 MB): ASCII16-X
+					; and NEO-16 take 12-bit bank numbers.
 	BGT.S	NoMSXCartCon
 	MOVEQ	#-1,D1
 	RTS
@@ -3962,6 +3973,8 @@ MiConMapper0:
 	BRA.S	MiConMapFin
 MiConNoDb:
 	BSR	TagMapper		; No: a mapper tag in the file name?
+	BNE.S	MiConMapFin
+	BSR	HeadMapper		; (5.4) No: a signature in the header?
 	BNE.S	MiConMapFin
 	BSR	GuessMapper		; No: guess it like openMSX does.
 MiConMapFin:
@@ -4154,6 +4167,29 @@ TgMaFin:
 	MOVEM.L	(SP)+,D1-D2/A0-A2	; (Flags kept.)
 	RTS
 
+; (5.4) HeadMapper: the mapper from a signature at ROM offset 10h, right
+; after the "AB" header: "ASCII16X" (the ASCII16-X specification asks for it,
+; for detection), "ROM_NE16" (NEO-16, required by its specification).
+; Out: D0.B = the mapper code (the ROM database's), 0 and Z set if none.
+HeadMapper:
+	MOVE.L	A0,-(SP)
+	MOVE.L	DirCart(PC),A0
+	MOVEQ	#0,D0
+	CMP.L	#"ASCI",$80+$10(A0)
+	BNE.S	HdMa2
+	CMP.L	#"I16X",$80+$14(A0)
+	BNE.S	HdMaX
+	MOVEQ	#7,D0			; ASCII16-X
+	BRA.S	HdMaX
+HdMa2:	CMP.L	#"ROM_",$80+$10(A0)
+	BNE.S	HdMaX
+	CMP.L	#"NE16",$80+$14(A0)
+	BNE.S	HdMaX
+	MOVEQ	#8,D0			; NEO-16
+HdMaX:	MOVE.L	(SP)+,A0
+	TST.B	D0
+	RTS
+
 TagMapTab:
 	DC.B	4,"konamiscc",0
 	DC.B	4,"scc",0
@@ -4163,6 +4199,8 @@ TagMapTab:
 	DC.B	3,"ascii16",0
 	DC.B	7,"ascii16x",0		; (5.2) ASCII16-X
 	DC.B	7,"ascii16-x",0
+	DC.B	8,"neo16",0		; (5.4) NEO-16
+	DC.B	8,"neo-16",0
 	DC.B	0
 	EVEN
 
@@ -4196,7 +4234,7 @@ tErNoSTC:	DC.B	"    stc.library not found.    ",0
 tErOpenFile:	DC.B	"       Open file failed.      ",0
 tErReadFile:	DC.B	"   Error while loading file.  ",0
 tErNoGBCart:	DC.B	"    Bad MSX Cartridge size.   ",0
-tErOutOfMem:	DC.B	"   -=>  Out of memory!  <=-   ",0
+tErOutOfMem:	DC.B	"Not enough memory for this ROM",0	; (5.4)
 
 tNoFile:	DC.B	"None.",0
 
@@ -7473,7 +7511,7 @@ PrefScan:	DC.B	0		; RTG scanlines (Emulation > RTG Scanlines): 0 =
 					; not set (the ToolType SCANLINES, else
 					; Off), 1 = Off, 2-4 = hard 25/50/75%,
 					; 5-7 = blended light/normal/strong.
-PrefMix:	DC.B	0		; (4.7) Sound mix with PSG+FM: 0 = not set
+PrefMix:	DC.B	0		; (4.7) Sound mix (PSG, PSG+FM): 0 = not set
 					; (Mono on a fast CPU, else Classic), 1 =
 					; Classic, 2 = Mono, 3 = Stereo.
 PrefJoyK:	DC.B	0		; (5.0) Joystick as Cursor Keys: FFh = the
@@ -8459,6 +8497,7 @@ MS_Map1:
 	MJS	MS_Map1,MN_Map1SCCs,Sl1MapOp6
 	MJS	MS_Map1,MN_Map1RType,Sl1MapOp7
 	MJS	MS_Map1,MN_Map1Asc16X,Sl1MapOp8
+	MJS	MS_Map1,MN_Map1Neo16,Sl1MapOp9
 	MJEND	MS_Map1,NS_Map1
 
 MS_Slot2:
@@ -8478,6 +8517,7 @@ MS_Map2:
 	MJS	MS_Map2,MN_Map2SCCs,Sl2MapOp6
 	MJS	MS_Map2,MN_Map2RType,Sl2MapOp7
 	MJS	MS_Map2,MN_Map2Asc16X,Sl2MapOp8
+	MJS	MS_Map2,MN_Map2Neo16,Sl2MapOp9
 	MJEND	MS_Map2,NS_Map2
 
 

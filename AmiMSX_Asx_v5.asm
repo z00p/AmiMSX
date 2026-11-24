@@ -189,9 +189,9 @@ AsxBk:	DC.L	0			; the bank's address (AsxPg)
 ; Changed sectors are marked in FlSect for FlashSave (64 KB a bit: an 8 KB
 ; sector marks its 64 KB). While the ID, CFI or status shows, all four
 ; pages read AxVBuf (a 16 KB page laid out as the ROM's, as SramView).
-; Not done: the status register command (70h), suspend and resume, and the
+; Not done: the status register command (70h), suspend and resume, the
 ; chip's upper 4 MB beyond a 4 MB ROM (bank numbers wrap at the ROM's end,
-; as AsxBank always did).
+; as AsxBank always did), and saves past the chip's 8 MB in a bigger ROM.
 
 ; AxSec Dn, Dm: Dm.W = the sector of flash address Dn.
 AxSec	MACRO
@@ -361,7 +361,7 @@ AxEc3:	MOVE.W	D4,D7
 	ADDQ.W	#8,D7
 	CMP.W	NumROM,D7
 	BHI	AxX
-	CMP.W	#64*8,D7
+	CMP.W	#128*8,D7
 	BHI	AxX
 	FLMARK	D4
 	ADDQ.W	#8,D4
@@ -444,7 +444,7 @@ AxAbort:CLR.B	AxCmd			; A broken buffer program: status,
 	BRA.S	AxView
 
 ; D4 = a flash address: its 64 KB sector changed, for FlashSave (FlSect
-; holds 64 sectors, 4 MB; FlashLoad takes whole 64 KB sectors only).
+; holds 128 sectors, the chip's 8 MB; FlashLoad takes whole 64 KB sectors).
 AxMark:	MOVE.L	D4,D7
 	LSR.L	#8,D7
 	LSR.L	#5,D7
@@ -452,7 +452,7 @@ AxMark:	MOVE.L	D4,D7
 	ADDQ.W	#8,D7
 	CMP.W	NumROM,D7
 	BHI	AxX
-	CMP.W	#64*8,D7
+	CMP.W	#128*8,D7
 	BHI	AxX
 	SUBQ.W	#8,D7
 	FLMARK	D7

@@ -138,7 +138,7 @@ The code returned is the index minus 1 (0 = Konami 1 ... 5 = SCC 2). Per-game `<
 | YAMANOOTO, HamarajaNight, RetroHardMultiCart31in1, MatraInk | 1-2 each | 1-2 each | homebrew | 3 | None | Nightstalker (2024), Best of Hamaraja Night (2010), 31-in-1 multicarts (2019), INK |
 | AlQuran(Decoded), AlAlamiah30-in-1, MSXWrite, Keyboardmaster | 1-3 each | 1-3 each | mixed | 4 | None | Non-game ROMs |
 
-**Not in the database at all.** NEO-8/NEO-16 (a concept mapper in openMSX, used by no game yet), MegaFlashROM SCC+ (a flash cartridge extension), FM-PAC (MSX-Music with 8 KB SRAM: a sound device, not a game mapper) and Panasoft (machine-internal ROMs). Hydlide 2 appears as ASCII16SRAM2 above.
+**Not in the database at all.** NEO-8/NEO-16 (first games seen Nov 2026: Puzzle Mania XXXL and a turbo R port; see roadmap.md, cartridges over 4 MB), MegaFlashROM SCC+ (a flash cartridge extension), FM-PAC (MSX-Music with 8 KB SRAM: a sound device, not a game mapper) and Panasoft (machine-internal ROMs). Hydlide 2 appears as ASCII16SRAM2 above.
 
 **Per title:**
 

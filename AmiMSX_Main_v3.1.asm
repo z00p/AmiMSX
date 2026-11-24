@@ -727,9 +727,9 @@ CodeLo:
 VAMOS:
 	JMP	ANEM
 	IFD	TURBOR			; (5.1) the turbo R build ships as "AmiMSX Turbo R"
-	DC.B	"$VER:AmiMSX Turbo R Emulator v5.3 ("
+	DC.B	"$VER:AmiMSX Turbo R Emulator v5.4 ("
 	ELSE
-	DC.B	"$VER:AmiMSX Emulator v5.3 ("
+	DC.B	"$VER:AmiMSX Emulator v5.4 ("
 	ENDC
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
@@ -1462,6 +1462,13 @@ PacSndX:
 SiFMX0:	ST	FMXOn
 	SF	D7
 NoFMX0:
+	SF	FMXPsg			; (5.4) Sound PSG: the FMX engine runs for
+	TST.B	FMXOn			; the Sound mix, without FM (FMXInit
+	BNE.S	NoFMXPs			; drops it for Classic). A tone-off
+	TST.B	D7			; channel's volume is then heard as a
+	BNE.S	NoFMXPs			; level, as on the PSG: digitised sound
+	ST	FMXPsg			; (Puzzle Mania XXXL).
+NoFMXPs:
 	MOVE.B	D7,SFXCHIP
 	BNE.S	ESSCC0
 	MOVE.L	#OUTA1,OUTS+($A1*4)
@@ -1676,8 +1683,10 @@ NoEsFMPak:
 	SF	FlashOn			; (4.0) flash cartridges: writes off.
 	SF	FlState
 	TST.B	FMXOn			; (4.0) Sound chip FM: the FMX engine reset.
+	BNE.S	SiEsFMX
+	TST.B	FMXPsg			; (5.4) or Sound PSG through the mix.
 	BEQ.S	NoEsFMX
-	JSR	FMXInit
+SiEsFMX:JSR	FMXInit
 NoEsFMX:
 	ENDC
 ; ---------------------------------------<=
@@ -3357,6 +3366,19 @@ NoRTypeS1:
 	MOVE.L	#1,AxN1			; (AxN1 0, AxN2 1)
 	CLR.L	AxMode			; (AxCmd, AxMore, AxOdd too)
 NoAsxS1:
+	CMP.B	#9,DirPrefs+$76		; (5.4) NEO-16: segment 0 in pages 0-2
+	BNE.S	NoNeoS1			; at reset (page 1 is already); page 3
+	MOVE.L	MapROMBase1(A3),A0	; stays empty (FFh).
+	MOVE.L	A0,SLOT1+0
+	LEA	$80(A0),A1
+	MOVE.L	A1,SubSLOT1+0
+	LEA	-$8000(A0),A1
+	MOVE.L	A1,SLOT1+16
+	LEA	-$8000+$80(A0),A1
+	MOVE.L	A1,SubSLOT1+16
+	CLR.L	NeoSg1
+	CLR.W	NeoSg1+4
+NoNeoS1:
 
 NoSlot1Cart:
 ; (4.6) Slot 1 empty: the user's MSX-Music ROM (MMusLoad), page 1, with Sound
@@ -3498,6 +3520,19 @@ NoRTypeS2:
 	ADD.W	#$80,A1
 	MOVE.L	A1,SubSLOT2+0
 NoAsxS2:
+	CMP.B	#9,DirPrefs+$77		; (5.4) NEO-16 (see Slot 1)
+	BNE.S	NoNeoS2
+	MOVE.L	MapROMBase2(A3),A0
+	MOVE.L	A0,SLOT2+0
+	LEA	$80(A0),A1
+	MOVE.L	A1,SubSLOT2+0
+	LEA	-$8000(A0),A1
+	MOVE.L	A1,SLOT2+16
+	LEA	-$8000+$80(A0),A1
+	MOVE.L	A1,SubSLOT2+16
+	CLR.L	NeoSg2
+	CLR.W	NeoSg2+4
+NoNeoS2:
 
 NoSlot2Cart:
 
@@ -3826,7 +3861,10 @@ DatFiltX:
 	MOVE.W	#$800F,$DFF096
 
 	TST.B	FMXOn			; (4.0) FMX restarts channel 3 next frame.
+	BNE.S	DatIniFX
+	TST.B	FMXPsg			; (5.4) (and the mix of Sound PSG)
 	BEQ.S	DatIniNF
+DatIniFX:
 	SF	FMXSync
 DatIniNF:
 	MOVE.L	(SP)+,A6
@@ -8951,6 +8989,8 @@ NoEsCaps1:
 	BNE.S	OUTABR
 	TST.B	FMXOn			; (4.0) channel 3 is FMX's.
 	BNE.S	OUTABR
+	TST.B	FMXPsg			; (5.4) (Sound PSG through the mix)
+	BNE.S	OUTABR
 
 	MOVE.B	PSG+7(A3),D2
 	AND.B	#%00111000,D2
@@ -10602,6 +10642,26 @@ OUT7C:
 	MOVE.B	D1,D7C(A3)
 	RTS
 
+; (5.4) The five drums' keys -> D1.B, as 0Eh's bits (BD SD TOM CYM HH): a
+; drum is keyed by 0Eh in rhythm mode and by its channel's own key bit.
+FMXDRKEYS	MACRO
+	MOVEQ	#0,D1
+	BTST	#5,Tabla7C+$E
+	BEQ.S	.a\@
+	MOVE.B	Tabla7C+$E,D1
+	AND.B	#$1F,D1
+.a\@:	BTST	#4,Tabla7C+$26
+	BEQ.S	.b\@
+	OR.B	#$10,D1
+.b\@:	BTST	#4,Tabla7C+$27
+	BEQ.S	.c\@
+	OR.B	#$09,D1
+.c\@:	BTST	#4,Tabla7C+$28
+	BEQ.S	.d\@
+	OR.B	#$06,D1
+.d\@:
+	ENDM
+
 OUT7D:
 ;;	MOVE.W	#-1,$DFF180
 	ST	FmUsed			; (4.0) The game plays MSX-Music: Smooth
@@ -10634,8 +10694,15 @@ O7DRec:
 	BTST	#4,(A4)
 	BNE.S	O7DSt
 	ST	FMXKeyEv-Tabla7C-$20(A4)
-O7DSt:	MOVE.B	D2,(A4)
+O7DSt:	CMP.B	#$EE,D1			; (5.4) 0Eh, 26h-28h (D1 = register - 20h):
+	BEQ.S	O7DDr			; a drum's key, off -> on, is an event.
+	CMP.B	#6,D1
+	BCS.S	O7DSn
+	CMP.B	#8,D1
+	BLS.S	O7DDr
+O7DSn:	MOVE.B	D2,(A4)
 	RTS
+O7DDr:	JMP	FMXDrWr			; (out of line: the OUTS jumps reach 32 KB)
 O7DPat:	ST	FMXPDirty
 	MOVE.B	D2,(A4)
 	RTS
@@ -10643,7 +10710,10 @@ O7DPat:	ST	FMXPDirty
 	CNOP	0,8
 Tabla7C:DCB.B	$44,$FF		; Tabla para FM-Pack
 	DCB.B	4,0
-FMXKeyEv:	DCB.B	12,0		; (4.0) FMX key-on events, channels 0-8.
+FMXKeyEv:	DCB.B	9,0		; (4.0) FMX key-on events, channels 0-8.
+FMXDrEv:	DC.B	0		; (5.4) drum key-on events, as 0Eh's bits
+FMXDrWas:	DC.B	0		; (5.4) (OUT 7Dh: the keys before the write)
+		DC.B	0
 	IFD	PERF
 Opll7DCnt:	DC.L	0
 	ENDC
@@ -10959,6 +11029,16 @@ Mapper8:			; (5.2) ASCII16-X (AmiMSX_Asx_v5.asm); (5.3) every
 	DC.L	AsxF6
 	DC.L	AsxW7
 
+Mapper9:			; (5.4) NEO-16 (AmiMSX_Neo_v5.asm)
+	DC.L	NeoW0
+	DC.L	NeoW1
+	DC.L	NeoW2
+	DC.L	NeoW3
+	DC.L	NeoW4
+	DC.L	NeoW5
+	DC.L	NeoW6
+	DC.L	NeoW7
+
 ;	--=--=--=--=--=--
 
 	CNOP	0,8
@@ -11228,7 +11308,7 @@ FlashX:
 
 FlSave:	DS.L	3
 FlPage:	DS.W	1
-FlSect:	DS.B	8			; changed 64 KB sectors (a bit each)
+FlSect:	DS.B	16			; changed 64 KB sectors (a bit each; 5.4: 8 MB)
 FlDirty:	DC.B	0		; changed since the last save
 	EVEN
 FlDbg:	DS.W	6			; PERF: 7FFF writes, last, commands, programs, erases, mapper
@@ -11681,6 +11761,16 @@ Mapper8b:			; (5.2) ASCII16-X (AmiMSX_Asx_v5.asm)
 	DC.L	AsxW5b
 	DC.L	OtraInstr
 	DC.L	AsxW7b
+
+Mapper9b:			; (5.4) NEO-16 (AmiMSX_Neo_v5.asm)
+	DC.L	NeoW0b
+	DC.L	NeoW1b
+	DC.L	NeoW2b
+	DC.L	NeoW3b
+	DC.L	NeoW4b
+	DC.L	NeoW5b
+	DC.L	NeoW6b
+	DC.L	NeoW7b
 
 ;	--=--=--=--=--=--
 
@@ -28149,6 +28239,7 @@ Mode5ModX:
 	INCLUDE	"AmiMSX_V9958_v4.asm"	; (4.0) MSX2+ phase 2: wide SCREEN 5 layouts.
 	INCLUDE	"AmiMSX_Yjk_v5.asm"	; (5.2) YJK (SCREEN 10-12) on SCREEN 8.
 	INCLUDE	"AmiMSX_Asx_v5.asm"	; (5.2) ASCII16-X cartridges.
+	INCLUDE	"AmiMSX_Neo_v5.asm"	; (5.4) NEO-16 cartridges.
 	IFND	NO_PACSRAM
 	INCLUDE	"AmiMSX_Pac_v5.asm"	; (5.3) The FM-PAC's SRAM.
 	ENDC
@@ -33211,6 +33302,10 @@ FMXSave:	DS.L	15
 FMXK:		DS.L	1		; phase step factor
 FMXStep:	DS.L	1
 FMXTabNew:	DS.L	1
+FMXPm:		DS.L	1		; (5.4) vibrato LFO, phase x 65536
+FMXPmPh:	DS.W	1		; this frame's phase (0-7)
+FMXLvl:		DS.W	1		; the voice's band-limit level (0: none)
+FMXLvNx:	DS.W	1		; the next cache slot to use
 FMXN:		DS.W	1		; samples a frame (227 or 313)
 FMXPer:		DS.W	1		; Paula period (313 or 227)
 FMXQsz:		DS.W	4		; samples in each quarter frame
@@ -33237,6 +33332,18 @@ FMXSc:		DS.W	1
 FMXTl2:		DS.W	1
 FMXFb:		DS.W	1
 FMXAttM:	DS.W	1
+FMXVolP:	DS.L	1		; (5.4) volume tables in use (drums: x2)
+FMXDrLev:	DS.L	1		; (5.4) rhythm: noise drums' levels,
+FMXBdRow:	DS.L	1		; the beater's rows for this rate,
+FMXBdBase:	DS.L	1		; the bass drum's table,
+FMXDrPh:	DS.L	3		; hi-hat, snare, cymbal phase,
+FMXNoise:	DS.L	1		; noise register,
+FMXChans:	DS.W	1		; channels that are instruments (9 or 6),
+FMXDrGI:	DS.W	5		; BD HH SD TOM CYM: gain index,
+FMXDrG0:	DS.W	5		; and last frame's,
+FMXDrQg:	DS.W	3		; this quarter's gains,
+FMXDrLut:	DS.W	8		; and the three noise drums' sums.
+FMXDrLutE:
 FMXVbl:		DS.W	1		; vertical blanks (Inter)
 FMXVbl0:	DS.W	1
 FMXLines:	DS.W	1		; frame length at the last resync (313/262)
@@ -33251,6 +33358,11 @@ PsxEhold:	DS.B	1		; envelope: hold,
 PsxEalt:	DS.B	1		; alternate,
 PsxEheld:	DS.B	1		; holding (no more steps)
 FMXFast:	DS.B	1		; 313 samples a frame
+FMXHQ:		DS.B	2		; (5.4) 2x interpolated mix (68040/060)
+FMXDrKey:	DS.B	1		; (5.4) the drums' keys,
+FMXDrHit:	DS.B	1		; their key-ons,
+FMXDrOn:	DS.B	1		; one is heard this frame
+FMXPsg:		DS.B	1		; (5.4) Sound PSG through the mix (no FM)
 FMXVolOK:	DS.B	1
 FMXPDirty:	DS.B	1
 FMXSync:	DS.B	1
@@ -33262,13 +33374,24 @@ FMXMLT:		DC.B	1,2,4,6,8,10,12,14,16,18,20,20,24,24,30,30
 FMXXO0:		DC.B	0,0,0,0		; gain index offsets by quarter:
 FMXXOOld:	DC.B	3,8,16,63	; cross-fade, old table out,
 FMXXONew:	DC.B	16,8,3,0	; new table in
+FMXDrT:		DC.B	6,0,$10,$36	; (5.4) drums: channel, slot (1 = modulator,
+		DC.B	7,1,$01,$37	; whose volume is the high nibble), key
+		DC.B	7,0,$08,$37	; bit, volume register.
+		DC.B	8,1,$04,$38
+		DC.B	8,0,$02,$38
 	EVEN
 ; --------------------------------
 	SECTION	FMXB,BSS
 ; --------------------------------
+FMXVolD:	DS.W	8*256		; (5.4) drums' first 8 steps (x2); the rest
 FMXVol:		DS.W	64*256		; volume tables (gain index, sample)
 FMXUser:	DS.B	8*256		; custom instrument tables
+FMXLvTab:	DS.B	FMX_LVN*256	; (5.4) band-limited tables (FMXLevel),
+FMXLvOwn:	DS.W	FMX_LVN		; whose each is, and
+FMXLvDir:	DS.B	FMX_LVDSZ	; where each table and level is kept.
 FMXMix:		DS.W	320
+FMXMix2H:	DS.W	6		; (5.4) the 2x mix's last 6 samples, then
+FMXMix2:	DS.W	2*320		; the 2x mix (FMXPassH, FMXDown)
 FMXCh:		DS.B	9*CH_SIZE
 ; (4.7) Sound mix (AmiMSX_Psx_v4.asm)
 	CNOP	0,4
@@ -33290,8 +33413,12 @@ PsxEstep:	DS.W	1
 PsxEatt:	DS.W	1
 PsxEv:		DS.W	1		; envelope level this sample
 PsxInvT:	DS.W	1		; 2^32 / T
-PsxMxK:		DS.W	1		; automatic gain: step 0-6,
+PsxMxK:		DS.W	1		; automatic gain: step 0-16,
 PsxMxN:		DS.W	1		; frames towards a step up
+PsxRmpG:	DS.L	1		; (5.4) this frame's gain: start,
+PsxRmpD:	DS.L	1		; step a sample (16.16),
+PsxRmpT:	DS.L	1		; end,
+PsxRmpN:	DS.W	1		; and samples to get there
 PsxVP:		DS.W	1		; MSX frame lines (313/262)
 PsgLogN:	DS.W	1		; bytes in PsgLog
 PsgLog:		DS.B	8*(PSGLOGMAX+1)	; register, value, CurLine, cycles, sample

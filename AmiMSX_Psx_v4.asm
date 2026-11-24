@@ -10,7 +10,7 @@
 ; on Paula's voices 0-2 and FMX on channel 3, as before.
 ;
 ; The spec, step for step and in the same integer arithmetic, is
-; tools/psg_synth.py (class Psg, knee, the AGC_* constants); its tables are
+; tools/psg_synth.py (classes Psg and Gain); its tables are
 ; Sound/psx.i. tools/psg_compare.py and tools/mix_compare.py check the model
 ; against openMSX. OUTA1 logs the game's register writes (PsgLog: register,
 ; value, CurLine, the line's cycle count) and PsxFrame plays them at their
@@ -512,9 +512,9 @@ PsxFrWr:
 	ADDQ.W	#8,A2
 	RTS
 
-; -------------------------------------> The mix out: FM + PSG, times the
-; gain (Q8), the knee, split into the high byte and low 6 bits for the
-; next ring block; then the automatic gain from the frame's peak.
+; -------------------------------------> The mix out: FM + PSG. This
+; frame's gain first (PsxGain), then each side times it, split into the
+; high byte and low 6 bits for the next ring block.
 PsxOut:
 	MOVE.W	FMXWrite,D2
 	CMP.W	FMXPlay,D2
@@ -522,7 +522,8 @@ PsxOut:
 	MOVE.W	D2,D0
 	MULU	#FMXRBSZ,D0
 	MOVE.L	D0,PsxBlk
-	MOVEQ	#0,D7			; D7 = the frame's peak |mix|
+	BSR	PsxGain
+	MOVE.L	PsxBlk,D0
 	LEA	FMXBuf,A1		; Left: FM + PSG left into rings 3 (high)
 	LEA	FMXBufLL,A2		; and 0 (low).
 	ADD.L	D0,A1
@@ -543,10 +544,6 @@ PsxOu1:	MOVE.W	FMXWrite,D2
 	ADDQ.W	#1,D2			; FMXWrite has moved on)
 	AND.W	#7,D2
 	MOVE.W	D2,FMXWrite
-	BRA	PsxOu2
-PsxOu2:	LSR.L	#4,D7
-	MOVE.L	D7,D5
-	BSR	PsxAgc
 PsxOu3:
 	IFD	PSXREC
 	ADDQ.W	#1,FMXFrN		; (FMXREC's frame count)
@@ -557,12 +554,13 @@ PsxOuFull:
 	BRA.S	PsxOu3			; the gain as it was.)
 
 ; One side: A3 = PSG samples, FMXMix the FM, out to A1 (high) and A2 (low).
-; D7 = the peak so far. Uses D0-D3, A0.
+; D3 = the gain (16.16), D4 = samples left of its ramp, D5 = its step.
+; Uses D0-D5, A0.
 PsxOutSide:
 	LEA	FMXMix,A0
-	MOVE.W	PsxMxK,D3
-	MOVE.W	(PsxAgcQ8.L,D3.W*2),D3
-	EXT.L	D3
+	MOVE.L	PsxRmpG,D3
+	MOVE.L	PsxRmpD,D5
+	MOVE.W	PsxRmpN,D4
 	MOVE.W	FMXN,D2
 	SUBQ.W	#1,D2
 	IFD	PSXREC
@@ -584,31 +582,17 @@ PsxOSL:	MOVE.W	(A0)+,D0
 PsxOSr1:
 	ENDC
 	ADD.L	D1,D0			; FM + PSG
-	MOVE.L	D0,D1
-	BPL.S	PsxOS1
-	NEG.L	D1
-PsxOS1:	CMP.L	D1,D7
-	BCC.S	PsxOS2
-	MOVE.L	D1,D7
-PsxOS2:	MULS.L	D3,D0			; x gain >> 8
+	MOVE.L	D3,D1
+	LSR.L	#8,D1
+	MULS.L	D1,D0			; x gain >> 8
 	ASR.L	#8,D0
-	MOVE.L	D0,D1
-	BPL.S	PsxOS3
-	NEG.L	D1
-PsxOS3:	CMP.L	#PSX_KNEE0,D1		; The knee past 6144.
-	BLS.S	PsxOS5
-	SUB.L	#PSX_KNEE0,D1
-	LSR.L	#4,D1
-	CMP.L	#PSX_KNEEN-1,D1
-	BLS.S	PsxOS4
-	MOVE.L	#PSX_KNEEN-1,D1
-PsxOS4:	MOVE.W	(PsxKnee.L,D1.L*2),D1
-	TST.L	D0
-	BPL.S	PsxOS4b
-	NEG.W	D1
-PsxOS4b:EXT.L	D1
-	MOVE.L	D1,D0
-PsxOS5:
+	CMP.L	#PSX_FULL,D0		; 14 bits (PsxGain keeps inside them,
+	BLE.S	PsxOS1			; unless even the lowest gain can't).
+	MOVE.L	#PSX_FULL,D0
+PsxOS1:	CMP.L	#-PSX_FULL-1,D0
+	BGE.S	PsxOS2
+	MOVE.L	#-PSX_FULL-1,D0
+PsxOS2:
 	IFD	PSXREC
 	CMP.L	#PsxRecOEnd-1024,A4
 	BCC.S	PsxOSr2
@@ -620,42 +604,122 @@ PsxOSr2:
 	MOVE.B	D1,(A1)+
 	AND.B	#63,D0
 	MOVE.B	D0,(A2)+
-	DBF	D2,PsxOSL
+	SUBQ.W	#1,D4			; The ramp: a step a sample, then
+	BMI.S	PsxOS4			; the new gain exactly.
+	BEQ.S	PsxOS3
+	ADD.L	D5,D3
+	BRA.S	PsxOS4
+PsxOS3:	MOVE.L	PsxRmpT,D3
+PsxOS4:	DBF	D2,PsxOSL
 	IFD	PSXREC
 	MOVE.L	A4,PsxRecOP
 	ENDC
 	RTS
 
 ; -------------------------------------> Automatic gain, once a frame
-; (mix_compare.agc): D5.W = the frame's peak |mix| >> 4, both sides. Down
-; at once while it passes PsxAgcDn for the gain; up a step after
-; PSX_AGCHOLD frames under PsxAgcUp, counting frames of PSX_AGCFLOOR or more.
-PsxAgc:
-	MOVE.W	PsxMxK,D3
-	MOVE.W	D3,D4
-PsxAgD:	TST.W	D4
-	BEQ.S	PsxAgN
-	CMP.W	(PsxAgcDn.L,D4.W*2),D5
-	BLS.S	PsxAgN
-	SUBQ.W	#1,D4
-	BRA.S	PsxAgD
-PsxAgN:	CMP.W	D3,D4
-	BEQ.S	PsxAgU
-	MOVE.W	D4,PsxMxK
-	CLR.W	PsxMxN
-	RTS
-PsxAgU:	CMP.W	#PSX_AGCN-1,D3
-	BEQ.S	PsxAgR
-	CMP.W	#PSX_AGCFLOOR,D5
-	BCS.S	PsxAgR
-	CMP.W	(PsxAgcUp.L,D3.W*2),D5
-	BCC.S	PsxAgZ
+; (psg_synth.Gain), from the peak of the frame about to be written, both
+; sides. Down at once as far as the peak needs, by a ramp that ends at the
+; first sample the old gain couldn't take; up a step after PSX_AGCHOLD
+; frames under PsxAgcUp (PSX_AGCAGAIN fewer for the next), counting frames
+; of PSX_AGCFLOOR or more, by a ramp over the frame. Out: PsxRmpG the gain
+; to start on (16.16), PsxRmpD the step, PsxRmpN the ramp's samples,
+; PsxRmpT the gain after it. Uses D0-D7, A0, A3.
+PsxGain:
+	MOVE.W	PsxMxK,D3		; D3 = the gain as it was, D5 = the
+	MOVEQ	#0,D5			; highest |mix| it takes, D4 = the first
+	MOVE.W	(PsxAgcDn.L,D3.W*2),D5	; sample past that, D7 = the peak.
+	MOVE.W	FMXN,D4
+	MOVEQ	#0,D7
+	LEA	PsxBufL,A3
+	BSR	PsxPeak
+	TST.B	PsxStereo
+	BEQ.S	PsxGa1
+	LEA	PsxBufR,A3
+	BSR	PsxPeak
+PsxGa1:	MOVE.W	D3,D6			; D6 = the new gain.
+PsxGaD:	TST.W	D6
+	BEQ.S	PsxGaN
+	MOVEQ	#0,D0
+	MOVE.W	(PsxAgcDn.L,D6.W*2),D0
+	CMP.L	D7,D0
+	BCC.S	PsxGaN
+	SUBQ.W	#1,D6
+	BRA.S	PsxGaD
+PsxGaN:	CMP.W	D3,D6
+	BEQ.S	PsxGaU
+	CLR.W	PsxMxN			; Down.
+	BRA.S	PsxGaS
+PsxGaU:	MOVE.W	FMXN,D4			; Up, if it is time: over the frame.
+	CMP.W	#PSX_AGCN-1,D3
+	BEQ.S	PsxGaS
+	MOVE.L	D7,D0
+	LSR.L	#4,D0
+	CMP.L	#PSX_AGCFLOOR,D0
+	BCS.S	PsxGaS
+	MOVEQ	#0,D1
+	MOVE.W	(PsxAgcUp.L,D3.W*2),D1
+	CMP.L	D1,D0
+	BCC.S	PsxGaZ
 	ADDQ.W	#1,PsxMxN
 	CMP.W	#PSX_AGCHOLD,PsxMxN
-	BCS.S	PsxAgR
-	ADDQ.W	#1,PsxMxK
-PsxAgZ:	CLR.W	PsxMxN
-PsxAgR:	RTS
+	BCS.S	PsxGaS
+	ADDQ.W	#1,D6
+	MOVE.W	#PSX_AGCAGAIN,PsxMxN
+	BRA.S	PsxGaS
+PsxGaZ:	CLR.W	PsxMxN
+PsxGaS:	MOVE.W	D6,PsxMxK
+	MOVEQ	#0,D0			; D0 = from, D1 = to.
+	MOVE.W	(PsxAgcQ8.L,D3.W*2),D0
+	LSL.L	#8,D0
+	MOVEQ	#0,D1
+	MOVE.W	(PsxAgcQ8.L,D6.W*2),D1
+	LSL.L	#8,D1
+	MOVE.L	D1,PsxRmpT
+	CMP.W	D3,D6
+	BEQ.S	PsxGaF
+	TST.W	D4
+	BEQ.S	PsxGaF
+	MOVE.L	D0,PsxRmpG
+	SUB.L	D0,D1
+	EXT.L	D4
+	DIVS.L	D4,D1
+	MOVE.L	D1,PsxRmpD
+	MOVE.W	D4,PsxRmpN
+	RTS
+PsxGaF:	MOVE.L	D1,PsxRmpG		; The same gain all the frame.
+	CLR.L	PsxRmpD
+	CLR.W	PsxRmpN
+	RTS
+
+; One side's (A3) peak into D7 and its first sample past D5 into D4. A sample
+; can only be the first past D5 as a new highest of its own side (D6).
+; Uses D0-D2, D6, A0.
+PsxPeak:
+	LEA	FMXMix,A0
+	MOVEQ	#0,D2
+	MOVEQ	#0,D6
+PsxPkL:	MOVE.W	(A0)+,D0
+	EXT.L	D0
+	MOVE.W	(A3)+,D1
+	EXT.L	D1
+	ADD.L	D1,D0
+	BPL.S	PsxPk1
+	NEG.L	D0
+PsxPk1:	CMP.L	D0,D6
+	BCC.S	PsxPk2
+	MOVE.L	D0,D6
+	CMP.L	D0,D5
+	BCC.S	PsxPk2
+	CMP.W	D4,D2
+	BCC.S	PsxPk2
+	MOVE.W	D2,D4
+PsxPk2:	ADDQ.W	#1,D2
+	CMP.W	FMXN,D2
+	BCS.S	PsxPkL
+	CMP.L	D6,D7
+	BCC.S	PsxPk3
+	MOVE.L	D6,D7
+PsxPk3:	RTS
 
 ; -------------------------------------> FMXFrame's restart (FMXFrRs), Sound
 ; mix: channels 0-2 stopped, their rings silent, then set like channel 3

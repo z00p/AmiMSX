@@ -52,30 +52,12 @@ def render(prefix, n, f0, f1, pan):
 
 
 def agc(L, R, n):
-    """The automatic gain once a frame on the peak of both sides (mix >> 4
-    units, as FMXAgc), applied the next frame; 14-bit out with the knee."""
-    k, cnt, ks = ps.AGC_K0, 0, []
+    """The automatic gain and the 14-bit output (psg_synth.Gain)."""
+    g, ks = ps.Gain(), []
     oL, oR = np.zeros(len(L)), np.zeros(len(R))
     for i in range(0, len(L) - n + 1, n):
-        g = ps.AGC_Q8[k]
-        a = (L[i:i + n] * g) >> 8
-        b = (R[i:i + n] * g) >> 8
-        oL[i:i + n] = [ps.knee(int(v)) for v in a]
-        oR[i:i + n] = [ps.knee(int(v)) for v in b]
-        ks.append(k)
-        p = int(max(np.abs(L[i:i + n]).max(), np.abs(R[i:i + n]).max())) >> 4
-        kk = k
-        while kk > 0 and p > ps.AGC_DOWN[kk]:
-            kk -= 1
-        if kk != k:
-            k, cnt = kk, 0
-        elif k < ps.AGC_N - 1 and p >= ps.AGC_FLOOR:
-            if p < ps.AGC_UP[k]:
-                cnt += 1
-                if cnt >= ps.AGC_HOLD:
-                    k, cnt = k + 1, 0
-            else:
-                cnt = 0
+        oL[i:i + n], oR[i:i + n] = g.frame([L[i:i + n], R[i:i + n]])
+        ks.append(g.k)
     return oL, oR, np.array(ks)
 
 

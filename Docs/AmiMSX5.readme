@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.3
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.4
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
-Uploader:     Zoopster (JCEC_1@yahoo.co.uk)
+Uploader:     z00p (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      5.3
+Version:      5.4
 Replaces:     misc/emu/AmiMSX5.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -182,6 +182,34 @@ What's new
 
 See Docs/CHANGES_4.x.txt for the full list.
 
+New in 5.4
+----------
+- MSX-Music (FM): the drums. The FM chip's rhythm mode (bass drum,
+  snare, tom-tom, cymbal, hi-hat) is played, and while the drums have
+  channels 7-9 those channels no longer play as instruments (Illusion
+  City's harsh sweep every second is gone).
+- FM on a 68040 or 68060 with Smooth display on (the AGA, RTG and
+  Turbo R presets on a PiStorm): the voices are mixed at twice the
+  rate, high notes use tables made for their pitch, and vibrato is
+  played, so busy FM music no longer sounds distorted (Illusion City
+  with the FM-PAC).
+- FM on PAL Amigas: the FM could repeat a short piece every few frames
+  (the beam position was misread at line 256; there since 4.0).
+- Cartridges up to 16 MB (4 MB before): ASCII 16K-X ROMs over 4 MB
+  (Neon Horizon, MSX Legends) and the new NEO-16 mapper (Puzzle Mania XXXL
+  and XXXS, 16 MB). Both are found by the signature in their header.
+  The whole ROM goes into fast RAM: 8 and 16 MB cartridges are for
+  PiStorm, BigMig or a well-stocked accelerator; otherwise AmiMSX says
+  "Not enough memory for this ROM".
+- Sound Mix Mono and Stereo: loud notes and drums are no longer
+  squashed. The volume is set from each frame before it plays, in
+  1.5 dB steps; loud music can be up to about 3 dB quieter than in
+  5.3, quiet music a little louder.
+- Sound Mix now works with Sound chip PSG too (it was PSG+FM only), so
+  on fast CPUs, where Mono is the default, PSG games get the software
+  PSG with its noise and envelopes. Digitised sound played through the
+  PSG's volumes is heard (Puzzle Mania XXXL's music was silent).
+
 New in 5.3
 ----------
 - Game saves: the FM-PAC cartridge with its battery SRAM, in Slot 1
@@ -283,7 +311,7 @@ New in 4.7
   frame a frame sooner, and in the other modes on the Amiga output the
   input is read just before the next frame starts (about a field
   sooner on a PiStorm).
-- Emulation > Sound Mix for PSG+FM: Classic as before, or Mono and
+- Emulation > Sound Mix for PSG+FM (PSG too from 5.4): Classic as before, or Mono and
   Stereo, which make the PSG in software (noise included) and mix it
   with the FM. For fast CPUs; takes effect at Power ON or Reset.
 - FM: R-Type's instruments ring out, and quiet FM music is louder.
@@ -515,9 +543,24 @@ Known limits
   about 80% in busy scenes on a 68030/50.
 - Changing Sound in the menu during a game and pressing Continue
   restarts or crashes the game: change it, then Power ON.
-- MSX-Music (FM): busy FM music can sound distorted (Illusion City
-  with the FM-PAC), and the FM chip's rhythm mode (drums) is not
-  emulated, so games that use it play without those drums.
+- Puzzle Mania XXXS: the pictures repeat in bands. The game changes
+  the text-mode pattern table every 24 lines with line interrupts,
+  which AmiMSX doesn't follow in SCREEN 0.
+- Cartridges over 4 MB take a while to load on a 68030 (about 20 s
+  for 8 MB in WinUAE) and need that much free fast RAM.
+- Neon Horizon needs an OPL4 (MoonSound), which AmiMSX doesn't
+  emulate: it plays without music, and after a finished race the next
+  start can stop on a character picture instead of the title (openMSX
+  without a MoonSound does the same). Delete Neon Horizon.rom.flash to
+  start it again.
+- MSX Legends reaches its title only: it needs an MSX mouse, which
+  AmiMSX doesn't emulate yet.
+- Sound Mix Classic (the default on a 68030): digitised sound played
+  through the PSG's volumes is silent. Mono plays it.
+- MSX-Music (FM): 5.4's cleaner FM needs a 68040 or 68060 (PiStorm)
+  with Smooth display on. On a 68030 or a BigMig, or with Smooth
+  display off, high notes of bright instruments can still sound harsh
+  and vibrato is not played. Tremolo is not played on any machine.
 
 The MSX turbo R machine is beta. Known issues:
 - Too slow on a 68030: AmiMSX Turbo R is for PiStorm and BigMig.
