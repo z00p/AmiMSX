@@ -2,6 +2,10 @@
 
 What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
 
+## Shipped in 5.5
+
+Joystick as Mouse and Mouse as MSX Mouse: an MSX mouse moved by the pad or by the Amiga mouse in port 1, for games that read the mouse themselves (MSX Legends). Open: a mouse in MSX port B drifts. See `CHANGES_4.x.md`.
+
 ## Shipped in 5.4
 
 FM sound: the drums (rhythm mode), clean FM on PiStorm (2x mix, tables per pitch, vibrato), FM on PAL Amigas without repeats, Sound Mix without squashed peaks, and Sound Mix with Sound PSG too (digitised sound through the PSG volumes, Puzzle Mania XXXL). Cartridges up to 16 MB: ASCII 16K-X over 4 MB (Neon Horizon, MSX Legends) and the NEO-16 mapper (Puzzle Mania XXXL and XXXS). See `CHANGES_4.x.md`.
@@ -49,24 +53,28 @@ The machine per game (MSX2, MSX2+ and turbo R games, ROMs and disks, File Hunter
 ## Next
 
 - **FM leftovers:** tremolo (the AM flag) is not played; 5.4's cleaner FM (2x mix, tables per pitch, vibrato) runs on 68040/68060 with Smooth display only, so a 68030, a BigMig or Smooth display off keep the fold-back on bright high notes.
-- **Sound coverage:** first a measured survey (every test title against openMSX), then the gaps that matter most: FM accuracy, MSX-AUDIO (Y8950), PSG/SCC details. Moonsound only as "bring your own sample ROM" on PiStorm/BigMig.
+- **Sound coverage:** first a measured survey (every test title against openMSX), then the gaps that matter most: FM accuracy, MSX-AUDIO (Y8950), PSG/SCC details. Moonsound: see below.
 
 ## Still open, not yet scheduled
 
 **Cartridges over 4 MB (backlog, z00p, 22 Nov 2026; mostly done in 5.4).** 5.3 refuses them (`MiraMSXCartSize`: at most 256 x 16 KB).
 
-Done in 5.4: ASCII 16K-X up to 16 MB (Neon Horizon plays, MSX Legends reaches its title), NEO-16 (Puzzle Mania XXXL plays), the mapper from the header signature, and the "Not enough memory for this ROM" message. Smoke test: 45 of 45 captures the same as before, normal and turbo R. Still open:
+Done in 5.4: ASCII 16K-X up to 16 MB (Neon Horizon plays, MSX Legends reaches its title; 5.5's Joystick as Mouse takes it into the game), NEO-16 (Puzzle Mania XXXL plays), the mapper from the header signature, and the "Not enough memory for this ROM" message. Smoke test: 45 of 45 captures the same as before, normal and turbo R. Still open:
 
 1. **NEO-8:** the 8 KB-bank sibling in the same specification. No test title yet.
-2. **Puzzle Mania XXXS (SCREEN 0):** pictures repeat in bands. Not the mapper: the game changes R#4 (pattern table) from line interrupts every 24 lines in TEXT mode (checked in openMSX), and AmiMSX doesn't redraw TEXT mode per line.
+2. **Puzzle Mania XXXS (SCREEN 0):** pictures repeat in bands. Not the mapper: the game changes R#4 (pattern table) from line interrupts every 24 lines in TEXT mode (checked in openMSX), and AmiMSX doesn't redraw TEXT mode per line. Dropped (z00p, 24 Nov): no other title needs per-line TEXT mode; pick it up again if one turns up.
 3. **Real hardware:** the 8 and 16 MB titles are only checked in WinUAE so far; an A1200 PiStorm check is still to do.
 4. **Not in scope for now:** Puzzle Mania XXXL's two 128 MB builds (MSX1, turbo R): 128 MB is more memory than any of our targets has free, corrupt pictures in openMSX 21 (the MSX1 build is listed for openMSX 22), and they would need loading from disk in pieces.
 
 Done when each test title matches openMSX in WinUAE, the smoke set is unchanged and the titles play on an A1200 PiStorm.
 
+**SymbOS on MSX (backlog, z00p, 25 Nov 2026; not looked at yet).** SymbOS, the multitasking desktop OS, has an MSX2 version: a good stress test once the mouse options are in. First find out what it needs (MSX2 or later, how much mapped RAM, which disk or IDE/SD interface, which screen modes) and which of that AmiMSX has; then try to boot it and compare with openMSX.
+
+**Moonsound (OPL4), PiStorm only (z00p, 24 Nov 2026; sized, not scheduled).** Sizing and measurements in `Docs/sound_fm_moonsound.md`. Neon Horizon uploads its own samples and plays no YRW801 tones, so the Yamaha ROM is optional (user-supplied, never shipped). It drives OPL3 FM (17 of 18 channels) and all 24 wave voices. Two new engines, OPL3 FM and OPL4 wave, each with a Python model and a check build, plus sample RAM (128 KB to 2 MB). Roughly 40 voices at peak, PiStorm only: measured there (24 Nov) at 6.9% of a frame at 44.1 kHz, 3.3% at 22 kHz, with true OPL3 operators, so CPU time isn't the limit. Effort: large. ROM-tone survey (24 Nov): of 9 titles that used the chip, 5 play YRW801 tones, 3 only their own samples (Neon Horizon, Dunk Shot AE, Another World), 1 only FM (Bubble Bobble AE); the ROM is optional but most titles want it. Neon Horizon's save question waits for this (z00p). Also to check then: the cigarette smoke on Neon Horizon's pre-game title screen doesn't seem to animate in AmiMSX (z00p, 24 Nov); compare openMSX with and without a Moonsound.
+
 Koei's SRAM cartridges, Nemesis 2 cyan stars, the rare black screen on the first Power ON after a cartridge change, sprite mode 2 edge cases, and the picture size of some MSX2 games on the MSX2+ machine (the game's own choice of video mode). Illusion City's menu box borders have the wrong colours (palette writes and bitplanes match openMSX; next: the Amiga colour registers).
 
-F-1 Spirit 3D Special on RTG (a tester, 18 Nov, 5.2 RC1 on the A1200 PiStorm, RTG preset): it starts now (5.1 didn't), but the race intro pictures (car at the stands, driver close-up) have a bright blue background with heavy horizontal streaks where openMSX has black (amimsx-plan/f1s3d/omsx_d2). Also on the photos: the Konami logo on a pale page with lighter bands at the top and bottom, and the title logo on dark blue with no other text; compare both with openMSX. AGA is fine. Photos: `build/AmiMSX5.2-Test-F1DiskB/john-a1200-rtg-rc1`. WinUAE RTG doesn't reproduce it (its intro matched openMSX), so the next step is a debug build that draws on-screen rows on the A1200 (the RTG frame's state), photographed by a tester.
+F-1 Spirit 3D Special on RTG (a tester, 18 Nov, 5.2 RC1 on the A1200 PiStorm, RTG preset): it starts now (5.1 didn't), but the race intro pictures (car at the stands, driver close-up) have a bright blue background with heavy horizontal streaks where openMSX has black (amimsx-plan/f1s3d/omsx_d2). Also on the photos: the Konami logo on a pale page with lighter bands at the top and bottom, and the title logo on dark blue with no other text; compare both with openMSX. AGA is fine. Photos: `build/AmiMSX5.2-Test-F1DiskB/a1200-rtg-rc1`. WinUAE RTG doesn't reproduce it (its intro matched openMSX), so the next step is a debug build that draws on-screen rows on the A1200 (the RTG frame's state), photographed by a tester.
 
 Game saves that persist (a tester, 18 Nov; Illusion City, English translation ROM v0.3, "works well" on 5.2 RC1 Turbo R AGA). Its save menu (System > save point) offers Quick Save, (FM)PAC SRAM, Game Disk 1, User Disk and Flash ROM. (a) Flash ROM: msxtranslations.com/ic.php says the ROM build saves to the ASCII16-X cartridge's flash (tested on openMSX). AmiMSX already emulates AMD flash commands (program, 64 KB sector erase) and keeps changed sectors in `<cartridge>.flash`, but only for the flash Konami SCC cartridges (4.0, Pampas & Selene); the ASCII 16K-X mapper has no flash writes yet. Next: the ASCII16-X flash chip's commands as openMSX has them, on the same `.flash` file. (b) (FM)PAC SRAM: AmiMSX's FM-PAC in Slot 1 (Sound PSG+FM) is its ROM only; the PAC's 8 KB battery SRAM (unlocked by 4Dh/69h at 5FFEh/5FFFh) isn't emulated, so nothing is kept. (c) User Disk: whether a save to a blank disk image in Drive A works today is not checked yet (it needs a turbo R run to a save point); if it does, it is the workaround for the readme.
 

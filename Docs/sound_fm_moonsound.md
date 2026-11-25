@@ -49,6 +49,33 @@ Options 2 and 3 can share the register handling (ports 7Ch/7Dh, the channel stat
   - It writes only the wave part (ports 7Eh/7Fh, about 1,760 writes each) and the PSG (about 2,350 data writes). No FM ports (C4h-C7h).
   - Without a Moonsound it plays its PSG sound.
   - 1,760 wave writes is far too few for uploading its own samples, so its music most likely uses the YRW801 sample ROM (the General MIDI style instrument set). Emulating that needs the ROM image, which isn't available here and can't be shipped. That makes Moonsound a 'bring your own ROM' feature, PiStorm/BigMig only.
+  - **Superseded (24 Nov):** with a Moonsound present it uploads its own samples and plays only from them (see the sizing below). The 11 Oct run saw no upload because the game found no Moonsound.
+
+## Moonsound sizing (24 Nov 2026)
+
+Measured in openMSX 21 (AmiMSX_MSX2_Disk_NoFM with `-ext moonsound`, a YRW801 image whose SHA-1 matches openMSX's, used locally only), Neon Horizon from a blank save, 90 s: the boot, three artist cards and the title with its music.
+
+- **Sample upload:** right after boot, 124,840 bytes of samples from 2003F0h (in two blocks, 104,753 + 20,087), written twice over (250,004 writes in all), then 27 tone headers of 12 bytes at 200000h, one for each tone it plays. All inside the MoonSound's standard 128 KB of SRAM, which starts after the 2 MB ROM (tone header register = 4); the MSXdev25 entry asks for "OPL4 128KB".
+- **No ROM samples:** every tone the game plays is numbered 384-411 (27 tones). On the OPL4, 0-383 are the YRW801's headers and 384 and up are SRAM. So this game, at least in this part, doesn't need the Yamaha ROM.
+- **Wave part:** all 24 voices used, up to 22 keyed on at once; about 140 register writes a second while the music plays.
+- **FM part:** OPL3 mode (register 105h = 3), 2-operator channels only (104h = 0), 17 of the 18 channels used, up to 17 keyed on at once, all 8 waveforms; about 250 data writes a second.
+- **Without a Moonsound** the game plays its PSG sound (11 Oct, and AmiMSX today).
+- **Other titles:** about 31 listed in `agent_notes/unsupported_games_2026-11-02.md` (Sonyc, Ghosts'n Goblins, Kaotika, Doramus, Pumpkin Adventure III, Woei, Bombaman as an option, Another World as an option, ...). Survey of the ones in the File Hunter set (24 Nov, openMSX with a Moonsound, 2 minutes each from boot: title and first menus; every wave key-on logged with its tone number): of 9 that used the chip, 5 play YRW801 tones (Avalon RPG Soundtrack, Sonyc, Piles, MSX In a Row, Lost World's intro, although Lost World also uploads about 129 KB of its own), 3 only their own SRAM samples (Neon Horizon, Dunk Shot Arcade Enhanced, Another World 2025, which also needs a V9990), and 1 the FM part only (Bubble Bobble Arcade Enhanced: about 107,000 FM writes, no wave key-ons). Not reached: Battle Bomber (stops at the MSX-DOS2 banner), Cat'n'Mouse (asks for CTRL at power-on), Pumpkin Adventure III's promo (no Moonsound use in 150 s), Doramus (a hard-disk installer). So without the maintainer's YRW801 a Moonsound would serve Neon Horizon, Dunk Shot AE and Bubble Bobble AE; most music-heavy titles want the ROM.
+
+What it would take:
+
+1. **Ports and state:** FM at C4h-C7h (two register banks; NEW2, bit 1 of bank 2 register 05h, opens the wave part), wave at 7Eh/7Fh, the two timers, and the wave memory interface (address 03h-05h, data 06h, auto-increment, memory access bit in 02h). Status: BUSY after each write and LD while a tone header loads; per the MoonSound documentation, code for the turbo R (R800) must poll BUSY, so it needs real timing there. Detection so the games find it, behind a Sound option (choice with a default of off).
+2. **Sample RAM:** at least 128 KB, up to 2 MB, plus an optional YRW801 the user supplies (tones 0-383 silent without it). Never shipped.
+3. **Wave engine:** 24 voices at 44.1 kHz, 8/12/16-bit PCM (12-bit packs two samples in three bytes), 16-step pan (3 dB steps), total level with interpolation, damp, pseudo-reverb, pitch from octave and F-number, per-voice envelope (attack, decay 1/2, release, rate correction), LFO vibrato/tremolo, panning and the tone headers (start, loop, end).
+4. **FM engine:** OPL3 is not the OPLL. Every operator's settings are registers, so FMX's tables per built-in instrument don't carry over: either tables rebuilt per channel when a game writes its operator registers (FMX's custom-instrument path, 18 times over), or true operator synthesis.
+5. **Mix:** into the existing 14-bit Mono/Stereo mix and its automatic gain, with the PSG.
+6. **Method, as for FMX and the PSG:** a Python model first (`tools/`), a check build that logs the writes and output, compared with openMSX.
+
+Ballpark cost (from FMX's own measurement, not a Moonsound one): 9 FMX table voices cost about 6% of the WinUAE 68060 config. Neon Horizon keeps up to 17 FM and 22 wave voices going, so even at FMX's quality that is roughly 40 voices, about a quarter of an 060, before the OPL3 and wave extras (per-channel tables, envelopes, LFOs, sample decoding). True operator synthesis would cost several times more. Neon Horizon is also the heaviest line-interrupt title we have. So: PiStorm (and maybe BigMig) only.
+
+**Measured on the A1200 PiStorm (24 Nov, MoonCost 1, Emu68):** a timing program with the voice loops alone (FMX HQ as in 5.4; a true OPL3 2-operator voice with feedback, log-sine, envelope, exp table, stereo; an OPL4 wave voice, 16-bit, interpolated, looped, L/R volume), OS alive, E-clock timed. Neon Horizon's peak, 17 FM + 22 wave voices: 6.9% of a PAL frame at 44.1 kHz, 3.3% at 22.05 kHz, 2.4% at 15.6 kHz with nearest samples. One voice at 44.1 kHz: OPL3 0.14%, wave 0.16% (FMX HQ today: 0.10%). So true operator synthesis is affordable on the PiStorm: CPU time is not what limits this, the work is. Not timed: envelopes and LFOs, register handling, output to Paula (at most about 28 kHz, so 22.05 kHz or a decimated 44.1) or AHI.
+
+Effort: large. Two new engines (OPL3 FM, OPL4 wave), each with its model and check build, about the size of the FMX and PSG work together.
 
 ## Option 2 prototype on the PC (11 Oct, `tools/fm_synth.py`)
 
@@ -127,4 +154,4 @@ Paula hardware voices were the other idea. They cost almost no CPU, but Paula ha
 1. Run Lilly's Saga with the FM-PAC enabled in AmiMSX (sound chip 3 through a key-script option) to confirm the game finds MSX-Music, and see what v0.1 sounds like.
 2. Measure the free CPU time per frame in Lilly's Saga on the 030 and A1200 configs (perf build), to size option 2.
 3. Option 2 on the 68k: the PC model is done (above). Next, the 68k mixer and table builder, first as a PERF build, measured. Paula plan: PSG tones stay on channels 0-2; the FM mix plays on channel 3 from a double buffer filled once a frame.
-4. Moonsound: decide whether a 'bring your own YRW801' wave-part emulation on PiStorm/BigMig is worth it. FM (MSX-Music) is used by many more games.
+4. Moonsound: sized on 24 Nov (above). Neon Horizon needs no YRW801, so the ROM is optional. Survey and PiStorm cost done (24 Nov, above). The ROM stays optional but most titles want it: tones 0-383 play silent without it.

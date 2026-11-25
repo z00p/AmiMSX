@@ -1,11 +1,11 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 5.4 (23.11.2026)
+@version $VER: AmiMSX.guide 5.5 (25.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                           AmiMSX Emulator v5.4
-                          ( 18.11.2026 - Freeware )
+                           AmiMSX Emulator v5.5
+                          ( 25.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
 
@@ -691,6 +691,30 @@ cursor keys, fire 1 presses Space and fire 2 presses M.  The joystick
 still works as the MSX joystick too, and the keyboard as before.  Saved
 with the settings, so a preset icon can have it on for such games.
 
+@{fg highlight}    <*> Joystick as Mouse:
+@{fg text}    ----------------------
+
+    For games that want an MSX mouse (MSX Legends):  the joystick or pad
+in the Amiga's joystick port becomes an MSX mouse, in the MSX port it
+feeds (A, or B with Swap Joystick Ports).  The directions move the
+pointer, one dot a frame at first for fine pointing and faster while
+held; fire 1 is the left mouse button and fire 2 the right one.  The
+game sees a mouse there, not a joystick, so turn it off for other
+games.  Saved with the settings and in a game's own settings (Save Game
+Settings), so it can be on for one game only.
+
+@{fg highlight}    <*> Mouse as MSX Mouse:
+@{fg text}    -----------------------
+
+    The Amiga mouse in port 1 becomes an MSX mouse in MSX port A, for
+games that read the mouse themselves (MSX Legends), and the joystick
+moves to MSX port B.  The left and right mouse buttons are the MSX
+mouse buttons.  With both this and Joystick as Mouse ticked, this one
+is used.  Saved with the settings and in a game's own settings.
+
+    Known issue (5.5):  with Swap Joystick Ports on, the mouse is in MSX
+port B and the pointer drifts.  Leave Swap off for mouse games.
+
 @endnode
 
 @node MenuMVD "AmiMSX Emulator."
@@ -1250,6 +1274,11 @@ joystick, exactly as before.
 disabled.
 
     Amiga mouse needs to be connected in port A of Amiga.
+
+    This mouse is for games that read it through the MSX BIOS.  For a
+game that reads the mouse port itself (MSX Legends), use Input >
+Mouse as MSX Mouse (the Amiga mouse) or Joystick as Mouse (the
+joystick moves an MSX mouse).
 
 @endnode
 

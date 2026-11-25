@@ -727,9 +727,9 @@ CodeLo:
 VAMOS:
 	JMP	ANEM
 	IFD	TURBOR			; (5.1) the turbo R build ships as "AmiMSX Turbo R"
-	DC.B	"$VER:AmiMSX Turbo R Emulator v5.4 ("
+	DC.B	"$VER:AmiMSX Turbo R Emulator v5.5 ("
 	ELSE
-	DC.B	"$VER:AmiMSX Emulator v5.4 ("
+	DC.B	"$VER:AmiMSX Emulator v5.5 ("
 	ENDC
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
@@ -9096,9 +9096,16 @@ ESLJn:
 	BTST	#6,PSG+$F(A3)
 	BNE.S	ES_PORT2B
 	MOVE.B	DATOJOY1(A3),D1
+	CMP.B	#1,PMPort		; (5.4) Joystick as Mouse: the mouse's
+	BEQ.S	ES_PM			; port shows its nibble.
 	RTS
 ES_PORT2B:
 	MOVE.B	DATOJOY2(A3),D1
+	CMP.B	#2,PMPort
+	BEQ.S	ES_PM
+	RTS
+ES_PM:	AND.B	#$F0,D1
+	OR.B	PMNib,D1
 	RTS
 
 ; -------------------------------
@@ -24214,6 +24221,23 @@ TesteaJoy:
 TesteaJoyRet:
 ; (4.0, as Juan's v3.2) The v3.1 anti-crack counter is gone: with prefs
 ; byte $7F >= $20 it overflowed and copied the JP nn handler over CALL nn.
+	CLR.W	PMPort			; (5.4) Joystick as Mouse: the mouse is in
+	TST.B	PrefAmiM		; the MSX port the joystick port feeds
+	BNE.S	TJoyAm			; (PMPort 1 or 2; PMPin = its pin 8 in
+	SF	AMInit			; R#15). A new frame: the next pin 8
+	TST.B	PrefPadM		; edge starts a read.
+	BEQ.S	TJoyPmX
+	MOVE.W	#$0110,PMPort
+	TST.B	SwapJoyD
+	BEQ.S	TJoyPmN
+	MOVE.W	#$0220,PMPort
+	BRA.S	TJoyPmN
+TJoyAm:	MOVE.W	#$0110,PMPort		; (5.5) Mouse as MSX Mouse: the mouse is
+	TST.B	SwapJoyD		; in MSX port 1, where an MSX mouse goes,
+	BEQ.S	TJoyPmN			; and the joystick in port 2 (swapped: the
+	MOVE.W	#$0220,PMPort		; other way). It wins over Joystick as Mouse.
+TJoyPmN:ST	PMNew
+TJoyPmX:
 	RTS
 
 ; CD32KEY button,row,bit: an MSX key follows a CD32 pad button. D2 = the
@@ -24236,6 +24260,12 @@ TesteaJoyRut:
 	IFND	PERFLOCAL		; (Measure builds: the joystick stays live.)
 	TST.L	KeyScrPtr		; Scripted test run: no host joystick or
 	BEQ.S	TJoyHost		; mouse (moving the mouse over WinUAE
+	IFD	AMTEST			; (5.5 test builds) keypad 8/2/4/6 move the
+	BRA	AMTKeys			; Amiga mouse, 5 is its left button: Mouse
+	ENDC				; as MSX Mouse on.
+	IFD	PMTEST			; (5.4 test builds) keypad 8/2/4/6 are the
+	BRA	PMTKeys			; pad's directions, 5 fire 1: Joystick as
+	ENDC				; Mouse on.
 	IFD	JKTEST			; (5.0 test builds) a scripted run holds
 	MOVEQ	#JKTEST,D1		; these joystick bits (1 = pressed: 0 up,
 	ST	PrefJoyK		; 1 down, 2 left, 3 right, 4/5 fire) with
@@ -24538,6 +24568,12 @@ JKOff:	MOVE.B	JKOld,D0
 	CD32KEY	4,8,0			; Fire 1 = Space.
 	CD32KEY	5,4,2			; Fire 2 = M.
 JKDone:
+	TST.B	PrefAmiM		; (5.5) Mouse as MSX Mouse wins: the pad
+	BNE.S	JMDone			; stays a joystick.
+	TST.B	PrefPadM		; (5.4) Joystick as Mouse: the directions
+	BEQ.S	JMDone			; move the mouse, fire 1 and 2 are its
+	BSR	PadMouse		; buttons.
+JMDone:
 	IFD	JKTEST
 	TST.L	KeyScrPtr
 	BEQ.S	JKTHost
@@ -24548,6 +24584,8 @@ JKTHost:
 	ENDC
 ; ----
 
+	TST.B	PrefAmiM		; (5.5) Mouse as MSX Mouse.
+	BNE	AMMouse
 	TST.B	LEEJOY2(A3)
 	BNE	ESMOUSE
 
@@ -24628,6 +24666,233 @@ NOCDB_FB:
 	MOVE.B	D1,DATOJOY1(A3)
 	ST	DATOJOY2(A3)
 	RTS
+
+; (5.5) Mouse as MSX Mouse (Input menu, PrefAmiM): the Amiga mouse in the
+; mouse port is an MSX mouse in MSX port 1 and the joystick port feeds MSX
+; port 2 (Swap Joystick Ports: the other way; PMPort). Its
+; counters' moves since the last frame go into the mouse's count, as the
+; pad's do (PMStrobe hands them to the game); left button = pin 6, right =
+; pin 7, as a joystick's triggers. The first frame only takes the counters.
+; In: D1 = the joystick port, which goes to DATOJOY2. Uses D0, D1, D2.
+	CNOP	0,4
+AMMouse:
+	NOT.B	D1
+	MOVE.B	D1,DATOJOY2(A3)
+	IFND	AMTEST
+	MOVE.W	$DFF00A,D0		; JOY0DAT: Y counter high, X low.
+	ELSE
+	MOVE.W	AMFake,D0
+	ENDC
+	MOVE.W	AMOld,D2
+	MOVE.W	D0,AMOld
+	TST.B	AMInit
+	BEQ.S	AMFirst
+	MOVE.B	D0,D1
+	SUB.B	D2,D1			; X move (8 bits, wraps).
+	EXT.W	D1
+	SUB.W	D1,PMAccX		; The count goes up to the left and up.
+	LSR.W	#8,D0
+	LSR.W	#8,D2
+	SUB.B	D2,D0			; Y move.
+	EXT.W	D0
+	SUB.W	D0,PMAccY
+	MOVE.W	PMAccX,D0
+	BSR	PMClamp
+	MOVE.W	D0,PMAccX
+	MOVE.W	PMAccY,D0
+	BSR	PMClamp
+	MOVE.W	D0,PMAccY
+	BRA.S	AMBtn
+AMFirst:ST	AMInit
+AMBtn:	MOVEQ	#0,D1
+	BTST	#6,$BFE001		; Left button.
+	BNE.S	AMnL
+	BSET	#4,D1
+AMnL:	MOVE.W	#$FF00,$DFF034
+	NOP
+	BTST	#2,$DFF016		; Right button.
+	BNE.S	AMnR
+	BSET	#5,D1
+AMnR:
+	IFD	AMTEST
+	OR.B	AMFakeB,D1
+	ENDC
+	NOT.B	D1
+	MOVE.B	D1,DATOJOY1(A3)		; The mouse's buttons.
+	RTS
+
+	IFD	AMTEST
+; (5.5 test builds) A scripted run: the keypad moves a made-up JOY0DAT (3
+; counts a frame: keypad 6 right, 4 left, 2 down, 8 up; 5 = left button),
+; Mouse as MSX Mouse on, the joystick port idle.
+AMTKeys:ST	PrefAmiM
+	SF	AMFakeB
+	MOVE.B	KEY+10(A3),D0
+	NOT.B	D0
+	BTST	#3,D0
+	BEQ.S	AMTk1
+	SUB.W	#$0300,AMFake		; 8: up.
+AMTk1:	BTST	#1,D0
+	BEQ.S	AMTk2
+	ADDQ.B	#3,AMFake+1		; 6: right.
+AMTk2:	BTST	#0,D0
+	BEQ.S	AMTk3
+	MOVE.B	#$10,AMFakeB		; 5: left button.
+AMTk3:	MOVE.B	KEY+9(A3),D0
+	NOT.B	D0
+	BTST	#5,D0
+	BEQ.S	AMTk4
+	ADD.W	#$0300,AMFake		; 2: down.
+AMTk4:	BTST	#7,D0
+	BEQ.S	AMTk5
+	SUBQ.B	#3,AMFake+1		; 4: left.
+AMTk5:	MOVEQ	#0,D1
+	BRA	AMMouse
+	CNOP	0,2
+AMFake:	DC.W	$1234
+AMFakeB:DC.B	0
+	EVEN
+	ENDC
+
+; (5.4) Joystick as Mouse (Input menu, PrefPadM): the pad's directions move
+; an MSX mouse, for games that want one (MSX Legends). One pixel a frame
+; at first, for fine pointing; held, it speeds up to 6 (PMRAMP frames).
+; In: D1 = the pad (1 = pressed: 0 up, 1 down, 2 left, 3 right, 4/5 fire).
+; Out: D1 without the directions (fire 1 and 2 are the mouse's left and
+; right buttons, pins 6 and 7 as a joystick's triggers). Uses D0, D2.
+PMRAMP=40
+	CNOP	0,4
+PadMouse:
+	MOVE.B	D1,D0
+	AND.B	#$0F,D0
+	BNE.S	PMHeld
+	CLR.W	PMHold			; Let go: slow again, no part pixel.
+	CLR.L	PMQX
+	RTS
+PMHeld:	MOVE.W	PMHold,D2
+	CMP.W	#PMRAMP,D2
+	BCC.S	PMFull
+	ADDQ.W	#1,PMHold
+PMFull:	LSR.W	#1,D2
+	ADDQ.W	#4,D2			; Quarter pixels this frame (4-24).
+	BTST	#3,D1
+	BEQ.S	PMnR
+	ADD.W	D2,PMQX			; Right.
+PMnR:	BTST	#2,D1
+	BEQ.S	PMnL
+	SUB.W	D2,PMQX			; Left.
+PMnL:	BTST	#1,D1
+	BEQ.S	PMnD
+	ADD.W	D2,PMQY			; Down.
+PMnD:	BTST	#0,D1
+	BEQ.S	PMnU
+	SUB.W	D2,PMQY			; Up.
+PMnU:	MOVE.W	PMQX,D0			; Whole pixels into the mouse's count,
+	ASR.W	#2,D0			; which goes up to the left and up (as
+	MOVE.W	D0,D2			; an MSX mouse's); the part pixel stays.
+	LSL.W	#2,D2
+	SUB.W	D2,PMQX
+	SUB.W	D0,PMAccX
+	MOVE.W	PMQY,D0
+	ASR.W	#2,D0
+	MOVE.W	D0,D2
+	LSL.W	#2,D2
+	SUB.W	D2,PMQY
+	SUB.W	D0,PMAccY
+	MOVE.W	PMAccX,D0		; At most 64 waiting (a game that doesn't
+	BSR.S	PMClamp			; read the mouse for a while).
+	MOVE.W	D0,PMAccX
+	MOVE.W	PMAccY,D0
+	BSR.S	PMClamp
+	MOVE.W	D0,PMAccY
+	AND.B	#$F0,D1
+	RTS
+PMClamp:CMP.W	#64,D0
+	BLE.S	PMClLo
+	MOVEQ	#64,D0
+PMClLo:	CMP.W	#-64,D0
+	BGE.S	PMClX
+	MOVEQ	#-64,D0
+PMClX:	RTS
+
+; The mouse's side of R#15 (SOUND15): each edge on its port's pin 8 puts
+; the next nibble on pins 1-4 (R#14 bits 0-3): X high, X low, Y high, Y
+; low, of the count since the last read (8 bits, two's complement). The
+; first edge of a read takes the count. A read starts after 4 edges, a
+; pause of PMGAP lines (the mouse's time-out) or a new frame. In: D2.b =
+; R#15. Uses D1, A4. SOUND15 BRAs here and it BRAs back (a port
+; handler: no BSR, A7 is the Restas table).
+PMGAP=8
+	CNOP	0,4
+PMStrobe:
+	MOVE.B	D2,D1
+	AND.B	PMPin,D1
+	CMP.B	PMLast,D1
+	BEQ	PMStX			; Pin 8 didn't move.
+	MOVE.B	D1,PMLast
+	MOVE.B	CurLine+1(A3),D1	; Lines since the last edge.
+	SUB.B	PMLine,D1
+	MOVE.B	CurLine+1(A3),PMLine
+	CMP.B	#PMGAP,D1
+	BCC.S	PMStL
+	TST.B	PMNew
+	BNE.S	PMStL
+	MOVE.B	PMPhase,D1
+	BEQ.S	PMStL
+	CMP.B	#4,D1
+	BCC.S	PMStL
+	ADDQ.B	#1,D1
+	BRA.S	PMStN
+PMStL:	SF	PMNew			; A new read: the count is taken.
+	MOVE.B	PMAccX+1,PMLX
+	MOVE.B	PMAccY+1,PMLY
+	CLR.L	PMAccX
+	MOVEQ	#1,D1
+PMStN:	MOVE.B	D1,PMPhase
+	LEA	PMLX,A4
+	CMP.B	#3,D1
+	BCS.S	PMStXY
+	ADDQ.L	#1,A4			; (Edges 3 and 4: Y.)
+PMStXY:	BTST	#0,D1
+	BEQ.S	PMStLo
+	MOVE.B	(A4),D1			; Edges 1 and 3: the high nibble.
+	LSR.B	#4,D1
+	BRA.S	PMStNb
+PMStLo:	MOVE.B	(A4),D1
+	AND.B	#$0F,D1
+PMStNb:	MOVE.B	D1,PMNib
+PMStX:	BRA	SND15J			; (Back to SOUND15.)
+
+	IFD	PMTEST
+; (5.4 test builds) A scripted run: the keypad is the pad (keypad 8 up,
+; 2 down, 4 left, 6 right, 5 fire 1), Joystick as Mouse on, port 2 idle.
+PMTKeys:ST	PrefPadM
+	MOVEQ	#0,D1
+	MOVE.B	KEY+10(A3),D0
+	NOT.B	D0			; (1 = pressed)
+	BTST	#3,D0
+	BEQ.S	PMTk1
+	BSET	#0,D1			; 8: up.
+PMTk1:	BTST	#1,D0
+	BEQ.S	PMTk2
+	BSET	#3,D1			; 6: right.
+PMTk2:	BTST	#0,D0
+	BEQ.S	PMTk3
+	BSET	#4,D1			; 5: fire 1.
+PMTk3:	MOVE.B	KEY+9(A3),D0
+	NOT.B	D0
+	BTST	#5,D0
+	BEQ.S	PMTk4
+	BSET	#1,D1			; 2: down.
+PMTk4:	BTST	#7,D0
+	BEQ.S	PMTk5
+	BSET	#2,D1			; 4: left.
+PMTk5:	BSR	PadMouse
+	NOT.B	D1
+	MOVE.B	D1,DATOJOY1(A3)
+	ST	DATOJOY2(A3)
+	RTS
+	ENDC
 
 ; -------------------------------
 ;	Lectura del Joystick.
@@ -27120,7 +27385,10 @@ SOUND13:
 
 SOUND14:RTS
 
-SOUND15:BTST	#6,D2
+SOUND15:TST.B	PMPort			; (5.4) Joystick as Mouse: pin 8 clocks
+	BEQ.S	SND15J			; the mouse (there and back by BRA: no
+	BRA	PMStrobe		; BSR in a port handler, A7 is the
+SND15J:	BTST	#6,D2			; Restas table).
 	BNE.S	ES_PORT2
 	MOVE.B	DATOJOY1(A3),PSG+$E(A3)
 	RTS
@@ -29122,6 +29390,28 @@ TabRasREST1:	DS.L	260	--------------
 ;	 -----------------
 ;	- Datos y rutinas -
 ;	 -----------------
+
+	CNOP	0,8
+PMPort:		DC.B	0		; (5.4) Joystick as Mouse: the MSX port
+PMPin:		DC.B	0		; with the mouse (0 none, 1, 2); its pin 8
+					; in R#15 ($10, $20). (A word: PMPort.)
+PMLast:		DC.B	0		; Pin 8 at the last R#15 write.
+PMLine:		DC.B	0		; Line of the last edge.
+PMNew:		DC.B	0		; A frame since then: the next edge reads.
+PMPhase:	DC.B	0		; Edges in this read (1-4; 0 none yet).
+PMNib:		DC.B	0		; What pins 1-4 show now.
+PMLX:		DC.B	0		; The count taken for this read: X, Y
+PMLY:		DC.B	0		; (PMLY follows PMLX).
+		DC.B	0
+AMOld:		DC.W	0		; (5.5) Mouse as MSX Mouse: JOY0DAT last frame,
+AMInit:		DC.B	0		; and FFh once it has been read.
+		DC.B	0
+PMHold:		DC.W	0		; Frames the pad has been held.
+PMQX:		DC.W	0		; Quarter pixels left over: X, Y (one
+PMQY:		DC.W	0		; CLR.L).
+PMAccX:		DC.W	0		; The mouse's count since the last read:
+PMAccY:		DC.W	0		; X, Y (left and up count up; one CLR.L).
+		DC.W	0
 
 	CNOP	0,8
 CEROS:	DS.L	20

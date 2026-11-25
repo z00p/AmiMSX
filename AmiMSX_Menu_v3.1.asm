@@ -2998,7 +2998,9 @@ InsSl1NoGP:
 ; (PrefMask: 0, 8 or 16 dots since 4.2; FFh in older files = 8), audio
 ; filter, a byte that was 4.0-4.1's auto mask (written 0 and ignored since
 ; 4.2) and (4.1.1, bytes 12-13) the CD32 pad setting of each joystick port,
-; and (4.4, byte 14) the machine (DirPrefs+$10; byte 15 is FFh). Inserting a cartridge applies its
+; and (4.4, byte 14) the machine (DirPrefs+$10), and (5.4, byte 15) Joystick
+; as Mouse (bit 0) and (5.5) Mouse as MSX Mouse (bit 1), 1 on, 0 off (4.4-5.3
+; wrote FFh: both off). Inserting a cartridge applies its
 ; file (GUI included, as GO copies the GUI over DirPrefs); a cartridge
 ; without one brings the global settings back, with the SCC sound chip
 ; for a Konami SCC cartridge and (4.4) the ROM database's machine for an
@@ -3021,9 +3023,24 @@ GPFromPrefs:
 	MOVE.B	PrefCD32,12(A1)		; (4.1.1; 0 in older files: Standard)
 	MOVE.B	PrefCD32M,13(A1)
 	MOVE.B	DirPrefs+$10,14(A1)	; (4.4) the machine
-	ST	15(A1)
-	RTS
+	CLR.B	15(A1)			; (5.4) Joystick as Mouse: bit 0, (5.5)
+	TST.B	PrefPadM		; Mouse as MSX Mouse: bit 1
+	BEQ.S	GPFrP1
+	BSET	#0,15(A1)
+GPFrP1:	TST.B	PrefAmiM
+	BEQ.S	GPFrP2
+	BSET	#1,15(A1)
+GPFrP2:	RTS
 GPToPrefs:
+	SF	PrefPadM		; (5.4/5.5) byte 15: Joystick as Mouse (bit
+	SF	PrefAmiM		; 0), Mouse as MSX Mouse (bit 1); FFh: an
+	CMP.B	#$FF,15(A1)		; older file, both off.
+	BEQ.S	GPTo15
+	BTST	#0,15(A1)
+	SNE	PrefPadM
+	BTST	#1,15(A1)
+	SNE	PrefAmiM
+GPTo15:
 	MOVE.B	5(A1),DirPrefs+$1D
 	MOVE.W	6(A1),DirPrefs+$16
 	MOVE.B	8(A1),DirPrefs+$6C
@@ -3056,6 +3073,12 @@ GPGUIToPrefs:
 	MOVE.L	#MN_Pad1CD32,D0		; JoyPort 1 pad.
 	BSR	COGECHECK
 	SNE	PrefCD32M
+	MOVE.L	#MN_JoyMouse,D0		; (5.4) Joystick as Mouse.
+	BSR	COGECHECK
+	SNE	PrefPadM
+	MOVE.L	#MN_AmiMouse,D0		; (5.5) Mouse as MSX Mouse.
+	BSR	COGECHECK
+	SNE	PrefAmiM
 	IFND	NO_CD32KIT
 	BRA	PadKLFromGUI		; (kit 2) and KTRL CD32+
 	ELSE
@@ -3089,6 +3112,20 @@ GPShowGUI:
 	BEQ.S	GPShow4
 	BSET	#0,$C(A0)
 GPShow4:
+	MOVE.L	#MN_JoyMouse,D0		; (5.4) Joystick as Mouse.
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	PrefPadM
+	BEQ.S	GPShow5
+	BSET	#0,$C(A0)
+GPShow5:
+	MOVE.L	#MN_AmiMouse,D0		; (5.5) Mouse as MSX Mouse.
+	BSR	COGECHECK
+	BCLR	#0,$C(A0)
+	TST.B	PrefAmiM
+	BEQ.S	GPShow6
+	BSET	#0,$C(A0)
+GPShow6:
 	MOVEM.L	D2/D3,-(SP)
 	MOVE.L	#MN_Pad2Std,D2		; JoyPort 2 pad (4.1.1): one of its
 	MOVE.B	PrefCD32,D3		; two sub-items ticked.
@@ -7066,6 +7103,12 @@ PONPREFS:
 
 	MOVE.B	PrefJoyK,D0
 	BFINS	D0,MSX2NewMenu23j+10{7:1}	; (5.0) Joystick as Cursor Keys
+
+	MOVE.B	PrefPadM,D0
+	BFINS	D0,MSX2NewMenu23m+10{7:1}	; (5.4) Joystick as Mouse
+
+	MOVE.B	PrefAmiM,D0
+	BFINS	D0,MSX2NewMenu23a+10{7:1}	; (5.5) Mouse as MSX Mouse
 ; -=-
 	MOVE.B	$7A(A5),D0
 	BFINS	D0,MSX2NewMenu25+10{7:1}	; Use Japanese ID
@@ -7311,6 +7354,14 @@ ACTUPREFS:
 	MOVE.L	#MN_JoyKeys,D0		; (5.0) Joystick as Cursor Keys
 	BSR	COGECHECK
 	SNE	PrefJoyK
+
+	MOVE.L	#MN_JoyMouse,D0		; (5.4) Joystick as Mouse
+	BSR	COGECHECK
+	SNE	PrefPadM
+
+	MOVE.L	#MN_AmiMouse,D0		; (5.5) Mouse as MSX Mouse
+	BSR	COGECHECK
+	SNE	PrefAmiM
 ; -=-
 	MOVE.L	#MN_JapID,D0
 	BSR	COGECHECK
@@ -7518,6 +7569,14 @@ PrefJoyK:	DC.B	0		; (5.0) Joystick as Cursor Keys: FFh = the
 					; joystick port presses the MSX cursor
 					; keys, fire 1 Space, fire 2 M (an older
 					; file is shorter: 0, off).
+PrefPadM:	DC.B	0		; (5.4) Joystick as Mouse: FFh = the
+					; joystick port's directions move an MSX
+					; mouse in that MSX port (an older file is
+					; shorter: 0, off).
+PrefAmiM:	DC.B	0		; (5.5) Mouse as MSX Mouse: FFh = the
+					; Amiga mouse in the mouse port is an MSX
+					; mouse in the MSX port it feeds (older
+					; file: 0, off).
 FINPREFS:
 BUCPREFS=FINPREFS-DIRPREFS
 
@@ -8366,6 +8425,8 @@ MM_Input:
 	MJ	MM_Input,MN_LShift,CONTROLRET
 	MJ	MM_Input,MN_RShift,CONTROLRET
 	MJ	MM_Input,MN_JoyKeys,CONTROLRET	; (5.0)
+	MJ	MM_Input,MN_JoyMouse,CONTROLRET	; (5.4)
+	MJ	MM_Input,MN_AmiMouse,CONTROLRET	; (5.5)
 	MJEND	MM_Input,NI_Input
 
 MM_Disks:
@@ -8650,7 +8711,7 @@ OUTOFMEM:
 	MOVE.L	#$8008000F,D0
 	MOVEQ	#0,D1
 	MOVE.B	DIRPrefs+$1C,D1
-	BSR	CanviTAGS
+	JSR	CanviTAGS		; (5.5: out of BSR range in the turbo R build)
 ; ---
 	BSR	ENAMOUSE
 

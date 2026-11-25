@@ -154,6 +154,8 @@ MJEND	MACRO
 	MITEM	MN_LShift		; Left Shift as Space
 	MITEM	MN_RShift		; Right Shift as Space
 	MITEM	MN_JoyKeys		; Joystick as Cursor Keys (5.0)
+	MITEM	MN_JoyMouse		; Joystick as Mouse (5.4)
+	MITEM	MN_AmiMouse		; Mouse as MSX Mouse (5.5)
 	MICOUNT	NI_Input
 
 	MTITLE	MT_Disks		; Disks

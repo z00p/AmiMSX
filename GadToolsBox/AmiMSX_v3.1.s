@@ -1652,7 +1652,7 @@ MSX2SC:
     DC.L    $00000000
 
 MSX2WTitle:
-    DC.B    'AmiMSX Emulator v5.4 (Pro) '
+    DC.B    'AmiMSX Emulator v5.5 (Pro) '
     INCLUDE 'buildid.i'                ; (4.0) build reference (build.sh)
     DC.B    0
     CNOP    0,2
@@ -3146,10 +3146,10 @@ UnProtectIText0:
 
     CNOP    0,2
 AboutIText0:
-    DC.B    'AmiMSX Emulator v5.4',0
+    DC.B    'AmiMSX Emulator v5.5',0
 
 AboutIText1:
-    DC.B    '(November 23rd, 2026)',0
+    DC.B    '(November 25th, 2026)',0
 
 AboutIText2:
     DC.B    'Full Program & Emulation Systems:',0
@@ -3652,6 +3652,22 @@ MSX2NewMenu23:
 MSX2NewMenu23j:
     DC.B    2,0
     DC.L    MSX2MName23j
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_JoyMouse		; (5.4)
+MSX2NewMenu23m:
+    DC.B    2,0
+    DC.L    MSX2MName23m
+    DC.L    0
+    DC.W    $0009
+    DC.L    0,0
+
+	MDI	MN_AmiMouse		; (5.5)
+MSX2NewMenu23a:
+    DC.B    2,0
+    DC.L    MSX2MName23a
     DC.L    0
     DC.W    $0009
     DC.L    0,0
@@ -4408,6 +4424,12 @@ MSX2MName23:
 
 MSX2MName23j:
     DC.B    'Joystick as Cursor Keys',0
+
+MSX2MName23m:
+    DC.B    'Joystick as Mouse',0
+
+MSX2MName23a:
+    DC.B    'Mouse as MSX Mouse',0
 
 MSX2MName25:
     DC.B    'Japanese Machine (60 Hz)',0

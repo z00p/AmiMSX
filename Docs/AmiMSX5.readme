@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.4
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.5
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     z00p (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      5.4
+Version:      5.5
 Replaces:     misc/emu/AmiMSX5.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -181,6 +181,17 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 5.5
+----------
+- Input > Joystick as Mouse: the joystick or pad becomes an MSX mouse,
+  for games that want one (MSX Legends). The directions move the
+  pointer, slowly at first and faster while held; fire 1 and 2 are the
+  mouse buttons. It can be saved in a game's own settings.
+- Input > Mouse as MSX Mouse: the Amiga mouse in port 1 becomes an MSX
+  mouse in MSX port A, and the joystick moves to MSX port B. Both mouse
+  buttons work. It takes over from Joystick as Mouse when both are on,
+  and it can be saved in a game's own settings.
 
 New in 5.4
 ----------
@@ -553,8 +564,9 @@ Known limits
   start can stop on a character picture instead of the title (openMSX
   without a MoonSound does the same). Delete Neon Horizon.rom.flash to
   start it again.
-- MSX Legends reaches its title only: it needs an MSX mouse, which
-  AmiMSX doesn't emulate yet.
+- An MSX mouse in MSX port B (Joystick as Mouse or Mouse as MSX Mouse
+  with Swap Joystick Ports on) drifts and doesn't follow the moves.
+  Leave Swap off for mouse games.
 - Sound Mix Classic (the default on a 68030): digitised sound played
   through the PSG's volumes is silent. Mono plays it.
 - MSX-Music (FM): 5.4's cleaner FM needs a 68040 or 68060 (PiStorm)

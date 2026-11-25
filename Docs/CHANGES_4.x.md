@@ -4,6 +4,14 @@ AmiMSX 4.x and 5.x are a community update of AmiMSX by Juan Antonio Gómez Gálv
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 5.5 (25 Nov 2026)
+
+- **Joystick as Mouse** (Input menu): the joystick port's joystick or pad becomes an MSX mouse in the MSX port it feeds (A, or B with Swap Joystick Ports), for games that read the mouse themselves (MSX Legends: R#15 pin 8 clocked four times a read, nibbles X high, X low, Y high, Y low, then the value negated; it reads none of the BIOS mouse calls, so the old GTPAD mouse can't reach it). Each edge on the port's pin 8 gives the next nibble of the count since the last read (8 bits, left and up count up, as an MSX mouse); a read starts after four edges, a pause of 8 lines or a new frame, and the first edge takes the count. The directions move it one dot a frame at first and up to 6 while held (40 frames), in quarter dots; fire 1 and 2 are the left and right buttons. At most 64 dots wait for a game that doesn't read it. Saved with the settings (a new byte at the end of the settings file; older files leave it off) and in a game's own settings (byte 15: 1 on; the FFh that 4.4-5.3 wrote there reads as off). MSX Legends now goes past its title screen to the game.
+
+- **Mouse as MSX Mouse** (Input menu): the Amiga mouse in port 1 (JOY0DAT) becomes an MSX mouse in MSX port A, through the same pin 8 nibble reads as Joystick as Mouse; the joystick moves to MSX port B (Swap Joystick Ports turns both round). The counter changes since the last frame are added up (8-bit, so fast moves don't wrap), with left and up counting up; the left and right mouse buttons are the MSX mouse buttons. It takes over from Joystick as Mouse when both are ticked. Saved with the settings (a new byte after Joystick as Mouse) and in a game's own settings (byte 15 bit 1). Checked in WinUAE (MSX Legends: still at rest, moves, New Game opens the scenario screen); not yet tried on a real Amiga.
+
+- **Known issue:** a mouse in MSX port B (either option with Swap Joystick Ports) drifts down and right and doesn't follow the moves. MSX port A is fine.
+
 ## 5.4 (23 Nov 2026)
 
 - **Sound Mix with Sound chip PSG.** Mono and Stereo now also play Sound PSG (they were for PSG+FM only): the FMX engine runs for the mix alone, without FM voices, and the menu item is now just "Sound Mix". With the default (Mono on a fast CPU) PSG games on PiStorm and BigMig get the software PSG, as PSG+FM games already did. A channel whose tone and noise are off gives its volume as a level, as on the YM2149, so digitised sound through the volume registers is heard: Puzzle Mania XXXL's music (registers 8-10 written about 8,000 times a second, 0 OPLL writes) was silent on Sound PSG, because Classic sets the Paula volume to 0 when a channel's tone is off. On the turbo R the PCM is mixed in too, as with PSG+FM. Classic is unchanged and still drops it.
