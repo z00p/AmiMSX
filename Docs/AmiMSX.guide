@@ -1,10 +1,10 @@
 @database AmiMSX Emulator.
-@version $VER: AmiMSX.guide 5.5 (25.11.2026)
+@version $VER: AmiMSX.guide 5.6 (27.11.2026)
 @font topaz.font 8
 
 @node MAIN "AmiMSX Emulator."
                         <=------------------------=>
-                           AmiMSX Emulator v5.5
+                           AmiMSX Emulator v5.6
                           ( 25.11.2026 - Freeware )
                         <=------------------------=>
                             for AMIGA computers.
@@ -930,6 +930,11 @@ it or quit:  there's no Save for drive B yet.
     - DOS2:  Disk ROM v2.0  (recommended for tools)
 
     - None:  no Disk ROM.  (Slot 2 is then free for a cartridge.)
+
+    With DOS or DOS2 in Slot 2, the disk controller behind the ROM (a
+Philips-style WD2793) is there too, for programs that drive it directly
+instead of calling the ROM:  SymbOS 4.0 installs and runs this way.  Not
+on the turbo R machine.
 
 @{fg highlight}    Slots Options:
 @{fg text}    --------------

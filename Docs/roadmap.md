@@ -2,6 +2,10 @@
 
 What is planned after 4.9. Plans, not promises: the order can change, and this file is updated with each release. Details of each problem are in `open_issues.md`; finished work moves to `CHANGES_4.x.md`.
 
+## Shipped in 5.6
+
+The WD2793 floppy controller behind the MSX Disk ROM (Philips-style, Slot 2): SymbOS 4.0 installs and runs. RTG fixes for CPU-fed VDP pictures, and a second blitter busy read for the PiStorm. See `CHANGES_4.x.md`.
+
 ## Shipped in 5.5
 
 Joystick as Mouse and Mouse as MSX Mouse: an MSX mouse moved by the pad or by the Amiga mouse in port 1, for games that read the mouse themselves (MSX Legends). Open: a mouse in MSX port B drifts. See `CHANGES_4.x.md`.

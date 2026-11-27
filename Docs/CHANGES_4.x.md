@@ -4,6 +4,18 @@ AmiMSX 4.x and 5.x are a community update of AmiMSX by Juan Antonio Gómez Gálv
 
 Please report problems as issues at https://github.com/z00p/AmiMSX/issues.
 
+## 5.6 (27 Nov 2026)
+
+- **WD2793 floppy controller** (Philips-style, Slot 2): with the MSX Disk ROM in Slot 2 on the MSX, MSX2 or MSX2+ machine, the controller's registers at 7FF8h-7FFFh (status/command, track, sector, data, side/drive/motor at 7FFCh-7FFDh, IRQ/DRQ at 7FFFh) answer as the chip does: type I to IV commands, head position and index timing, read and write sector, read address, multi-sector, record not found, the side compare flag, lost data, force interrupt, and drive B on its own image. The ROM's own start-up now waits for the real head steps and restore, as on a Philips machine. Disk games still load through the ROM's trapped DSKIO. SymbOS 4.0 installs (SYMSETUP finds "Philips/Sony (WD2793) [Slot 2]") and runs, checked on a PiStorm A1200 (desktop, mouse, Control Panel, Task Manager). Not on the turbo R machine. Test program: FDCTEST.COM (25 records, checked against openMSX, where openMSX is right).
+
+- **RTG: HMMC/LMMC across a frame end.** On RTG, SCREEN 5/7 VDP commands draw in the AGA planes and the marked bands go back to VRAM at the frame end. A CPU transfer still running then kept drawing in the planes with its bands no longer marked, so those bytes never reached the RTG picture (SymbOS icons missing or half drawn on RTG). Its bands now stay marked until it ends.
+
+- **Blitter waits read BBUSY twice** before polling it (the VDP command blits and the double buffer). On a PiStorm one dummy read was not always enough: the next plane's blit was set up over one still running, and a SCREEN 7 fill lost a bit-plane below its first two lines (SymbOS desktop colour 7 read back as 3: red instead of blue on RTG). WinUAE marks the blitter busy at once, so it never showed there.
+
+- **RTG blended scanlines round down**, the same as the other emulators in the set (Arnold's RTG).
+
+- Test hook D2=<a>[|<b>] (Lupa/command line): after the first run's Help, load these disks and power on again with the same key script.
+
 ## 5.5 (25 Nov 2026)
 
 - **Joystick as Mouse** (Input menu): the joystick port's joystick or pad becomes an MSX mouse in the MSX port it feeds (A, or B with Swap Joystick Ports), for games that read the mouse themselves (MSX Legends: R#15 pin 8 clocked four times a read, nibbles X high, X low, Y high, Y low, then the value negated; it reads none of the BIOS mouse calls, so the old GTPAD mouse can't reach it). Each edge on the port's pin 8 gives the next nibble of the count since the last read (8 bits, left and up count up, as an MSX mouse); a read starts after four edges, a pause of 8 lines or a new frame, and the first edge takes the count. The directions move it one dot a frame at first and up to 6 while held (40 frames), in quarter dots; fire 1 and 2 are the left and right buttons. At most 64 dots wait for a game that doesn't read it. Saved with the settings (a new byte at the end of the settings file; older files leave it off) and in a game's own settings (byte 15: 1 on; the FFh that 4.4-5.3 wrote there reads as off). MSX Legends now goes past its title screen to the game.

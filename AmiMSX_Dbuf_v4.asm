@@ -312,6 +312,9 @@ DbCaBl:	MOVE.W	D1,D3			; ...rows D2..D1-1.
 	ADD.L	D2,A1
 	BTST	#$E,(A6)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	#$E,(A6)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
 DbCaW1:	BTST	#$E,(A6)
 	BNE.S	DbCaW1
 	MOVE.L	A0,$50-2(A6)		; BLTAPT

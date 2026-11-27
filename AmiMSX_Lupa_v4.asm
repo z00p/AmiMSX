@@ -109,7 +109,7 @@ LupaArgs:
 	MOVE.W	.vt(PC,D0.W),D0
 	JMP	.vt(PC,D0.W)
 .vt:	DC.W	.prof-.vt,.prefs-.vt,.prefs-.vt,.next2-.vt
-	DC.W	.b-.vt,.r2-.vt,.s2-.vt
+	DC.W	.b-.vt,.r2-.vt,.s2-.vt,.d2-.vt
 .prof:	BSR	LupaProfWord
 .next2:	BRA	.next
 .prefs:	LEA	NomPrefs,A0
@@ -122,6 +122,8 @@ LupaArgs:
 .r2:	LEA	ROM2NOM,A0
 	BRA.S	.c255
 .s2:	LEA	ROMS2NOM,A0
+	BRA.S	.c255
+.d2:	LEA	DSK2NOM,A0		; (5.6, test) D2=<a>[|<b>]: Disk2Next.
 .c255:	MOVE.W	#256-2,D1
 	BSR	LupaCopy
 	BRA	.next
@@ -620,7 +622,7 @@ LupaLineMax=512
 LK_VAL=4				; LupaKeys from here on take a value.
 LupaKeys:	DC.B	"AGA",0,"RTG",0,"ONEGAME",0,"MENU",0
 		DC.B	"PROFILE",0,"PREFS",0,"P",0,"RTGMODE",0
-		DC.B	"B",0,"R2",0,"S2",0,0
+		DC.B	"B",0,"R2",0,"S2",0,"D2",0,0
 LupaKAga:	DC.B	"AGA",0
 LupaKOne:	DC.B	"ONEGAME",0
 LupaKMenu:	DC.B	"MENU",0

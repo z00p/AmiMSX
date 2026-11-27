@@ -727,9 +727,9 @@ CodeLo:
 VAMOS:
 	JMP	ANEM
 	IFD	TURBOR			; (5.1) the turbo R build ships as "AmiMSX Turbo R"
-	DC.B	"$VER:AmiMSX Turbo R Emulator v5.5 ("
+	DC.B	"$VER:AmiMSX Turbo R Emulator v5.6 ("
 	ELSE
-	DC.B	"$VER:AmiMSX Emulator v5.5 ("
+	DC.B	"$VER:AmiMSX Emulator v5.6 ("
 	ENDC
 	INCLUDE	"buildid.i"		; (4.0) build date and commit (build.sh)
 	DC.B	")",0,0
@@ -1024,6 +1024,19 @@ VDTST:	MACRO			; Z = no image in the drive
 \@B:	TST.L	DIRVD1
 \@E:
 	ENDM
+; (5.6) FDCHOOK (end of OUTA8): FdcA8 (AmiMSX_Fdc_v5.asm) swaps the WD2793
+; read hooks in INSTR while the controller is on and slot 2 shows in page 1,
+; and puts the plain handlers back otherwise. Keeps D0-D2/A4 (the callers
+; use D1).
+FDCHOOK:	MACRO
+	TST.B	FdcOn
+	BNE.S	\@a
+	TST.B	FdcHook			; off: put back hooks still in place
+	BEQ.S	FdcA8R
+\@a:	JMP	FdcA8
+FdcA8R:
+	ENDM
+
 ; -------------------------------<=
 
 
@@ -3650,6 +3663,9 @@ MaskOkS2:
 	ENDC
 	IFND	NO_PACSRAM
 	JSR	PacSlot			; (5.3) the FM-PAC slot's page 1 and writes.
+	ENDC
+	IFND	NOFDC
+	JSR	FdcSetup			; (5.6) the WD2793 in slot 2
 	ENDC
 ; ---------------------------------------<=
 
@@ -9568,6 +9584,9 @@ OUTA8:
 
 	MOVE.W	D0,D1
 	CogePagE D1,A6
+	IFND	NOFDC
+	FDCHOOK				; (5.6) WD2793 read hooks
+	ENDC
 
 	SIINT
 	RTS
@@ -18137,6 +18156,9 @@ COPIABUCZ:
 	LEA	(A5,D2.W*8),A3
 	BTST	D7,(A6)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	D7,(A6)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
 ESPBLTP2Z:
 	BTST	D7,(A6)
 	BNE.S	ESPBLTP2Z
@@ -18156,6 +18178,9 @@ NOCOPIA22Z:
 	ADDQ	#2,A4
 	BTST	D7,(A6)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	D7,(A6)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
 ESPBLTP2BZ:
 	BTST	D7,(A6)
 	BNE.S	ESPBLTP2BZ
@@ -18873,6 +18898,9 @@ COPIABUC:
 	LEA	(A5,D2.W*8),A3
 	BTST	#$E,(A6)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	#$E,(A6)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
 ESPBLTP2:
 	BTST	#$E,(A6)
 	BNE.S	ESPBLTP2
@@ -18893,6 +18921,9 @@ NOCOPIA22:
 	ADDQ	#2,A4
 	BTST	#$E,(A6)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	#$E,(A6)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
 ESPBLTP2B:
 	BTST	#$E,(A6)
 	BNE.S	ESPBLTP2B
@@ -18985,6 +19016,9 @@ COPIABUCBZ:
 	LEA	(A5,D2.W*8),A3
 	BTST	D7,(A6)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	D7,(A6)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
 ESPBLTPBZ:
 	BTST	D7,(A6)
 	BNE.S	ESPBLTPBZ
@@ -20312,6 +20346,13 @@ MI0NoLive:
 	ENDC
 	ADDQ.B	#1,RFrame		; (LD A,R)
 	ADDQ.W	#1,CmdFrN		; (4.3) CE busy time (CETime).
+	IFND	NOFDC
+	MOVE.L	#VPeriodPAL*HPeriod,D1	; (5.6) the WD2793 clock: a frame on
+	BTST	#1,DVDP9(A3)
+	BNE.S	FdcFrPal
+	MOVE.L	#VPeriodNTSC*HPeriod,D1
+FdcFrPal:	ADD.L	D1,FdcClk
+	ENDC
 	IFD	TURBOR
 	MOVE.L	#VPeriodPAL*HPeriod,D1	; (turbo R) the E6h timer: a frame
 	BTST	#1,DVDP9(A3)		; on (Z80 cycles, mod 14 x 65536).
@@ -21769,6 +21810,25 @@ BLTSZ:	MACRO
 \@x:
 	ENDM
 
+; (5.6 debug, -DBLTRACE) After a plane blit's dummy BBUSY read: count the
+; blits (BlN), those the next read already shows idle (BlI), and those of
+; 8 rows or more (BlIBig: a blit that size can't be done yet, so BBUSY came
+; late, the PiStorm race), with the last such size (BlLast). \1 = the size
+; as BLTSZ takes it. No stack (A7 is the Restas table); flags not kept.
+BLTCHK:	MACRO
+	IFD	BLTRACE
+	ADDQ.L	#1,BlN
+	BTST	#$E,(A2)
+	BNE.S	\@x
+	ADDQ.L	#1,BlI
+	CMP.L	#8<<6,\1
+	BCS.S	\@x
+	ADDQ.L	#1,BlIBig
+	MOVE.L	\1,BlLast
+\@x:
+	ENDC
+	ENDM
+
 	CNOP	0,8
 STOP:
 	MOVEM.L	BUFER(A3),D0-D7/A0-A6
@@ -22842,6 +22902,10 @@ TIMPOR:
 	ADD.L	$16(A4),A6
 	BTST	#$E,(A2)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	#$E,(A2)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
+	BLTCHK	D4
 TIMPB:
 	BTST	#$E,(A2)
 	BNE.S	TIMPB
@@ -22924,6 +22988,10 @@ V2EBUCLE:
 	ADD.L	$16(A4),A1		; Suma Size de 1 plano
 	BTST	#$E,(A2)		; (4.0) a dummy read: BBUSY may show a
 				; cycle after BLTSIZE (fast CPUs)
+	BTST	#$E,(A2)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
+	BLTCHK	D4
 ESPBLTMQB:BTST	#$E,(A2)
 	BNE.S	ESPBLTMQB
 
@@ -23371,6 +23439,10 @@ HVPLp:	MOVE.W	(A6)+,$72-2(A2)	; B DAT: this plane's dots.
 	ADD.L	$16(A4),A0
 	ADD.L	$16(A4),A1
 	BTST	#$E,(A2)		; (a dummy read, as in COPIA)
+	BTST	#$E,(A2)		; (5.6) and a second: one was not
+				; enough on the PiStorm (SymbOS desktop
+				; fill lost a plane, RTG)
+	BLTCHK	D4
 HVPB:	BTST	#$E,(A2)
 	BNE.S	HVPB
 	DBF	D0,HVPLp
@@ -28510,6 +28582,9 @@ Mode5ModX:
 	INCLUDE	"AmiMSX_Neo_v5.asm"	; (5.4) NEO-16 cartridges.
 	IFND	NO_PACSRAM
 	INCLUDE	"AmiMSX_Pac_v5.asm"	; (5.3) The FM-PAC's SRAM.
+	ENDC
+	IFND	NOFDC
+	INCLUDE	"AmiMSX_Fdc_v5.asm"	; (5.6) WD2793 floppy controller.
 	ENDC
 
 ; ----------------------------------<=

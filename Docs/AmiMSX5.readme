@@ -1,8 +1,8 @@
-Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.5
+Short:        MSX/MSX2/MSX2+/turbo R emulator, 5.6
 Author:       Juan Antonio Gomez Galvez (GUS Entertainment / RED Soft)
 Uploader:     z00p (JCEC_1@yahoo.co.uk)
 Type:         misc/emu
-Version:      5.5
+Version:      5.6
 Replaces:     misc/emu/AmiMSX5.lha
 Architecture: m68k-amigaos >= 3.0.0
 Requires:     68030 or better, AGA
@@ -181,6 +181,21 @@ What's new
 - Cleaner exits when a screen, window or device can't be opened.
 
 See Docs/CHANGES_4.x.txt for the full list.
+
+New in 5.6
+----------
+- The disk controller: with the MSX Disk ROM in Slot 2, its WD2793
+  floppy controller (Philips-style) is emulated too, for programs that
+  drive it directly instead of calling the ROM. SymbOS 4.0 for MSX
+  installs and runs from disk images (MSX2 and MSX2+, not the turbo R
+  machine). Disk games load as before.
+- RTG: pictures the MSX sends to the VDP a byte at a time (HMMC/LMMC)
+  could be left out of the RTG screen when a frame ended during the
+  copy (SymbOS icons missing or half drawn).
+- PiStorm: the blitter waits read the blitter's busy flag twice. One
+  read wasn't always enough on a PiStorm, and a fill could lose one of
+  its bit-planes (SymbOS desktop red instead of blue on RTG).
+- RTG blended scanlines round down, the same as the other emulators.
 
 New in 5.5
 ----------

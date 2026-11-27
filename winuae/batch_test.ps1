@@ -139,7 +139,7 @@ foreach ($rom in $Roms) {
     if ($SnapRepeat -gt 1) { $one = $snaps; $snaps = @($one); for ($r = 2; $r -le $SnapRepeat; $r++) { $snaps += @($one | ForEach-Object { "${_}_r$r" }) } }
   }
   if ($DiskB) { $keyArg += " B=AmiMSX:Disks/$DiskB" }   # -DiskB x.dsk: drive B's image (disk games)
-  if ($ExtraArg) { $keyArg += " `"$ExtraArg`"" }
+  if ($ExtraArg) { $keyArg += $(if ($ExtraArg -match '\s') { " `"$ExtraArg`"" } else { " $ExtraArg" }) }   # quoted only with a space: a quoted RTG/AGA is a file name to Lupa (drive B!)
   $pre = if ($NoRun) { "; " } else { "" }
   $s = [regex]::Replace($s, '(?m)^(; )?Run >NIL: AmiMSX:AmiMSX.*$', "${pre}Run >NIL: AmiMSX:AmiMSX `"AmiMSX:$dir/$rom`"$keyArg")
   [IO.File]::WriteAllText($seq, $s, $latin1)

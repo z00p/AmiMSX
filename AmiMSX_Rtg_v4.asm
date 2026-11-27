@@ -625,8 +625,9 @@ RtgMkTab:
 	LEA	RtgCol,A2
 	BRA.S	RtgMT0
 ; (blended scanlines) The same at A1 with each channel's value v made
-; h(v) = (v x (100 - RtgScan) + 100) / 200, in the screen's own channel bits:
-; two of them add with no carry out of a channel (h <= max x 75 / 200 + 1). In
+; h(v) = v x (100 - RtgScan) / 200, rounded down (5.6: as Arnold's rtgfw, the
+; same in every emulator), in the screen's own channel bits: two of them add
+; with no carry out of a channel (h <= max x 75 / 200). In
 ; the big-endian order for every format (RtgBRow swaps the PC ones' bytes).
 RtgMkTabH:
 	MOVEM.L	D0-D7/A0-A2,-(SP)
@@ -656,7 +657,6 @@ RtgMTN:	MOVEQ	#0,D0
 	MOVEQ	#100,D1
 	SUB.B	RtgScan,D1
 	MULU.W	D1,D0
-	ADD.L	#100,D0
 	DIVU.W	#200,D0
 	AND.L	#$FFFF,D0
 RtgMTV:	LSL.L	D3,D0
@@ -879,6 +879,35 @@ RtgMOY:	ORI.B	#4,CCR			; EQ
 	RTS
 RtgMON:	ANDI.B	#$FB,CCR		; NE
 	RTS
+
+; (5.6) After the frame's flush: an HMMC/LMMC still taking bytes (into the
+; planes) draws on in its bands next frame, so they stay marked (P5CmdM, the
+; command's bands) for the next flush. Before, the marks went with this
+; flush and the later bytes never reached VRAM, so RTG showed what VRAM held
+; before (SymbOS's SCREEN 7 desktop icons on MSX2: missing or half drawn;
+; AGA shows the planes, so it was right there). D0 free.
+RtgCKeep:
+	BTST	#0,REGS+DVDPS2		; a command running,
+	BEQ.S	RtgCKX
+	TST.B	V5CAct			; its bytes into the planes (not
+	BNE.S	RtgCKX			; SCREEN 5's VRAM-direct ones),
+	MOVE.B	REGS+DVDPREG,D0		; and an LMMC (B) or HMMC (F).
+	AND.B	#$B0,D0
+	CMP.B	#$B0,D0
+	BNE.S	RtgCKX
+	MOVE.L	P5CmdM,D0
+	OR.L	D0,Pl5Band
+	MOVE.L	P5CmdM+4,D0
+	OR.L	D0,Pl5Band+4
+	ST	Pl5Dirty
+RtgCKX:	RTS
+
+	IFD	RTGFLUSHALL
+RtgFA7:	MOVE.L	#-1,Pl5Band
+	MOVE.L	#-1,Pl5Band+4
+	ST	Pl5Dirty
+	RTS
+	ENDC
 
 RtgBlack:
 	MOVEM.L	D0-D1/A0-A1,-(SP)
@@ -1855,8 +1884,13 @@ RtgFr5S:MOVE.L	(A0)+,(A1)+
 	MOVEQ	#16-1,D0
 RtgFr5R:MOVE.L	(A0)+,(A1)+
 	DBF	D0,RtgFr5R
+	BSR	RtgCKeep		; (5.6)
 	BRA.S	RtgFr5N
-RtgFr7:	TST.B	Pl5Dirty
+RtgFr7:
+	IFD	RTGFLUSHALL		; (debug: SCREEN 7 too)
+	BSR	RtgFA7
+	ENDC
+	TST.B	Pl5Dirty
 	BEQ.S	RtgFr5N
 	ST	Chg7
 	BRA.S	RtgFr5G
@@ -4184,15 +4218,21 @@ RtgShAlloc:				; (RtgPlayOpen, OS alive)
 	MOVE.L	4.W,A6
 	JSR	-198(A6)		; AllocMem
 	MOVE.L	D0,RtgShMem
+	TST.L	RtgVsMem		; (5.6) and VRAM + palettes a shot
+	BNE.S	RtgShAX
+	MOVE.L	#RTGVSSZ*RTGSHOTN,D0
+	MOVE.L	#$10000,D1
+	JSR	-198(A6)
+	MOVE.L	D0,RtgVsMem
 RtgShAX:MOVEM.L	(SP)+,D0-D1/A0-A1/A6
 	RTS
 RtgShGrab:				; (no OS)
 	MOVEM.L	D0-D1/A0-A1,-(SP)
-	TST.L	RtgShMem
-	BEQ.S	RtgShGX
 	MOVE.L	RtgShN,D0
 	CMP.L	#RTGSHOTN,D0
-	BCC.S	RtgShGX
+	BCC	RtgShGX
+	TST.L	RtgShMem		; (5.6: the screen if its memory came)
+	BEQ.S	RtgShGS
 	MULU.L	RtgShSz,D0
 	MOVE.L	RtgShMem,A1
 	ADD.L	D0,A1
@@ -4203,15 +4243,63 @@ RtgShGrab:				; (no OS)
 RtgShGL:MOVE.L	(A0)+,(A1)+
 RtgShGE:SUBQ.L	#1,D0
 	BPL.S	RtgShGL
+RtgShGS:
+	TST.L	RtgVsMem		; (5.6) VRAM, MSX2Pal, PalTop, PalEvN,
+	BEQ	RtgShGV			; Pl5Band, Pl5Dirty, ScrModo, R#0-R#46
+	MOVE.L	RtgShN,D0
+	MULU.L	#RTGVSSZ,D0
+	MOVE.L	RtgVsMem,A1
+	ADD.L	D0,A1
+	LEA	DIRVRAM,A0
+	MOVE.L	#$20000/4-1,D0
+RtgShGM:MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	RtgShGM
+	LEA	MSX2Pal,A0
+	MOVEQ	#8-1,D0
+RtgShG1:MOVE.L	(A0)+,(A1)+
+	DBF	D0,RtgShG1
+	LEA	PalTop,A0
+	MOVEQ	#8-1,D0
+RtgShG2:MOVE.L	(A0)+,(A1)+
+	DBF	D0,RtgShG2
+	MOVE.W	PalEvN,(A1)+
+	MOVE.L	Pl5Band,(A1)+
+	MOVE.L	Pl5Band+4,(A1)+
+	MOVE.B	Pl5Dirty,(A1)+
+	MOVE.B	REGS+ScrModo,(A1)+
+	MOVE.L	RtgShN,D0		; (5.6) then at +$20050 the AGA planes
+	MULU.L	#RTGVSSZ,D0		; (SCR0, 256 KB: what the band flush
+	MOVE.L	RtgVsMem,A1		; reads), then BlN, BlI, BlIBig, BlLast
+	ADD.L	D0,A1			; (-DBLTRACE, else 0) and PlMode.B
+	ADD.L	#$20050,A1
+	LEA	SCR0,A0
+	MOVE.L	#$40000/4-1,D0
+RtgShGP:MOVE.L	(A0)+,(A1)+
+	SUBQ.L	#1,D0
+	BPL.S	RtgShGP
+	IFD	BLTRACE
+	MOVE.L	BlN,(A1)+
+	MOVE.L	BlI,(A1)+
+	MOVE.L	BlIBig,(A1)+
+	MOVE.L	BlLast,(A1)+
+	ELSE
+	CLR.L	(A1)+
+	CLR.L	(A1)+
+	CLR.L	(A1)+
+	CLR.L	(A1)+
+	ENDC
+	MOVE.B	PlMode,(A1)+
+RtgShGV:
 	ADDQ.L	#1,RtgShN
 RtgShGX:MOVEM.L	(SP)+,D0-D1/A0-A1
 	RTS
 RtgShWrite:				; (RtgPlayClose, OS alive)
 	MOVEM.L	D0-D3/A0-A1/A6,-(SP)
-	TST.L	RtgShMem
-	BEQ	RtgShWX
 	TST.L	RtgShN
 	BEQ	RtgShWF
+	TST.L	RtgShMem
+	BEQ	RtgShWV
 	MOVE.W	RtgW,RtgShHd+4
 	MOVE.W	RtgH,RtgShHd+6
 	MOVE.L	RtgBpr,RtgShHd+8
@@ -4222,7 +4310,7 @@ RtgShWrite:				; (RtgPlayClose, OS alive)
 	MOVE.L	#1006,D2		; MODE_NEWFILE
 	JSR	OPENFILE
 	TST.L	D0
-	BEQ	RtgShWF
+	BEQ	RtgShWV
 	MOVE.L	#RtgShHd,D2
 	MOVEQ	#24,D3
 	JSR	WRITEFILE
@@ -4231,13 +4319,27 @@ RtgShWrite:				; (RtgPlayClose, OS alive)
 	MULU.L	RtgShN,D3
 	JSR	WRITEFILE
 	JSR	CLOSEFILE
+RtgShWV:TST.L	RtgVsMem		; (5.6) AmiMSX:rtgvram.raw: the shots'
+	BEQ.S	RtgShWF			; VRAM blocks (RTGVSSZ each)
+	MOVE.L	#RtgVsNom,D1
+	MOVE.L	#1006,D2
+	JSR	OPENFILE
+	TST.L	D0
+	BEQ.S	RtgShWF
+	MOVE.L	RtgVsMem,D2
+	MOVE.L	#RTGVSSZ,D3
+	MULU.L	RtgShN,D3
+	JSR	WRITEFILE
+	JSR	CLOSEFILE
 RtgShWF:MOVE.L	RtgShMem,A1
+	MOVE.L	A1,D0
+	BEQ.S	RtgShWZ
 	MOVE.L	RtgShSz,D0
 	MULU.L	#RTGSHOTN,D0
 	MOVE.L	4.W,A6
 	JSR	-210(A6)		; FreeMem
 	CLR.L	RtgShMem
-	CLR.L	RtgShN
+RtgShWZ:CLR.L	RtgShN
 RtgShWX:MOVEM.L	(SP)+,D0-D3/A0-A1/A6
 	RTS
 RtgShMem:	DC.L	0
@@ -4246,8 +4348,19 @@ RtgShN:		DC.L	0
 RtgShSlow:	DC.L	0		; blend rows drawn pixel by pixel (RtgBRs)
 RtgShHd:	DC.B	"RSHT"
 		DS.B	20
-RtgShNom:	DC.B	"AmiMSX:rtgshot.raw",0
+RtgShNom:	DC.B	"PROGDIR:rtgshot.raw",0
+RtgVsNom:	DC.B	"PROGDIR:rtgvram.raw",0
 	EVEN
+RTGVSSZ=$20000+64+16+$40000+32
+RtgVsMem:	DC.L	0
+	EVEN
+	ENDC
+
+	IFD	BLTRACE			; (5.6 debug) BLTCHK's counts
+BlN:	DC.L	0
+BlI:	DC.L	0
+BlIBig:	DC.L	0
+BlLast:	DC.L	0
 	ENDC
 
 	IFD	RTGDBG

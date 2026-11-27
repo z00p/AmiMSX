@@ -7765,6 +7765,9 @@ SIREINTM:
 	IFD	TRACE
 	JSR	TraceDump		; Every return to the menu (Power ON,
 	ENDC				; Continue, Reset and the test hook).
+	IFD	FDCLOG
+	JSR	FdcLogDump		; (debug) the WD2793 accesses
+	ENDC
 	IFD	EXCALL
 	JSR	ExcReport		; (5.0, debug) a caught crash or hang:
 	ENDC				; crash.txt and the window title
@@ -8196,6 +8199,13 @@ AutoGoNow:
 	IFD	PERF
 	JSR	PerfDump		; Frame timing windows.
 	ENDC
+	TST.B	DSK2NOM			; (5.6) Test hook 'D2=<a>[|<b>]': a second
+	BEQ.S	NoDsk2			; run with these disks in drives A (and B),
+	JSR	Disk2Next		; powered on with the same key script (a
+	CLR.L	KeyFrN			; game, then SymbOS, as on a real evening).
+	MOVE.L	#KeyScr,KeyScrPtr
+	BRA	AutoGoNow
+NoDsk2:
 	TST.B	ROM2NOM			; (4.5) Test hook 'R2=': a second run, the
 	IFND	NO_LUPA
 	BEQ.S	LupaGoEnd		; next cartridge with the same key script.
@@ -9726,6 +9736,32 @@ DirDOS:
 ; virtual disk (MVD) of its own; Left Amiga swaps A and B in play (Main,
 ; Emula1Frame). Plain 360/720 Kb images only. Writes go to memory only:
 ; drive B's image isn't saved back.
+	CNOP	0,4
+; (5.6, test) Disk2Next: DSK2NOM ('D2=a|b') -> FILENOM (drive A) and
+; DISKBNOM (drive B, if given), loaded as at start; DSK2NOM is used up.
+Disk2Next:
+	MOVEM.L	D0-D7/A0-A6,-(SP)
+	LEA	DSK2NOM,A0
+	LEA	FILENOM,A1
+Dk2A:	MOVE.B	(A0)+,D0
+	BEQ.S	Dk2AE
+	CMP.B	#"|",D0
+	BEQ.S	Dk2AE
+	MOVE.B	D0,(A1)+
+	BRA.S	Dk2A
+Dk2AE:	CLR.B	(A1)
+	TST.B	D0
+	BEQ.S	Dk2NoB
+	JSR	FreeDiskB		; (drive B: the new image)
+	LEA	DISKBNOM,A1
+Dk2B:	MOVE.B	(A0)+,(A1)+
+	BNE.S	Dk2B
+Dk2NoB:	CLR.B	DSK2NOM
+	JSR	LOADVDAuto
+	BSR	LoadDiskB
+	MOVEM.L	(SP)+,D0-D7/A0-A6
+	RTS
+DSK2NOM:	DS.B	512
 	CNOP	0,4
 LoadDiskB:
 	TST.B	DISKBNOM
